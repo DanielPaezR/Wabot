@@ -5,7 +5,7 @@
 import sqlite3
 from datetime import datetime, timedelta
 import json
-from werkzeug.security import generate_password_hash, check_password_hash
+import hashlib
 
 def get_db_connection():
     """Establecer conexión a la base de datos"""
@@ -216,6 +216,8 @@ def _insertar_datos_por_defecto(cursor):
 
 def _insertar_usuarios_por_defecto(cursor):
     """Insertar usuarios por defecto"""
+    import hashlib
+    
     usuarios = [
         (1, 'Super Administrador', 'admin@negociobot.com', 'admin123', 'superadmin'),
         (1, 'Juan Propietario', 'juan@negocio.com', 'propietario123', 'propietario'),
@@ -224,10 +226,12 @@ def _insertar_usuarios_por_defecto(cursor):
     ]
     
     for negocio_id, nombre, email, password, rol in usuarios:
+        # ✅ USAR SHA256 (mismo método que verificar_usuario)
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
         cursor.execute('''
             INSERT OR IGNORE INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
             VALUES (?, ?, ?, ?, ?)
-        ''', (negocio_id, nombre, email, generate_password_hash(password), rol))
+        ''', (negocio_id, nombre, email, password_hash, rol))
 
 def _insertar_plantillas_base(cursor):
     """Insertar SOLO las 8 plantillas base principales del sistema"""
@@ -1204,22 +1208,26 @@ def verificar_usuario(email, password):
     
     conn.close()
     
-    if usuario and check_password_hash(usuario['password_hash'], password):
-        # Actualizar último login
-        conn = get_db_connection()
-        conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?', 
-                    (datetime.now(), usuario['id']))
-        conn.commit()
-        conn.close()
+    # ✅ CAMBIO: Usar SHA256 en vez de check_password_hash
+    if usuario:
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
         
-        return {
-            'id': usuario['id'],
-            'nombre': usuario['nombre'],
-            'email': usuario['email'],
-            'rol': usuario['rol'],
-            'negocio_id': usuario['negocio_id'],
-            'negocio_nombre': usuario['negocio_nombre']
-        }
+        if usuario['password_hash'] == password_hash:
+            # Actualizar último login
+            conn = get_db_connection()
+            conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?', 
+                        (datetime.now(), usuario['id']))
+            conn.commit()
+            conn.close()
+            
+            return {
+                'id': usuario['id'],
+                'nombre': usuario['nombre'],
+                'email': usuario['email'],
+                'rol': usuario['rol'],
+                'negocio_id': usuario['negocio_id'],
+                'negocio_nombre': usuario['negocio_nombre']
+            }
     return None
 
 def crear_usuario(negocio_id, nombre, email, password, rol):
