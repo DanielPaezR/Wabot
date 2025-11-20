@@ -233,6 +233,33 @@ def _insertar_usuarios_por_defecto(cursor):
             VALUES (?, ?, ?, ?, ?)
         ''', (negocio_id, nombre, email, password_hash, rol))
 
+def migrar_hashes_automatico():
+    """Migrar automáticamente los hashes al iniciar la app"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Lista de usuarios a migrar
+        usuarios = [
+            ('admin123', 'admin@negociobot.com'),
+            ('propietario123', 'juan@negocio.com'), 
+            ('profesional123', 'carlos@negocio.com'),
+            ('profesional123', 'ana@negocio.com')
+        ]
+        
+        for password, email in usuarios:
+            nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
+            cursor.execute('UPDATE usuarios SET password_hash = ? WHERE email = ?', 
+                          (nuevo_hash, email))
+        
+        conn.commit()
+        print("✅ Hashes migrados automáticamente")
+        
+    except Exception as e:
+        print(f"⚠️ Error en migración automática: {e}")
+    finally:
+        conn.close()
+
 def _insertar_plantillas_base(cursor):
     """Insertar SOLO las 8 plantillas base principales del sistema"""
     # Primero eliminar cualquier plantilla existente

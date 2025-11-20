@@ -1864,7 +1864,24 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
-
+@app.route('/migrar_hashes')
+def migrar_hashes():
+    """Ruta temporal para migrar hashes - ELIMINAR DESPUÉS"""
+    try:
+        from database import migrar_hashes_automatico
+        migrar_hashes_automatico()
+        return '''
+        <h1>✅ Hashes migrados correctamente</h1>
+        <p>Ahora puedes <a href="/login">iniciar sesión</a> con:</p>
+        <ul>
+            <li>admin@negociobot.com / admin123</li>
+            <li>juan@negocio.com / propietario123</li>
+            <li>carlos@negocio.com / profesional123</li>
+        </ul>
+        <p><strong>⚠️ Recuerda eliminar esta ruta después de usarla</strong></p>
+        '''
+    except Exception as e:
+        return f'<h1>❌ Error migrando hashes:</h1><p>{e}</p>'
 
 
 @app.route('/')
