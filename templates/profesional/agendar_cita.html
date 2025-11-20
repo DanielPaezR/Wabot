@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendar Cita - Sistema de Citas</title>
+    <style>
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input, select { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+        .btn { background: #3498db; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin: 0.25rem; }
+        .btn-success { background: #27ae60; }
+        .horarios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; margin-top: 1rem; }
+        .hora-btn { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; text-align: center; }
+        .hora-btn.selected { background: #3498db; color: white; border-color: #3498db; }
+        .flash { padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
+        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .text-muted { color: #6c757d; }
+        .text-danger { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 Agendar Cita Directa</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <<form method="POST" action="{{ url_for('profesional_crear_cita') }}" id="agendarForm" data-profesional-id="{{ profesional_id or session.get('profesional_id', 1) }}">
+            <div class="form-group">
+                <label for="cliente_nombre">👤 Nombre del Cliente:</label>
+                <input type="text" id="cliente_nombre" name="cliente_nombre" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="cliente_telefono">📞 Teléfono:</label>
+                <input type="tel" id="cliente_telefono" name="cliente_telefono" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="servicio_id">💼 Servicio:</label>
+                <select id="servicio_id" name="servicio_id" required>
+                    <option value="">Seleccionar servicio</option>
+                    {% for servicio in servicios %}
+                        <option value="{{ servicio.id }}">{{ servicio.nombre }} - ${{ servicio.precio }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="fecha">📅 Fecha:</label>
+                <input type="date" id="fecha" name="fecha" min="{{ fecha_hoy }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>⏰ Horarios Disponibles:</label>
+                <div id="horarios-container">
+                    <p class="text-muted">Selecciona fecha y servicio para ver horarios disponibles</p>
+                </div>
+                <input type="hidden" id="hora" name="hora" required>
+            </div>
+            
+            <button type="submit" class="btn btn-success">✅ Agendar Cita</button>
+            <a href="{{ url_for('profesional_dashboard') }}" class="btn">↩️ Volver</a>
+        </form>
+    </div>
+
+    <script>
+        // SOLUCIÓN: Obtener el profesional_id desde el data attribute del formulario
+        function getProfesionalId() {
+            var form = document.getElementById('agendarForm');
+            return form.getAttribute('data-profesional-id') || 1;
+        }
+        
+        // Asignar eventos después de que la página cargue
+        window.onload = function() {
+            document.getElementById('fecha').addEventListener('change', cargarHorarios);
+            document.getElementById('servicio_id').addEventListener('change', cargarHorarios);
+        };
+        
+        function cargarHorarios() {
+            var fecha = document.getElementById('fecha').value;
+            var servicio = document.getElementById('servicio_id').value;
+            var container = document.getElementById('horarios-container');
+            var horaInput = document.getElementById('hora');
+            var profesionalId = getProfesionalId();
+            
+            if (!fecha || !servicio) {
+                container.innerHTML = '<p class="text-muted">Selecciona fecha y servicio</p>';
+                if (horaInput) horaInput.value = '';
+                return;
+            }
+            
+            container.innerHTML = '<p>🔄 Cargando horarios...</p>';
+            if (horaInput) horaInput.value = '';
+            
+            var xhr = new XMLHttpRequest();
+            var url = '/api/horarios_disponibles?profesional_id=' + profesionalId + '&fecha=' + fecha + '&servicio_id=' + servicio;
+            
+            xhr.open('GET', url, true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.horarios && data.horarios.length > 0) {
+                        var html = '<div class="horarios-grid">';
+                        for (var i = 0; i < data.horarios.length; i++) {
+                            html += '<div class="hora-btn" data-hora="' + data.horarios[i] + '">' + data.horarios[i] + '</div>';
+                        }
+                        html += '</div>';
+                        container.innerHTML = html;
+                        
+                        // Agregar eventos a los botones después de crearlos
+                        var botones = document.getElementsByClassName('hora-btn');
+                        for (var j = 0; j < botones.length; j++) {
+                            botones[j].addEventListener('click', function() {
+                                // Quitar selección de todos
+                                for (var k = 0; k < botones.length; k++) {
+                                    botones[k].classList.remove('selected');
+                                }
+                                // Seleccionar este
+                                this.classList.add('selected');
+                                document.getElementById('hora').value = this.getAttribute('data-hora');
+                            });
+                        }
+                    } else {
+                        container.innerHTML = '<p class="text-danger">❌ No hay horarios disponibles</p>';
+                    }
+                } else {
+                    container.innerHTML = '<p class="text-danger">❌ Error cargando horarios</p>';
+                }
+            };
+            xhr.send();
+        }
+    </script>
+</body>
+</html>

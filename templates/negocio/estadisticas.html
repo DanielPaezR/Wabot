@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas - Sistema de Citas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+            color: #333;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        /* Selector de negocio */
+        .selector-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .selector-form {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        /* Filtros adicionales */
+        .filters-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* Grid de estadísticas */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid #3498db;
+        }
+        
+        .stat-card.success {
+            border-left-color: #27ae60;
+        }
+        
+        .stat-card.warning {
+            border-left-color: #f39c12;
+        }
+        
+        .stat-card.danger {
+            border-left-color: #e74c3c;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Gráficos */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        /* Tabla de citas recientes */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .status-cancelled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .nav-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Estadísticas - {{ session.get('negocio_nombre', 'Mi Negocio') }}</h1>
+        <div class="user-info">
+            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
+            <div class="nav-buttons">
+                <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
+                <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
+                <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
+                <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Selector de negocio para superadmin -->
+        {% if session.get('usuario_rol') == 'superadmin' and negocios %}
+        <div class="selector-container">
+            <h3>🔍 Seleccionar Negocio</h3>
+            <form method="GET" action="{{ url_for('negocio_estadisticas') }}" class="selector-form">
+                <div class="form-group">
+                    <label for="negocio_id">Negocio:</label>
+                    <select name="negocio_id" id="negocio_id" class="form-control" onchange="this.form.submit()">
+                        <option value="">Selecciona un negocio</option>
+                        {% for negocio in negocios %}
+                        <option value="{{ negocio.id }}" 
+                                {% if negocio.id == negocio_id %}selected{% endif %}>
+                            {{ negocio.nombre }} 
+                            {% if negocio.telefono_whatsapp %} - {{ negocio.telefono_whatsapp }}{% endif %}
+                            {% if not negocio.activo %}(Inactivo){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">📊 Ver Estadísticas</button>
+            </form>
+        </div>
+
+        <!-- Indicador de negocio seleccionado -->
+        <div class="selector-container" style="background: #e8f4fd;">
+            <h3>📊 Viendo estadísticas de: <strong>{{ negocio_nombre }}</strong></h3>
+            <p>
+                📅 Período: {{ now().strftime('%B %Y') }} | 
+                🔢 ID: {{ negocio_id }} |
+                {% for negocio in negocios %}
+                    {% if negocio.id == negocio_id %}
+                        📞 {{ negocio.telefono_whatsapp or 'Sin WhatsApp' }} | 
+                        🏷️ {{ negocio.tipo_negocio }}
+                    {% endif %}
+                {% endfor %}
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- ✅ NUEVO: Filtros de profesional y período -->
+        <div class="filters-container">
+            <div class="nav-buttons">
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
+            <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
+            <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
+            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
+            </div>
+
+            <h3>🎯 Filtrar Estadísticas</h3>
+            <div class="filters-row">
+                <div class="form-group">
+                    <label for="profesional">Profesional:</label>
+                    <select id="profesional" class="form-control">
+                        <option value="">Todos los profesionales</option>
+                        {% for profesional in profesionales %}
+                        <option value="{{ profesional.id }}">
+                            {{ profesional.nombre }}{% if profesional.especialidad %} - {{ profesional.especialidad }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mes">Mes:</label>
+                    <select id="mes" class="form-control">
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="año">Año:</label>
+                    <select id="año" class="form-control">
+                        {% for year in range(2023, 2026) %}
+                        <option value="{{ year }}" {% if year == now().year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="cargarEstadisticas()">🔄 Actualizar Estadísticas</button>
+        </div>
+
+        <div id="loading" class="loading">
+            <p>📈 Cargando estadísticas...</p>
+        </div>
+
+        <div id="content" style="display: none;">
+            <!-- Estadísticas rápidas -->
+            <div class="stats-grid" id="stats-cards">
+                <!-- Se llena con JavaScript -->
+            </div>
+
+            <!-- Gráficos -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div class="chart-title">📅 Citas por Estado (Este Mes)</div>
+                    <canvas id="chartEstados"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">💰 Ingresos Mensuales</div>
+                    <canvas id="chartIngresos"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">👥 Citas por Profesional</div>
+                    <canvas id="chartProfesionales"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">💼 Servicios Más Populares</div>
+                    <canvas id="chartServicios"></canvas>
+                </div>
+            </div>
+
+            <!-- Citas recientes -->
+            <div class="table-container">
+                <h3 style="padding: 1.5rem; margin: 0; border-bottom: 1px solid #eee;">🕐 Citas Recientes</h3>
+                <div id="tabla-citas">
+                    <!-- Se llena con JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;">
+            <!-- Mensajes de error -->
+        </div>
+    </div>
+
+    <script>
+        // Configuración
+        const NEGOCIO_ID = "{{ negocio_id }}";
+        const ES_SUPERADMIN = "{{ session.get('usuario_rol') }}" === "superadmin";
+
+        // Cargar estadísticas al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Establecer mes y año actual
+            const now = new Date();
+            document.getElementById('mes').value = now.getMonth() + 1;
+            document.getElementById('año').value = now.getFullYear();
+            
+            cargarEstadisticas();
+        });
+
+        async function cargarEstadisticas() {
+            try {
+                const profesionalId = document.getElementById('profesional').value;
+                const mes = document.getElementById('mes').value;
+                const año = document.getElementById('año').value;
+                
+                console.log(`🔍 Cargando estadísticas: profesional=${profesionalId}, mes=${mes}, año=${año}`);
+                
+                // Construir URL con filtros
+                let url = `/api/estadisticas/mensuales?negocio_id=${NEGOCIO_ID}&mes=${mes}&año=${año}`;
+                if (profesionalId) {
+                    url += `&profesional_id=${profesionalId}`;
+                }
+                
+                // Mostrar loading
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('content').style.display = 'none';
+                document.getElementById('error-message').style.display = 'none';
+
+                // Obtener estadísticas
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Ocultar loading y mostrar contenido
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                // Actualizar tarjetas de estadísticas
+                actualizarStatsCards(data.resumen);
+                
+                // Crear gráficos
+                crearGraficos(data);
+                
+                // Cargar citas recientes
+                cargarCitasRecientes();
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').innerHTML = 
+                    `❌ Error al cargar las estadísticas: ${error.message}`;
+            }
+        }
+
+        function actualizarStatsCards(resumen) {
+            const statsContainer = document.getElementById('stats-cards');
+            
+            const stats = [
+                { 
+                    label: 'Total Citas', 
+                    value: resumen.total_turnos || 0,
+                    class: '',
+                    icon: '📅'
+                },
+                { 
+                    label: 'Confirmadas', 
+                    value: resumen.turnos_confirmados || 0,
+                    class: 'success',
+                    icon: '✅'
+                },
+                { 
+                    label: 'Completadas', 
+                    value: resumen.turnos_completados || 0,
+                    class: 'success',
+                    icon: '🎯'
+                },
+                { 
+                    label: 'Canceladas', 
+                    value: resumen.turnos_cancelados || 0,
+                    class: 'danger',
+                    icon: '❌'
+                },
+                { 
+                    label: 'Ingresos Totales', 
+                    value: `$${(resumen.ingresos_totales || 0).toLocaleString()}`,
+                    class: 'success',
+                    icon: '💰'
+                },
+                { 
+                    label: 'Tasa de Éxito', 
+                    value: `${resumen.tasa_exito || 0}%`,
+                    class: resumen.tasa_exito >= 80 ? 'success' : 'warning',
+                    icon: '📊'
+                }
+            ];
+
+            statsContainer.innerHTML = stats.map(stat => `
+                <div class="stat-card ${stat.class}">
+                    <div class="stat-number">${stat.icon} ${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                </div>
+            `).join('');
+        }
+
+        function crearGraficos(data) {
+            console.log('Creando gráficos con datos:', data);
+            
+            // Destruir gráficos existentes de forma segura
+            if (window.chartEstados && typeof window.chartEstados.destroy === 'function') {
+                window.chartEstados.destroy();
+            }
+            if (window.chartIngresos && typeof window.chartIngresos.destroy === 'function') {
+                window.chartIngresos.destroy();
+            }
+            if (window.chartProfesionales && typeof window.chartProfesionales.destroy === 'function') {
+                window.chartProfesionales.destroy();
+            }
+            if (window.chartServicios && typeof window.chartServicios.destroy === 'function') {
+                window.chartServicios.destroy();
+            }
+
+            // Gráfico de estados
+            const ctxEstados = document.getElementById('chartEstados');
+            if (ctxEstados) {
+                try {
+                    window.chartEstados = new Chart(ctxEstados, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Confirmadas', 'Completadas', 'Pendientes', 'Canceladas'],
+                            datasets: [{
+                                data: [
+                                    data.resumen.turnos_confirmados || 0,
+                                    data.resumen.turnos_completados || 0,
+                                    data.resumen.turnos_pendientes || 0,
+                                    data.resumen.turnos_cancelados || 0
+                                ],
+                                backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error creando gráfico de estados:', error);
+                }
+            }
+
+            // Gráfico de ingresos con tendencia mensual
+            const ctxIngresos = document.getElementById('chartIngresos');
+            if (ctxIngresos) {
+                try {
+                    window.chartIngresos = new Chart(ctxIngresos, {
+                        type: 'line',
+                        data: {
+                            labels: data.tendencia_mensual?.meses || ['Actual'],
+                            datasets: [{
+                                label: 'Ingresos Mensuales',
+                                data: data.tendencia_mensual?.ingresos || [data.resumen.ingresos_totales || 0],
+                                borderColor: '#3498db',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value.toLocaleString();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error creando gráfico de ingresos:', error);
+                }
+            }
+
+            // Gráfico de profesionales
+            const ctxProfesionales = document.getElementById('chartProfesionales');
+            if (ctxProfesionales) {
+                try {
+                    window.chartProfesionales = new Chart(ctxProfesionales, {
+                        type: 'pie',
+                        data: {
+                            labels: data.profesionales_top?.map(b => b.nombre) || ['Sin datos'],
+                            datasets: [{
+                                data: data.profesionales_top?.map(b => b.total_turnos) || [1],
+                                backgroundColor: ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error creando gráfico de profesionales:', error);
+                }
+            }
+
+            // Gráfico de servicios
+            const ctxServicios = document.getElementById('chartServicios');
+            if (ctxServicios) {
+                try {
+                    window.chartServicios = new Chart(ctxServicios, {
+                        type: 'bar',
+                        data: {
+                            labels: data.servicios_top?.map(s => s.nombre) || ['Sin datos'],
+                            datasets: [{
+                                label: 'Citas',
+                                data: data.servicios_top?.map(s => s.total_turnos) || [1],
+                                backgroundColor: '#27ae60'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            indexAxis: 'y',
+                            scales: {
+                                x: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error creando gráfico de servicios:', error);
+                }
+            }
+        }
+
+        async function cargarCitasRecientes() {
+            try {
+                const profesionalId = document.getElementById('profesional').value;
+                let url = `/api/turnos?negocio_id=${NEGOCIO_ID}&limit=10`;
+                if (profesionalId) {
+                    url += `&profesional_id=${profesionalId}`;
+                }
+                
+                const response = await fetch(url);
+                const citas = await response.json();
+                
+                const tabla = document.getElementById('tabla-citas');
+                if (citas.length === 0) {
+                    tabla.innerHTML = '<p style="padding: 1rem; text-align: center; color: #666;">No hay citas recientes</p>';
+                    return;
+                }
+                
+                tabla.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Servicio</th>
+                                <th>Profesional</th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${citas.map(cita => `
+                                <tr>
+                                    <td>${cita.cliente_nombre}</td>
+                                    <td>${cita.servicio}</td>
+                                    <td>${cita.profesional_nombre}</td>
+                                    <td>${cita.fecha}</td>
+                                    <td>${cita.hora}</td>
+                                    <td>
+                                        <span class="status-badge status-${cita.estado}">
+                                            ${cita.estado}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error cargando citas:', error);
+                document.getElementById('tabla-citas').innerHTML = 
+                    '<p style="padding: 1rem; text-align: center; color: #666;">Error al cargar las citas recientes</p>';
+            }
+        }
+
+        // Recargar cuando cambien los filtros
+        document.getElementById('profesional').addEventListener('change', cargarEstadisticas);
+        document.getElementById('mes').addEventListener('change', cargarEstadisticas);
+        document.getElementById('año').addEventListener('change', cargarEstadisticas);
+    </script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Plantilla - {{ session.negocio_nombre }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        
+        textarea.form-control {
+            min-height: 200px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        
+        .plantilla-info {
+            background: #e8f6f3;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .variables-info {
+            background: #e8f4fd;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #3498db;
+        }
+        
+        .variables-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .variable-tag {
+            background: #3498db;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+        
+        .preview-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-top: 2rem;
+        }
+        
+        .preview-title {
+            color: #333;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 0.5rem;
+        }
+        
+        .preview-content {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            line-height: 1.4;
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 Editar Plantilla Personalizada</h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div style="margin-bottom: 1rem;">
+            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">← Volver a Plantillas</a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% if not es_personalizada %}
+        <div class="alert alert-info">
+            <strong>ℹ️ Plantilla Base</strong><br>
+            Estás editando una copia personalizada de la plantilla base del sistema. 
+            Los cambios solo afectarán a tu negocio.
+        </div>
+        {% else %}
+        <div class="plantilla-info">
+            <strong>✅ Plantilla Personalizada</strong><br>
+            Esta es tu versión personalizada de la plantilla.
+        </div>
+        {% endif %}
+        
+        <div class="variables-info">
+            <strong>💡 Variables Disponibles:</strong>
+            <div class="variables-list">
+                {% for variable in plantilla.variables_disponibles | fromjson %}
+                    <span class="variable-tag">{{ "{" + variable + "}" }}</span>
+                {% endfor %}
+            </div>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem;">
+                Usa las variables entre llaves para contenido dinámico. Ejemplo: <code>{nombre_cliente}</code>
+            </p>
+        </div>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label">Nombre de la Plantilla</label>
+                <input type="text" class="form-control" value="{{ plantilla.nombre.replace('_', ' ').title() }}" readonly>
+                <small style="color: #666;">El nombre no se puede modificar (identificador único)</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Descripción</label>
+                <input type="text" class="form-control" name="descripcion" 
+                       value="{{ plantilla.descripcion or '' }}" 
+                       placeholder="Describe el propósito de esta plantilla...">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Contenido de la Plantilla</label>
+                <textarea class="form-control" name="plantilla" 
+                          placeholder="Escribe el contenido del mensaje...">{{ plantilla.plantilla }}</textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
+            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">❌ Cancelar</a>
+            
+            {% if es_personalizada %}
+            <button type="button" class="btn btn-warning" onclick="resetearPlantilla()">🔄 Restablecer a Base</button>
+            {% endif %}
+        </form>
+        
+        <div class="preview-section">
+            <h3 class="preview-title">👁️ Vista Previa</h3>
+            <div class="preview-content">{{ plantilla.plantilla }}</div>
+        </div>
+    </div>
+
+    <script>
+        function resetearPlantilla() {
+            if (confirm('¿Estás seguro de que quieres restablecer esta plantilla a la versión base? Se perderán tus personalizaciones.')) {
+                // Aquí puedes implementar la lógica para resetear
+                alert('Función de reset en desarrollo. Por ahora, puedes copiar manualmente la plantilla base.');
+            }
+        }
+    </script>
+</body>
+</html>

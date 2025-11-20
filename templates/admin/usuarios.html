@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - Sistema de Citas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .nav-buttons {
+            margin-bottom: 2rem;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-outline-primary {
+            background: white;
+            color: #3498db;
+            border: 2px solid #3498db;
+        }
+        
+        .btn-outline-primary:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .status-active {
+            background: #2ecc71;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .status-inactive {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .role-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        
+        .role-superadmin {
+            background: #8e44ad;
+            color: white;
+        }
+        
+        .role-propietario {
+            background: #3498db;
+            color: white;
+        }
+        
+        .role-profesional {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-edit {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-toggle {
+            background: #3498db;
+            color: white;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 1rem;
+        }
+        
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 1rem;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .last-login {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .form-inline {
+            display: inline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-users"></i>
+            Gestión de Usuarios
+        </h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} (Super Admin)</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar Sesión</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Navigation Buttons -->
+        <div class="nav-buttons">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="{{ url_for('admin_negocios') }}" class="btn btn-outline-primary">
+                <i class="fas fa-store"></i> Negocios
+            </a>
+            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-primary">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            <a href="{{ url_for('admin_plantillas') }}" class="btn btn-outline-primary">
+                <i class="fas fa-envelope"></i> Plantillas Base
+            </a>
+            <a href="{{ url_for('admin_nuevo_usuario') }}" class="btn btn-primary" style="background: #27ae60;">
+                <i class="fas fa-plus"></i> Nuevo Usuario
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="table-container">
+            {% if usuarios %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Negocio</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Último Login</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">
+                                    {{ usuario.nombre[0] }}{% if usuario.nombre.split(' ')|length > 1 %}{{ usuario.nombre.split(' ')[1][0] }}{% endif %}
+                                </div>
+                                {{ usuario.nombre }}
+                            </div>
+                        </td>
+                        <td>{{ usuario.email }}</td>
+                        <td>{{ usuario.negocio_nombre or 'Sistema' }}</td>
+                        <td>
+                            <span class="role-badge role-{{ usuario.rol }}">
+                                {% if usuario.rol == 'superadmin' %}
+                                    👑 Super Admin
+                                {% elif usuario.rol == 'propietario' %}
+                                    💼 Propietario
+                                {% else %}
+                                    👨‍💼 Profesional
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if usuario.activo %}
+                                <span class="status-active">Activo</span>
+                            {% else %}
+                                <span class="status-inactive">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if usuario.ultimo_login %}
+                                <span class="last-login">{{ usuario.ultimo_login[:16] }}</span>
+                            {% else %}
+                                <span class="last-login">Nunca</span>
+                            {% endif %}
+                        </td>
+                        <td class="actions">
+                            <form method="POST" action="{{ url_for('admin_toggle_usuario', usuario_id=usuario.id) }}" class="form-inline">
+                                <button type="submit" class="btn-sm btn-toggle" 
+                                        onclick="return confirm('¿{% if usuario.activo %}Desactivar{% else %}Activar{% endif %} este usuario?')">
+                                    {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin_eliminar_usuario', usuario_id=usuario.id) }}" class="form-inline">
+                                <button type="submit" class="btn-sm btn-delete" 
+                                        onclick="return confirm('¿Estás seguro de ELIMINAR permanentemente este usuario? Esta acción no se puede deshacer.')">
+                                    🗑️ Eliminar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <h2>📭 No hay usuarios registrados</h2>
+                <p>Comienza creando el primer usuario del sistema</p>
+                <a href="{{ url_for('admin_nuevo_usuario') }}" class="btn btn-primary" style="margin-top: 1rem;">➕ Crear Primer Usuario</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

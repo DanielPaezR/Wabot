@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - Sistema de Citas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <h4 class="text-white text-center mb-4">
+                        <i class="fas fa-calendar-alt"></i> Sistema de Citas
+                    </h4>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/">
+                                <i class="fas fa-calendar-day"></i> Citas Hoy
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/estadisticas">
+                                <i class="fas fa-chart-bar"></i> Estadísticas
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white active" href="/configuracion">
+                                <i class="fas fa-cog"></i> Configuración
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Configuración del Sistema</h1>
+                </div>
+
+                <!-- El resto del contenido de config.html se mantiene igual -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-clock"></i> Horarios de Atención
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="configForm">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="hora_inicio" class="form-label">Hora de Inicio</label>
+                                            <input type="time" class="form-control" id="hora_inicio" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="hora_fin" class="form-label">Hora de Fin</label>
+                                            <input type="time" class="form-control" id="hora_fin" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="almuerzo_inicio" class="form-label">Inicio Descanso</label>
+                                            <input type="time" class="form-control" id="almuerzo_inicio" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="almuerzo_fin" class="form-label">Fin Descanso</label>
+                                            <input type="time" class="form-control" id="almuerzo_fin" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="duracion_cita" class="form-label">Duración Cita Base (minutos)</label>
+                                            <select class="form-select" id="duracion_cita" required>
+                                                <option value="30">30 minutos</option>
+                                                <option value="45">45 minutos</option>
+                                                <option value="60">60 minutos</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Guardar Configuración
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-info-circle"></i> Información
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">
+                                    Configura los horarios de tu negocio y la duración base de las citas.
+                                </p>
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="fas fa-lightbulb"></i> 
+                                        Los cambios se aplicarán inmediatamente a las nuevas reservas.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Cargar configuración actual
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarConfiguracion();
+        });
+
+        async function cargarConfiguracion() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                // Llenar formulario con datos actuales
+                document.getElementById('hora_inicio').value = config.hora_inicio;
+                document.getElementById('hora_fin').value = config.hora_fin;
+                document.getElementById('almuerzo_inicio').value = config.almuerzo_inicio;
+                document.getElementById('almuerzo_fin').value = config.almuerzo_fin;
+                document.getElementById('duracion_cita').value = config.duracion_cita_base;
+
+            } catch (error) {
+                console.error('Error cargando configuración:', error);
+                alert('Error al cargar la configuración');
+            }
+        }
+
+        // Guardar configuración
+        document.getElementById('configForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const config = {
+                hora_inicio: document.getElementById('hora_inicio').value,
+                hora_fin: document.getElementById('hora_fin').value,
+                almuerzo_inicio: document.getElementById('almuerzo_inicio').value,
+                almuerzo_fin: document.getElementById('almuerzo_fin').value,
+                duracion_cita_base: parseInt(document.getElementById('duracion_cita').value)
+            };
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    alert('✅ Configuración guardada correctamente');
+                } else {
+                    alert('❌ Error al guardar la configuración');
+                }
+
+            } catch (error) {
+                console.error('Error guardando configuración:', error);
+                alert('❌ Error al guardar la configuración');
+            }
+        });
+    </script>
+</body>
+</html>

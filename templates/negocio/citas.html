@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citas - {{ session.negocio_nombre }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .citas-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .citas-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .citas-table th,
+        .citas-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .citas-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        
+        .status-confirmado {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-completado {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .status-cancelado {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .btn-complete {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-cancel {
+            background: #e74c3c;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Gestión de Citas - {{ session.negocio_nombre }}</h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-buttons">
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
+            <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
+            <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
+            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters">
+            <h3 style="margin-bottom: 1rem; color: #333;">Filtros</h3>
+            <div class="filter-row">
+                <div class="form-group">
+                    <label for="fecha">Fecha:</label>
+                    <input type="date" id="fecha" value="{{ fecha_seleccionada }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="profesional">Profesional:</label>
+                    <select id="profesional">
+                        <option value="">Todos los profesionales</option>
+                        {% for profesional in profesionales %}
+                        <option value="{{ profesional.id }}" {% if profesional_id == profesional.id|string %}selected{% endif %}>
+                            {{ profesional.nombre }}{% if profesional.especialidad %} - {{ profesional.especialidad }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="estado">Estado:</label>
+                    <select id="estado">
+                        <option value="">Todos los estados</option>
+                        <option value="confirmado">Confirmado</option>
+                        <option value="completado">Completado</option>
+                        <option value="cancelado">Cancelado</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="cargarCitas()">🔄 Actualizar</button>
+        </div>
+
+        <!-- Lista de Citas -->
+        <div class="citas-container">
+            <table class="citas-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Teléfono</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Servicio</th>
+                        <th>Profesional</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="citas-body">
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <div>📅 Selecciona una fecha y haz clic en "Actualizar"</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function cargarCitas() {
+            const fecha = document.getElementById('fecha').value;
+            const profesional = document.getElementById('profesional').value;
+            const estado = document.getElementById('estado').value;
+            
+            let url = `/api/turnos?fecha=${fecha}&profesional_id=${profesional}`;
+            if (estado) {
+                url += `&estado=${estado}`;
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(citas => {
+                    const tbody = document.getElementById('citas-body');
+                    
+                    if (citas.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="8" class="empty-state">
+                                    <div>🎉 No hay citas para esta fecha</div>
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+                    
+                    tbody.innerHTML = citas.map(cita => `
+                        <tr>
+                            <td>${cita.cliente_nombre}</td>
+                            <td>${cita.cliente_telefono}</td>
+                            <td>${cita.fecha}</td>
+                            <td>${cita.hora}</td>
+                            <td>${cita.servicio}</td>
+                            <td>${cita.profesional_nombre}</td>
+                            <td>
+                                <span class="status-badge status-${cita.estado}">
+                                    ${cita.estado}
+                                </span>
+                            </td>
+                            <td class="actions">
+                                ${cita.estado === 'confirmado' ? `
+                                    <button class="btn-sm btn-complete" onclick="completarCita(${cita.id})">✅ Completar</button>
+                                    <button class="btn-sm btn-cancel" onclick="cancelarCita(${cita.id})">❌ Cancelar</button>
+                                ` : '—'}
+                            </td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function completarCita(citaId) {
+            if (confirm('¿Marcar cita como completada?')) {
+                fetch(`/api/turno/${citaId}/completar`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        cargarCitas();
+                    } else {
+                        alert('Error al completar la cita');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al completar la cita');
+                });
+            }
+        }
+
+        function cancelarCita(citaId) {
+            if (confirm('¿Cancelar esta cita?')) {
+                fetch(`/api/turnos/${citaId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado: 'cancelado' })
+                })
+                .then(() => cargarCitas())
+                .catch(error => console.error('Error:', error));
+            }
+        }
+
+        // Cargar citas al cambiar filtros
+        document.getElementById('fecha').addEventListener('change', cargarCitas);
+        document.getElementById('profesional').addEventListener('change', cargarCitas);
+        document.getElementById('estado').addEventListener('change', cargarCitas);
+
+        // Establecer fecha actual por defecto
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            if (!document.getElementById('fecha').value) {
+                document.getElementById('fecha').value = today;
+            }
+            cargarCitas();
+        });
+    </script>
+</body>
+</html>

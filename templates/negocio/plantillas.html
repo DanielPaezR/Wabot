@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plantillas - {{ session.negocio_nombre }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .plantillas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .plantilla-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #27ae60;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .plantilla-card.base {
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .plantilla-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        
+        .plantilla-nombre {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1rem;
+        }
+        
+        .plantilla-descripcion {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            flex-grow: 1;
+        }
+        
+        .plantilla-preview {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #333;
+            max-height: 100px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        
+        .plantilla-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+            grid-column: 1 / -1;
+        }
+        
+        .badge {
+            background: #3498db;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            margin-left: 0.5rem;
+        }
+        
+        .badge-base {
+            background: #e74c3c;
+        }
+        
+        .badge-custom {
+            background: #27ae60;
+        }
+        
+        .plantilla-info {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 0.5rem;
+        }
+        
+        .info-base {
+            color: #e74c3c;
+        }
+        
+        .info-custom {
+            color: #27ae60;
+        }
+
+        .variables-info {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        
+        .variables-title {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .variables-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
+        
+        .variable-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 1rem;
+        }
+        
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 Plantillas de Mensajes</h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-buttons">
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
+            <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
+            <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
+            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
+        </div>
+
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        <div class="plantillas-grid">
+            {% if plantillas %}
+                {% for plantilla in plantillas %}
+                <div class="plantilla-card {% if not plantilla.es_personalizada %}base{% endif %}">
+                    <div class="plantilla-header">
+                        <div class="plantilla-nombre">
+                            {{ plantilla.nombre.replace('_', ' ').title() }}
+                            {% if plantilla.es_personalizada %}
+                                <span class="badge badge-custom">PERSONALIZADA</span>
+                            {% else %}
+                                <span class="badge badge-base">BASE</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if plantilla.descripcion %}
+                    <div class="plantilla-descripcion">
+                        {{ plantilla.descripcion }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="plantilla-preview">
+                        {{ plantilla.plantilla[:150] }}{% if plantilla.plantilla|length > 150 %}...{% endif %}
+                    </div>
+
+                    {% if plantilla.variables_disponibles and plantilla.variables_disponibles != '[]' %}
+                    <div class="variables-info">
+                        <div class="variables-title">Variables disponibles:</div>
+                        <div class="variables-list">
+                            {% set variables = plantilla.variables_disponibles|fromjson %}
+                            {% for variable in variables %}
+                                <span class="variable-tag">{{ variable }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="plantilla-actions">
+                        <a href="{{ url_for('negocio_editar_plantilla', nombre_plantilla=plantilla.nombre) }}" 
+                           class="btn {% if plantilla.es_personalizada %}btn-primary{% else %}btn-warning{% endif %}" 
+                           style="flex: 1;">
+                            {% if plantilla.es_personalizada %}
+                                ✏️ Editar Personalizada
+                            {% else %}
+                                📝 Personalizar Plantilla
+                            {% endif %}
+                        </a>
+                    </div>
+
+                    <div class="plantilla-info {% if plantilla.es_personalizada %}info-custom{% else %}info-base{% endif %}">
+                        {% if plantilla.es_personalizada %}
+                            ✅ Esta es tu versión personalizada
+                        {% else %}
+                            🔄 Usando plantilla base del sistema
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h2>No hay plantillas configuradas</h2>
+                <p>Las plantillas se configuran desde el panel de administración</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

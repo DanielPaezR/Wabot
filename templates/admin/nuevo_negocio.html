@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Negocio - Sistema de Citas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .form-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            border: 1px solid #fcc;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 1rem;
+        }
+        
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 1rem;
+        }
+
+        .nav-buttons {
+            margin-bottom: 1rem;
+        }
+
+        small {
+            color: #666;
+            font-size: 0.8rem;
+            display: block;
+            margin-top: 0.25rem;
+        }
+
+        .form-help {
+            background: #e3f2fd;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #3498db;
+        }
+
+        .form-help h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1976d2;
+        }
+
+        .form-help p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>➕ Nuevo Negocio</h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-buttons">
+            <a href="{{ url_for('admin_negocios') }}" class="btn btn-secondary">← Volver a Negocios</a>
+        </div>
+
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        <div class="form-container">
+            {% if error %}
+            <div class="error">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <div class="form-help">
+                <h4>💡 Información importante</h4>
+                <p>Al crear un negocio se generará automáticamente un usuario propietario con las credenciales: <strong>propietario@negocio.com / propietario123</strong>. Podrás editar estos datos después.</p>
+            </div>
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Negocio *</label>
+                    <input type="text" id="nombre" name="nombre" required placeholder="Ej: Centro de Belleza Elegante">
+                </div>
+                
+                <div class="form-group">
+                    <label for="telefono_whatsapp">Número de WhatsApp *</label>
+                    <input type="text" id="telefono_whatsapp" name="telefono_whatsapp" required placeholder="Ej: +573001234567">
+                    <small>Formato internacional: +573001234567 (sin 'whatsapp:')</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tipo_negocio">Tipo de Negocio *</label>
+                    <select id="tipo_negocio" name="tipo_negocio" required>
+                        <option value="barberia">💈 Barbería</option>
+                        <option value="spa_unas">💅 Spa de Uñas</option>
+                        <option value="peluqueria">✂️ Peluquería</option>
+                        <option value="estetica">💆‍♀️ Centro Estética</option>
+                        <option value="consultorio">🏥 Consultorio Médico</option>
+                        <option value="gimnasio">🏋️ Gimnasio</option>
+                        <option value="yoga">🧘 Estudio de Yoga</option>
+                        <option value="masajes">💆 Centro de Masajes</option>
+                        <option value="tattoo">🎨 Estudio de Tattoo</option>
+                        <option value="otros">💼 Otros Servicios</option>
+                    </select>
+                    <small>Selecciona la categoría que mejor describa tu negocio</small>
+                </div>
+                
+                <button type="submit" class="btn-primary">🏪 Crear Negocio</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

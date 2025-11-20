@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Negocio - Sistema de Citas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .form-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        small {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 1rem;
+        }
+        
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 1rem;
+        }
+
+        .nav-buttons {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✏️ Editar Negocio</h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-buttons">
+            <a href="{{ url_for('admin_negocios') }}" class="btn btn-secondary">← Volver a Negocios</a>
+        </div>
+
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        <div class="form-container">
+            <form method="POST">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Negocio *</label>
+                    <input type="text" id="nombre" name="nombre" value="{{ negocio.nombre }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="telefono_whatsapp">Número de WhatsApp *</label>
+                    <input type="text" id="telefono_whatsapp" name="telefono_whatsapp" value="{{ negocio.telefono_whatsapp }}" required>
+                    <small>Formato: whatsapp:+573001234567</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tipo_negocio">Tipo de Negocio *</label>
+                        <select id="tipo_negocio" name="tipo_negocio" required>
+                            <option value="barberia" {% if negocio.tipo_negocio == 'barberia' %}selected{% endif %}>💈 Barbería</option>
+                            <option value="spa_unas" {% if negocio.tipo_negocio == 'spa_unas' %}selected{% endif %}>💅 Spa de Uñas</option>
+                            <option value="peluqueria" {% if negocio.tipo_negocio == 'peluqueria' %}selected{% endif %}>✂️ Peluquería</option>
+                            <option value="estetica" {% if negocio.tipo_negocio == 'estetica' %}selected{% endif %}>💆‍♀️ Centro Estética</option>
+                            <option value="consultorio" {% if negocio.tipo_negocio == 'consultorio' %}selected{% endif %}>🏥 Consultorio Médico</option>
+                            <option value="gimnasio" {% if negocio.tipo_negocio == 'gimnasio' %}selected{% endif %}>🏋️ Gimnasio</option>
+                            <option value="yoga" {% if negocio.tipo_negocio == 'yoga' %}selected{% endif %}>🧘 Estudio de Yoga</option>
+                            <option value="masajes" {% if negocio.tipo_negocio == 'masajes' %}selected{% endif %}>💆 Centro de Masajes</option>
+                            <option value="tattoo" {% if negocio.tipo_negocio == 'tattoo' %}selected{% endif %}>🎨 Estudio de Tattoo</option>
+                            <option value="otros" {% if negocio.tipo_negocio == 'otros' %}selected{% endif %}>💼 Otros Servicios</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="activo" name="activo" {% if negocio.activo %}checked{% endif %}>
+                            <label for="activo">Negocio Activo</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="saludo_personalizado">Saludo Personalizado</label>
+                    <input type="text" id="saludo_personalizado" name="saludo_personalizado" value="{{ config.saludo_personalizado }}" placeholder="¡Hola! Soy tu asistente virtual...">
+                </div>
+                
+                <div class="form-group">
+                    <label for="horario_atencion">Horario de Atención</label>
+                    <input type="text" id="horario_atencion" name="horario_atencion" value="{{ config.horario_atencion }}" placeholder="Lunes a Sábado 9:00 AM - 7:00 PM">
+                </div>
+                
+                <div class="form-group">
+                    <label for="direccion">Dirección</label>
+                    <input type="text" id="direccion" name="direccion" value="{{ config.direccion }}" placeholder="Calle Principal #123">
+                </div>
+                
+                <div class="form-group">
+                    <label for="telefono_contacto">Teléfono de Contacto</label>
+                    <input type="text" id="telefono_contacto" name="telefono_contacto" value="{{ config.telefono_contacto }}" placeholder="+573001234567">
+                </div>
+                
+                <div class="form-group">
+                    <label for="politica_cancelacion">Política de Cancelación</label>
+                    <input type="text" id="politica_cancelacion" name="politica_cancelacion" value="{{ config.politica_cancelacion }}" placeholder="Puedes cancelar hasta 2 horas antes">
+                </div>
+                
+                <button type="submit" class="btn-primary">💾 Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas - {{ profesional_nombre }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+            color: #333;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .profesional-info {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .profesional-nombre {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .profesional-especialidad {
+            color: #7f8c8d;
+            font-size: 1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid #3498db;
+        }
+        
+        .stat-card.success {
+            border-left-color: #27ae60;
+        }
+        
+        .stat-card.warning {
+            border-left-color: #f39c12;
+        }
+        
+        .stat-card.danger {
+            border-left-color: #e74c3c;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .date-selector {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .date-form {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .nav-buttons {
+                justify-content: center;
+            }
+            
+            .date-form {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Estadísticas - {{ profesional_nombre }}</h1>
+        <div class="user-info">
+            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
+            <div class="nav-buttons">
+                <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">📋 Mi Panel</a>
+                <a href="{{ url_for('profesional_dashboard') }}?profesional_id={{ profesional_id }}" class="btn btn-secondary">📅 Mis Citas</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Información del profesional -->
+        <div class="profesional-info">
+            <div class="profesional-nombre">👨‍💼 {{ profesional_nombre }}</div>
+            <div class="profesional-especialidad">🎯 {{ profesional_especialidad }}</div>
+        </div>
+
+        <!-- Selector de período -->
+        <div class="date-selector">
+            <h3>📅 Seleccionar Período</h3>
+            <form class="date-form" onsubmit="cargarEstadisticas(); return false;">
+                <div class="form-group">
+                    <label for="mes">Mes:</label>
+                    <select id="mes" class="form-control">
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="año">Año:</label>
+                    <select id="año" class="form-control">
+                        {% for year in range(2023, 2026) %}
+                        <option value="{{ year }}" {% if year == now().year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">📊 Actualizar Estadísticas</button>
+            </form>
+        </div>
+
+        <div id="loading" class="loading">
+            <p>📈 Cargando estadísticas...</p>
+        </div>
+
+        <div id="content" style="display: none;">
+            <!-- Estadísticas rápidas -->
+            <div class="stats-grid" id="stats-cards">
+                <!-- Se llena con JavaScript -->
+            </div>
+
+            <!-- Gráficos -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div class="chart-title">📅 Citas por Estado</div>
+                    <canvas id="chartEstados"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">💰 Ingresos Mensuales</div>
+                    <canvas id="chartIngresos"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">💼 Servicios Más Solicitados</div>
+                    <canvas id="chartServicios"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">📈 Tendencia Semanal</div>
+                    <canvas id="chartTendencia"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;">
+            <!-- Mensajes de error -->
+        </div>
+    </div>
+
+<script>
+    // Configuración
+    const PROFESIONAL_ID = Number("{{ profesional_id }}");
+    const NEGOCIO_ID = Number("{{ negocio_id }}");
+    const PROFESIONAL_NOMBRE = "{{ profesional_nombre }}";
+
+    // Variables para almacenar los gráficos
+    let chartEstados = null;
+    let chartIngresos = null;
+    let chartServicios = null;
+    let chartTendencia = null;
+
+    // Cargar estadísticas al iniciar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Establecer mes y año actual
+        const now = new Date();
+        document.getElementById('mes').value = now.getMonth() + 1;
+        document.getElementById('año').value = now.getFullYear();
+        
+        cargarEstadisticas();
+    });
+
+    async function cargarEstadisticas() {
+        const mes = document.getElementById('mes').value;
+        const año = document.getElementById('año').value;
+        
+        try {
+            console.log(`🔍 Cargando estadísticas para profesional ${PROFESIONAL_ID}, mes ${mes}, año ${año}`);
+            
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('content').style.display = 'none';
+            document.getElementById('error-message').style.display = 'none';
+
+            // Obtener estadísticas del profesional
+            const response = await fetch(`/api/estadisticas/mensuales?profesional_id=${PROFESIONAL_ID}&negocio_id=${NEGOCIO_ID}&mes=${mes}&año=${año}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log("📊 Datos recibidos:", data);
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Ocultar loading y mostrar contenido
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+
+            // Actualizar tarjetas de estadísticas
+            actualizarStatsCards(data.resumen);
+            
+            // Crear gráficos
+            crearGraficos(data);
+
+        } catch (error) {
+            console.error('❌ Error cargando estadísticas:', error);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('error-message').innerHTML = 
+                `❌ Error al cargar las estadísticas: ${error.message}`;
+        }
+    }
+
+    function actualizarStatsCards(resumen) {
+        const statsContainer = document.getElementById('stats-cards');
+        
+        // Verificar si hay datos
+        if (!resumen || resumen.total_citas === 0) {
+            statsContainer.innerHTML = `
+                <div class="stat-card warning" style="grid-column: 1 / -1;">
+                    <div class="stat-number">📊</div>
+                    <div class="stat-label">No hay datos para mostrar</div>
+                </div>
+            `;
+            return;
+        }
+        
+        const stats = [
+            { 
+                label: 'Total Citas', 
+                value: resumen.total_citas || 0,
+                class: '',
+                icon: '📅'
+            },
+            { 
+                label: 'Confirmadas', 
+                value: resumen.citas_confirmadas || 0,
+                class: 'success',
+                icon: '✅'
+            },
+            { 
+                label: 'Completadas', 
+                value: resumen.citas_completadas || 0,
+                class: 'success',
+                icon: '🎯'
+            },
+            { 
+                label: 'Canceladas', 
+                value: resumen.citas_canceladas || 0,
+                class: 'danger',
+                icon: '❌'
+            },
+            { 
+                label: 'Ingresos Totales', 
+                value: `$${(resumen.ingresos_totales || 0).toLocaleString()}`,
+                class: 'success',
+                icon: '💰'
+            },
+            { 
+                label: 'Tasa de Éxito', 
+                value: `${resumen.tasa_exito || 0}%`,
+                class: resumen.tasa_exito >= 80 ? 'success' : 'warning',
+                icon: '📊'
+            }
+        ];
+
+        statsContainer.innerHTML = stats.map(stat => `
+            <div class="stat-card ${stat.class}">
+                <div class="stat-number">${stat.icon} ${stat.value}</div>
+                <div class="stat-label">${stat.label}</div>
+            </div>
+        `).join('');
+    }
+
+    function crearGraficos(data) {
+        // Destruir gráficos existentes si los hay
+        if (chartEstados) chartEstados.destroy();
+        if (chartIngresos) chartIngresos.destroy();
+        if (chartServicios) chartServicios.destroy();
+        if (chartTendencia) chartTendencia.destroy();
+
+        // Verificar si hay datos para mostrar
+        if (!data.resumen || data.resumen.total_citas === 0) {
+            document.getElementById('chartEstados').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos para mostrar</p>';
+            document.getElementById('chartIngresos').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos para mostrar</p>';
+            document.getElementById('chartServicios').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos para mostrar</p>';
+            document.getElementById('chartTendencia').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos para mostrar</p>';
+            return;
+        }
+
+        // Gráfico de estados
+        const ctxEstados = document.getElementById('chartEstados').getContext('2d');
+        chartEstados = new Chart(ctxEstados, {
+            type: 'doughnut',
+            data: {
+                labels: ['Confirmadas', 'Completadas', 'Pendientes', 'Canceladas'],
+                datasets: [{
+                    data: [
+                        data.resumen.citas_confirmadas || 0,
+                        data.resumen.citas_completadas || 0,
+                        data.resumen.citas_pendientes || 0,
+                        data.resumen.citas_canceladas || 0
+                    ],
+                    backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: `Distribución de Citas - ${PROFESIONAL_NOMBRE}`
+                    }
+                }
+            }
+        });
+
+        // Gráfico de ingresos por día
+        const ingresosPorDia = data.ingresos_por_dia || [];
+        if (ingresosPorDia.length > 0) {
+            const ctxIngresos = document.getElementById('chartIngresos').getContext('2d');
+            chartIngresos = new Chart(ctxIngresos, {
+                type: 'bar',
+                data: {
+                    labels: ingresosPorDia.map(d => `Día ${d.dia}`),
+                    datasets: [{
+                        label: 'Ingresos Diarios',
+                        data: ingresosPorDia.map(d => d.ingresos || 0),
+                        backgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('chartIngresos').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos de ingresos diarios</p>';
+        }
+
+        // Gráfico de servicios
+        const serviciosTop = data.servicios_top || [];
+        if (serviciosTop.length > 0) {
+            const ctxServicios = document.getElementById('chartServicios').getContext('2d');
+            chartServicios = new Chart(ctxServicios, {
+                type: 'bar',
+                data: {
+                    labels: serviciosTop.map(s => s.nombre),
+                    datasets: [{
+                        label: 'Citas',
+                        data: serviciosTop.map(s => s.total_citas),
+                        backgroundColor: '#27ae60'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('chartServicios').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos de servicios</p>';
+        }
+
+        // Gráfico de tendencia mensual
+        const tendenciaMensual = data.tendencia_mensual || {meses: [], ingresos: []};
+        if (tendenciaMensual.meses && tendenciaMensual.meses.length > 0) {
+            const ctxTendencia = document.getElementById('chartTendencia').getContext('2d');
+            chartTendencia = new Chart(ctxTendencia, {
+                type: 'line',
+                data: {
+                    labels: tendenciaMensual.meses,
+                    datasets: [{
+                        label: 'Ingresos Mensuales',
+                        data: tendenciaMensual.ingresos,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('chartTendencia').innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No hay datos de tendencia</p>';
+        }
+    }
+
+    // Recargar cuando cambien los filtros
+    document.getElementById('mes').addEventListener('change', cargarEstadisticas);
+    document.getElementById('año').addEventListener('change', cargarEstadisticas);
+</script>
+</body>
+</html>

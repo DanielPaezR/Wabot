@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Agenda - {{ session.negocio_nombre }}</title>
+    <style>
+        /* RESET MOBILE-FIRST */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary: #667eea;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --dark: #2c3e50;
+            --light: #f5f6fa;
+            --text: #333;
+            --text-light: #666;
+            --white: #ffffff;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --radius: 12px;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--light);
+            color: var(--text);
+            line-height: 1.4;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* HEADER MOBILE OPTIMIZED */
+        .header {
+            background: var(--white);
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding-top: calc(1rem + env(safe-area-inset-top));
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            gap: 0.5rem;
+        }
+        
+        .welcome h1 {
+            font-size: 1.3rem;
+            color: var(--dark);
+            margin-bottom: 0.2rem;
+        }
+        
+        .welcome p {
+            color: var(--text-light);
+            font-size: 0.85rem;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            min-height: 44px; /* Tappable area */
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+        
+        .btn-logout {
+            background: var(--danger);
+            color: var(--white);
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* STATS CARDS MOBILE */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+        
+        .stat {
+            background: linear-gradient(135deg, var(--primary), #764ba2);
+            color: var(--white);
+            padding: 1rem;
+            border-radius: var(--radius);
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        
+        .stat-number {
+            font-size: 1.6rem;
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+        
+        /* MAIN CONTENT */
+        .container {
+            padding: 1rem;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 1.2rem;
+            color: var(--dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .date-selector {
+            background: var(--white);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            border: 2px solid #e0e0e0;
+            min-height: 44px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        /* CITAS LIST - MOBILE OPTIMIZED */
+        .citas-list {
+            background: var(--white);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+        
+        .cita-item {
+            padding: 1.2rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: background 0.2s ease;
+        }
+        
+        .cita-item:active {
+            background: #f8f9fa;
+        }
+        
+        .cita-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cita-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+        
+        .cita-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        .cita-time {
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .cita-service {
+            color: var(--text-light);
+        }
+        
+        .cita-price {
+            font-weight: bold;
+            color: var(--success);
+        }
+        
+        .cita-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        
+        .btn-complete {
+            background: var(--success);
+            color: var(--white);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            min-height: 44px;
+            flex: 1;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-complete:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-complete:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-light);
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+            color: #999;
+            font-size: 1.2rem;
+        }
+        
+        .completed {
+            opacity: 0.7;
+        }
+        
+        .completed .cita-info h3 {
+            text-decoration: line-through;
+        }
+
+        /* QUICK ACTIONS - MOBILE GRID */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .action-card {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .action-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+        
+        .action-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.8rem;
+        }
+        
+        .action-title {
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+            font-size: 1rem;
+        }
+        
+        .action-desc {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        /* STATUS BADGES */
+        .status-badge {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-confirmado {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-completado {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* NOTIFICATION */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            left: 20px;
+            background: var(--success);
+            color: var(--white);
+            padding: 1rem;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* LOADING STATES */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* MEDIA QUERIES PARA TABLETS */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+            
+            .header-top {
+                align-items: center;
+            }
+            
+            .cita-item {
+                flex-direction: row;
+                align-items: center;
+            }
+            
+            .cita-actions {
+                flex: 0 0 auto;
+                justify-content: flex-end;
+            }
+            
+            .btn-complete {
+                flex: 0 0 auto;
+                min-width: 120px;
+            }
+        }
+
+        /* MEDIA QUERIES PARA ESCRITORIO */
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 800px;
+            }
+            
+            .quick-actions {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* DARK MODE SUPPORT */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --light: #1a1a1a;
+                --white: #2d2d2d;
+                --text: #ffffff;
+                --text-light: #cccccc;
+                --dark: #ffffff;
+            }
+            
+            .date-selector {
+                background: #3d3d3d;
+                border-color: #555;
+                color: var(--text);
+            }
+            
+            .cita-item {
+                border-bottom-color: #444;
+            }
+        }
+
+        /* ORIENTATION LANDSCAPE */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .header {
+                position: relative;
+            }
+            
+            .stats {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Notificación flotante -->
+    <div id="notification" class="notification">
+        ✅ Cita marcada como completada
+    </div>
+
+    <div class="header">
+        <div class="header-top">
+            <div class="welcome">
+                <h1>👋 Hola, {{ session.usuario_nombre }}</h1>
+                <p>{{ session.negocio_nombre }} - Tu agenda para hoy</p>
+            </div>
+            <div class="nav-buttons">
+                <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="btn btn-success">📊 Stats</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Salir</a>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">{{ total_citas }}</div>
+                <div class="stat-label">Citas Hoy</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">${{ ganancia_estimada }}</div>
+                <div class="stat-label">Ganancia Est.</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="section-title">
+            <h2>📅 Mis Citas de Hoy</h2>
+            <input type="date" class="date-selector" value="{{ fecha }}" 
+                   onchange="cambiarFecha(this.value)">
+        </div>
+        
+        <div class="citas-list">
+            {% if citas %}
+                {% for cita in citas %}
+                <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %}">
+                    <div class="cita-info">
+                        <h3>{{ cita.cliente_nombre }}</h3>
+                        <div class="cita-meta">
+                            <span class="cita-time">⏰ {{ cita.hora }}</span>
+                            <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
+                            <span class="cita-price">💰 ${{ cita.precio }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="cita-actions">
+                        {% if cita.estado != 'completado' %}
+                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" style="display: inline; width: 100%;">
+                            <button type="submit" class="btn-complete" onclick="mostrarNotificacion()">✅ Completar</button>
+                        </form>
+                        {% else %}
+                        <span style="color: var(--success); font-size: 0.9rem; font-weight: 600;">✅ Completado</span>
+                        {% endif %}
+                        <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>🎉 No hay citas para hoy</h3>
+                <p>Disfruta de tu día</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Acciones Rápidas -->
+        <div class="quick-actions">
+            <a href="{{ url_for('profesional_todas_citas') }}" class="action-card">
+                <div class="action-icon">📋</div>
+                <div class="action-title">Todas</div>
+                <div class="action-desc">Mis citas completas</div>
+            </a>
+            
+            <a href="/profesional/estadisticas?profesional_id={{ profesional_id }}" class="action-card">
+                <div class="action-icon">📊</div>
+                <div class="action-title">Estadísticas</div>
+                <div class="action-desc">Mis métricas</div>
+            </a>
+            <a href="/profesional/agendar" class="action-card">
+                <div class="action-icon">➕</div>
+                <div class="action-title">Agendar Cita</div>
+                <div class="action-desc">Para clientes en persona</div>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Mobile-optimized JavaScript
+        function cambiarFecha(fecha) {
+            window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
+        }
+
+        function mostrarNotificacion() {
+            const notification = document.getElementById('notification');
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+            
+            // Vibrate if supported
+            if (navigator.vibrate) {
+                navigator.vibrate(200);
+            }
+        }
+
+        // Auto-recargar cada 2 minutos para ver citas nuevas
+        setTimeout(() => {
+            window.location.reload();
+        }, 120000);
+
+        // Mostrar notificación si hay un parámetro de completado en la URL
+        if (window.location.search.includes('completed=true')) {
+            setTimeout(mostrarNotificacion, 500);
+        }
+
+        // Touch optimizations
+        document.addEventListener('touchstart', function() {}, {passive: true});
+        
+        // Prevent zoom on double-tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Load animations
+        document.addEventListener('DOMContentLoaded', function() {
+            const items = document.querySelectorAll('.cita-item');
+            items.forEach((item, index) => {
+                item.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+    </script>
+</body>
+</html>

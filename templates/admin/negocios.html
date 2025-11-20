@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Negocios - Sistema de Citas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .nav-buttons {
+            margin-bottom: 2rem;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-outline-primary {
+            background: white;
+            color: #3498db;
+            border: 2px solid #3498db;
+        }
+        
+        .btn-outline-primary:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .status-active {
+            background: #2ecc71;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .status-inactive {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .btn-edit {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-edit:hover {
+            background: #e67e22;
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 1rem;
+        }
+        
+        .flash-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 1rem;
+        }
+
+        .tipo-negocio {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-store"></i>
+            Gestión de Negocios
+        </h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} (Super Admin)</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar Sesión</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Navigation Buttons -->
+        <div class="nav-buttons">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="{{ url_for('admin_negocios') }}" class="btn btn-primary">
+                <i class="fas fa-store"></i> Negocios
+            </a>
+            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-outline-primary">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            <a href="{{ url_for('admin_plantillas') }}" class="btn btn-outline-primary">
+                <i class="fas fa-envelope"></i> Plantillas Base
+            </a>
+            <a href="{{ url_for('admin_nuevo_negocio') }}" class="btn btn-primary" style="background: #27ae60;">
+                <i class="fas fa-plus"></i> Nuevo Negocio
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="table-container">
+            {% if negocios %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Teléfono WhatsApp</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Fecha Creación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for negocio in negocios %}
+                    <tr>
+                        <td><strong>{{ negocio.nombre }}</strong></td>
+                        <td>{{ negocio.telefono_whatsapp }}</td>
+                        <td>
+                            <div class="tipo-negocio">
+                                {% if negocio.tipo_negocio == 'barberia' %}
+                                    💈 Barbería
+                                {% elif negocio.tipo_negocio == 'spa_unas' %}
+                                    💅 Spa de Uñas
+                                {% elif negocio.tipo_negocio == 'peluqueria' %}
+                                    ✂️ Peluquería
+                                {% elif negocio.tipo_negocio == 'estetica' %}
+                                    💆‍♀️ Centro Estética
+                                {% elif negocio.tipo_negocio == 'consultorio' %}
+                                    🏥 Consultorio Médico
+                                {% elif negocio.tipo_negocio == 'gimnasio' %}
+                                    🏋️ Gimnasio
+                                {% elif negocio.tipo_negocio == 'yoga' %}
+                                    🧘 Estudio de Yoga
+                                {% elif negocio.tipo_negocio == 'masajes' %}
+                                    💆 Centro de Masajes
+                                {% elif negocio.tipo_negocio == 'tattoo' %}
+                                    🎨 Estudio de Tattoo
+                                {% else %}
+                                    💼 {{ negocio.tipo_negocio|title }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if negocio.activo %}
+                                <span class="status-active">Activo</span>
+                            {% else %}
+                                <span class="status-inactive">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ negocio.fecha_creacion[:10] }}</td>
+                        <td class="actions">
+                            <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                            <form method="POST" action="{{ url_for('admin_eliminar_negocio', negocio_id=negocio.id) }}" style="display: inline;">
+                                <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">🗑️ Eliminar</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <h2>📭 No hay negocios registrados</h2>
+                <p>Comienza creando el primer negocio en el sistema</p>
+                <a href="{{ url_for('admin_nuevo_negocio') }}" class="btn btn-primary" style="margin-top: 1rem;">➕ Crear Primer Negocio</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
