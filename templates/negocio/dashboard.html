@@ -19,11 +19,20 @@
         
         .header {
             background: white;
-            padding: 1rem 2rem;
+            padding: 1rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            justify-content: column;
+            gap: 1rem;
+        }
+        
+        @media (min-width: 768px) {
+            .header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem 2rem;
+            }
         }
         
         .header-info h1 {
@@ -38,11 +47,18 @@
         
         .user-info {
             display: flex;
-            align-items: center;
-            gap: 1rem;
+            flex-direction: column;
+            gap: 0.5rem;
             color: #666;
         }
-        
+        @media (min-width: 480px) {
+            .user-info {
+                flex-direction: row;
+                align-items: center;
+                gap: 1rem;
+            }
+        }
+
         .btn {
             padding: 8px 16px;
             border: none;
@@ -56,6 +72,13 @@
         .btn-logout {
             background: #e74c3c;
             color: white;
+            width: 100%;
+        }
+
+        @media (min-width: 480px) {
+            .btn-logout {
+                width: auto;
+            }
         }
         
         .btn-primary {
@@ -71,9 +94,16 @@
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
             margin-bottom: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1.5rem;
+            }
         }
         
         .stat-card {
@@ -111,8 +141,15 @@
         
         .content-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 2fr 1fr;
+                gap: 2rem;
+            }
         }
         
         .section {
@@ -239,9 +276,39 @@
 
         .quick-actions {
             display: flex;
-            gap: 1rem;
+            flex-direction: column;
+            gap: 0.8rem;
             margin-bottom: 1.5rem;
-            flex-wrap: wrap;
+        }
+
+        @media (min-width: 480px) {
+            .quick-actions {
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                padding: 0.8rem;
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Prevenir zoom en inputs en iOS */
+        @media (max-width: 768px) {
+            input, select, textarea {
+                font-size: 16px; /* Previene zoom en iOS */
+            }
         }
 
         .quick-action-btn {

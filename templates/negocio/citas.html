@@ -18,11 +18,20 @@
         
         .header {
             background: white;
-            padding: 1rem 2rem;
+            padding: 1rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem 2rem;
+            }
         }
         
         .header h1 {
@@ -72,10 +81,17 @@
         
         .filter-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: 1fr;
             gap: 1rem;
             margin-bottom: 1rem;
         }
+
+        @media (min-width: 768px) {
+            .filter-row {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+        
         
         .form-group {
             margin-bottom: 1rem;
@@ -109,7 +125,13 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
+            overflow-x: auto;
+        }
+
+        .citas-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
         }
         
         .citas-table {
@@ -160,7 +182,37 @@
         
         .actions {
             display: flex;
-            gap: 0.5rem;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        @media (min-width: 480px) {
+            .actions {
+                flex-direction: row;
+                gap: 0.5rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                padding: 0.8rem;
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Prevenir zoom en inputs en iOS */
+        @media (max-width: 768px) {
+            input, select, textarea {
+                font-size: 16px; /* Previene zoom en iOS */
+            }
         }
         
         .btn-sm {
