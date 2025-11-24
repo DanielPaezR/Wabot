@@ -337,7 +337,7 @@
         <!-- ✅ CORRECCIÓN 2: Navegación mejorada -->
         <div class="nav-buttons">
             <a href="{{ url_for('negocio_dashboard') }}" class="nav-btn">📋 Dashboard</a>
-            <a href="{{ url_for('negocio_citas') }}" class="nav-btn active">📅 Citas</a>
+            <a href="{{ url_for('negocio_profesionales') }}" class="nav-btn">👨‍💼 Profesionales</a>
             <a href="{{ url_for('negocio_estadisticas') }}" class="nav-btn">📊 Estadísticas</a>
             <a href="{{ url_for('negocio_configuracion') }}" class="nav-btn">⚙️ Configuración</a>
             <a href="{{ url_for('negocio_plantillas') }}" class="nav-btn">📝 Plantillas</a>
@@ -407,7 +407,6 @@
     </div>
 
     <script>
-        // ✅ CORRECCIÓN 3: Función mejorada para cargar citas
         async function cargarCitas() {
             const fecha = document.getElementById('fecha').value;
             const profesional = document.getElementById('profesional').value;
@@ -429,26 +428,22 @@
             `;
             
             try {
-                // Primero intentamos con la nueva ruta de la API
+                // Usar la ruta específica del negocio
                 let url = `/negocio/api/citas?fecha=${fecha}`;
                 if (profesional) url += `&profesional_id=${profesional}`;
                 if (estado) url += `&estado=${estado}`;
                 
-                let response = await fetch(url);
+                console.log('🔍 Cargando citas desde:', url);
                 
-                // Si falla, intentamos con la ruta antigua
-                if (!response.ok) {
-                    url = `/api/turnos?fecha=${fecha}`;
-                    if (profesional) url += `&profesional_id=${profesional}`;
-                    if (estado) url += `&estado=${estado}`;
-                    response = await fetch(url);
-                }
+                const response = await fetch(url);
                 
                 if (!response.ok) {
-                    throw new Error('Error al cargar citas');
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
                 }
                 
                 const citas = await response.json();
+                
+                console.log('✅ Citas cargadas:', citas);
                 
                 if (citas.length === 0) {
                     tbody.innerHTML = `
@@ -467,24 +462,23 @@
                         <td>${cita.cliente_telefono || 'N/A'}</td>
                         <td>${formatearFecha(cita.fecha)}</td>
                         <td>${cita.hora}</td>
-                        <td>${cita.servicio_nombre || cita.servicio || 'Servicio'}</td>
+                        <td>${cita.servicio_nombre || 'Servicio'}</td>
                         <td>${cita.profesional_nombre || 'Profesional'}</td>
                         <td>
                             <span class="status-badge status-${cita.estado}">
                                 ${formatearEstado(cita.estado)}
                             </span>
                         </td>
-                        <!-- ✅ CORRECCIÓN 1: Sin botones de acciones -->
                     </tr>
                 `).join('');
                 
             } catch (error) {
-                console.error('Error:', error);
+                console.error('❌ Error cargando citas:', error);
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="7" class="error-message">
                             <div>❌ Error al cargar las citas</div>
-                            <small>Intenta nuevamente o verifica la conexión</small>
+                            <small>${error.message}</small>
                         </td>
                     </tr>
                 `;

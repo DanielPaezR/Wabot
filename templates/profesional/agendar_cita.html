@@ -239,6 +239,7 @@
             {% endwith %}
             
             <form method="POST" action="{{ url_for('profesional_crear_cita') }}" id="agendarForm" data-profesional-id="{{ profesional_id or session.get('profesional_id', 1) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="cliente_nombre">👤 Nombre del Cliente:</label>
                     <input type="text" id="cliente_nombre" name="cliente_nombre" required 

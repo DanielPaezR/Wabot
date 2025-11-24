@@ -421,8 +421,7 @@
                     
                     <div class="plantilla-actions">
                         <a href="{{ url_for('negocio_editar_plantilla', nombre_plantilla=plantilla.nombre) }}" 
-                           class="btn-edit {% if plantilla.es_personalizada %}primary{% endif %}" 
-                           onclick="return verificarEnlace(this);">
+                        class="btn-edit {% if plantilla.es_personalizada %}primary{% endif %}">
                             {% if plantilla.es_personalizada %}
                                 ✏️ Editar Personalizada
                             {% else %}
@@ -450,44 +449,39 @@
     </div>
 
     <script>
-        // ✅ CORRECCIÓN: Validación de enlaces para prevenir errores
+        // ✅ CORRECCIÓN: Debug completo de enlaces
         function verificarEnlace(enlace) {
             const href = enlace.getAttribute('href');
+            console.log('🔍 Verificando enlace:', href);
             
             // Verificar que el enlace sea válido
             if (!href || href === '#' || href.includes('undefined')) {
-                alert('❌ Error: No se puede cargar la página de edición. Por favor, recarga la página e intenta nuevamente.');
-                return false;
-            }
-            
-            // Verificar que el nombre de la plantilla sea válido
-            const nombrePlantilla = href.split('/').pop();
-            if (!nombrePlantilla || nombrePlantilla === 'editar') {
-                alert('❌ Error: Nombre de plantilla inválido. Por favor, contacta al administrador.');
+                alert('❌ Error: Enlace inválido. href: ' + href);
                 return false;
             }
             
             return true;
         }
 
-        // Manejar errores de enlaces automáticamente
+        // Debug de todos los enlaces al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
-            const editButtons = document.querySelectorAll('.btn-edit');
+            console.log('🔍 Cargando página de plantillas...');
             
-            editButtons.forEach(button => {
+            const editButtons = document.querySelectorAll('.btn-edit');
+            console.log('🔍 Encontrados', editButtons.length, 'botones de edición');
+            
+            editButtons.forEach((button, index) => {
+                const href = button.getAttribute('href');
+                console.log(`🔍 Botón ${index}: ${href}`);
+                
                 button.addEventListener('click', function(e) {
+                    console.log('🔍 Click en botón:', href);
                     if (!verificarEnlace(this)) {
                         e.preventDefault();
+                        console.log('❌ Enlace bloqueado');
                     }
                 });
             });
-        });
-
-        // Mostrar mensaje si hay problemas con las plantillas
-        window.addEventListener('error', function(e) {
-            if (e.target.tagName === 'A' && e.target.classList.contains('btn-edit')) {
-                alert('❌ Error al cargar la plantilla. Por favor, verifica que todas las plantillas estén configuradas correctamente.');
-            }
         });
     </script>
 </body>

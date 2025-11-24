@@ -365,32 +365,49 @@ def _insertar_servicios_por_defecto(cursor):
 # =============================================================================
 
 def obtener_plantilla(negocio_id, nombre_plantilla):
-    """Obtener una plantilla específica (personalizada si existe, sino base)"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    """Obtener una plantilla específica (personalizada si existe, sino base) - VERSIÓN CORREGIDA"""
+    print(f"🔍 obtener_plantilla - negocio_id: {negocio_id}, nombre: {nombre_plantilla}")
     
-    # Primero buscar plantilla personalizada
-    cursor.execute('''
-        SELECT * FROM plantillas_mensajes 
-        WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-    ''', (negocio_id, nombre_plantilla))
-    
-    plantilla = cursor.fetchone()
-    
-    # Si no existe personalizada, usar la base
-    if not plantilla:
+    try:
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Primero buscar plantilla personalizada
         cursor.execute('''
             SELECT * FROM plantillas_mensajes 
-            WHERE nombre = ? AND es_base = TRUE
-        ''', (nombre_plantilla,))
+            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+        ''', (negocio_id, nombre_plantilla))
+        
         plantilla = cursor.fetchone()
-    
-    conn.close()
-    
-    if plantilla:
-        plantilla_dict = dict(plantilla)
-        return plantilla_dict.get('plantilla', '')
-    else:
+        es_personalizada = True
+        
+        # Si no existe personalizada, usar la base
+        if not plantilla:
+            cursor.execute('''
+                SELECT * FROM plantillas_mensajes 
+                WHERE nombre = ? AND es_base = TRUE
+            ''', (nombre_plantilla,))
+            plantilla = cursor.fetchone()
+            es_personalizada = False
+        
+        conn.close()
+        
+        if plantilla:
+            print(f"✅ Plantilla encontrada, tipo: {type(plantilla)}")
+            
+            # Convertir tupla a diccionario
+            columnas = ['id', 'negocio_id', 'nombre', 'plantilla', 'descripcion', 'variables_disponibles', 'es_base', 'activo', 'created_at']
+            plantilla_dict = dict(zip(columnas, plantilla))
+            plantilla_dict['es_personalizada'] = es_personalizada
+            
+            print(f"✅ Retornando objeto completo de plantilla")
+            return plantilla_dict  # ← ¡IMPORTANTE! Retornar el objeto completo
+        else:
+            print(f"❌ No se encontró plantilla: {nombre_plantilla}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error en obtener_plantilla: {e}")
         return None
 
 def obtener_plantillas_base():
@@ -426,19 +443,36 @@ def obtener_plantillas_base():
     return plantillas
 
 def obtener_plantillas_negocio(negocio_id):
-    """Obtener plantillas personalizadas de un negocio específico"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    """Obtener todas las plantillas disponibles para un negocio - VERSIÓN CORREGIDA"""
+    print(f"🔍 obtener_plantillas_negocio - negocio_id: {negocio_id}")
     
-    cursor.execute('''
-        SELECT * FROM plantillas_mensajes 
-        WHERE negocio_id = ? AND es_base = FALSE
-        ORDER BY nombre
-    ''', (negocio_id,))
-    
-    plantillas = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return plantillas
+    try:
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Obtener nombres únicos de plantillas base
+        cursor.execute('''
+            SELECT DISTINCT nombre FROM plantillas_mensajes 
+            WHERE es_base = TRUE
+        ''')
+        nombres_plantillas = [row[0] for row in cursor.fetchall()]
+        
+        plantillas_resultado = []
+        
+        # Para cada nombre de plantilla, obtener la versión personalizada si existe
+        for nombre in nombres_plantillas:
+            plantilla = obtener_plantilla(negocio_id, nombre)
+            if plantilla:
+                plantillas_resultado.append(plantilla)
+        
+        conn.close()
+        
+        print(f"✅ Se encontraron {len(plantillas_resultado)} plantillas")
+        return plantillas_resultado
+        
+    except Exception as e:
+        print(f"❌ Error en obtener_plantillas_negocio: {e}")
+        return []
 
 def obtener_plantillas_unicas_negocio(negocio_id):
     """Obtener plantillas únicas para un negocio (personalizadas si existen, sino base)"""
@@ -545,6 +579,60 @@ def crear_plantillas_personalizadas_para_negocios():
         conn.commit()
     except Exception as e:
         print(f"❌ Error creando plantillas personalizadas: {e}")
+    finally:
+        conn.close()
+
+def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, descripcion=''):
+    """Guardar o actualizar plantilla personalizada"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar si ya existe una personalizada
+        cursor.execute('''
+            SELECT id FROM plantillas_mensajes 
+            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+        ''', (negocio_id, nombre_plantilla))
+        
+        existe = cursor.fetchone()
+        
+        if existe:
+            # Actualizar existente
+            cursor.execute('''
+                UPDATE plantillas_mensajes 
+                SET plantilla = ?, descripcion = ?
+                WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+            ''', (contenido, descripcion, negocio_id, nombre_plantilla))
+        else:
+            # Crear nueva personalizada basada en la plantilla base
+            cursor.execute('''
+                SELECT descripcion, variables_disponibles 
+                FROM plantillas_mensajes 
+                WHERE nombre = ? AND es_base = TRUE
+            ''', (nombre_plantilla,))
+            
+            plantilla_base = cursor.fetchone()
+            
+            descripcion_final = descripcion
+            variables_disponibles = '[]'
+            
+            if plantilla_base:
+                if not descripcion_final:
+                    descripcion_final = plantilla_base[0]
+                variables_disponibles = plantilla_base[1]
+            
+            cursor.execute('''
+                INSERT INTO plantillas_mensajes 
+                (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                VALUES (?, ?, ?, ?, ?, FALSE)
+            ''', (negocio_id, nombre_plantilla, contenido, descripcion_final, variables_disponibles))
+        
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error guardando plantilla: {e}")
+        return False
     finally:
         conn.close()
 
@@ -754,6 +842,24 @@ def obtener_servicios(negocio_id):
         print(f"❌ Error en obtener_servicios: {e}")
         return []
 
+def obtener_servicio_por_id(servicio_id, negocio_id):
+    """Obtener un servicio específico por ID"""
+    conn = sqlite3.connect('negocio.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM servicios 
+        WHERE id = ? AND negocio_id = ?
+    ''', (servicio_id, negocio_id))
+    
+    servicio = cursor.fetchone()
+    conn.close()
+    
+    if servicio:
+        return dict(servicio)
+    return None
+
 def obtener_servicios_negocio(negocio_id):
     """Obtener servicios activos de un negocio"""
     conn = sqlite3.connect('negocio.db')
@@ -844,38 +950,6 @@ def obtener_nombre_cliente(telefono, negocio_id):
     conn.close()
     
     return resultado[0] if resultado else None
-
-def obtener_turnos_dia(negocio_id, profesional_id, fecha):
-    """Obtener todos los turnos de un día específico para un profesional"""
-    try:
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, cliente_nombre, cliente_telefono, fecha, hora, servicio_id, estado
-            FROM citas 
-            WHERE negocio_id = ? AND profesional_id = ? AND fecha = ?
-            ORDER BY hora
-        ''', (negocio_id, profesional_id, fecha))
-        
-        turnos = []
-        for row in cursor.fetchall():
-            turnos.append({
-                'id': row[0],
-                'cliente_nombre': row[1],
-                'cliente_telefono': row[2],
-                'fecha': row[3],
-                'hora': row[4],
-                'servicio_id': row[5],
-                'estado': row[6]
-            })
-        
-        conn.close()
-        return turnos
-        
-    except Exception as e:
-        print(f"❌ Error en obtener_turnos_dia: {e}")
-        return []
 
 def obtener_profesionales_por_negocio(negocio_id):
     """Obtener todos los profesionales de un negocio"""

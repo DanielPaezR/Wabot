@@ -994,6 +994,63 @@ def negocio_citas():
                          negocio_id=negocio_id,
                          profesionales=profesionales)
 
+@app.route('/negocio/api/citas')
+@role_required(['propietario', 'superadmin'])
+def negocio_api_citas():
+    """API para obtener citas del negocio (para el panel de negocio)"""
+    try:
+        fecha = request.args.get('fecha', '')
+        profesional_id = request.args.get('profesional_id', '')
+        estado = request.args.get('estado', '')
+        
+        if not fecha:
+            fecha = datetime.now().strftime('%Y-%m-%d')
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT c.id, c.cliente_nombre, c.cliente_telefono, c.fecha, c.hora, 
+                   s.nombre as servicio_nombre, c.estado, p.nombre as profesional_nombre
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            WHERE c.negocio_id = ? AND c.fecha = ?
+        '''
+        
+        params = [negocio_id, fecha]
+        
+        if profesional_id and profesional_id != '':
+            query += ' AND c.profesional_id = ?'
+            params.append(profesional_id)
+        
+        if estado and estado != '':
+            query += ' AND c.estado = ?'
+            params.append(estado)
+        
+        query += ' ORDER BY c.hora'
+        
+        cursor.execute(query, params)
+        citas = cursor.fetchall()
+        conn.close()
+        
+        return jsonify([{
+            'id': c[0],
+            'cliente_nombre': c[1] or 'Cliente',
+            'cliente_telefono': c[2] or 'N/A',
+            'fecha': c[3],
+            'hora': c[4],
+            'servicio_nombre': c[5],
+            'estado': c[6],
+            'profesional_nombre': c[7]
+        } for c in citas])
+        
+    except Exception as e:
+        print(f"❌ Error en negocio_api_citas: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @app.route('/negocio/estadisticas')
 @role_required(['propietario', 'superadmin'])
 def negocio_estadisticas():
@@ -1023,6 +1080,214 @@ def negocio_estadisticas():
                          negocios=negocios,
                          negocio_nombre=negocio_nombre,
                          profesionales=profesionales)
+
+@app.route('/negocio/api/estadisticas')
+@role_required(['propietario', 'superadmin'])
+def negocio_api_estadisticas():
+    """API para obtener estadísticas del negocio"""
+    try:
+        profesional_id = request.args.get('profesional_id', '')
+        mes = request.args.get('mes', datetime.now().month)
+        año = request.args.get('año', datetime.now().year)
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        try:
+            mes = int(mes)
+            año = int(año)
+            if profesional_id:
+                profesional_id = int(profesional_id)
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Parámetros inválidos'}), 400
+        
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Estadísticas básicas del negocio
+        query_resumen = '''
+            SELECT 
+                COUNT(*) as total_citas,
+                SUM(CASE WHEN estado = 'confirmada' THEN 1 ELSE 0 END) as citas_confirmadas,
+                SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as citas_completadas,
+                SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END) as citas_canceladas,
+                COALESCE(SUM(s.precio), 0) as ingresos_totales
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = ? 
+            AND strftime('%m', c.fecha) = ? 
+            AND strftime('%Y', c.fecha) = ?
+        '''
+        
+        params_resumen = [negocio_id, f"{mes:02d}", str(año)]
+        
+        if profesional_id:
+            query_resumen += ' AND c.profesional_id = ?'
+            params_resumen.append(profesional_id)
+        
+        cursor.execute(query_resumen, params_resumen)
+        resumen = cursor.fetchone()
+        
+        # Top profesionales
+        query_profesionales = '''
+            SELECT p.nombre, COUNT(*) as total_citas
+            FROM citas c
+            JOIN profesionales p ON c.profesional_id = p.id
+            WHERE c.negocio_id = ? 
+            AND strftime('%m', c.fecha) = ? 
+            AND strftime('%Y', c.fecha) = ?
+        '''
+        
+        params_profesionales = [negocio_id, f"{mes:02d}", str(año)]
+        
+        if profesional_id:
+            query_profesionales += ' AND c.profesional_id = ?'
+            params_profesionales.append(profesional_id)
+        
+        query_profesionales += ' GROUP BY p.id, p.nombre ORDER BY total_citas DESC LIMIT 5'
+        
+        cursor.execute(query_profesionales, params_profesionales)
+        profesionales_top = cursor.fetchall()
+        
+        # Top servicios
+        query_servicios = '''
+            SELECT s.nombre, COUNT(*) as total_citas
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = ? 
+            AND strftime('%m', c.fecha) = ? 
+            AND strftime('%Y', c.fecha) = ?
+        '''
+        
+        params_servicios = [negocio_id, f"{mes:02d}", str(año)]
+        
+        if profesional_id:
+            query_servicios += ' AND c.profesional_id = ?'
+            params_servicios.append(profesional_id)
+        
+        query_servicios += ' GROUP BY s.id, s.nombre ORDER BY total_citas DESC LIMIT 5'
+        
+        cursor.execute(query_servicios, params_servicios)
+        servicios_top = cursor.fetchall()
+        
+        # Tendencia mensual (últimos 6 meses)
+        meses_nombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+        tendencia_meses = []
+        tendencia_ingresos = []
+        
+        for i in range(5, -1, -1):  # Últimos 6 meses
+            mes_tendencia = mes - i
+            año_tendencia = año
+            
+            if mes_tendencia <= 0:
+                mes_tendencia += 12
+                año_tendencia -= 1
+            
+            query_tendencia = '''
+                SELECT COALESCE(SUM(s.precio), 0) as ingresos
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.negocio_id = ? 
+                AND strftime('%m', c.fecha) = ? 
+                AND strftime('%Y', c.fecha) = ?
+                AND c.estado != 'cancelada'
+            '''
+            
+            params_tendencia = [negocio_id, f"{mes_tendencia:02d}", str(año_tendencia)]
+            
+            if profesional_id:
+                query_tendencia += ' AND c.profesional_id = ?'
+                params_tendencia.append(profesional_id)
+            
+            cursor.execute(query_tendencia, params_tendencia)
+            ingresos_mes = cursor.fetchone()[0]
+            
+            tendencia_meses.append(f"{meses_nombres[mes_tendencia-1]} {año_tendencia}")
+            tendencia_ingresos.append(float(ingresos_mes))
+        
+        conn.close()
+        
+        # Calcular tasa de éxito
+        total_citas = resumen[0] if resumen else 0
+        citas_exitosas = (resumen[1] if resumen else 0) + (resumen[2] if resumen else 0)
+        tasa_exito = round((citas_exitosas / total_citas * 100), 2) if total_citas > 0 else 0
+        
+        estadisticas = {
+            'resumen': {
+                'total_citas': total_citas,
+                'citas_confirmadas': resumen[1] if resumen else 0,
+                'citas_completadas': resumen[2] if resumen else 0,
+                'citas_canceladas': resumen[3] if resumen else 0,
+                'ingresos_totales': float(resumen[4]) if resumen else 0,
+                'tasa_exito': tasa_exito
+            },
+            'profesionales_top': [
+                {'nombre': p[0], 'total_citas': p[1]} for p in profesionales_top
+            ],
+            'servicios_top': [
+                {'nombre': s[0], 'total_citas': s[1]} for s in servicios_top
+            ],
+            'tendencia_mensual': {
+                'meses': tendencia_meses,
+                'ingresos': tendencia_ingresos
+            }
+        }
+        
+        return jsonify(estadisticas)
+        
+    except Exception as e:
+        print(f"❌ Error en negocio_api_estadisticas: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    
+@app.route('/negocio/api/citas/recientes')
+@role_required(['propietario', 'superadmin'])
+def negocio_api_citas_recientes():
+    """API para obtener citas recientes del negocio"""
+    try:
+        limit = request.args.get('limit', 10)
+        profesional_id = request.args.get('profesional_id', '')
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT c.cliente_nombre, s.nombre as servicio_nombre, 
+                   p.nombre as profesional_nombre, c.fecha, c.hora, c.estado
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            WHERE c.negocio_id = ?
+        '''
+        
+        params = [negocio_id]
+        
+        if profesional_id:
+            query += ' AND c.profesional_id = ?'
+            params.append(profesional_id)
+        
+        query += ' ORDER BY c.fecha DESC, c.hora DESC LIMIT ?'
+        params.append(int(limit))
+        
+        cursor.execute(query, params)
+        citas = cursor.fetchall()
+        conn.close()
+        
+        return jsonify([
+            {
+                'cliente_nombre': c[0],
+                'servicio_nombre': c[1],
+                'profesional_nombre': c[2],
+                'fecha': c[3],
+                'hora': c[4],
+                'estado': c[5]
+            } for c in citas
+        ])
+        
+    except Exception as e:
+        print(f"❌ Error en negocio_api_citas_recientes: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 
 @app.route('/negocio/configuracion', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
@@ -1252,20 +1517,21 @@ def negocio_eliminar_servicio(servicio_id):
     return redirect(url_for('negocio_servicios'))
 
 @app.route('/negocio/plantillas')
-@role_required(['propietario', 'superadmin'])
+@login_required
 def negocio_plantillas():
-    """Plantillas personalizadas del negocio"""
-    negocio_id = session.get('negocio_id', 1)
+    """Página principal de plantillas del negocio"""
+    negocio_id = session['negocio_id']
     
-    plantillas = db.obtener_plantillas_unicas_negocio(negocio_id)
+    # ✅ USAR LA FUNCIÓN CORREGIDA
+    plantillas = db.obtener_plantillas_negocio(negocio_id)
     
-    for plantilla in plantillas:
-        plantilla['es_personalizada'] = (plantilla.get('negocio_id') == negocio_id)
-        plantilla['es_base'] = plantilla.get('es_base', False)
+    print(f"🔍 PLANTILLAS PRINCIPAL - plantillas recibidas: {len(plantillas)}")
     
-    return render_template('negocio/plantillas.html', 
-                         plantillas=plantillas,
-                         negocio_id=negocio_id)
+    # Debug: mostrar información de cada plantilla
+    for i, plantilla in enumerate(plantillas):
+        print(f"🔍 Plantilla {i}: {plantilla.get('nombre')} - tipo: {type(plantilla)}")
+    
+    return render_template('negocio/plantillas.html', plantillas=plantillas)
 
 @app.route('/negocio/plantillas/<nombre_plantilla>/editar', methods=['GET', 'POST'])
 @login_required
@@ -1273,47 +1539,27 @@ def negocio_editar_plantilla(nombre_plantilla):
     """Editar plantilla del negocio"""
     negocio_id = session['negocio_id']
     
+    # ✅ USAR LA FUNCIÓN CORREGIDA
+    plantilla_actual = db.obtener_plantilla(negocio_id, nombre_plantilla)
+    
+    print(f"🔍 EDITAR PLANTILLA - plantilla_actual recibida: {plantilla_actual}")
+    print(f"🔍 EDITAR PLANTILLA - tipo: {type(plantilla_actual)}")
+    
+    if not plantilla_actual:
+        flash('❌ Error: Nombre de plantilla inválido. Por favor, contacta al administrador.', 'error')
+        return redirect(url_for('negocio_plantillas'))
+    
+    # Verificar que tenemos un diccionario completo
+    if not isinstance(plantilla_actual, dict) or 'plantilla' not in plantilla_actual:
+        print(f"❌ EDITAR PLANTILLA - plantilla_actual no es un diccionario válido: {plantilla_actual}")
+        flash('❌ Error: Estructura de plantilla inválida.', 'error')
+        return redirect(url_for('negocio_plantillas'))
+    
     if request.method == 'POST':
-        # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             return redirect(url_for('negocio_plantillas'))
-    
-    # Obtener la plantilla actual de forma segura
-    plantilla_actual = db.obtener_plantilla(negocio_id, nombre_plantilla)
-    
-    # Crear diccionario seguro
-    if plantilla_actual and isinstance(plantilla_actual, str):
-        plantilla_dict = {
-            'plantilla': plantilla_actual,
-            'nombre': nombre_plantilla,
-            'negocio_id': negocio_id,
-            'es_personalizada': True
-        }
-    elif plantilla_actual and isinstance(plantilla_actual, dict):
-        plantilla_dict = plantilla_actual
-    else:
-        plantilla_base = db.obtener_plantilla_base(nombre_plantilla)
-        if plantilla_base:
-            plantilla_dict = {
-                'plantilla': plantilla_base.get('plantilla', ''),
-                'nombre': nombre_plantilla,
-                'descripcion': plantilla_base.get('descripcion', ''),
-                'variables_disponibles': plantilla_base.get('variables_disponibles', '[]'),
-                'negocio_id': negocio_id,
-                'es_personalizada': False
-            }
-        else:
-            plantilla_dict = {
-                'plantilla': '',
-                'nombre': nombre_plantilla,
-                'descripcion': '',
-                'variables_disponibles': '[]',
-                'negocio_id': negocio_id,
-                'es_personalizada': False
-            }
-    
-    if request.method == 'POST':
+        
         nueva_plantilla = request.form.get('plantilla')
         descripcion = request.form.get('descripcion', '')
         
@@ -1325,9 +1571,46 @@ def negocio_editar_plantilla(nombre_plantilla):
             flash('❌ Error al actualizar la plantilla', 'error')
     
     return render_template('negocio/editar_plantilla.html',
-                         plantilla_actual=plantilla_dict,
+                         plantilla=plantilla_actual,
                          nombre_plantilla=nombre_plantilla,
-                         es_personalizada=plantilla_dict.get('es_personalizada', False))
+                         es_personalizada=plantilla_actual.get('es_personalizada', False))
+
+def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, descripcion=''):
+    """Guardar o actualizar plantilla personalizada"""
+    try:
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Verificar si ya existe una personalizada
+        cursor.execute('''
+            SELECT id FROM plantillas_mensajes 
+            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+        ''', (negocio_id, nombre_plantilla))
+        
+        existe = cursor.fetchone()
+        
+        if existe:
+            # Actualizar existente
+            cursor.execute('''
+                UPDATE plantillas_mensajes 
+                SET plantilla = ?, descripcion = ?
+                WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+            ''', (contenido, descripcion, negocio_id, nombre_plantilla))
+        else:
+            # Crear nueva personalizada
+            cursor.execute('''
+                INSERT INTO plantillas_mensajes 
+                (negocio_id, nombre, plantilla, descripcion, es_base)
+                VALUES (?, ?, ?, ?, FALSE)
+            ''', (negocio_id, nombre_plantilla, contenido, descripcion))
+        
+        conn.commit()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error guardando plantilla: {e}")
+        return False
 
 # =============================================================================
 # RUTAS PARA GESTIÓN DE PROFESIONALES
@@ -1992,6 +2275,17 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
+@app.route('/debug/enlace/<nombre_plantilla>')
+@login_required
+def debug_enlace(nombre_plantilla):
+    """Debug: ver qué nombre de plantilla se está recibiendo"""
+    return f"""
+    <h1>Debug Enlace</h1>
+    <p>Nombre de plantilla recibido: <strong>'{nombre_plantilla}'</strong></p>
+    <p>Longitud: {len(nombre_plantilla)}</p>
+    <p>URL: {request.url}</p>
+    <a href="{{ url_for('negocio_plantillas') }}">Volver</a>
+    """
 
 @app.route('/migrar_hashes')
 def migrar_hashes():

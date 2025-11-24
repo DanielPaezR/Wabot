@@ -192,6 +192,7 @@
         
         <div class="form-container">
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="nombre">Nombre del Negocio *</label>
                     <input type="text" id="nombre" name="nombre" value="{{ negocio.nombre }}" required>

@@ -206,6 +206,7 @@
             {% endif %}
             
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="nombre">Nombre del Profesional *</label>
                     <input type="text" id="nombre" name="nombre" required placeholder="Ej: Carlos Rodríguez">

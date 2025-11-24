@@ -327,6 +327,7 @@
         {% endwith %}
 
         <form method="POST" action="{{ url_for('negocio_configuracion') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="config-section">
                 <h2 class="section-title">📅 Configuración de Días y Horarios de Atención</h2>
                 <p style="color: #666; margin-bottom: 2rem;">
