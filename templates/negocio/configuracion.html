@@ -452,21 +452,21 @@
                                 <div class="horario-group">
                                     <label>🕐 Hora Inicio:</label>
                                     <input type="time" 
-                                           name="dia_{{ dia.id }}_inicio" 
-                                           value="{{ dia.config.hora_inicio or '09:00' }}"
-                                           class="horario-input"
-                                           {% if not dia.config.activo %}disabled{% endif %}
-                                           required>
+                                        name="dia_{{ dia.id }}_inicio" 
+                                        value="{{ dia.config.hora_inicio or '09:00' }}"
+                                        class="horario-input"
+                                        {% if not dia.config.activo %}disabled{% endif %}
+                                        required>
                                 </div>
-                                
+
                                 <div class="horario-group">
                                     <label>🕔 Hora Fin:</label>
                                     <input type="time" 
-                                           name="dia_{{ dia.id }}_fin" 
-                                           value="{{ dia.config.hora_fin or '19:00' }}"
-                                           class="horario-input"
-                                           {% if not dia.config.activo %}disabled{% endif %}
-                                           required>
+                                        name="dia_{{ dia.id }}_fin" 
+                                        value="{{ dia.config.hora_fin or '19:00' }}" 
+                                        class="horario-input"
+                                        {% if not dia.config.activo %}disabled{% endif %}
+                                        required>
                                 </div>
                             </div>
 

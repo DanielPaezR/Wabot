@@ -765,8 +765,10 @@ def verificar_configuracion_negocio(negocio_id):
         return False
     
 def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios):
-    """Actualizar configuración completa del negocio"""
+    """Actualizar configuración completa del negocio - CORREGIDA"""
     try:
+        print(f"🔧 ACTUALIZANDO CONFIGURACIÓN - Negocio: {negocio_id}")
+        
         conn = sqlite3.connect('negocio.db')
         cursor = conn.cursor()
         
@@ -777,28 +779,40 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
             WHERE id = ?
         ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
         
-        # Actualizar horarios
+        print(f"✅ Información del negocio actualizada: {nombre}")
+        
+        # ✅ CORRECCIÓN: Validar horarios antes de guardar
         for horario in horarios:
+            # Validar que los campos obligatorios no estén vacíos
+            hora_inicio = horario['hora_inicio'] or '09:00'  # Valor por defecto si está vacío
+            hora_fin = horario['hora_fin'] or '19:00'        # Valor por defecto si está vacío
+            
+            print(f"🔧 Procesando horario día {horario['dia_id']}: activo={horario['activo']}, inicio={hora_inicio}, fin={hora_fin}")
+            
             cursor.execute('''
-                INSERT OR REPLACE INTO horarios_negocio 
+                INSERT OR REPLACE INTO configuracion_horarios 
                 (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 negocio_id, 
                 horario['dia_id'],
-                horario['activo'],
-                horario['hora_inicio'],
-                horario['hora_fin'],
-                horario['almuerzo_inicio'],
-                horario['almuerzo_fin']
+                1 if horario['activo'] else 0,
+                hora_inicio,  # ✅ Usar valor validado
+                hora_fin,     # ✅ Usar valor validado
+                horario['almuerzo_inicio'] or None,
+                horario['almuerzo_fin'] or None
             ))
+            print(f"✅ Horario actualizado para día {horario['dia_id']}")
         
         conn.commit()
         conn.close()
+        print("✅ Configuración completa guardada exitosamente")
         return True
         
     except Exception as e:
         print(f"❌ Error actualizando configuración completa: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # =============================================================================
