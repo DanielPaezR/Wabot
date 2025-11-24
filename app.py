@@ -3,6 +3,7 @@
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+from flask_wtf.csrf import CSRFProtect
 import sqlite3
 from datetime import datetime, timedelta
 import database as db
@@ -19,6 +20,10 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
+
+# Configuración adicional para CSRF
+app.config['WTF_CSRF_ENABLED'] = True
+app.config['WTF_CSRF_SECRET_KEY'] = os.getenv('SECRET_KEY', 'negocio-secret-key')
 
 # =============================================================================
 # DECORADORES DE AUTENTICACIÓN
@@ -64,6 +69,10 @@ def get_redirect_url_by_role(rol):
 # =============================================================================
 # FILTROS PERSONALIZADOS PARA JINJA2
 # =============================================================================
+# Agregar CSRF a todas las templates
+@app.context_processor
+def inject_csrf_token():
+    return dict(csrf_token=generate_csrf_token)
 
 @app.template_filter('fromjson')
 def fromjson_filter(value):
