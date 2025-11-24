@@ -1400,26 +1400,27 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico - CON DEBUGGING"""
+    """Obtener horarios para un día específico - CON CONVERSIÓN CORREGIDA"""
     try:
         print(f"🔧 [DEBUG] OBTENER_HORARIOS_POR_DIA - Negocio: {negocio_id}, Fecha: {fecha}")
         
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
-        dia_semana = fecha_obj.weekday()  # 0=lunes, 1=martes, ..., 6=domingo
-        dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
-        dia_nombre = dias[dia_semana]
+        dia_semana_real = fecha_obj.weekday()  # 0=lunes, 1=martes, ..., 6=domingo
         
-        print(f"🔧 [DEBUG] Día de la semana: {dia_nombre} ({dia_semana})")
+        # ✅ CORRECCIÓN: Convertir de 0-6 a 1-7 para buscar en la BD
+        dia_semana_bd = dia_semana_real + 1  # 0→1, 1→2, ..., 6→7
+        
+        print(f"🔧 [DEBUG] Día real: {dia_semana_real} → Día en BD: {dia_semana_bd}")
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
             SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
-            FROM configuracion_horarios 
+            FROM configuracion_horarios
             WHERE negocio_id = ? AND dia_semana = ?
-        ''', (negocio_id, dia_semana))
+        ''', (negocio_id, dia_semana_bd))
         
         result = cursor.fetchone()
         conn.close()
@@ -1432,11 +1433,10 @@ def obtener_horarios_por_dia(negocio_id, fecha):
                 'almuerzo_inicio': result[3],
                 'almuerzo_fin': result[4]
             }
-            print(f"🔧 [DEBUG] Horario encontrado: {horario}")
+            print(f"🔧 [DEBUG] Horario encontrado para día BD {dia_semana_bd}: {horario}")
             return horario
         else:
-            print(f"🔧 [DEBUG] No hay horario configurado para {dia_nombre}")
-            # Retornar horario por defecto inactivo si no hay configuración
+            print(f"🔧 [DEBUG] No hay horario configurado para día BD {dia_semana_bd}")
             return {
                 'activo': False,
                 'hora_inicio': '09:00',
@@ -1447,8 +1447,6 @@ def obtener_horarios_por_dia(negocio_id, fecha):
             
     except Exception as e:
         print(f"❌ [DEBUG] Error en obtener_horarios_por_dia: {e}")
-        import traceback
-        traceback.print_exc()
         return {
             'activo': False,
             'hora_inicio': '09:00',

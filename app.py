@@ -2333,12 +2333,33 @@ def api_horarios_disponibles():
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
 @app.route('/limpiar-horarios')
-def limpiar_horarios():
-    from database import limpiar_registros_duplicados_horarios
-    if limpiar_registros_duplicados_horarios(1):
-        return "✅ Registros duplicados limpiados"
-    else:
-        return "❌ Error limpiando registros"
+def ejecutar_limpieza():
+    from database import get_db_connection
+    import database as db
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Limpiar duplicados
+        if db.limpiar_registros_duplicados_horarios(1):
+            # Eliminar día 7
+            cursor.execute('DELETE FROM configuracion_horarios WHERE negocio_id = 1 AND dia_semana = 7')
+            eliminados = cursor.rowcount
+            
+            conn.commit()
+            conn.close()
+            
+            return f"""
+            <h1>✅ Limpieza completada</h1>
+            <p>Día 7 eliminado: {eliminados} registro(s)</p>
+            <p><a href="/">Volver</a></p>
+            """
+        else:
+            return "❌ Error en la limpieza"
+            
+    except Exception as e:
+        return f"❌ Error: {e}"
 
 @app.route('/migrar_hashes')
 def migrar_hashes():

@@ -1057,20 +1057,18 @@ Esperamos verte pronto en otra ocasión.'''
 # =============================================================================
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
-    """Obtener las próximas fechas donde el negocio está activo - CON DIAGNÓSTICO"""
+    """Obtener las próximas fechas donde el negocio está activo - CORREGIDA"""
     fechas_disponibles = []
     fecha_actual = datetime.now()
     
     print(f"🔧 [DEBUG] OBTENER_FECHAS_DISPONIBLES - Negocio: {negocio_id}")
     
-    # ✅ DIAGNÓSTICO TEMPORAL - Eliminar después de probar
-    verificar_configuracion_horarios_completa(negocio_id)
-    
+    # ✅ CORRECCIÓN: Mostrar siempre los próximos X días, NO solo desde hoy
     for i in range(dias_a_mostrar):
         fecha = fecha_actual + timedelta(days=i)
         fecha_str = fecha.strftime('%Y-%m-%d')
         
-        # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
+        # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO (con la nueva conversión)
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha_str)
         
         print(f"🔧 [DEBUG] Fecha {fecha_str}: activo={horarios_dia.get('activo')}")
@@ -1083,7 +1081,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
                 fecha_formateada = "Mañana"
             else:
                 fecha_formateada = fecha.strftime('%A %d/%m').title()
-                # Traducir días si es necesario
+                # Traducir días
                 fecha_formateada = fecha_formateada.replace('Monday', 'Lunes')\
                                                   .replace('Tuesday', 'Martes')\
                                                   .replace('Wednesday', 'Miércoles')\
