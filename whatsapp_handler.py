@@ -238,73 +238,6 @@ def saludo_inicial(numero, negocio_id):
     except Exception as e:
         print(f"❌ Error en saludo_inicial: {e}")
         return renderizar_plantilla('error_generico', negocio_id)
-    
-def obtener_profesionales_activos(negocio_id):
-    """Obtener profesionales activos - CON DEBUGGING"""
-    try:
-        print(f"🔧 [DEBUG] OBTENER_PROFESIONALES_ACTIVOS - Negocio: {negocio_id}")
-        
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, nombre, especialidad, pin, telefono
-            FROM profesionales 
-            WHERE negocio_id = ? AND activo = 1
-            ORDER BY nombre
-        ''', (negocio_id,))
-        
-        profesionales = []
-        for row in cursor.fetchall():
-            profesional = {
-                'id': row[0],
-                'nombre': row[1],
-                'especialidad': row[2],
-                'pin': row[3],
-                'telefono': row[4]
-            }
-            profesionales.append(profesional)
-            print(f"🔧 [DEBUG] Profesional encontrado: {profesional}")
-        
-        conn.close()
-        print(f"🔧 [DEBUG] Total profesionales activos: {len(profesionales)}")
-        return profesionales
-        
-    except Exception as e:
-        print(f"❌ [DEBUG] Error en obtener_profesionales_activos: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
-
-def verificar_estado_base_datos(negocio_id):
-    """Función de diagnóstico para verificar el estado de la base de datos"""
-    try:
-        print(f"🔍 [DIAGNÓSTICO] Verificando base de datos para negocio {negocio_id}")
-        
-        # Verificar conexión a la base de datos
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        # Verificar tabla profesionales
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='profesionales'")
-        tabla_existe = cursor.fetchone()
-        print(f"🔍 [DIAGNÓSTICO] Tabla 'profesionales' existe: {bool(tabla_existe)}")
-        
-        if tabla_existe:
-            # Contar profesionales activos
-            cursor.execute('SELECT COUNT(*) FROM profesionales WHERE negocio_id = ? AND activo = 1', (negocio_id,))
-            count_activos = cursor.fetchone()[0]
-            print(f"🔍 [DIAGNÓSTICO] Profesionales activos: {count_activos}")
-            
-            # Mostrar todos los profesionales
-            cursor.execute('SELECT id, nombre, especialidad, activo FROM profesionales WHERE negocio_id = ?', (negocio_id,))
-            todos = cursor.fetchall()
-            print(f"🔍 [DIAGNÓSTICO] Todos los profesionales: {todos}")
-        
-        conn.close()
-        
-    except Exception as e:
-        print(f"❌ [DIAGNÓSTICO] Error en verificación: {e}")
 
 
 def mostrar_profesionales(numero, negocio_id):
@@ -313,10 +246,9 @@ def mostrar_profesionales(numero, negocio_id):
         print(f"🔧 [DEBUG] MOSTRAR_PROFESIONALES - Iniciando")
         print(f"🔧 [DEBUG] Parámetros - Negocio: {negocio_id}, Cliente: {numero}")
         
-        # ✅ CORRECCIÓN: Usar la función que SÍ existe
+        # ✅ CORRECCIÓN: Usar la función que SÍ existe de database
         print(f"🔧 [DEBUG] Llamando a db.obtener_profesionales...")
         profesionales = db.obtener_profesionales(negocio_id)
-        verificar_funciones_database()
         
         print(f"🔧 [DEBUG] Profesionales obtenidos: {len(profesionales)}")
         
@@ -335,7 +267,6 @@ def mostrar_profesionales(numero, negocio_id):
             print(f"🔧 [DEBUG] No hay profesionales disponibles")
             return "❌ No hay profesionales disponibles en este momento."
         
-        # El resto del código permanece igual...
         # Obtener información del negocio para textos dinámicos
         print(f"🔧 [DEBUG] Obteniendo información del negocio...")
         negocio = db.obtener_negocio_por_id(negocio_id)
@@ -425,13 +356,57 @@ Responde con el *número* del servicio que deseas:
         print(f"❌ [DEBUG] Error en mostrar_servicios: {e}")
         return renderizar_plantilla('error_generico', negocio_id)
     
-
-def verificar_funciones_database():
-    """Verificar qué funciones existen realmente en el módulo database"""
-    print("🔍 [DIAGNÓSTICO] Funciones disponibles en database:")
-    for func_name in dir(db):
-        if not func_name.startswith('_'):  # Excluir funciones privadas
-            print(f"🔍 [DIAGNÓSTICO] - {func_name}")
+def verificar_configuracion_horarios_completa(negocio_id):
+    """Diagnóstico completo de la configuración de horarios"""
+    try:
+        print(f"🔍 [DIAGNÓSTICO HORARIOS] Verificando configuración para negocio {negocio_id}")
+        
+        # 1. Verificar tabla configuracion_horarios
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='configuracion_horarios'")
+        tabla_existe = cursor.fetchone()
+        print(f"🔍 [DIAGNÓSTICO] Tabla 'configuracion_horarios' existe: {bool(tabla_existe)}")
+        
+        if not tabla_existe:
+            print(f"🔍 [DIAGNÓSTICO] ❌ La tabla configuracion_horarios NO existe")
+            conn.close()
+            return False
+        
+        # 2. Verificar registros existentes
+        cursor.execute('SELECT COUNT(*) FROM configuracion_horarios WHERE negocio_id = ?', (negocio_id,))
+        count = cursor.fetchone()[0]
+        print(f"🔍 [DIAGNÓSTICO] Registros existentes: {count}")
+        
+        # 3. Mostrar configuración actual
+        cursor.execute('''
+            SELECT dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin 
+            FROM configuracion_horarios WHERE negocio_id = ? ORDER BY dia_semana
+        ''', (negocio_id,))
+        
+        horarios = cursor.fetchall()
+        print(f"🔍 [DIAGNÓSTICO] Configuración actual:")
+        for dia, activo, inicio, fin, alm_ini, alm_fin in horarios:
+            estado = "✅ ACTIVO" if activo else "❌ INACTIVO"
+            almuerzo = f" | Almuerzo: {alm_ini}-{alm_fin}" if alm_ini and alm_fin else ""
+            print(f"🔍 [DIAGNÓSTICO] - Día {dia}: {estado} ({inicio} - {fin}){almuerzo}")
+        
+        conn.close()
+        
+        # 4. Verificar funcionamiento para próximos días
+        print(f"🔍 [DIAGNÓSTICO] Verificando disponibilidad próximos 7 días:")
+        for i in range(7):
+            fecha = (datetime.now() + timedelta(days=i)).strftime('%Y-%m-%d')
+            horario_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
+            estado = "✅ DISPONIBLE" if horario_dia.get('activo') else "❌ NO DISPONIBLE"
+            print(f"🔍 [DIAGNÓSTICO] - {fecha}: {estado}")
+            
+        return True
+        
+    except Exception as e:
+        print(f"❌ [DIAGNÓSTICO] Error en verificación de horarios: {e}")
+        return False
 
 def mostrar_fechas_disponibles(numero, negocio_id):
     """Mostrar fechas disponibles para agendar"""
@@ -1082,9 +1057,14 @@ Esperamos verte pronto en otra ocasión.'''
 # =============================================================================
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
-    """Obtener las próximas fechas donde el negocio está activo"""
+    """Obtener las próximas fechas donde el negocio está activo - CON DIAGNÓSTICO"""
     fechas_disponibles = []
     fecha_actual = datetime.now()
+    
+    print(f"🔧 [DEBUG] OBTENER_FECHAS_DISPONIBLES - Negocio: {negocio_id}")
+    
+    # ✅ DIAGNÓSTICO TEMPORAL - Eliminar después de probar
+    verificar_configuracion_horarios_completa(negocio_id)
     
     for i in range(dias_a_mostrar):
         fecha = fecha_actual + timedelta(days=i)
@@ -1092,6 +1072,8 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
         
         # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha_str)
+        
+        print(f"🔧 [DEBUG] Fecha {fecha_str}: activo={horarios_dia.get('activo')}")
         
         if horarios_dia and horarios_dia['activo']:
             # Formatear fecha para mostrar
@@ -1114,7 +1096,11 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
                 'fecha': fecha_str,
                 'mostrar': fecha_formateada
             })
+            print(f"🔧 [DEBUG] ✅ Fecha {fecha_str} agregada como disponible")
+        else:
+            print(f"🔧 [DEBUG] ❌ Fecha {fecha_str} NO disponible (activo=False)")
     
+    print(f"🔧 [DEBUG] Total fechas disponibles: {len(fechas_disponibles)}")
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):

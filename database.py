@@ -1400,32 +1400,62 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios específicos para un día de la semana"""
-    fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
-    dia_semana = fecha_obj.weekday()
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
-        FROM configuracion_horarios 
-        WHERE negocio_id = ? AND dia_semana = ?
-    ''', (negocio_id, dia_semana))
-    
-    resultado = cursor.fetchone()
-    conn.close()
-    
-    if resultado and resultado[0]:
+    """Obtener horarios para un día específico - CON DEBUGGING"""
+    try:
+        print(f"🔧 [DEBUG] OBTENER_HORARIOS_POR_DIA - Negocio: {negocio_id}, Fecha: {fecha}")
+        
+        # Convertir fecha a día de la semana (0=lunes, 6=domingo)
+        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+        dia_semana = fecha_obj.weekday()  # 0=lunes, 1=martes, ..., 6=domingo
+        dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+        dia_nombre = dias[dia_semana]
+        
+        print(f"🔧 [DEBUG] Día de la semana: {dia_nombre} ({dia_semana})")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+            FROM horarios_negocio 
+            WHERE negocio_id = ? AND dia_semana = ?
+        ''', (negocio_id, dia_nombre))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            horario = {
+                'activo': bool(result[0]),
+                'hora_inicio': result[1],
+                'hora_fin': result[2],
+                'almuerzo_inicio': result[3],
+                'almuerzo_fin': result[4]
+            }
+            print(f"🔧 [DEBUG] Horario encontrado: {horario}")
+            return horario
+        else:
+            print(f"🔧 [DEBUG] No hay horario configurado para {dia_nombre}")
+            # Retornar horario por defecto inactivo si no hay configuración
+            return {
+                'activo': False,
+                'hora_inicio': '09:00',
+                'hora_fin': '18:00',
+                'almuerzo_inicio': None,
+                'almuerzo_fin': None
+            }
+            
+    except Exception as e:
+        print(f"❌ [DEBUG] Error en obtener_horarios_por_dia: {e}")
+        import traceback
+        traceback.print_exc()
         return {
-            'activo': True,
-            'hora_inicio': resultado[1],
-            'hora_fin': resultado[2],
-            'almuerzo_inicio': resultado[3],
-            'almuerzo_fin': resultado[4]
+            'activo': False,
+            'hora_inicio': '09:00',
+            'hora_fin': '18:00',
+            'almuerzo_inicio': None,
+            'almuerzo_fin': None
         }
-    else:
-        return {'activo': False}
 
 def obtener_configuracion_horarios(negocio_id):
     """Obtener configuración de horarios por días"""
