@@ -18,15 +18,18 @@
         
         .header {
             background: white;
-            padding: 1rem 2rem;
+            padding: 1rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
         
         .header h1 {
             color: #333;
+            font-size: 1.3rem;
         }
 
         .user-info {
@@ -34,6 +37,8 @@
             align-items: center;
             gap: 1rem;
             color: #666;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         
         .logout-btn {
@@ -49,15 +54,18 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1rem;
         }
         
         .nav-buttons {
             margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
         }
         
         .btn {
-            padding: 10px 20px;
+            padding: 10px 16px;
             border: none;
             border-radius: 8px;
             text-decoration: none;
@@ -68,8 +76,6 @@
             align-items: center;
             gap: 0.5rem;
             font-weight: 500;
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem;
         }
         
         .btn-primary {
@@ -99,11 +105,13 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             overflow: hidden;
+            overflow-x: auto;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 800px;
         }
         
         th, td {
@@ -124,6 +132,7 @@
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 0.8rem;
+            display: inline-block;
         }
         
         .status-inactive {
@@ -132,6 +141,7 @@
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 0.8rem;
+            display: inline-block;
         }
         
         .role-badge {
@@ -139,6 +149,7 @@
             border-radius: 12px;
             font-size: 0.7rem;
             font-weight: bold;
+            display: inline-block;
         }
         
         .role-superadmin {
@@ -159,6 +170,7 @@
         .actions {
             display: flex;
             gap: 0.5rem;
+            flex-wrap: wrap;
         }
         
         .btn-sm {
@@ -168,6 +180,11 @@
             border-radius: 5px;
             border: none;
             cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
         }
         
         .btn-edit {
@@ -240,6 +257,176 @@
         .form-inline {
             display: inline;
         }
+
+        /* Estilos responsive para móviles */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0.8rem;
+            }
+            
+            .header h1 {
+                font-size: 1.1rem;
+            }
+            
+            .user-info {
+                font-size: 0.9rem;
+            }
+            
+            .logout-btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .container {
+                padding: 0.8rem;
+            }
+            
+            .nav-buttons {
+                margin-bottom: 1.5rem;
+            }
+            
+            .btn {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+            
+            table {
+                min-width: 900px;
+            }
+            
+            th, td {
+                padding: 0.8rem 0.5rem;
+                font-size: 0.9rem;
+            }
+            
+            .actions {
+                flex-direction: column;
+                gap: 0.3rem;
+            }
+            
+            .btn-sm {
+                padding: 5px 10px;
+                font-size: 0.75rem;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.8rem;
+            }
+            
+            .user-info {
+                justify-content: center;
+            }
+            
+            .nav-buttons {
+                justify-content: center;
+            }
+            
+            .btn {
+                flex: 1;
+                min-width: 140px;
+                justify-content: center;
+            }
+            
+            th, td {
+                padding: 0.6rem 0.4rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Vista móvil con cards */
+        .mobile-table-view {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .desktop-table {
+                display: none;
+            }
+            
+            .mobile-table-view {
+                display: block;
+            }
+            
+            .user-card {
+                background: white;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                border-left: 4px solid #3498db;
+            }
+            
+            .user-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 0.8rem;
+            }
+            
+            .user-main-info {
+                display: flex;
+                align-items: center;
+                gap: 0.8rem;
+                flex: 1;
+            }
+            
+            .user-name {
+                font-weight: bold;
+                font-size: 1.1rem;
+                color: #333;
+            }
+            
+            .user-status {
+                margin-left: auto;
+            }
+            
+            .user-details {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.8rem;
+                margin-bottom: 1rem;
+            }
+            
+            .detail-item {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .detail-label {
+                font-size: 0.8rem;
+                color: #666;
+                margin-bottom: 0.2rem;
+            }
+            
+            .detail-value {
+                font-weight: 500;
+                color: #333;
+            }
+            
+            .card-actions {
+                display: flex;
+                gap: 0.5rem;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Estilos para formularios inline en móviles */
+        @media (max-width: 480px) {
+            .card-actions {
+                flex-direction: column;
+            }
+            
+            .btn-sm {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -286,74 +473,155 @@
         
         <div class="table-container">
             {% if usuarios %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Usuario</th>
-                        <th>Email</th>
-                        <th>Negocio</th>
-                        <th>Rol</th>
-                        <th>Estado</th>
-                        <th>Último Login</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for usuario in usuarios %}
-                    <tr>
-                        <td>
-                            <div class="user-cell">
-                                <div class="user-avatar">
-                                    {{ usuario.nombre[0] }}{% if usuario.nombre.split(' ')|length > 1 %}{{ usuario.nombre.split(' ')[1][0] }}{% endif %}
+            
+            <!-- Vista para escritorio -->
+            <div class="desktop-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Email</th>
+                            <th>Negocio</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Último Login</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>
+                                <div class="user-cell">
+                                    <div class="user-avatar">
+                                        {{ usuario.nombre[0] }}{% if usuario.nombre.split(' ')|length > 1 %}{{ usuario.nombre.split(' ')[1][0] }}{% endif %}
+                                    </div>
+                                    {{ usuario.nombre }}
                                 </div>
-                                {{ usuario.nombre }}
-                            </div>
-                        </td>
-                        <td>{{ usuario.email }}</td>
-                        <td>{{ usuario.negocio_nombre or 'Sistema' }}</td>
-                        <td>
-                            <span class="role-badge role-{{ usuario.rol }}">
-                                {% if usuario.rol == 'superadmin' %}
-                                    👑 Super Admin
-                                {% elif usuario.rol == 'propietario' %}
-                                    💼 Propietario
+                            </td>
+                            <td>{{ usuario.email }}</td>
+                            <td>{{ usuario.negocio_nombre or 'Sistema' }}</td>
+                            <td>
+                                <span class="role-badge role-{{ usuario.rol }}">
+                                    {% if usuario.rol == 'superadmin' %}
+                                        👑 Super Admin
+                                    {% elif usuario.rol == 'propietario' %}
+                                        💼 Propietario
+                                    {% else %}
+                                        👨‍💼 Profesional
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                {% if usuario.activo %}
+                                    <span class="status-active">Activo</span>
                                 {% else %}
-                                    👨‍💼 Profesional
+                                    <span class="status-inactive">Inactivo</span>
                                 {% endif %}
-                            </span>
-                        </td>
-                        <td>
+                            </td>
+                            <td>
+                                {% if usuario.ultimo_login %}
+                                    <span class="last-login">{{ usuario.ultimo_login[:16] }}</span>
+                                {% else %}
+                                    <span class="last-login">Nunca</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions">
+                                <form method="POST" action="{{ url_for('admin_toggle_usuario', usuario_id=usuario.id) }}" class="form-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-sm btn-toggle" 
+                                            onclick="return confirm('¿{% if usuario.activo %}Desactivar{% else %}Activar{% endif %} este usuario?')">
+                                        {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('admin_eliminar_usuario', usuario_id=usuario.id) }}" class="form-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-sm btn-delete" 
+                                            onclick="return confirm('¿Estás seguro de ELIMINAR permanentemente este usuario? Esta acción no se puede deshacer.')">
+                                        🗑️ Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Vista para móviles -->
+            <div class="mobile-table-view">
+                {% for usuario in usuarios %}
+                <div class="user-card">
+                    <div class="user-card-header">
+                        <div class="user-main-info">
+                            <div class="user-avatar">
+                                {{ usuario.nombre[0] }}{% if usuario.nombre.split(' ')|length > 1 %}{{ usuario.nombre.split(' ')[1][0] }}{% endif %}
+                            </div>
+                            <div>
+                                <div class="user-name">{{ usuario.nombre }}</div>
+                                <div style="font-size: 0.8rem; color: #666;">{{ usuario.email }}</div>
+                            </div>
+                        </div>
+                        <div class="user-status">
                             {% if usuario.activo %}
                                 <span class="status-active">Activo</span>
                             {% else %}
                                 <span class="status-inactive">Inactivo</span>
                             {% endif %}
-                        </td>
-                        <td>
-                            {% if usuario.ultimo_login %}
-                                <span class="last-login">{{ usuario.ultimo_login[:16] }}</span>
-                            {% else %}
-                                <span class="last-login">Nunca</span>
-                            {% endif %}
-                        </td>
-                        <td class="actions">
-                            <form method="POST" action="{{ url_for('admin_toggle_usuario', usuario_id=usuario.id) }}" class="form-inline">
-                                <button type="submit" class="btn-sm btn-toggle" 
-                                        onclick="return confirm('¿{% if usuario.activo %}Desactivar{% else %}Activar{% endif %} este usuario?')">
-                                    {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
-                                </button>
-                            </form>
-                            <form method="POST" action="{{ url_for('admin_eliminar_usuario', usuario_id=usuario.id) }}" class="form-inline">
-                                <button type="submit" class="btn-sm btn-delete" 
-                                        onclick="return confirm('¿Estás seguro de ELIMINAR permanentemente este usuario? Esta acción no se puede deshacer.')">
-                                    🗑️ Eliminar
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="user-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Negocio</span>
+                            <span class="detail-value">{{ usuario.negocio_nombre or 'Sistema' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Rol</span>
+                            <span class="detail-value">
+                                <span class="role-badge role-{{ usuario.rol }}">
+                                    {% if usuario.rol == 'superadmin' %}
+                                        👑 Super Admin
+                                    {% elif usuario.rol == 'propietario' %}
+                                        💼 Propietario
+                                    {% else %}
+                                        👨‍💼 Profesional
+                                    {% endif %}
+                                </span>
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Último Login</span>
+                            <span class="detail-value">
+                                {% if usuario.ultimo_login %}
+                                    {{ usuario.ultimo_login[:16] }}
+                                {% else %}
+                                    Nunca
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <form method="POST" action="{{ url_for('admin_toggle_usuario', usuario_id=usuario.id) }}" class="form-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-sm btn-toggle" 
+                                    onclick="return confirm('¿{% if usuario.activo %}Desactivar{% else %}Activar{% endif %} este usuario?')">
+                                {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin_eliminar_usuario', usuario_id=usuario.id) }}" class="form-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-sm btn-delete" 
+                                    onclick="return confirm('¿Estás seguro de ELIMINAR permanentemente este usuario? Esta acción no se puede deshacer.')">
+                                🗑️ Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
             {% else %}
             <div class="empty-state">
                 <h2>📭 No hay usuarios registrados</h2>

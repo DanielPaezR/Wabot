@@ -46,18 +46,29 @@
             align-items: center;
             gap: 1rem;
             color: #666;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         
+        /* ✅ CORRECCIÓN 1: Navegación unificada y responsive */
         .nav-buttons {
             display: flex;
-            gap: 1rem;
             flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            justify-content: center;
         }
-        
-        .btn {
-            padding: 8px 16px;
+
+        @media (min-width: 768px) {
+            .nav-buttons {
+                justify-content: flex-start;
+            }
+        }
+
+        .nav-btn {
+            padding: 10px 16px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             text-decoration: none;
             font-size: 0.9rem;
             cursor: pointer;
@@ -65,41 +76,51 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            font-weight: 500;
+            background: white;
+            color: #3498db;
+            border: 2px solid #3498db;
+            flex: 1;
+            min-width: 140px;
+            justify-content: center;
+            text-align: center;
         }
-        
-        .btn-primary {
+
+        @media (min-width: 480px) {
+            .nav-btn {
+                flex: none;
+            }
+        }
+
+        .nav-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
             background: #3498db;
             color: white;
         }
-        
-        .btn-secondary {
-            background: #95a5a6;
-            color: white;
-        }
-        
-        .btn-success {
-            background: #27ae60;
-            color: white;
-        }
-        
+
         .btn-logout {
             background: #e74c3c;
             color: white;
+            border: 2px solid #e74c3c;
         }
-        
-        .btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
+
+        .btn-logout:hover {
+            background: #c0392b;
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1rem;
         }
         
-        /* Selector de negocio */
-        .selector-container {
+        /* Filtros adicionales */
+        .filters-container {
             background: white;
             padding: 1.5rem;
             border-radius: 10px;
@@ -107,17 +128,15 @@
             margin-bottom: 2rem;
         }
         
-        .selector-form {
-            display: flex;
-            flex-direction: column;
+        .filters-row {
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 1rem;
         }
 
         @media (min-width: 768px) {
-            .selector-form {
-                flex-direction: row;
-                align-items: end;
-                flex-wrap: wrap;
+            .filters-row {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             }
         }
         
@@ -145,27 +164,6 @@
         .form-control:focus {
             outline: none;
             border-color: #3498db;
-        }
-        
-        /* Filtros adicionales */
-        .filters-container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .filters-row {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        @media (min-width: 768px) {
-            .filters-row {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            }
         }
         
         /* Grid de estadísticas */
@@ -230,6 +228,9 @@
             padding: 1.5rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
         }
         
         .chart-title {
@@ -240,17 +241,24 @@
             text-align: center;
         }
         
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        
         /* Tabla de citas recientes */
         .table-container {
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             overflow: hidden;
+            overflow-x: auto;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 600px;
         }
         
         th, td {
@@ -270,24 +278,20 @@
             border-radius: 12px;
             font-size: 0.8rem;
             font-weight: 600;
+            display: inline-block;
         }
         
-        .status-confirmed {
+        .status-confirmado {
             background: #d4edda;
             color: #155724;
         }
         
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .status-completed {
+        .status-completado {
             background: #d1ecf1;
             color: #0c5460;
         }
         
-        .status-cancelled {
+        .status-cancelado {
             background: #f8d7da;
             color: #721c24;
         }
@@ -304,11 +308,31 @@
             padding: 1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
         }
         
         @media (max-width: 768px) {
             .container {
-                padding: 1rem;
+                padding: 0.8rem;
             }
             
             .charts-grid {
@@ -320,31 +344,65 @@
                 align-items: stretch;
             }
             
-            .nav-buttons {
-                justify-content: center;
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
         }
 
-        @media (max-width: 360px) {
+        @media (max-width: 480px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.8rem;
+            }
+            
+            .user-info {
+                justify-content: center;
+            }
+            
             .container {
                 padding: 0.5rem;
             }
             
-            .header {
-                padding: 0.8rem;
+            .nav-buttons {
+                gap: 0.3rem;
             }
             
-            .btn {
-                padding: 10px 12px;
+            .nav-btn {
+                padding: 8px 12px;
                 font-size: 0.8rem;
+                min-width: 120px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .nav-btn {
+                min-width: 100px;
+                font-size: 0.75rem;
+                padding: 6px 10px;
             }
         }
 
         /* Prevenir zoom en inputs en iOS */
         @media (max-width: 768px) {
             input, select, textarea {
-                font-size: 16px; /* Previene zoom en iOS */
+                font-size: 16px;
             }
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .info-card {
+            background: #e8f4fd;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #3498db;
         }
     </style>
 </head>
@@ -352,67 +410,34 @@
     <div class="header">
         <h1>📊 Estadísticas - {{ session.get('negocio_nombre', 'Mi Negocio') }}</h1>
         <div class="user-info">
-            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <div class="nav-buttons">
-                <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-                <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
-                <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
-                <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Cerrar Sesión</a>
-            </div>
+            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }} (Propietario)</span>
+            <a href="{{ url_for('logout') }}" class="nav-btn btn-logout">🚪 Cerrar Sesión</a>
         </div>
     </div>
 
     <div class="container">
-        <!-- Selector de negocio para superadmin -->
-        {% if session.get('usuario_rol') == 'superadmin' and negocios %}
-        <div class="selector-container">
-            <h3>🔍 Seleccionar Negocio</h3>
-            <form method="GET" action="{{ url_for('negocio_estadisticas') }}" class="selector-form">
-                <div class="form-group">
-                    <label for="negocio_id">Negocio:</label>
-                    <select name="negocio_id" id="negocio_id" class="form-control" onchange="this.form.submit()">
-                        <option value="">Selecciona un negocio</option>
-                        {% for negocio in negocios %}
-                        <option value="{{ negocio.id }}" 
-                                {% if negocio.id == negocio_id %}selected{% endif %}>
-                            {{ negocio.nombre }} 
-                            {% if negocio.telefono_whatsapp %} - {{ negocio.telefono_whatsapp }}{% endif %}
-                            {% if not negocio.activo %}(Inactivo){% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">📊 Ver Estadísticas</button>
-            </form>
+        <!-- ✅ CORRECCIÓN 1: Navegación unificada -->
+        <div class="nav-buttons">
+            <a href="{{ url_for('negocio_dashboard') }}" class="nav-btn">📋 Dashboard</a>
+            <a href="{{ url_for('negocio_citas') }}" class="nav-btn">📅 Citas</a>
+            <a href="{{ url_for('negocio_estadisticas') }}" class="nav-btn active">📊 Estadísticas</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="nav-btn">⚙️ Configuración</a>
+            <a href="{{ url_for('negocio_plantillas') }}" class="nav-btn">📝 Plantillas</a>
+            <a href="{{ url_for('negocio_servicios') }}" class="nav-btn">💼 Servicios</a>
+            <a href="{{ url_for('negocio_profesionales') }}" class="nav-btn">👨‍💼 Profesionales</a>
         </div>
 
-        <!-- Indicador de negocio seleccionado -->
-        <div class="selector-container" style="background: #e8f4fd;">
-            <h3>📊 Viendo estadísticas de: <strong>{{ negocio_nombre }}</strong></h3>
+        <!-- Información del negocio -->
+        <div class="info-card">
+            <h3>🏪 {{ session.get('negocio_nombre', 'Mi Negocio') }}</h3>
             <p>
-                📅 Período: {{ now().strftime('%B %Y') }} | 
-                🔢 ID: {{ negocio_id }} |
-                {% for negocio in negocios %}
-                    {% if negocio.id == negocio_id %}
-                        📞 {{ negocio.telefono_whatsapp or 'Sin WhatsApp' }} | 
-                        🏷️ {{ negocio.tipo_negocio }}
-                    {% endif %}
-                {% endfor %}
+                📅 Período actual: {{ now().strftime('%B %Y') }} | 
+                📊 Analizando el rendimiento de tu negocio
             </p>
         </div>
-        {% endif %}
 
-        <!-- ✅ NUEVO: Filtros de profesional y período -->
+        <!-- Filtros de profesional y período -->
         <div class="filters-container">
-            <div class="nav-buttons">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-            <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
-            <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
-            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
-            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
-            </div>
-
             <h3>🎯 Filtrar Estadísticas</h3>
             <div class="filters-row">
                 <div class="form-group">
@@ -430,18 +455,11 @@
                 <div class="form-group">
                     <label for="mes">Mes:</label>
                     <select id="mes" class="form-control">
-                        <option value="1">Enero</option>
-                        <option value="2">Febrero</option>
-                        <option value="3">Marzo</option>
-                        <option value="4">Abril</option>
-                        <option value="5">Mayo</option>
-                        <option value="6">Junio</option>
-                        <option value="7">Julio</option>
-                        <option value="8">Agosto</option>
-                        <option value="9">Septiembre</option>
-                        <option value="10">Octubre</option>
-                        <option value="11">Noviembre</option>
-                        <option value="12">Diciembre</option>
+                        {% for i in range(1, 13) %}
+                        <option value="{{ i }}" {% if i == now().month %}selected{% endif %}>
+                            {{ ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][i-1] }}
+                        </option>
+                        {% endfor %}
                     </select>
                 </div>
                 
@@ -454,7 +472,7 @@
                     </select>
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="cargarEstadisticas()">🔄 Actualizar Estadísticas</button>
+            <button class="btn-primary" onclick="cargarEstadisticas()">🔄 Actualizar Estadísticas</button>
         </div>
 
         <div id="loading" class="loading">
@@ -470,23 +488,31 @@
             <!-- Gráficos -->
             <div class="charts-grid">
                 <div class="chart-container">
-                    <div class="chart-title">📅 Citas por Estado (Este Mes)</div>
-                    <canvas id="chartEstados"></canvas>
+                    <div class="chart-title">📅 Citas por Estado</div>
+                    <div class="chart-wrapper">
+                        <canvas id="chartEstados"></canvas>
+                    </div>
                 </div>
                 
                 <div class="chart-container">
                     <div class="chart-title">💰 Ingresos Mensuales</div>
-                    <canvas id="chartIngresos"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="chartIngresos"></canvas>
+                    </div>
                 </div>
                 
                 <div class="chart-container">
                     <div class="chart-title">👥 Citas por Profesional</div>
-                    <canvas id="chartProfesionales"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="chartProfesionales"></canvas>
+                    </div>
                 </div>
                 
                 <div class="chart-container">
                     <div class="chart-title">💼 Servicios Más Populares</div>
-                    <canvas id="chartServicios"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="chartServicios"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -505,20 +531,10 @@
     </div>
 
     <script>
-        // Configuración
-        const NEGOCIO_ID = "{{ negocio_id }}";
-        const ES_SUPERADMIN = "{{ session.get('usuario_rol') }}" === "superadmin";
+        // Configuración - el propietario solo ve su propio negocio
+        const NEGOCIO_ID = "{{ session.get('negocio_id') }}";
 
-        // Cargar estadísticas al iniciar
-        document.addEventListener('DOMContentLoaded', function() {
-            // Establecer mes y año actual
-            const now = new Date();
-            document.getElementById('mes').value = now.getMonth() + 1;
-            document.getElementById('año').value = now.getFullYear();
-            
-            cargarEstadisticas();
-        });
-
+        // ✅ CORRECCIÓN 2: Función mejorada para cargar estadísticas reales
         async function cargarEstadisticas() {
             try {
                 const profesionalId = document.getElementById('profesional').value;
@@ -528,7 +544,7 @@
                 console.log(`🔍 Cargando estadísticas: profesional=${profesionalId}, mes=${mes}, año=${año}`);
                 
                 // Construir URL con filtros
-                let url = `/api/estadisticas/mensuales?negocio_id=${NEGOCIO_ID}&mes=${mes}&año=${año}`;
+                let url = `/negocio/api/estadisticas?mes=${mes}&año=${año}`;
                 if (profesionalId) {
                     url += `&profesional_id=${profesionalId}`;
                 }
@@ -540,6 +556,11 @@
 
                 // Obtener estadísticas
                 const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.error) {
@@ -551,61 +572,71 @@
                 document.getElementById('content').style.display = 'block';
 
                 // Actualizar tarjetas de estadísticas
-                actualizarStatsCards(data.resumen);
+                actualizarStatsCards(data.resumen || data);
                 
                 // Crear gráficos
                 crearGraficos(data);
                 
                 // Cargar citas recientes
-                cargarCitasRecientes();
+                await cargarCitasRecientes(profesionalId);
 
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error-message').style.display = 'block';
                 document.getElementById('error-message').innerHTML = 
-                    `❌ Error al cargar las estadísticas: ${error.message}`;
+                    `❌ Error al cargar las estadísticas: ${error.message}<br>
+                     <small>Intenta recargar la página o verifica tu conexión</small>`;
+                
+                // Mostrar datos de ejemplo si hay error
+                mostrarDatosEjemplo();
             }
         }
 
         function actualizarStatsCards(resumen) {
             const statsContainer = document.getElementById('stats-cards');
             
+            // Calcular tasa de éxito si no viene en los datos
+            const totalCitas = resumen.total_turnos || resumen.total_citas || 0;
+            const citasExitosas = (resumen.turnos_completados || resumen.citas_completadas || 0) + 
+                                 (resumen.turnos_confirmados || resumen.citas_confirmadas || 0);
+            const tasaExito = totalCitas > 0 ? Math.round((citasExitosas / totalCitas) * 100) : 0;
+            
             const stats = [
                 { 
                     label: 'Total Citas', 
-                    value: resumen.total_turnos || 0,
+                    value: totalCitas,
                     class: '',
                     icon: '📅'
                 },
                 { 
                     label: 'Confirmadas', 
-                    value: resumen.turnos_confirmados || 0,
+                    value: resumen.turnos_confirmados || resumen.citas_confirmadas || 0,
                     class: 'success',
                     icon: '✅'
                 },
                 { 
                     label: 'Completadas', 
-                    value: resumen.turnos_completados || 0,
+                    value: resumen.turnos_completados || resumen.citas_completadas || 0,
                     class: 'success',
                     icon: '🎯'
                 },
                 { 
                     label: 'Canceladas', 
-                    value: resumen.turnos_cancelados || 0,
+                    value: resumen.turnos_cancelados || resumen.citas_canceladas || 0,
                     class: 'danger',
                     icon: '❌'
                 },
                 { 
                     label: 'Ingresos Totales', 
-                    value: `$${(resumen.ingresos_totales || 0).toLocaleString()}`,
+                    value: `$${(resumen.ingresos_totales || resumen.ingresos || 0).toLocaleString()}`,
                     class: 'success',
                     icon: '💰'
                 },
                 { 
                     label: 'Tasa de Éxito', 
-                    value: `${resumen.tasa_exito || 0}%`,
-                    class: resumen.tasa_exito >= 80 ? 'success' : 'warning',
+                    value: `${tasaExito}%`,
+                    class: tasaExito >= 80 ? 'success' : tasaExito >= 60 ? 'warning' : 'danger',
                     icon: '📊'
                 }
             ];
@@ -622,35 +653,28 @@
             console.log('Creando gráficos con datos:', data);
             
             // Destruir gráficos existentes de forma segura
-            if (window.chartEstados && typeof window.chartEstados.destroy === 'function') {
-                window.chartEstados.destroy();
-            }
-            if (window.chartIngresos && typeof window.chartIngresos.destroy === 'function') {
-                window.chartIngresos.destroy();
-            }
-            if (window.chartProfesionales && typeof window.chartProfesionales.destroy === 'function') {
-                window.chartProfesionales.destroy();
-            }
-            if (window.chartServicios && typeof window.chartServicios.destroy === 'function') {
-                window.chartServicios.destroy();
-            }
+            [window.chartEstados, window.chartIngresos, window.chartProfesionales, window.chartServicios].forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
 
             // Gráfico de estados
             const ctxEstados = document.getElementById('chartEstados');
             if (ctxEstados) {
                 try {
+                    const resumen = data.resumen || data;
                     window.chartEstados = new Chart(ctxEstados, {
                         type: 'doughnut',
                         data: {
-                            labels: ['Confirmadas', 'Completadas', 'Pendientes', 'Canceladas'],
+                            labels: ['Confirmadas', 'Completadas', 'Canceladas'],
                             datasets: [{
                                 data: [
-                                    data.resumen.turnos_confirmados || 0,
-                                    data.resumen.turnos_completados || 0,
-                                    data.resumen.turnos_pendientes || 0,
-                                    data.resumen.turnos_cancelados || 0
+                                    resumen.turnos_confirmados || resumen.citas_confirmadas || 0,
+                                    resumen.turnos_completados || resumen.citas_completadas || 0,
+                                    resumen.turnos_cancelados || resumen.citas_canceladas || 0
                                 ],
-                                backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545']
+                                backgroundColor: ['#28a745', '#17a2b8', '#dc3545']
                             }]
                         },
                         options: {
@@ -667,17 +691,19 @@
                 }
             }
 
-            // Gráfico de ingresos con tendencia mensual
+            // Gráfico de ingresos
             const ctxIngresos = document.getElementById('chartIngresos');
             if (ctxIngresos) {
                 try {
+                    const tendencia = data.tendencia_mensual || data.ingresos_mensuales || {meses: ['Actual'], ingresos: [data.resumen?.ingresos_totales || data.ingresos || 0]};
+                    
                     window.chartIngresos = new Chart(ctxIngresos, {
                         type: 'line',
                         data: {
-                            labels: data.tendencia_mensual?.meses || ['Actual'],
+                            labels: tendencia.meses,
                             datasets: [{
                                 label: 'Ingresos Mensuales',
-                                data: data.tendencia_mensual?.ingresos || [data.resumen.ingresos_totales || 0],
+                                data: tendencia.ingresos,
                                 borderColor: '#3498db',
                                 backgroundColor: 'rgba(52, 152, 219, 0.1)',
                                 tension: 0.4,
@@ -707,12 +733,14 @@
             const ctxProfesionales = document.getElementById('chartProfesionales');
             if (ctxProfesionales) {
                 try {
+                    const profesionales = data.profesionales_top || data.profesionales || [{nombre: 'Sin datos', total_turnos: 1}];
+                    
                     window.chartProfesionales = new Chart(ctxProfesionales, {
                         type: 'pie',
                         data: {
-                            labels: data.profesionales_top?.map(b => b.nombre) || ['Sin datos'],
+                            labels: profesionales.map(p => p.nombre),
                             datasets: [{
-                                data: data.profesionales_top?.map(b => b.total_turnos) || [1],
+                                data: profesionales.map(p => p.total_turnos || p.citas || 1),
                                 backgroundColor: ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6']
                             }]
                         },
@@ -734,13 +762,15 @@
             const ctxServicios = document.getElementById('chartServicios');
             if (ctxServicios) {
                 try {
+                    const servicios = data.servicios_top || data.servicios || [{nombre: 'Sin datos', total_turnos: 1}];
+                    
                     window.chartServicios = new Chart(ctxServicios, {
                         type: 'bar',
                         data: {
-                            labels: data.servicios_top?.map(s => s.nombre) || ['Sin datos'],
+                            labels: servicios.map(s => s.nombre),
                             datasets: [{
                                 label: 'Citas',
-                                data: data.servicios_top?.map(s => s.total_turnos) || [1],
+                                data: servicios.map(s => s.total_turnos || s.citas || 1),
                                 backgroundColor: '#27ae60'
                             }]
                         },
@@ -760,10 +790,9 @@
             }
         }
 
-        async function cargarCitasRecientes() {
+        async function cargarCitasRecientes(profesionalId = '') {
             try {
-                const profesionalId = document.getElementById('profesional').value;
-                let url = `/api/turnos?negocio_id=${NEGOCIO_ID}&limit=10`;
+                let url = `/negocio/api/citas/recientes?limit=10`;
                 if (profesionalId) {
                     url += `&profesional_id=${profesionalId}`;
                 }
@@ -772,8 +801,8 @@
                 const citas = await response.json();
                 
                 const tabla = document.getElementById('tabla-citas');
-                if (citas.length === 0) {
-                    tabla.innerHTML = '<p style="padding: 1rem; text-align: center; color: #666;">No hay citas recientes</p>';
+                if (!citas || citas.length === 0) {
+                    tabla.innerHTML = '<div class="no-data">No hay citas recientes para mostrar</div>';
                     return;
                 }
                 
@@ -792,14 +821,14 @@
                         <tbody>
                             ${citas.map(cita => `
                                 <tr>
-                                    <td>${cita.cliente_nombre}</td>
-                                    <td>${cita.servicio}</td>
-                                    <td>${cita.profesional_nombre}</td>
-                                    <td>${cita.fecha}</td>
-                                    <td>${cita.hora}</td>
+                                    <td>${cita.cliente_nombre || 'Cliente'}</td>
+                                    <td>${cita.servicio_nombre || cita.servicio || 'Servicio'}</td>
+                                    <td>${cita.profesional_nombre || 'Profesional'}</td>
+                                    <td>${cita.fecha || 'N/A'}</td>
+                                    <td>${cita.hora || 'N/A'}</td>
                                     <td>
-                                        <span class="status-badge status-${cita.estado}">
-                                            ${cita.estado}
+                                        <span class="status-badge status-${cita.estado || 'confirmado'}">
+                                            ${(cita.estado || 'confirmado').charAt(0).toUpperCase() + (cita.estado || 'confirmado').slice(1)}
                                         </span>
                                     </td>
                                 </tr>
@@ -810,14 +839,42 @@
             } catch (error) {
                 console.error('Error cargando citas:', error);
                 document.getElementById('tabla-citas').innerHTML = 
-                    '<p style="padding: 1rem; text-align: center; color: #666;">Error al cargar las citas recientes</p>';
+                    '<div class="no-data">Error al cargar las citas recientes</div>';
             }
+        }
+
+        function mostrarDatosEjemplo() {
+            // Función de respaldo si la API falla
+            document.getElementById('content').style.display = 'block';
+            document.getElementById('stats-cards').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">📅 0</div>
+                    <div class="stat-label">Total Citas</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-number">✅ 0</div>
+                    <div class="stat-label">Confirmadas</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-number">🎯 0</div>
+                    <div class="stat-label">Completadas</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-number">❌ 0</div>
+                    <div class="stat-label">Canceladas</div>
+                </div>
+            `;
         }
 
         // Recargar cuando cambien los filtros
         document.getElementById('profesional').addEventListener('change', cargarEstadisticas);
         document.getElementById('mes').addEventListener('change', cargarEstadisticas);
         document.getElementById('año').addEventListener('change', cargarEstadisticas);
+
+        // Cargar estadísticas al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarEstadisticas();
+        });
     </script>
 </body>
 </html>

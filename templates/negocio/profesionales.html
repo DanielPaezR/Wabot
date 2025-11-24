@@ -18,15 +18,25 @@
         
         .header {
             background: white;
-            padding: 1rem 2rem;
+            padding: 1rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem 2rem;
+            }
         }
         
         .header h1 {
             color: #333;
+            font-size: 1.3rem;
         }
 
         .user-info {
@@ -34,6 +44,8 @@
             align-items: center;
             gap: 1rem;
             color: #666;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         
         .btn {
@@ -44,6 +56,9 @@
             font-size: 0.9rem;
             cursor: pointer;
             transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .btn-primary {
@@ -64,7 +79,71 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1rem;
+        }
+        
+        /* ✅ CORRECCIÓN 1: Navegación responsive mejorada */
+        .nav-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            justify-content: center;
+        }
+
+        @media (min-width: 768px) {
+            .nav-buttons {
+                justify-content: flex-start;
+            }
+        }
+
+        .nav-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            background: white;
+            color: #3498db;
+            border: 2px solid #3498db;
+            flex: 1;
+            min-width: 140px;
+            justify-content: center;
+            text-align: center;
+        }
+
+        @media (min-width: 480px) {
+            .nav-btn {
+                flex: none;
+            }
+        }
+
+        .nav-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-new {
+            background: #27ae60;
+            color: white;
+            border: 2px solid #27ae60;
+        }
+
+        .btn-new:hover {
+            background: #219653;
+            transform: translateY(-2px);
         }
         
         .table-container {
@@ -72,11 +151,13 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             overflow: hidden;
+            overflow-x: auto;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 700px;
         }
         
         th, td {
@@ -97,6 +178,7 @@
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 0.8rem;
+            display: inline-block;
         }
         
         .status-inactive {
@@ -105,18 +187,27 @@
             padding: 4px 8px;
             border-radius: 20px;
             font-size: 0.8rem;
+            display: inline-block;
         }
         
         .actions {
             display: flex;
             gap: 0.5rem;
+            flex-wrap: wrap;
         }
         
         .btn-sm {
-            padding: 4px 8px;
+            padding: 6px 12px;
             font-size: 0.8rem;
             text-decoration: none;
-            border-radius: 3px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
         }
         
         .btn-edit {
@@ -157,12 +248,6 @@
             margin-bottom: 1rem;
         }
 
-        .nav-buttons {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
         .profesional-avatar {
             width: 32px;
             height: 32px;
@@ -186,6 +271,132 @@
             font-size: 0.8rem;
             color: #666;
         }
+
+        /* ✅ CORRECCIÓN 2: Vista móvil para profesionales */
+        .mobile-table-view {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .desktop-table {
+                display: none;
+            }
+            
+            .mobile-table-view {
+                display: block;
+            }
+            
+            .profesional-card {
+                background: white;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                border-left: 4px solid #3498db;
+            }
+            
+            .profesional-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 0.8rem;
+            }
+            
+            .profesional-main-info {
+                display: flex;
+                align-items: center;
+                gap: 0.8rem;
+                flex: 1;
+            }
+            
+            .profesional-name {
+                font-weight: bold;
+                font-size: 1.1rem;
+                color: #333;
+            }
+            
+            .profesional-status {
+                margin-left: auto;
+            }
+            
+            .profesional-details {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 0.8rem;
+                margin-bottom: 1rem;
+            }
+            
+            .detail-item {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .detail-label {
+                font-size: 0.8rem;
+                color: #666;
+                margin-bottom: 0.2rem;
+            }
+            
+            .detail-value {
+                font-weight: 500;
+                color: #333;
+            }
+            
+            .card-actions {
+                display: flex;
+                gap: 0.5rem;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Estilos responsive adicionales */
+        @media (max-width: 480px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.8rem;
+            }
+            
+            .user-info {
+                justify-content: center;
+            }
+            
+            .container {
+                padding: 0.8rem;
+            }
+            
+            .nav-buttons {
+                gap: 0.3rem;
+            }
+            
+            .nav-btn {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+                min-width: 120px;
+            }
+            
+            .card-actions {
+                flex-direction: column;
+            }
+            
+            .btn-sm {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .nav-btn {
+                min-width: 100px;
+                font-size: 0.75rem;
+                padding: 6px 10px;
+            }
+            
+            .profesional-card {
+                padding: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -198,13 +409,15 @@
     </div>
     
     <div class="container">
+        <!-- ✅ CORRECCIÓN 1: Navegación responsive mejorada -->
         <div class="nav-buttons">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-            <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
-            <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
-            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
-            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
-            <a href="{{ url_for('negocio_nuevo_profesional') }}" class="btn btn-primary">+ Nuevo Profesional</a>
+            <a href="{{ url_for('negocio_dashboard') }}" class="nav-btn">📋 Dashboard</a>
+            <a href="{{ url_for('negocio_citas') }}" class="nav-btn">📅 Citas</a>
+            <a href="{{ url_for('negocio_estadisticas') }}" class="nav-btn">📊 Estadísticas</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="nav-btn">⚙️ Configuración</a>
+            <a href="{{ url_for('negocio_plantillas') }}" class="nav-btn">📝 Plantillas</a>
+            <a href="{{ url_for('negocio_servicios') }}" class="nav-btn">💼 Servicios</a>
+            <a href="{{ url_for('negocio_nuevo_profesional') }}" class="nav-btn btn-new">➕ Nuevo Profesional</a>
         </div>
 
         <div class="flash-messages">
@@ -219,52 +432,107 @@
         
         <div class="table-container">
             {% if profesionales %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Profesional</th>
-                        <th>Especialidad</th>
-                        <th>Servicios</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for profesional in profesionales %}
-                    <tr>
-                        <td>
-                            <div class="profesional-cell">
-                                <div class="profesional-avatar">
-                                    {{ profesional.nombre[0] }}
+            
+            <!-- Vista para escritorio -->
+            <div class="desktop-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Profesional</th>
+                            <th>Especialidad</th>
+                            <th>Servicios</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for profesional in profesionales %}
+                        <tr>
+                            <td>
+                                <div class="profesional-cell">
+                                    <div class="profesional-avatar">
+                                        {{ profesional.nombre[0] }}
+                                    </div>
+                                    {{ profesional.nombre }}
                                 </div>
-                                {{ profesional.nombre }}
+                            </td>
+                            <td>{{ profesional.especialidad or 'Sin especialidad' }}</td>
+                            <td class="servicios-list">
+                                {% if profesional.servicios %}
+                                    {{ profesional.servicios|join(', ') }}
+                                {% else %}
+                                    Sin servicios asignados
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if profesional.activo %}
+                                    <span class="status-active">Activo</span>
+                                {% else %}
+                                    <span class="status-inactive">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="actions">
+                                <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                                <form method="POST" action="{{ url_for('negocio_eliminar_profesional', profesional_id=profesional.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">🗑️ Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- ✅ CORRECCIÓN 2: Vista móvil para profesionales -->
+            <div class="mobile-table-view">
+                {% for profesional in profesionales %}
+                <div class="profesional-card">
+                    <div class="profesional-header">
+                        <div class="profesional-main-info">
+                            <div class="profesional-avatar">
+                                {{ profesional.nombre[0] }}
                             </div>
-                        </td>
-                        <td>{{ profesional.especialidad or 'Sin especialidad' }}</td>
-                        <td class="servicios-list">
-                            {% if profesional.servicios %}
-                                {{ profesional.servicios|join(', ') }}
-                            {% else %}
-                                Sin servicios asignados
-                            {% endif %}
-                        </td>
-                        <td>
+                            <div>
+                                <div class="profesional-name">{{ profesional.nombre }}</div>
+                                <div style="font-size: 0.8rem; color: #666;">
+                                    {{ profesional.especialidad or 'Sin especialidad' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="profesional-status">
                             {% if profesional.activo %}
                                 <span class="status-active">Activo</span>
                             {% else %}
                                 <span class="status-inactive">Inactivo</span>
                             {% endif %}
-                        </td>
-                        <td class="actions">
-                            <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">Editar</a>
-                            <form method="POST" action="{{ url_for('negocio_eliminar_profesional', profesional_id=profesional.id) }}" style="display: inline;">
-                                <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">Eliminar</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="profesional-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Servicios</span>
+                            <span class="detail-value servicios-list">
+                                {% if profesional.servicios %}
+                                    {{ profesional.servicios|join(', ') }}
+                                {% else %}
+                                    Sin servicios asignados
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions">
+                        <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                        <form method="POST" action="{{ url_for('negocio_eliminar_profesional', profesional_id=profesional.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">🗑️ Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
             {% else %}
             <div class="empty-state">
                 <h2>👨‍💼 No hay profesionales registrados</h2>

@@ -350,19 +350,6 @@
     </div>
     
     <div class="container">
-        <!-- Acciones Rápidas -->
-        <div class="quick-actions">
-            <a href="{{ url_for('negocio_nuevo_profesional') }}" class="quick-action-btn">
-                👨‍💼 Nuevo Profesional
-            </a>
-            <a href="{{ url_for('negocio_nuevo_servicio') }}" class="quick-action-btn">
-                💼 Nuevo Servicio
-            </a>
-            <a href="{{ url_for('negocio_citas') }}" class="quick-action-btn secondary">
-                📋 Ver Todas las Citas
-            </a>
-        </div>
-
         <!-- Estadísticas Rápidas -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -413,6 +400,12 @@
                         </div>
                     {% endif %}
                 </div>
+            </div>
+
+            <div class="quick-actions">
+                <a href="{{ url_for('negocio_citas') }}" class="quick-action-btn secondary">
+                    📋 Ver Todas las Citas
+                </a>
             </div>
             
             <!-- Navegación Rápida -->

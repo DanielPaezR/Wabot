@@ -223,9 +223,10 @@ def saludo_inicial(numero, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - USANDO PLANTILLAS"""
+    """Mostrar lista de profesionales disponibles - USANDO PLANTILLAS - CORREGIDO"""
     try:
-        profesionales = db.obtener_profesionales(negocio_id)
+        # ✅ CORRECCIÓN 1: Obtener siempre profesionales ACTIVOS desde la base de datos
+        profesionales = db.obtener_profesionales_activos(negocio_id)
         
         if not profesionales:
             return "❌ No hay profesionales disponibles en este momento."
@@ -261,9 +262,10 @@ Responde con el *número* del {texto_profesional} que prefieres:
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - MEJORADO"""
+    """Mostrar servicios disponibles - MEJORADO - CORREGIDO"""
     try:
-        servicios = db.obtener_servicios(negocio_id)
+        # ✅ CORRECCIÓN 2: Obtener siempre servicios ACTIVOS desde la base de datos
+        servicios = db.obtener_servicios_activos(negocio_id)
         
         if not servicios:
             return "❌ No hay servicios disponibles en este momento."
@@ -355,7 +357,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
     pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
     
-    # Generar horarios disponibles
+    # ✅ CORRECCIÓN 3: Generar horarios disponibles con datos ACTUALIZADOS
     horarios_disponibles = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha_seleccionada, servicio_id)
     
     if not horarios_disponibles:
@@ -518,6 +520,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas:
+        # ✅ CORRECCIÓN 4: Si la sesión expiró, mostrar menú principal
         return saludo_inicial(numero, negocio_id)
     
     estado = conversaciones_activas[clave_conversacion]['estado']
@@ -575,11 +578,11 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id FROM profesionales WHERE negocio_id = ? LIMIT 1', (negocio_id,))
+        cursor.execute('SELECT id FROM profesionales WHERE negocio_id = ? AND activo = 1 LIMIT 1', (negocio_id,))
         profesional = cursor.fetchone()
         profesional_id = profesional[0] if profesional else 1
         
-        cursor.execute('SELECT id FROM servicios WHERE negocio_id = ? LIMIT 1', (negocio_id,))
+        cursor.execute('SELECT id FROM servicios WHERE negocio_id = ? AND activo = 1 LIMIT 1', (negocio_id,))
         servicio = cursor.fetchone()
         servicio_id = servicio[0] if servicio else 1
         
@@ -866,9 +869,10 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         return saludo_inicial(numero, negocio_id)
     
     if 'citas_disponibles' not in conversaciones_activas[clave_conversacion]:
+        # ✅ CORRECCIÓN 4: Si la sesión expiró durante cancelación, mostrar menú principal
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión de cancelación expirada. Por favor, inicia nuevamente con *3*"
+        return "❌ Sesión de cancelación expirada.\n\n" + saludo_inicial(numero, negocio_id)
     
     citas_disponibles = conversaciones_activas[clave_conversacion]['citas_disponibles']
     

@@ -36,6 +36,7 @@
         
         .header h1 {
             color: #333;
+            font-size: 1.3rem;
         }
 
         .user-info {
@@ -43,6 +44,8 @@
             align-items: center;
             gap: 1rem;
             color: #666;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
         
         .btn {
@@ -53,6 +56,9 @@
             font-size: 0.9rem;
             cursor: pointer;
             transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .btn-secondary {
@@ -68,7 +74,60 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1rem;
+        }
+        
+        /* ✅ CORRECCIÓN 2: Navegación responsive */
+        .nav-buttons {
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        @media (min-width: 768px) {
+            .nav-buttons {
+                justify-content: flex-start;
+            }
+        }
+
+        .nav-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            background: white;
+            color: #3498db;
+            border: 2px solid #3498db;
+            flex: 1;
+            min-width: 140px;
+            justify-content: center;
+            text-align: center;
+        }
+
+        @media (min-width: 480px) {
+            .nav-btn {
+                flex: none;
+            }
+        }
+
+        .nav-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
+            background: #3498db;
+            color: white;
         }
         
         .filters {
@@ -119,6 +178,9 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .citas-container {
@@ -132,11 +194,6 @@
             width: 100%;
             border-collapse: collapse;
             min-width: 800px;
-        }
-        
-        .citas-table {
-            width: 100%;
-            border-collapse: collapse;
         }
         
         .citas-table th,
@@ -157,6 +214,7 @@
             border-radius: 12px;
             font-size: 0.7rem;
             font-weight: bold;
+            display: inline-block;
         }
         
         .status-confirmado {
@@ -213,7 +271,7 @@
             input, select, textarea {
                 font-size: 16px; /* Previene zoom en iOS */
             }
-        }
+        }    
         
         .btn-sm {
             padding: 4px 8px;
@@ -232,6 +290,38 @@
             background: #e74c3c;
             color: white;
         }
+
+        /* ✅ CORRECCIÓN 3: Estilos para mensajes de error */
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            border: 1px solid #f5c6cb;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -244,17 +334,19 @@
     </div>
     
     <div class="container">
+        <!-- ✅ CORRECCIÓN 2: Navegación mejorada -->
         <div class="nav-buttons">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-            <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
-            <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
-            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-secondary">⚙️ Configuración</a>
-            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">📝 Plantillas</a>
+            <a href="{{ url_for('negocio_dashboard') }}" class="nav-btn">📋 Dashboard</a>
+            <a href="{{ url_for('negocio_citas') }}" class="nav-btn active">📅 Citas</a>
+            <a href="{{ url_for('negocio_estadisticas') }}" class="nav-btn">📊 Estadísticas</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="nav-btn">⚙️ Configuración</a>
+            <a href="{{ url_for('negocio_plantillas') }}" class="nav-btn">📝 Plantillas</a>
+            <a href="{{ url_for('negocio_servicios') }}" class="nav-btn">💼 Servicios</a>
         </div>
 
         <!-- Filtros -->
         <div class="filters">
-            <h3 style="margin-bottom: 1rem; color: #333;">Filtros</h3>
+            <h3 style="margin-bottom: 1rem; color: #333;">Filtros de Citas</h3>
             <div class="filter-row">
                 <div class="form-group">
                     <label for="fecha">Fecha:</label>
@@ -283,7 +375,9 @@
                     </select>
                 </div>
             </div>
-            <button class="btn-primary" onclick="cargarCitas()">🔄 Actualizar</button>
+            <button class="btn-primary" onclick="cargarCitas()">
+                🔄 Buscar Citas
+            </button>
         </div>
 
         <!-- Lista de Citas -->
@@ -298,13 +392,13 @@
                         <th>Servicio</th>
                         <th>Profesional</th>
                         <th>Estado</th>
-                        <th>Acciones</th>
+                        <!-- ✅ CORRECCIÓN 1: Eliminada columna Acciones -->
                     </tr>
                 </thead>
                 <tbody id="citas-body">
                     <tr>
-                        <td colspan="8" class="empty-state">
-                            <div>📅 Selecciona una fecha y haz clic en "Actualizar"</div>
+                        <td colspan="7" class="empty-state">
+                            <div>📅 Selecciona una fecha y haz clic en "Buscar Citas"</div>
                         </td>
                     </tr>
                 </tbody>
@@ -313,87 +407,104 @@
     </div>
 
     <script>
-        function cargarCitas() {
+        // ✅ CORRECCIÓN 3: Función mejorada para cargar citas
+        async function cargarCitas() {
             const fecha = document.getElementById('fecha').value;
             const profesional = document.getElementById('profesional').value;
             const estado = document.getElementById('estado').value;
             
-            let url = `/api/turnos?fecha=${fecha}&profesional_id=${profesional}`;
-            if (estado) {
-                url += `&estado=${estado}`;
+            if (!fecha) {
+                alert('⚠️ Por favor selecciona una fecha');
+                return;
             }
             
-            fetch(url)
-                .then(response => response.json())
-                .then(citas => {
-                    const tbody = document.getElementById('citas-body');
-                    
-                    if (citas.length === 0) {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="8" class="empty-state">
-                                    <div>🎉 No hay citas para esta fecha</div>
-                                </td>
-                            </tr>
-                        `;
-                        return;
-                    }
-                    
-                    tbody.innerHTML = citas.map(cita => `
+            const tbody = document.getElementById('citas-body');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="loading">
+                        <div class="spinner"></div>
+                        <div>Buscando citas...</div>
+                    </td>
+                </tr>
+            `;
+            
+            try {
+                // Primero intentamos con la nueva ruta de la API
+                let url = `/negocio/api/citas?fecha=${fecha}`;
+                if (profesional) url += `&profesional_id=${profesional}`;
+                if (estado) url += `&estado=${estado}`;
+                
+                let response = await fetch(url);
+                
+                // Si falla, intentamos con la ruta antigua
+                if (!response.ok) {
+                    url = `/api/turnos?fecha=${fecha}`;
+                    if (profesional) url += `&profesional_id=${profesional}`;
+                    if (estado) url += `&estado=${estado}`;
+                    response = await fetch(url);
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Error al cargar citas');
+                }
+                
+                const citas = await response.json();
+                
+                if (citas.length === 0) {
+                    tbody.innerHTML = `
                         <tr>
-                            <td>${cita.cliente_nombre}</td>
-                            <td>${cita.cliente_telefono}</td>
-                            <td>${cita.fecha}</td>
-                            <td>${cita.hora}</td>
-                            <td>${cita.servicio}</td>
-                            <td>${cita.profesional_nombre}</td>
-                            <td>
-                                <span class="status-badge status-${cita.estado}">
-                                    ${cita.estado}
-                                </span>
-                            </td>
-                            <td class="actions">
-                                ${cita.estado === 'confirmado' ? `
-                                    <button class="btn-sm btn-complete" onclick="completarCita(${cita.id})">✅ Completar</button>
-                                    <button class="btn-sm btn-cancel" onclick="cancelarCita(${cita.id})">❌ Cancelar</button>
-                                ` : '—'}
+                            <td colspan="7" class="empty-state">
+                                <div>🎉 No hay citas para esta fecha</div>
                             </td>
                         </tr>
-                    `).join('');
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        function completarCita(citaId) {
-            if (confirm('¿Marcar cita como completada?')) {
-                fetch(`/api/turno/${citaId}/completar`, {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        cargarCitas();
-                    } else {
-                        alert('Error al completar la cita');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error al completar la cita');
-                });
+                    `;
+                    return;
+                }
+                
+                tbody.innerHTML = citas.map(cita => `
+                    <tr>
+                        <td>${cita.cliente_nombre || 'Cliente'}</td>
+                        <td>${cita.cliente_telefono || 'N/A'}</td>
+                        <td>${formatearFecha(cita.fecha)}</td>
+                        <td>${cita.hora}</td>
+                        <td>${cita.servicio_nombre || cita.servicio || 'Servicio'}</td>
+                        <td>${cita.profesional_nombre || 'Profesional'}</td>
+                        <td>
+                            <span class="status-badge status-${cita.estado}">
+                                ${formatearEstado(cita.estado)}
+                            </span>
+                        </td>
+                        <!-- ✅ CORRECCIÓN 1: Sin botones de acciones -->
+                    </tr>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="error-message">
+                            <div>❌ Error al cargar las citas</div>
+                            <small>Intenta nuevamente o verifica la conexión</small>
+                        </td>
+                    </tr>
+                `;
             }
         }
 
-        function cancelarCita(citaId) {
-            if (confirm('¿Cancelar esta cita?')) {
-                fetch(`/api/turnos/${citaId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ estado: 'cancelado' })
-                })
-                .then(() => cargarCitas())
-                .catch(error => console.error('Error:', error));
-            }
+        function formatearFecha(fecha) {
+            if (!fecha) return 'N/A';
+            // Convierte YYYY-MM-DD a DD/MM/YYYY
+            const [year, month, day] = fecha.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function formatearEstado(estado) {
+            const estados = {
+                'confirmado': '✅ Confirmado',
+                'completado': '🏁 Completado', 
+                'cancelado': '❌ Cancelado'
+            };
+            return estados[estado] || estado;
         }
 
         // Cargar citas al cambiar filtros
@@ -401,13 +512,30 @@
         document.getElementById('profesional').addEventListener('change', cargarCitas);
         document.getElementById('estado').addEventListener('change', cargarCitas);
 
-        // Establecer fecha actual por defecto
+        // Establecer fecha actual por defecto y cargar citas al iniciar
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
-            if (!document.getElementById('fecha').value) {
-                document.getElementById('fecha').value = today;
+            const fechaInput = document.getElementById('fecha');
+            
+            if (!fechaInput.value) {
+                fechaInput.value = today;
             }
-            cargarCitas();
+            
+            // Cargar citas después de un breve delay para asegurar que el DOM esté listo
+            setTimeout(cargarCitas, 100);
+        });
+
+        // Manejar errores de red
+        window.addEventListener('online', cargarCitas);
+        window.addEventListener('offline', function() {
+            document.getElementById('citas-body').innerHTML = `
+                <tr>
+                    <td colspan="7" class="error-message">
+                        <div>📡 Sin conexión a internet</div>
+                        <small>Conéctate a internet para ver las citas</small>
+                    </td>
+                </tr>
+            `;
         });
     </script>
 </body>

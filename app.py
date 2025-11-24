@@ -1070,57 +1070,31 @@ def negocio_nuevo_servicio():
     
     return render_template('negocio/nuevo_servicio.html', negocio_id=negocio_id)
 
-@app.route('/negocio/servicios/<int:servicio_id>/editar', methods=['GET', 'POST'])
-@role_required(['propietario', 'superadmin'])
+@app.route('/negocio/servicios/<int:servicio_id>/editar')
+@login_required
 def negocio_editar_servicio(servicio_id):
-    """Editar servicio existente"""
-    if session['usuario_rol'] == 'propietario':
-        negocio_id = session['negocio_id']
+    servicio = database.obtener_servicio_por_id(servicio_id, session['negocio_id'])
+    if servicio:
+        # Convertir a diccionario si es necesario
+        if hasattr(servicio, '_asdict'):  # Para objetos Row de SQLite
+            servicio_dict = servicio._asdict()
+        elif isinstance(servicio, dict):  # Ya es diccionario
+            servicio_dict = servicio
+        else:  # Para otros tipos de objetos
+            servicio_dict = {
+                'id': servicio.id,
+                'nombre': servicio.nombre,
+                'precio': servicio.precio,
+                'duracion': servicio.duracion,
+                'descripcion': servicio.descripcion,
+                'activo': servicio.activo
+            }
     else:
-        negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
+        servicio_dict = {}
     
-    conn = sqlite3.connect('negocio.db')
-    cursor = conn.cursor()
-    
-    # Obtener servicio actual
-    cursor.execute('SELECT * FROM servicios WHERE id = ? AND negocio_id = ?', 
-                  (servicio_id, negocio_id))
-    servicio = cursor.fetchone()
-    
-    if not servicio:
-        flash('❌ Servicio no encontrado', 'error')
-        conn.close()
-        return redirect(url_for('negocio_servicios'))
-    
-    if request.method == 'POST':
-        nombre = request.form['nombre']
-        duracion = int(request.form['duracion'])
-        precio = float(request.form['precio'])
-        descripcion = request.form.get('descripcion', '')
-        activo = 'activo' in request.form
-        
-        try:
-            cursor.execute('''
-                UPDATE servicios 
-                SET nombre = ?, duracion = ?, precio = ?, descripcion = ?, activo = ?
-                WHERE id = ? AND negocio_id = ?
-            ''', (nombre, duracion, precio, descripcion, activo, servicio_id, negocio_id))
-            
-            conn.commit()
-            flash('✅ Servicio actualizado exitosamente', 'success')
-            return redirect(url_for('negocio_servicios'))
-            
-        except Exception as e:
-            conn.rollback()
-            print(f"❌ Error actualizando servicio: {e}")
-            flash('❌ Error al actualizar el servicio', 'error')
-        finally:
-            conn.close()
-    else:
-        conn.close()
-        return render_template('negocio/editar_servicio.html', 
-                             servicio=dict(servicio), 
-                             negocio_id=negocio_id)
+    return render_template('negocio/editar_servicio.html', 
+                         servicio=servicio_dict,  # ← CORREGIDO
+                         negocio_id=session['negocio_id'])
 
 @app.route('/negocio/servicios/<int:servicio_id>/eliminar', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
@@ -1177,31 +1151,52 @@ def negocio_plantillas():
                          plantillas=plantillas,
                          negocio_id=negocio_id)
 
-@app.route('/negocio/plantillas/<nombre_plantilla>/editar', methods=['GET', 'POST'])
-@role_required(['propietario', 'superadmin'])
+@app.route('/negocio/plantillas/<nombre_plantilla>/editar')
+@login_required
 def negocio_editar_plantilla(nombre_plantilla):
-    """Editar plantilla personalizada del negocio"""
-    negocio_id = session.get('negocio_id', 1)
+    negocio_id = session['negocio_id']
     
-    plantilla_actual = db.obtener_plantilla(negocio_id, nombre_plantilla)
+    # Obtener la plantilla actual de forma segura
+    plantilla_actual = database.obtener_plantilla(negocio_id, nombre_plantilla)
     
-    if not plantilla_actual:
-        flash('Plantilla no encontrada', 'error')
-        return redirect(url_for('negocio_plantillas'))
-    
-    if request.method == 'POST':
-        nueva_plantilla = request.form.get('plantilla')
-        descripcion = request.form.get('descripcion')
-        
-        if db.actualizar_plantilla_negocio(negocio_id, nombre_plantilla, nueva_plantilla, descripcion):
-            flash('✅ Plantilla personalizada actualizada exitosamente', 'success')
-            return redirect(url_for('negocio_plantillas'))
+    # ✅ CORRECCIÓN: Verificar el tipo de dato y crear un diccionario seguro
+    if plantilla_actual and isinstance(plantilla_actual, str):
+        # Si es un string, crear un diccionario básico
+        plantilla_dict = {
+            'plantilla': plantilla_actual,
+            'nombre': nombre_plantilla,
+            'negocio_id': negocio_id,
+            'es_personalizada': True  # Asumir que es personalizada si existe
+        }
+    elif plantilla_actual and isinstance(plantilla_actual, dict):
+        # Si ya es un diccionario, usarlo directamente
+        plantilla_dict = plantilla_actual
+    else:
+        # Si no existe, crear una plantilla vacía basada en la plantilla base
+        plantilla_base = database.obtener_plantilla_base(nombre_plantilla)
+        if plantilla_base:
+            plantilla_dict = {
+                'plantilla': plantilla_base.get('plantilla', ''),
+                'nombre': nombre_plantilla,
+                'descripcion': plantilla_base.get('descripcion', ''),
+                'variables_disponibles': plantilla_base.get('variables_disponibles', '[]'),
+                'negocio_id': negocio_id,
+                'es_personalizada': False
+            }
         else:
-            flash('❌ Error al actualizar la plantilla', 'error')
+            plantilla_dict = {
+                'plantilla': '',
+                'nombre': nombre_plantilla,
+                'descripcion': '',
+                'variables_disponibles': '[]',
+                'negocio_id': negocio_id,
+                'es_personalizada': False
+            }
     
-    return render_template('negocio/editar_plantilla.html', 
-                         plantilla=plantilla_actual,
-                         es_personalizada=plantilla_actual.get('negocio_id') == negocio_id)
+    return render_template('negocio/editar_plantilla.html',
+                         plantilla_actual=plantilla_dict,  # ← Ahora es un diccionario
+                         nombre_plantilla=nombre_plantilla,
+                         es_personalizada=plantilla_dict.get('es_personalizada', False))
 
 # =============================================================================
 # RUTAS PARA GESTIÓN DE PROFESIONALES
@@ -1909,6 +1904,13 @@ if __name__ == '__main__':
     # Inicializar base de datos
     db.init_db()
     
+    try:
+        from database import migrar_hashes_automatico
+        migrar_hashes_automatico()
+        print("✅ Hashes migrados automáticamente")
+    except Exception as e:
+        print(f"⚠️ Error en migración automática: {e}")
+
     # Iniciar scheduler en hilo separado
     try:
         scheduler_thread = threading.Thread(target=iniciar_scheduler)
