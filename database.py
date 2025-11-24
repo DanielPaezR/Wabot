@@ -1581,6 +1581,15 @@ def actualizar_esquema_bd():
     cursor = conn.cursor()
     
     try:
+        # ✅ VERIFICAR COLUMNA EMOJI EN NEGOCIOS
+        cursor.execute("PRAGMA table_info(negocios)")
+        columnas_negocios = cursor.fetchall()
+        columnas_negocios_existentes = [col[1] for col in columnas_negocios]
+        
+        if 'emoji' not in columnas_negocios_existentes:
+            cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
+            print("✅ Columna 'emoji' agregada a tabla negocios")
+        
         # Verificar columnas en plantillas_mensajes
         cursor.execute("PRAGMA table_info(plantillas_mensajes)")
         columnas = cursor.fetchall()
