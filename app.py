@@ -3,7 +3,7 @@
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, generate_csrf_token
 import sqlite3
 from datetime import datetime, timedelta
 import database as db
@@ -24,6 +24,9 @@ app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 # Configuración adicional para CSRF
 app.config['WTF_CSRF_ENABLED'] = True
 app.config['WTF_CSRF_SECRET_KEY'] = os.getenv('SECRET_KEY', 'negocio-secret-key')
+
+# Inicializar CSRF con tu app
+csrf.init_app(app)
 
 # =============================================================================
 # DECORADORES DE AUTENTICACIÓN
