@@ -3,7 +3,7 @@
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
-from flask_wtf.csrf import CSRFProtect, generate_csrf_token
+from flask_wtf.csrf import CSRFProtect
 import sqlite3
 from datetime import datetime, timedelta
 import database as db
@@ -57,6 +57,11 @@ def role_required(roles):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+def generate_csrf_token():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_hex(32)
+    return session['csrf_token']
 
 def get_redirect_url_by_role(rol):
     """Obtener URL de redirección según el rol"""
