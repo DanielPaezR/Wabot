@@ -132,7 +132,7 @@
         
         .dia-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
         }
@@ -277,6 +277,83 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+
+        /* NUEVOS ESTILOS PARA PESTAÑAS */
+        .tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: #f8f9fa;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Estilos para el formulario de información del negocio */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .help-text {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
         
         @media (max-width: 768px) {
             .container {
@@ -294,6 +371,16 @@
             
             .nav-buttons {
                 justify-content: center;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                margin-right: 0;
+                margin-bottom: 5px;
+                border-radius: 5px;
             }
         }
     </style>
@@ -326,89 +413,190 @@
             {% endif %}
         {% endwith %}
 
+        <!-- PESTAÑAS -->
+        <div class="tabs">
+            <button type="button" class="tab active" data-tab="horarios">📅 Horarios de Atención</button>
+            <button type="button" class="tab" data-tab="informacion">🏢 Información del Negocio</button>
+        </div>
+
+        <!-- FORMULARIO DE HORARIOS (tu contenido actual) -->
         <form method="POST" action="{{ url_for('negocio_configuracion') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="config-section">
-                <h2 class="section-title">📅 Configuración de Días y Horarios de Atención</h2>
-                <p style="color: #666; margin-bottom: 2rem;">
-                    Configura los días y horarios en los que tu negocio atiende al público. 
-                    Los clientes solo podrán agendar citas en los horarios habilitados.
-                </p>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <!-- Pestaña Horarios -->
+            <div class="tab-content active" id="horarios-tab">
+                <div class="config-section">
+                    <h2 class="section-title">📅 Configuración de Días y Horarios de Atención</h2>
+                    <p style="color: #666; margin-bottom: 2rem;">
+                        Configura los días y horarios en los que tu negocio atiende al público. 
+                        Los clientes solo podrán agendar citas en los horarios habilitados.
+                    </p>
 
-                <div class="dias-grid">
-                    {% for dia in dias_semana %}
-                    <div class="dia-card {% if dia.config.activo %}activo{% else %}inactivo{% endif %}" 
-                         id="dia-{{ dia.id }}">
-                        <div class="dia-header">
-                            <span class="dia-nombre">{{ dia.nombre }}</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" 
-                                    name="dia_{{ dia.id }}_activo" 
-                                    {% if dia.config.activo %}checked{% endif %}
-                                    data-dia-id="{{ dia.id }}"
-                                    class="toggle-dia">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-
-                        <div class="horarios-grid">
-                            <div class="horario-group">
-                                <label>🕐 Hora Inicio:</label>
-                                <input type="time" 
-                                       name="dia_{{ dia.id }}_inicio" 
-                                       value="{{ dia.config.hora_inicio or '09:00' }}"
-                                       class="horario-input"
-                                       {% if not dia.config.activo %}disabled{% endif %}
-                                       required>
+                    <div class="dias-grid">
+                        {% for dia in dias_semana %}
+                        <div class="dia-card {% if dia.config.activo %}activo{% else %}inactivo{% endif %}" 
+                             id="dia-{{ dia.id }}">
+                            <div class="dia-header">
+                                <span class="dia-nombre">{{ dia.nombre }}</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" 
+                                        name="dia_{{ dia.id }}_activo" 
+                                        {% if dia.config.activo %}checked{% endif %}
+                                        data-dia-id="{{ dia.id }}"
+                                        class="toggle-dia">
+                                    <span class="slider"></span>
+                                </label>
                             </div>
-                            
-                            <div class="horario-group">
-                                <label>🕔 Hora Fin:</label>
-                                <input type="time" 
-                                       name="dia_{{ dia.id }}_fin" 
-                                       value="{{ dia.config.hora_fin or '19:00' }}"
-                                       class="horario-input"
-                                       {% if not dia.config.activo %}disabled{% endif %}
-                                       required>
-                            </div>
-                        </div>
 
-                        <div class="descanso-section">
-                            <div class="descanso-title">⏸️ Horario de Descanso (Opcional)</div>
                             <div class="horarios-grid">
                                 <div class="horario-group">
-                                    <label>Inicio Descanso:</label>
+                                    <label>🕐 Hora Inicio:</label>
                                     <input type="time" 
-                                           name="dia_{{ dia.id }}_descanso_inicio" 
-                                           value="{{ dia.config.almuerzo_inicio or '' }}"
+                                           name="dia_{{ dia.id }}_inicio" 
+                                           value="{{ dia.config.hora_inicio or '09:00' }}"
                                            class="horario-input"
-                                           {% if not dia.config.activo %}disabled{% endif %}>
+                                           {% if not dia.config.activo %}disabled{% endif %}
+                                           required>
                                 </div>
                                 
                                 <div class="horario-group">
-                                    <label>Fin Descanso:</label>
+                                    <label>🕔 Hora Fin:</label>
                                     <input type="time" 
-                                           name="dia_{{ dia.id }}_descanso_fin" 
-                                           value="{{ dia.config.almuerzo_fin or '' }}"
+                                           name="dia_{{ dia.id }}_fin" 
+                                           value="{{ dia.config.hora_fin or '19:00' }}"
                                            class="horario-input"
-                                           {% if not dia.config.activo %}disabled{% endif %}>
+                                           {% if not dia.config.activo %}disabled{% endif %}
+                                           required>
+                                </div>
+                            </div>
+
+                            <div class="descanso-section">
+                                <div class="descanso-title">⏸️ Horario de Descanso (Opcional)</div>
+                                <div class="horarios-grid">
+                                    <div class="horario-group">
+                                        <label>Inicio Descanso:</label>
+                                        <input type="time" 
+                                               name="dia_{{ dia.id }}_descanso_inicio" 
+                                               value="{{ dia.config.almuerzo_inicio or '' }}"
+                                               class="horario-input"
+                                               {% if not dia.config.activo %}disabled{% endif %}>
+                                    </div>
+                                    
+                                    <div class="horario-group">
+                                        <label>Fin Descanso:</label>
+                                        <input type="time" 
+                                               name="dia_{{ dia.id }}_descanso_fin" 
+                                               value="{{ dia.config.almuerzo_fin or '' }}"
+                                               class="horario-input"
+                                               {% if not dia.config.activo %}disabled{% endif %}>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
+            </div>
 
-                <div class="submit-section">
-                    <button type="submit" class="btn-save">
-                        💾 Guardar Configuración
-                    </button>
+            <!-- Pestaña Información del Negocio (NUEVA) -->
+            <div class="tab-content" id="informacion-tab">
+                <div class="config-section">
+                    <h2 class="section-title">🏢 Información del Negocio</h2>
+                    <p style="color: #666; margin-bottom: 2rem;">
+                        Configura la información básica de tu negocio que aparecerá en los mensajes automáticos.
+                    </p>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="nombre">Nombre del Negocio *</label>
+                            <input type="text" id="nombre" name="nombre" 
+                                   value="{{ negocio.nombre }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="tipo_negocio">Tipo de Negocio *</label>
+                            <select id="tipo_negocio" name="tipo_negocio" required>
+                                <option value="spa_unas" {% if negocio.tipo_negocio == 'spa_unas' %}selected{% endif %}>Spa de Uñas</option>
+                                <option value="barberia" {% if negocio.tipo_negocio == 'barberia' %}selected{% endif %}>Barbería</option>
+                                <option value="peluqueria" {% if negocio.tipo_negocio == 'peluqueria' %}selected{% endif %}>Peluquería</option>
+                                <option value="estetica" {% if negocio.tipo_negocio == 'estetica' %}selected{% endif %}>Centro de Estética</option>
+                            </select>
+                            <div class="help-text">Esto afecta los textos automáticos (estilista/profesional)</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="emoji">Emoji del Negocio</label>
+                            <input type="text" id="emoji" name="emoji" 
+                                   value="{{ negocio.emoji or '👋' }}" 
+                                   placeholder="👋, 💅, ✂️, 💇‍♀️">
+                            <div class="help-text">Un emoji que represente tu negocio</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="saludo_personalizado">Saludo Personalizado</label>
+                            <textarea id="saludo_personalizado" name="saludo_personalizado" 
+                                      placeholder="¡Hola! Soy tu asistente virtual para agendar citas. ¿En qué puedo ayudarte?">{{ config_actual.saludo_personalizado if config_actual and config_actual.saludo_personalizado else '' }}</textarea>
+                            <div class="help-text">Este saludo aparecerá en los mensajes automáticos</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="horario_atencion">Horario de Atención</label>
+                            <input type="text" id="horario_atencion" name="horario_atencion" 
+                                   value="{{ config_actual.horario_atencion if config_actual and config_actual.horario_atencion else 'Lunes a Sábado 9:00 AM - 7:00 PM' }}"
+                                   placeholder="Lunes a Sábado 9:00 AM - 7:00 PM">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="direccion">Dirección</label>
+                            <input type="text" id="direccion" name="direccion" 
+                                   value="{{ config_actual.direccion if config_actual and config_actual.direccion else '' }}"
+                                   placeholder="Calle Principal #123">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="telefono_contacto">Teléfono de Contacto</label>
+                            <input type="text" id="telefono_contacto" name="telefono_contacto" 
+                                   value="{{ config_actual.telefono_contacto if config_actual and config_actual.telefono_contacto else '' }}"
+                                   placeholder="+573001234567">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="politica_cancelacion">Política de Cancelación</label>
+                            <input type="text" id="politica_cancelacion" name="politica_cancelacion" 
+                                   value="{{ config_actual.politica_cancelacion if config_actual and config_actual.politica_cancelacion else 'Puedes cancelar hasta 2 horas antes' }}"
+                                   placeholder="Puedes cancelar hasta 2 horas antes">
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <div class="submit-section">
+                <button type="submit" class="btn-save">
+                    💾 Guardar Configuración Completa
+                </button>
             </div>
         </form>
     </div>
 
     <script>
+        // Función para cambiar pestañas
+        function cambiarPestaña(pestañaId) {
+            // Ocultar todas las pestañas
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar la pestaña seleccionada
+            document.getElementById(pestañaId + '-tab').classList.add('active');
+            
+            // Actualizar botones de pestañas
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Tu función toggleDia existente...
         function toggleDia(diaId, activo) {
             const diaCard = document.getElementById(`dia-${diaId}`);
             const inputs = diaCard.querySelectorAll('input[type="time"]');
@@ -424,15 +612,21 @@
             }
         }
 
-        // Inicializar estado de los días al cargar la página
+        // Inicializar al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar todos los días basado en el estado checked de los checkboxes
+            // Inicializar pestañas
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    cambiarPestaña(this.getAttribute('data-tab'));
+                });
+            });
+
+            // Inicializar días (tu código existente)
             document.querySelectorAll('input[type="checkbox"][name*="_activo"]').forEach(checkbox => {
                 const diaId = checkbox.name.replace('dia_', '').replace('_activo', '');
                 toggleDia(parseInt(diaId), checkbox.checked);
             });
 
-            // Agregar event listeners para los toggles
             document.querySelectorAll('.toggle-dia').forEach(toggle => {
                 toggle.addEventListener('change', function() {
                     const diaId = this.getAttribute('data-dia-id');

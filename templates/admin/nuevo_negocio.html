@@ -243,6 +243,22 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Nuevos estilos para emoji */
+        .emoji-preview {
+            font-size: 1.5rem;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .emoji-input-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .emoji-input-container input {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -291,6 +307,19 @@
                            placeholder="Ej: Centro de Belleza Elegante"
                            value="{{ request.form.nombre if request.form }}">
                 </div>
+
+                <!-- ✅ NUEVO CAMPO: Emoji del Negocio -->
+                <div class="form-group">
+                    <label for="emoji">Emoji del Negocio</label>
+                    <div class="emoji-input-container">
+                        <input type="text" id="emoji" name="emoji" 
+                               placeholder="👋, 💅, ✂️, 💇‍♀️"
+                               value="{{ request.form.emoji if request.form else '👋' }}"
+                               maxlength="5">
+                        <span class="emoji-preview" id="emojiPreview">👋</span>
+                    </div>
+                    <small>Un emoji que represente tu negocio (máx. 5 caracteres)</small>
+                </div>
                 
                 <div class="form-group">
                     <label for="telefono_whatsapp">Número de WhatsApp *</label>
@@ -315,6 +344,15 @@
                         <option value="otros" {% if request.form and request.form.tipo_negocio == 'otros' %}selected{% endif %}>💼 Otros Servicios</option>
                     </select>
                     <small>Selecciona la categoría que mejor describa tu negocio</small>
+                </div>
+
+                <!-- ✅ NUEVO: Saludo Personalizado (Opcional) -->
+                <div class="form-group">
+                    <label for="saludo_personalizado">Saludo Personalizado (Opcional)</label>
+                    <input type="text" id="saludo_personalizado" name="saludo_personalizado" 
+                           placeholder="¡Hola! Soy tu asistente virtual para agendar citas"
+                           value="{{ request.form.saludo_personalizado if request.form }}">
+                    <small>Este saludo aparecerá en los mensajes automáticos a clientes</small>
                 </div>
                 
                 <button type="submit" class="btn-primary" id="submitBtn">
@@ -373,6 +411,42 @@
                 e.target.style.borderColor = '#e74c3c';
             } else {
                 e.target.style.borderColor = '#e1e5e9';
+            }
+        });
+
+        // ✅ NUEVO: Vista previa del emoji en tiempo real
+        document.getElementById('emoji').addEventListener('input', function(e) {
+            const emojiPreview = document.getElementById('emojiPreview');
+            emojiPreview.textContent = e.target.value || '👋';
+        });
+
+        // ✅ Inicializar vista previa del emoji
+        document.addEventListener('DOMContentLoaded', function() {
+            const emojiInput = document.getElementById('emoji');
+            const emojiPreview = document.getElementById('emojiPreview');
+            emojiPreview.textContent = emojiInput.value || '👋';
+        });
+
+        // ✅ NUEVO: Actualizar emoji automáticamente según el tipo de negocio
+        document.getElementById('tipo_negocio').addEventListener('change', function(e) {
+            const emojiInput = document.getElementById('emoji');
+            const emojiMap = {
+                'barberia': '💈',
+                'spa_unas': '💅',
+                'peluqueria': '✂️',
+                'estetica': '💆‍♀️',
+                'consultorio': '🏥',
+                'gimnasio': '🏋️',
+                'yoga': '🧘',
+                'masajes': '💆',
+                'tattoo': '🎨',
+                'otros': '💼'
+            };
+            
+            const selectedEmoji = emojiMap[e.target.value];
+            if (selectedEmoji && (!emojiInput.value || emojiInput.value === '👋')) {
+                emojiInput.value = selectedEmoji;
+                document.getElementById('emojiPreview').textContent = selectedEmoji;
             }
         });
     </script>

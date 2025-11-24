@@ -49,6 +49,7 @@ def _crear_tablas(cursor):
             nombre TEXT NOT NULL,
             telefono_whatsapp TEXT UNIQUE NOT NULL,
             tipo_negocio TEXT DEFAULT 'general',
+            emoji TEXT DEFAULT '👋',  -- ✅ COLUMNA EMOJI AGREGADA
             configuracion TEXT DEFAULT '{}',
             activo BOOLEAN DEFAULT 1,
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -498,6 +499,59 @@ def obtener_plantillas_unicas_negocio(negocio_id):
     
     return list(plantillas_unicas.values())
 
+def procesar_plantilla(plantilla_texto, negocio_id, cliente_id=None, cita_id=None):
+    """Procesar una plantilla reemplazando variables con valores reales"""
+    try:
+        print(f"🔍 Procesando plantilla para negocio {negocio_id}")
+        
+        # Obtener datos del negocio
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT nombre, emoji, saludo_personalizado FROM negocios WHERE id = ?', (negocio_id,))
+        negocio = cursor.fetchone()
+        
+        if not negocio:
+            return plantilla_texto
+            
+        nombre_negocio, emoji_negocio, saludo_personalizado = negocio
+        
+        # Reemplazar variables básicas del negocio
+        plantilla_procesada = plantilla_texto
+        plantilla_procesada = plantilla_procesada.replace('{nombre_negocio}', nombre_negocio or 'Nuestro Negocio')
+        plantilla_procesada = plantilla_procesada.replace('{emoji_negocio}', emoji_negocio or '👋')
+        plantilla_procesada = plantilla_procesada.replace('{saludo_personalizado}', saludo_personalizado or '¡Estamos aquí para ayudarte!')
+        
+        # Si hay cliente_id, obtener datos del cliente
+        if cliente_id:
+            cursor.execute('SELECT nombre FROM clientes WHERE id = ?', (cliente_id,))
+            cliente = cursor.fetchone()
+            if cliente:
+                plantilla_procesada = plantilla_procesada.replace('{nombre_cliente}', cliente[0])
+        
+        # Si hay cita_id, obtener datos de la cita
+        if cita_id:
+            cursor.execute('''
+                SELECT fecha, hora, servicios.nombre 
+                FROM citas 
+                JOIN servicios ON citas.servicio_id = servicios.id 
+                WHERE citas.id = ?
+            ''', (cita_id,))
+            cita = cursor.fetchone()
+            if cita:
+                plantilla_procesada = plantilla_procesada.replace('{fecha_cita}', str(cita[0]))
+                plantilla_procesada = plantilla_procesada.replace('{hora_cita}', str(cita[1]))
+                plantilla_procesada = plantilla_procesada.replace('{servicio_cita}', cita[2] or 'Servicio')
+        
+        conn.close()
+        
+        print(f"✅ Plantilla procesada correctamente")
+        return plantilla_procesada
+        
+    except Exception as e:
+        print(f"❌ Error procesando plantilla: {e}")
+        return plantilla_texto  # Retornar plantilla original en caso de error
+
 def actualizar_plantilla_negocio(negocio_id, nombre_plantilla, nueva_plantilla, descripcion=None):
     """Actualizar o crear plantilla personalizada para un negocio"""
     conn = get_db_connection()
@@ -636,6 +690,117 @@ def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, des
     finally:
         conn.close()
 
+
+def actualizar_configuracion_negocio(negocio_id, nombre, tipo_negocio, emoji, saludo_personalizado,
+                                   horario_atencion, direccion, telefono_contacto, politica_cancelacion):
+    """Actualizar configuración del negocio"""
+    try:
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Crear objeto de configuración
+        configuracion = {
+            'saludo_personalizado': saludo_personalizado or '¡Hola! Soy tu asistente virtual para agendar citas.',
+            'horario_atencion': horario_atencion or 'Lunes a Sábado 9:00 AM - 7:00 PM',
+            'direccion': direccion or 'Calle Principal #123',
+            'telefono_contacto': telefono_contacto or '+573001234567',
+            'politica_cancelacion': politica_cancelacion or 'Puedes cancelar hasta 2 horas antes'
+        }
+        
+        # Actualizar negocio
+        cursor.execute('''
+            UPDATE negocios 
+            SET nombre = ?, tipo_negocio = ?, emoji = ?, configuracion = ?
+            WHERE id = ?
+        ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error actualizando configuración: {e}")
+        return False
+
+def verificar_configuracion_negocio(negocio_id):
+    """Verificar que el negocio tenga todos los datos necesarios para las plantillas"""
+    try:
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT nombre, emoji, saludo_personalizado FROM negocios WHERE id = ?', (negocio_id,))
+        negocio = cursor.fetchone()
+        
+        if not negocio:
+            return False
+            
+        nombre, emoji, saludo = negocio
+        
+        # Si falta algún dato, usar valores por defecto
+        needs_update = False
+        if not nombre:
+            nombre = "Mi Negocio"
+            needs_update = True
+        if not emoji:
+            emoji = "👋"
+            needs_update = True
+        if not saludo:
+            saludo = "¡Estamos aquí para ayudarte!"
+            needs_update = True
+            
+        if needs_update:
+            cursor.execute('''
+                UPDATE negocios 
+                SET nombre = ?, emoji = ?, saludo_personalizado = ?
+                WHERE id = ?
+            ''', (nombre, emoji, saludo, negocio_id))
+            conn.commit()
+            print(f"✅ Configuración actualizada para negocio {negocio_id}")
+        
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error verificando configuración: {e}")
+        return False
+    
+def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios):
+    """Actualizar configuración completa del negocio"""
+    try:
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Actualizar información básica del negocio
+        cursor.execute('''
+            UPDATE negocios 
+            SET nombre = ?, tipo_negocio = ?, emoji = ?, configuracion = ?
+            WHERE id = ?
+        ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
+        
+        # Actualizar horarios
+        for horario in horarios:
+            cursor.execute('''
+                INSERT OR REPLACE INTO horarios_negocio 
+                (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                negocio_id, 
+                horario['dia_id'],
+                horario['activo'],
+                horario['hora_inicio'],
+                horario['hora_fin'],
+                horario['almuerzo_inicio'],
+                horario['almuerzo_fin']
+            ))
+        
+        conn.commit()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error actualizando configuración completa: {e}")
+        return False
+
 # =============================================================================
 # GESTIÓN DE NEGOCIOS
 # =============================================================================
@@ -651,14 +816,24 @@ def obtener_negocio_por_telefono(telefono_whatsapp):
     return negocio
 
 def obtener_negocio_por_id(negocio_id):
-    """Obtener un negocio por su ID"""
-    conn = get_db_connection()
-    negocio = conn.execute(
-        'SELECT * FROM negocios WHERE id = ?',
-        (negocio_id,)
-    ).fetchone()
-    conn.close()
-    return negocio
+    """Obtener negocio por ID - RETORNA DICCIONARIO"""
+    try:
+        conn = sqlite3.connect('negocio.db')
+        conn.row_factory = sqlite3.Row  # Esto hace que retorne objetos Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM negocios WHERE id = ?', (negocio_id,))
+        negocio_row = cursor.fetchone()
+        conn.close()
+        
+        if negocio_row:
+            # ✅ Convertir Row a diccionario
+            return dict(negocio_row)
+        return None
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo negocio: {e}")
+        return None
 
 def obtener_todos_negocios():
     """Obtener todos los negocios"""
@@ -675,9 +850,9 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
     try:
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, configuracion)
-            VALUES (?, ?, ?, ?)
-        ''', (nombre, telefono_whatsapp, tipo_negocio, configuracion))
+            INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))  # ✅ EMOJI AGREGADO
         
         negocio_id = cursor.lastrowid
         

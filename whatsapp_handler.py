@@ -30,8 +30,11 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
             print(f"❌ Plantilla '{nombre_plantilla}' no encontrada para negocio {negocio_id}")
             return f"❌ Error: Plantilla '{nombre_plantilla}' no encontrada"
         
-        # ✅ CORRECCIÓN: La función obtener_plantilla retorna el texto directamente
-        plantilla_texto = plantilla_data
+        if isinstance(plantilla_data, dict) and 'plantilla' in plantilla_data:
+            plantilla_texto = plantilla_data['plantilla']
+        else:
+            print(f"❌ Estructura de plantilla inválida: {type(plantilla_data)}")
+            return f"❌ Error: Estructura de plantilla inválida"
         
         if not plantilla_texto:
             return f"❌ Error: Plantilla '{nombre_plantilla}' está vacía"

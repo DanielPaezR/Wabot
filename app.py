@@ -1290,68 +1290,125 @@ def negocio_api_citas_recientes():
 
 
 @app.route('/negocio/configuracion', methods=['GET', 'POST'])
-@role_required(['propietario', 'superadmin'])
+@login_required
 def negocio_configuracion():
-    """Configuración de horarios"""
-    negocio_id = session.get('negocio_id', 1)
+    """Configuración del negocio - HORARIOS + INFORMACIÓN"""
+    negocio_id = session['negocio_id']
+    
+    # Obtener datos actuales del negocio
+    negocio_row = db.obtener_negocio_por_id(negocio_id)
+    
+    # Convertir sqlite3.Row a diccionario
+    negocio = {}
+    if negocio_row:
+        negocio = dict(negocio_row)
+    
+    # Parsear configuración existente
+    config_actual = {}
+    if negocio and negocio.get('configuracion'):
+        try:
+            config_actual = json.loads(negocio['configuracion'])
+        except:
+            config_actual = {}
+    
+    # ✅ SOLUCIÓN TEMPORAL: Usar datos por defecto para horarios
+    dias_semana = [
+        {'id': 1, 'nombre': 'Lunes', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
+        {'id': 2, 'nombre': 'Martes', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
+        {'id': 3, 'nombre': 'Miércoles', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
+        {'id': 4, 'nombre': 'Jueves', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
+        {'id': 5, 'nombre': 'Viernes', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
+        {'id': 6, 'nombre': 'Sábado', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
+        {'id': 7, 'nombre': 'Domingo', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}}
+    ]
+    
+    # ✅ INTENTAR OBTENER DATOS REALES DE LA BASE DE DATOS
+    try:
+        for dia in dias_semana:
+            # Intentar obtener datos reales para cada día
+            conn = db.get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                FROM configuracion_horarios 
+                WHERE negocio_id = ? AND dia_semana = ?
+            ''', (negocio_id, dia['id']))
+            
+            resultado = cursor.fetchone()
+            conn.close()
+            
+            if resultado:
+                dia['config'] = {
+                    'activo': bool(resultado[0]),
+                    'hora_inicio': resultado[1] or '09:00',
+                    'hora_fin': resultado[2] or '19:00',
+                    'almuerzo_inicio': resultado[3] or '',
+                    'almuerzo_fin': resultado[4] or ''
+                }
+    except Exception as e:
+        print(f"⚠️ No se pudieron cargar horarios desde BD: {e}")
+        # Mantener los valores por defecto
     
     if request.method == 'POST':
-        # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             return redirect(url_for('negocio_configuracion'))
         
-        configuraciones = {}
-        
-        dias_semana = [
-            {'id': 0, 'nombre': 'Lunes'}, {'id': 1, 'nombre': 'Martes'}, 
-            {'id': 2, 'nombre': 'Miércoles'}, {'id': 3, 'nombre': 'Jueves'},
-            {'id': 4, 'nombre': 'Viernes'}, {'id': 5, 'nombre': 'Sábado'},
-            {'id': 6, 'nombre': 'Domingo'}
-        ]
-        
-        for dia in dias_semana:
-            dia_id = dia['id']
-            activo = request.form.get(f'dia_{dia_id}_activo') == 'on'
-            hora_inicio = request.form.get(f'dia_{dia_id}_inicio', '09:00')
-            hora_fin = request.form.get(f'dia_{dia_id}_fin', '19:00')
-            almuerzo_inicio = request.form.get(f'dia_{dia_id}_almuerzo_inicio', '')
-            almuerzo_fin = request.form.get(f'dia_{dia_id}_almuerzo_fin', '')
+        try:
+            # ===== PROCESAR INFORMACIÓN DEL NEGOCIO =====
+            nombre = request.form.get('nombre')
+            tipo_negocio = request.form.get('tipo_negocio')
+            emoji = request.form.get('emoji')
+            saludo_personalizado = request.form.get('saludo_personalizado')
+            horario_atencion = request.form.get('horario_atencion')
+            direccion = request.form.get('direccion')
+            telefono_contacto = request.form.get('telefono_contacto')
+            politica_cancelacion = request.form.get('politica_cancelacion')
             
-            if not activo:
-                almuerzo_inicio = None
-                almuerzo_fin = None
-            
-            configuraciones[dia_id] = {
-                'activo': activo,
-                'hora_inicio': hora_inicio,
-                'hora_fin': hora_fin,
-                'almuerzo_inicio': almuerzo_inicio if almuerzo_inicio else None,
-                'almuerzo_fin': almuerzo_fin if almuerzo_fin else None
+            # Actualizar configuración del negocio
+            nueva_configuracion = {
+                'saludo_personalizado': saludo_personalizado or '¡Hola! Soy tu asistente virtual para agendar citas.',
+                'horario_atencion': horario_atencion or 'Lunes a Sábado 9:00 AM - 7:00 PM',
+                'direccion': direccion or '',
+                'telefono_contacto': telefono_contacto or '',
+                'politica_cancelacion': politica_cancelacion or 'Puedes cancelar hasta 2 horas antes'
             }
-        
-        if db.actualizar_configuracion_horarios(negocio_id, configuraciones):
-            flash('✅ Configuración de horarios actualizada exitosamente', 'success')
-        else:
-            flash('❌ Error al actualizar la configuración', 'error')
-        
-        return redirect(url_for('negocio_configuracion'))
-    
-    config_actual = db.obtener_configuracion_horarios(negocio_id)
-    
-    dias_semana = [
-        {'id': 0, 'nombre': 'Lunes', 'config': config_actual.get(0, {})},
-        {'id': 1, 'nombre': 'Martes', 'config': config_actual.get(1, {})},
-        {'id': 2, 'nombre': 'Miércoles', 'config': config_actual.get(2, {})},
-        {'id': 3, 'nombre': 'Jueves', 'config': config_actual.get(3, {})},
-        {'id': 4, 'nombre': 'Viernes', 'config': config_actual.get(4, {})},
-        {'id': 5, 'nombre': 'Sábado', 'config': config_actual.get(5, {})},
-        {'id': 6, 'nombre': 'Domingo', 'config': config_actual.get(6, {})}
-    ]
+            
+            # ===== PROCESAR HORARIOS =====
+            horarios_actualizados = []
+            for dia in dias_semana:
+                activo = request.form.get(f'dia_{dia["id"]}_activo') == 'on'
+                hora_inicio = request.form.get(f'dia_{dia["id"]}_inicio')
+                hora_fin = request.form.get(f'dia_{dia["id"]}_fin')
+                almuerzo_inicio = request.form.get(f'dia_{dia["id"]}_descanso_inicio')
+                almuerzo_fin = request.form.get(f'dia_{dia["id"]}_descanso_fin')
+                
+                horarios_actualizados.append({
+                    'dia_id': dia['id'],
+                    'activo': activo,
+                    'hora_inicio': hora_inicio,
+                    'hora_fin': hora_fin,
+                    'almuerzo_inicio': almuerzo_inicio,
+                    'almuerzo_fin': almuerzo_fin
+                })
+            
+            # Guardar TODO en la base de datos
+            if db.actualizar_configuracion_completa(
+                negocio_id, nombre, tipo_negocio, emoji, nueva_configuracion, horarios_actualizados
+            ):
+                flash('✅ Configuración actualizada exitosamente', 'success')
+            else:
+                flash('❌ Error al actualizar la configuración', 'error')
+                
+        except Exception as e:
+            print(f"❌ Error en configuración: {e}")
+            flash('❌ Error al procesar la configuración', 'error')
     
     return render_template('negocio/configuracion.html', 
+                         negocio=negocio, 
                          dias_semana=dias_semana,
-                         negocio_id=negocio_id)
+                         config_actual=config_actual)
 
 # =============================================================================
 # RUTAS PARA GESTIÓN DE SERVICIOS Y PLANTILLAS
