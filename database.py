@@ -1417,9 +1417,9 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         
         cursor.execute('''
             SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
-            FROM horarios_negocio 
+            FROM configuracion_horarios 
             WHERE negocio_id = ? AND dia_semana = ?
-        ''', (negocio_id, dia_nombre))
+        ''', (negocio_id, dia_semana))
         
         result = cursor.fetchone()
         conn.close()
@@ -1853,6 +1853,30 @@ def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
 # =============================================================================
 # FUNCIONES PARA ADMINISTRADOR
 # =============================================================================
+def limpiar_registros_duplicados_horarios(negocio_id):
+    """Eliminar registros duplicados en configuracion_horarios"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            DELETE FROM configuracion_horarios 
+            WHERE id NOT IN (
+                SELECT MAX(id) 
+                FROM configuracion_horarios 
+                WHERE negocio_id = ? 
+                GROUP BY dia_semana
+            ) AND negocio_id = ?
+        ''', (negocio_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        print(f"✅ Registros duplicados eliminados para negocio {negocio_id}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error limpiando registros duplicados: {e}")
+        return False
 
 def obtener_usuarios_todos():
     """Obtener todos los usuarios del sistema"""

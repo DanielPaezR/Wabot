@@ -2332,17 +2332,13 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
-@app.route('/debug/enlace/<nombre_plantilla>')
-@login_required
-def debug_enlace(nombre_plantilla):
-    """Debug: ver qué nombre de plantilla se está recibiendo"""
-    return f"""
-    <h1>Debug Enlace</h1>
-    <p>Nombre de plantilla recibido: <strong>'{nombre_plantilla}'</strong></p>
-    <p>Longitud: {len(nombre_plantilla)}</p>
-    <p>URL: {request.url}</p>
-    <a href="{{ url_for('negocio_plantillas') }}">Volver</a>
-    """
+@app.route('/limpiar-horarios')
+def limpiar_horarios():
+    from database import limpiar_registros_duplicados_horarios
+    if limpiar_registros_duplicados_horarios(1):
+        return "✅ Registros duplicados limpiados"
+    else:
+        return "❌ Error limpiando registros"
 
 @app.route('/migrar_hashes')
 def migrar_hashes():
