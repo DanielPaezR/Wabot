@@ -308,23 +308,34 @@ def verificar_estado_base_datos(negocio_id):
 
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - CON DEBUGGING COMPLETO"""
+    """Mostrar lista de profesionales disponibles - CORREGIDO"""
     try:
         print(f"🔧 [DEBUG] MOSTRAR_PROFESIONALES - Iniciando")
         print(f"🔧 [DEBUG] Parámetros - Negocio: {negocio_id}, Cliente: {numero}")
         
-        # ✅ CORRECCIÓN: Obtener siempre profesionales ACTIVOS desde la base de datos
-        print(f"🔧 [DEBUG] Llamando a obtener_profesionales_activos...")
-        profesionales = db.obtener_profesionales_activos(negocio_id)
+        # ✅ CORRECCIÓN: Usar la función que SÍ existe
+        print(f"🔧 [DEBUG] Llamando a db.obtener_profesionales...")
+        profesionales = db.obtener_profesionales(negocio_id)
+        verificar_funciones_database()
         
         print(f"🔧 [DEBUG] Profesionales obtenidos: {len(profesionales)}")
-        for i, prof in enumerate(profesionales):
-            print(f"🔧 [DEBUG] Profesional {i+1}: ID={prof['id']}, Nombre='{prof['nombre']}', Especialidad='{prof['especialidad']}'")
+        
+        # ✅ FILTRAR solo profesionales activos manualmente
+        profesionales_activos = []
+        for prof in profesionales:
+            print(f"🔧 [DEBUG] Profesional: ID={prof['id']}, Nombre='{prof['nombre']}', Activo={prof.get('activo', 'No especificado')}")
+            # Asumir que está activo si no hay campo 'activo' o si activo=True
+            if prof.get('activo', True):
+                profesionales_activos.append(prof)
+        
+        profesionales = profesionales_activos
+        print(f"🔧 [DEBUG] Profesionales activos después de filtrar: {len(profesionales)}")
         
         if not profesionales:
             print(f"🔧 [DEBUG] No hay profesionales disponibles")
             return "❌ No hay profesionales disponibles en este momento."
         
+        # El resto del código permanece igual...
         # Obtener información del negocio para textos dinámicos
         print(f"🔧 [DEBUG] Obteniendo información del negocio...")
         negocio = db.obtener_negocio_por_id(negocio_id)
@@ -360,7 +371,6 @@ Responde con el *número* del {texto_profesional} que prefieres:
 💡 *O vuelve al menú principal con* *0*'''
         
         print(f"🔧 [DEBUG] Respuesta preparada exitosamente")
-        print(f"🔧 [DEBUG] Respuesta: {respuesta}")
         return respuesta
         
     except Exception as e:
@@ -368,16 +378,27 @@ Responde con el *número* del {texto_profesional} que prefieres:
         import traceback
         traceback.print_exc()
         return renderizar_plantilla('error_generico', negocio_id)
-
+    
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - MEJORADO - CORREGIDO"""
+    """Mostrar servicios disponibles - CORREGIDO"""
     try:
-        # ✅ CORRECCIÓN 2: Obtener siempre servicios ACTIVOS desde la base de datos
-        servicios = db.obtener_servicios_activos(negocio_id)
+        # ✅ CORRECCIÓN: Usar la función que existe y filtrar activos
+        print(f"🔧 [DEBUG] Llamando a db.obtener_servicios...")
+        servicios = db.obtener_servicios(negocio_id)
+        
+        # Filtrar servicios activos manualmente
+        servicios_activos = []
+        for servicio in servicios:
+            if servicio.get('activo', True):
+                servicios_activos.append(servicio)
+        
+        servicios = servicios_activos
+        print(f"🔧 [DEBUG] Servicios activos: {len(servicios)}")
         
         if not servicios:
             return "❌ No hay servicios disponibles en este momento."
         
+        # El resto del código permanece igual...
         # Construir lista de servicios
         lista_servicios = ""
         for i, servicio in enumerate(servicios, 1):
@@ -401,8 +422,16 @@ Responde con el *número* del servicio que deseas:
 💡 *O vuelve al menú principal con* *0*'''
         
     except Exception as e:
-        print(f"❌ Error en mostrar_servicios: {e}")
+        print(f"❌ [DEBUG] Error en mostrar_servicios: {e}")
         return renderizar_plantilla('error_generico', negocio_id)
+    
+
+def verificar_funciones_database():
+    """Verificar qué funciones existen realmente en el módulo database"""
+    print("🔍 [DIAGNÓSTICO] Funciones disponibles en database:")
+    for func_name in dir(db):
+        if not func_name.startswith('_'):  # Excluir funciones privadas
+            print(f"🔍 [DIAGNÓSTICO] - {func_name}")
 
 def mostrar_fechas_disponibles(numero, negocio_id):
     """Mostrar fechas disponibles para agendar"""
