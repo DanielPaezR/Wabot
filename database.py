@@ -765,7 +765,7 @@ def verificar_configuracion_negocio(negocio_id):
         return False
     
 def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios):
-    """Actualizar configuración completa del negocio - CORREGIDA"""
+    """Actualizar configuración completa del negocio - CON LIMPIEZA DE CACHE"""
     try:
         print(f"🔧 ACTUALIZANDO CONFIGURACIÓN - Negocio: {negocio_id}")
         
@@ -779,15 +779,10 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
             WHERE id = ?
         ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
         
-        print(f"✅ Información del negocio actualizada: {nombre}")
-        
-        # ✅ CORRECCIÓN: Validar horarios antes de guardar
+        # Actualizar horarios
         for horario in horarios:
-            # Validar que los campos obligatorios no estén vacíos
-            hora_inicio = horario['hora_inicio'] or '09:00'  # Valor por defecto si está vacío
-            hora_fin = horario['hora_fin'] or '19:00'        # Valor por defecto si está vacío
-            
-            print(f"🔧 Procesando horario día {horario['dia_id']}: activo={horario['activo']}, inicio={hora_inicio}, fin={hora_fin}")
+            hora_inicio = horario['hora_inicio'] or '09:00'
+            hora_fin = horario['hora_fin'] or '19:00'
             
             cursor.execute('''
                 INSERT OR REPLACE INTO configuracion_horarios 
@@ -797,22 +792,23 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
                 negocio_id, 
                 horario['dia_id'],
                 1 if horario['activo'] else 0,
-                hora_inicio,  # ✅ Usar valor validado
-                hora_fin,     # ✅ Usar valor validado
+                hora_inicio,
+                hora_fin,
                 horario['almuerzo_inicio'] or None,
                 horario['almuerzo_fin'] or None
             ))
-            print(f"✅ Horario actualizado para día {horario['dia_id']}")
         
         conn.commit()
         conn.close()
-        print("✅ Configuración completa guardada exitosamente")
+        
+        # ✅ LIMPIAR CACHE DESPUÉS DE ACTUALIZAR
+        notificar_cambio_horarios(negocio_id)
+        
+        print("✅ Configuración completa guardada y cache limpiado")
         return True
         
     except Exception as e:
-        print(f"❌ Error actualizando configuración completa: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error actualizando configuración: {e}")
         return False
 
 # =============================================================================
@@ -1400,18 +1396,17 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico - CON CONVERSIÓN CORREGIDA"""
+    """Obtener horarios para un día específico - SIEMPRE CONSULTAR BD"""
     try:
-        print(f"🔧 [DEBUG] OBTENER_HORARIOS_POR_DIA - Negocio: {negocio_id}, Fecha: {fecha}")
+        # ✅ ELIMINAR CACHE - Siempre consultar base de datos fresca
+        print(f"🔧 [DEBUG] CONSULTANDO BD para horarios - Negocio: {negocio_id}, Fecha: {fecha}")
         
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
         dia_semana_real = fecha_obj.weekday()  # 0=lunes, 1=martes, ..., 6=domingo
         
-        # ✅ CORRECCIÓN: Convertir de 0-6 a 1-7 para buscar en la BD
+        # Convertir de 0-6 a 1-7 para buscar en la BD
         dia_semana_bd = dia_semana_real + 1  # 0→1, 1→2, ..., 6→7
-        
-        print(f"🔧 [DEBUG] Día real: {dia_semana_real} → Día en BD: {dia_semana_bd}")
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1433,10 +1428,8 @@ def obtener_horarios_por_dia(negocio_id, fecha):
                 'almuerzo_inicio': result[3],
                 'almuerzo_fin': result[4]
             }
-            print(f"🔧 [DEBUG] Horario encontrado para día BD {dia_semana_bd}: {horario}")
             return horario
         else:
-            print(f"🔧 [DEBUG] No hay horario configurado para día BD {dia_semana_bd}")
             return {
                 'activo': False,
                 'hora_inicio': '09:00',
@@ -1446,7 +1439,7 @@ def obtener_horarios_por_dia(negocio_id, fecha):
             }
             
     except Exception as e:
-        print(f"❌ [DEBUG] Error en obtener_horarios_por_dia: {e}")
+        print(f"❌ Error en obtener_horarios_por_dia: {e}")
         return {
             'activo': False,
             'hora_inicio': '09:00',
@@ -1509,6 +1502,28 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
         return False
     finally:
         conn.close()
+
+def notificar_cambio_horarios(negocio_id):
+    """Notificar que hubo cambios en horarios - limpiar cache"""
+    try:
+        # Importar y limpiar conversaciones activas
+        from whatsapp_handler import conversaciones_activas
+        
+        # Limpiar todas las conversaciones de este negocio
+        claves_a_eliminar = []
+        for clave in conversaciones_activas.keys():
+            if clave.endswith(f"_{negocio_id}"):
+                claves_a_eliminar.append(clave)
+        
+        for clave in claves_a_eliminar:
+            del conversaciones_activas[clave]
+        
+        print(f"✅ Cache limpiado: {len(claves_a_eliminar)} conversaciones eliminadas para negocio {negocio_id}")
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ No se pudo limpiar cache: {e}")
+        return False
 
 # =============================================================================
 # AUTENTICACIÓN DE USUARIOS

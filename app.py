@@ -1410,6 +1410,16 @@ def negocio_configuracion():
                          dias_semana=dias_semana,
                          config_actual=config_actual)
 
+@app.route('/actualizar-cache/<int:negocio_id>')
+def actualizar_cache(negocio_id):
+    """Forzar actualización de cache para un negocio"""
+    from database import notificar_cambio_horarios
+    
+    if notificar_cambio_horarios(negocio_id):
+        return f"✅ Cache actualizado para negocio {negocio_id}"
+    else:
+        return f"❌ Error actualizando cache para negocio {negocio_id}"
+
 # =============================================================================
 # RUTAS PARA GESTIÓN DE SERVICIOS Y PLANTILLAS
 # =============================================================================
