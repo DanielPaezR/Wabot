@@ -3,7 +3,7 @@
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
-from flask_wtf.csrf import CSRFProtect
+import secrets
 import sqlite3
 from datetime import datetime, timedelta
 import database as db
@@ -21,12 +21,26 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 
-# Configuración adicional para CSRF
-app.config['WTF_CSRF_ENABLED'] = True
-app.config['WTF_CSRF_SECRET_KEY'] = os.getenv('SECRET_KEY', 'negocio-secret-key')
+# =============================================================================
+# CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
+# =============================================================================
 
-# Inicializar CSRF con tu app
-csrf.init_app(app)
+def generate_csrf_token():
+    """Generar token CSRF manualmente"""
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_hex(32)
+    return session['csrf_token']
+
+def validate_csrf_token(token_from_form):
+    """Validar token CSRF manualmente"""
+    if 'csrf_token' not in session:
+        return False
+    return secrets.compare_digest(session['csrf_token'], token_from_form)
+
+# Context processor para agregar CSRF a todas las templates
+@app.context_processor
+def inject_csrf_token():
+    return dict(csrf_token=generate_csrf_token)
 
 # =============================================================================
 # DECORADORES DE AUTENTICACIÓN
@@ -58,11 +72,6 @@ def role_required(roles):
         return decorated_function
     return decorator
 
-def generate_csrf_token():
-    if 'csrf_token' not in session:
-        session['csrf_token'] = secrets.token_hex(32)
-    return session['csrf_token']
-
 def get_redirect_url_by_role(rol):
     """Obtener URL de redirección según el rol"""
     if rol == 'superadmin':
@@ -77,10 +86,6 @@ def get_redirect_url_by_role(rol):
 # =============================================================================
 # FILTROS PERSONALIZADOS PARA JINJA2
 # =============================================================================
-# Agregar CSRF a todas las templates
-@app.context_processor
-def inject_csrf_token():
-    return dict(csrf_token=generate_csrf_token)
 
 @app.template_filter('fromjson')
 def fromjson_filter(value):
@@ -307,7 +312,7 @@ def login():
             print(f"🔐 LOGIN: {usuario['nombre']} (Rol: {usuario['rol']})")
             
             # Manejar profesional
-            if usuario['rol'] == 'profesional':  # ✅ Ahora es 'profesional'
+            if usuario['rol'] == 'profesional':
                 if 'profesional_id' in session:
                     del session['profesional_id']
                 
@@ -347,7 +352,7 @@ def login():
                 return redirect(url_for('admin_dashboard'))
             elif usuario['rol'] == 'propietario':
                 return redirect(url_for('negocio_dashboard'))
-            elif usuario['rol'] == 'profesional':  # ✅ Ahora es 'profesional'
+            elif usuario['rol'] == 'profesional':
                 return redirect(url_for('profesional_dashboard'))
         else:
             flash('Credenciales incorrectas', 'error')
@@ -373,7 +378,7 @@ def admin_dashboard():
     total_negocios = len(negocios)
     negocios_activos = sum(1 for n in negocios if n['activo'])
     
-    usuarios_recientes = db.obtener_usuarios_todos()[:8]  # Solo los primeros 8
+    usuarios_recientes = db.obtener_usuarios_todos()[:8]
     
     return render_template('admin/dashboard.html', 
                          negocios=negocios,
@@ -393,6 +398,11 @@ def admin_negocios():
 def admin_nuevo_negocio():
     """Crear nuevo negocio"""
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('admin_nuevo_negocio'))
+        
         nombre = request.form.get('nombre')
         telefono_whatsapp = request.form.get('telefono_whatsapp')
         tipo_negocio = request.form.get('tipo_negocio', 'general')
@@ -430,6 +440,11 @@ def admin_editar_negocio(negocio_id):
         return redirect(url_for('admin_negocios'))
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
+        
         nombre = request.form.get('nombre')
         telefono_whatsapp = request.form.get('telefono_whatsapp')
         tipo_negocio = request.form.get('tipo_negocio')
@@ -469,6 +484,11 @@ def admin_editar_negocio(negocio_id):
 @role_required(['superadmin'])
 def admin_eliminar_negocio(negocio_id):
     """Eliminar un negocio (desactivar)"""
+    # Validar CSRF
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('admin_negocios'))
+    
     conn = sqlite3.connect('negocio.db')
     cursor = conn.cursor()
     
@@ -503,6 +523,11 @@ def admin_eliminar_negocio(negocio_id):
 @role_required(['superadmin'])
 def admin_activar_negocio(negocio_id):
     """Activar un negocio previamente desactivado"""
+    # Validar CSRF
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('admin_negocios'))
+    
     conn = sqlite3.connect('negocio.db')
     cursor = conn.cursor()
     
@@ -553,6 +578,11 @@ def admin_usuarios():
 def admin_nuevo_usuario():
     """Crear nuevo usuario"""
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        
         negocio_id = request.form.get('negocio_id')
         nombre = request.form.get('nombre')
         email = request.form.get('email')
@@ -577,14 +607,15 @@ def admin_nuevo_usuario():
     negocios = db.obtener_todos_negocios()
     return render_template('admin/nuevo_usuario.html', negocios=negocios)
 
-# =============================================================================
-# RUTAS PARA GESTIÓN DE USUARIOS (ACTIVAR/DESACTIVAR)
-# =============================================================================
-
 @app.route('/admin/usuarios/<int:usuario_id>/toggle', methods=['POST'])
 @role_required(['superadmin'])
 def admin_toggle_usuario(usuario_id):
     """Activar o desactivar un usuario"""
+    # Validar CSRF
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('admin_usuarios'))
+    
     conn = sqlite3.connect('negocio.db')
     cursor = conn.cursor()
     
@@ -626,8 +657,13 @@ def admin_toggle_usuario(usuario_id):
 @role_required(['superadmin'])
 def admin_eliminar_usuario(usuario_id):
     """Eliminar un usuario (solo superadmin)"""
+    # Validar CSRF
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('admin_usuarios'))
+    
     # Prevenir eliminación del superadmin principal
-    if usuario_id == 1:  # ID del superadmin principal
+    if usuario_id == 1:
         flash('❌ No se puede eliminar el superadministrador principal', 'error')
         return redirect(url_for('admin_usuarios'))
     
@@ -688,6 +724,11 @@ def admin_editar_usuario(usuario_id):
         return redirect(url_for('admin_usuarios'))
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('admin_editar_usuario', usuario_id=usuario_id))
+        
         nombre = request.form.get('nombre')
         email = request.form.get('email')
         rol = request.form.get('rol')
@@ -789,6 +830,11 @@ def admin_editar_plantilla(nombre_plantilla):
         return redirect(url_for('admin_plantillas'))
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('admin_editar_plantilla', nombre_plantilla=nombre_plantilla))
+        
         nueva_plantilla = request.form.get('plantilla')
         descripcion = request.form.get('descripcion')
         
@@ -820,6 +866,11 @@ def admin_editar_plantilla(nombre_plantilla):
 @role_required(['superadmin'])
 def admin_limpiar_plantillas():
     """Limpiar plantillas duplicadas (ruta temporal)"""
+    # Validar CSRF
+    if not validate_csrf_token(request.args.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('admin_plantillas'))
+    
     conn = sqlite3.connect('negocio.db')
     cursor = conn.cursor()
     
@@ -888,6 +939,7 @@ def admin_limpiar_plantillas():
         conn.close()
     
     return redirect(url_for('admin_plantillas'))
+
 # =============================================================================
 # RUTAS DEL PANEL NEGOCIO
 # =============================================================================
@@ -979,6 +1031,11 @@ def negocio_configuracion():
     negocio_id = session.get('negocio_id', 1)
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_configuracion'))
+        
         configuraciones = {}
         
         dias_semana = [
@@ -1046,10 +1103,6 @@ def negocio_servicios():
                          servicios=servicios,
                          negocio_id=negocio_id)
 
-# =============================================================================
-# RUTAS PARA GESTIÓN DE SERVICIOS (NEGOCIO)
-# =============================================================================
-
 @app.route('/negocio/servicios/nuevo', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_nuevo_servicio():
@@ -1060,6 +1113,11 @@ def negocio_nuevo_servicio():
         negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_nuevo_servicio'))
+        
         nombre = request.form['nombre']
         duracion = int(request.form['duracion'])
         precio = float(request.form['precio'])
@@ -1087,36 +1145,77 @@ def negocio_nuevo_servicio():
     
     return render_template('negocio/nuevo_servicio.html', negocio_id=negocio_id)
 
-@app.route('/negocio/servicios/<int:servicio_id>/editar')
+@app.route('/negocio/servicios/<int:servicio_id>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_servicio(servicio_id):
-    servicio = database.obtener_servicio_por_id(servicio_id, session['negocio_id'])
-    if servicio:
-        # Convertir a diccionario si es necesario
-        if hasattr(servicio, '_asdict'):  # Para objetos Row de SQLite
-            servicio_dict = servicio._asdict()
-        elif isinstance(servicio, dict):  # Ya es diccionario
-            servicio_dict = servicio
-        else:  # Para otros tipos de objetos
-            servicio_dict = {
-                'id': servicio.id,
-                'nombre': servicio.nombre,
-                'precio': servicio.precio,
-                'duracion': servicio.duracion,
-                'descripcion': servicio.descripcion,
-                'activo': servicio.activo
-            }
+    """Editar servicio del negocio"""
+    if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_servicios'))
+    
+    servicio = db.obtener_servicio_por_id(servicio_id, session['negocio_id'])
+    if not servicio:
+        flash('Servicio no encontrado', 'error')
+        return redirect(url_for('negocio_servicios'))
+    
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        duracion = int(request.form['duracion'])
+        precio = float(request.form['precio'])
+        descripcion = request.form.get('descripcion', '')
+        activo = 'activo' in request.form
+        
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                UPDATE servicios 
+                SET nombre = ?, duracion = ?, precio = ?, descripcion = ?, activo = ?
+                WHERE id = ? AND negocio_id = ?
+            ''', (nombre, duracion, precio, descripcion, activo, servicio_id, session['negocio_id']))
+            
+            conn.commit()
+            flash('✅ Servicio actualizado exitosamente', 'success')
+            return redirect(url_for('negocio_servicios'))
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Error actualizando servicio: {e}")
+            flash('❌ Error al actualizar el servicio', 'error')
+        finally:
+            conn.close()
+    
+    # Convertir a diccionario si es necesario
+    if hasattr(servicio, '_asdict'):
+        servicio_dict = servicio._asdict()
+    elif isinstance(servicio, dict):
+        servicio_dict = servicio
     else:
-        servicio_dict = {}
+        servicio_dict = {
+            'id': servicio.id,
+            'nombre': servicio.nombre,
+            'precio': servicio.precio,
+            'duracion': servicio.duracion,
+            'descripcion': servicio.descripcion,
+            'activo': servicio.activo
+        }
     
     return render_template('negocio/editar_servicio.html', 
-                         servicio=servicio_dict,  # ← CORREGIDO
+                         servicio=servicio_dict,
                          negocio_id=session['negocio_id'])
 
 @app.route('/negocio/servicios/<int:servicio_id>/eliminar', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_eliminar_servicio(servicio_id):
     """Eliminar servicio"""
+    # Validar CSRF
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('negocio_servicios'))
+    
     if session['usuario_rol'] == 'propietario':
         negocio_id = session['negocio_id']
     else:
@@ -1168,29 +1267,33 @@ def negocio_plantillas():
                          plantillas=plantillas,
                          negocio_id=negocio_id)
 
-@app.route('/negocio/plantillas/<nombre_plantilla>/editar')
+@app.route('/negocio/plantillas/<nombre_plantilla>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_plantilla(nombre_plantilla):
+    """Editar plantilla del negocio"""
     negocio_id = session['negocio_id']
     
-    # Obtener la plantilla actual de forma segura
-    plantilla_actual = database.obtener_plantilla(negocio_id, nombre_plantilla)
+    if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_plantillas'))
     
-    # ✅ CORRECCIÓN: Verificar el tipo de dato y crear un diccionario seguro
+    # Obtener la plantilla actual de forma segura
+    plantilla_actual = db.obtener_plantilla(negocio_id, nombre_plantilla)
+    
+    # Crear diccionario seguro
     if plantilla_actual and isinstance(plantilla_actual, str):
-        # Si es un string, crear un diccionario básico
         plantilla_dict = {
             'plantilla': plantilla_actual,
             'nombre': nombre_plantilla,
             'negocio_id': negocio_id,
-            'es_personalizada': True  # Asumir que es personalizada si existe
+            'es_personalizada': True
         }
     elif plantilla_actual and isinstance(plantilla_actual, dict):
-        # Si ya es un diccionario, usarlo directamente
         plantilla_dict = plantilla_actual
     else:
-        # Si no existe, crear una plantilla vacía basada en la plantilla base
-        plantilla_base = database.obtener_plantilla_base(nombre_plantilla)
+        plantilla_base = db.obtener_plantilla_base(nombre_plantilla)
         if plantilla_base:
             plantilla_dict = {
                 'plantilla': plantilla_base.get('plantilla', ''),
@@ -1210,8 +1313,19 @@ def negocio_editar_plantilla(nombre_plantilla):
                 'es_personalizada': False
             }
     
+    if request.method == 'POST':
+        nueva_plantilla = request.form.get('plantilla')
+        descripcion = request.form.get('descripcion', '')
+        
+        # Guardar plantilla personalizada
+        if db.guardar_plantilla_personalizada(negocio_id, nombre_plantilla, nueva_plantilla, descripcion):
+            flash('✅ Plantilla actualizada exitosamente', 'success')
+            return redirect(url_for('negocio_plantillas'))
+        else:
+            flash('❌ Error al actualizar la plantilla', 'error')
+    
     return render_template('negocio/editar_plantilla.html',
-                         plantilla_actual=plantilla_dict,  # ← Ahora es un diccionario
+                         plantilla_actual=plantilla_dict,
                          nombre_plantilla=nombre_plantilla,
                          es_personalizada=plantilla_dict.get('es_personalizada', False))
 
@@ -1240,6 +1354,11 @@ def negocio_nuevo_profesional():
     servicios = obtener_servicios_por_negocio(session['negocio_id'])
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
         nombre = request.form['nombre']
         especialidad = request.form.get('especialidad', '')
         pin = request.form['pin']
@@ -1279,6 +1398,11 @@ def negocio_editar_profesional(profesional_id):
         return redirect(url_for('negocio_profesionales'))
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_editar_profesional', profesional_id=profesional_id))
+        
         nombre = request.form['nombre']
         especialidad = request.form.get('especialidad', '')
         pin = request.form['pin']
@@ -1307,6 +1431,11 @@ def negocio_editar_profesional(profesional_id):
 @login_required
 def negocio_eliminar_profesional(profesional_id):
     """Eliminar profesional"""
+    # Validar CSRF
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('negocio_profesionales'))
+    
     if session['usuario_rol'] != 'propietario':
         return redirect(url_for('login'))
     
@@ -1356,12 +1485,8 @@ def profesional_dashboard():
                                 profesional_id=None,
                                 fecha=fecha)
 
-        # Obtener citas del profesional - DEBUG
-        print(f"🔍 DEBUG - Llamando a db.obtener_citas_para_profesional...")
+        # Obtener citas del profesional
         citas = db.obtener_citas_para_profesional(negocio_id, profesional_id, fecha)
-        print(f"🔍 DEBUG - Citas obtenidas: {len(citas)}")
-        for i, cita in enumerate(citas):
-            print(f"  Cita {i+1}: {cita}")
         
         total_citas = len(citas)
         ganancia_estimada = sum(cita.get('precio', 0) for cita in citas if cita.get('estado') != 'cancelado')
@@ -1399,11 +1524,11 @@ def profesional_estadisticas():
             flash('No se pudo identificar al profesional', 'error')
             return redirect(url_for('profesional_dashboard'))
         
-        # Obtener estadísticas del profesional - CORREGIDO
+        # Obtener estadísticas del profesional
         conn = sqlite3.connect('negocio.db')
         cursor = conn.cursor()
         
-        # Estadísticas básicas - USAR fecha Y hora en lugar de fecha_hora
+        # Estadísticas básicas
         cursor.execute('''
             SELECT COUNT(*) as total_citas,
                    SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
@@ -1417,7 +1542,7 @@ def profesional_estadisticas():
         
         stats = cursor.fetchone()
         
-        # Citas de esta semana - CORREGIDO
+        # Citas de esta semana
         cursor.execute('''
             SELECT COUNT(*) 
             FROM citas 
@@ -1541,10 +1666,9 @@ def profesional_agendar():
         conn.close()
         
         # Fecha de hoy para el mínimo del datepicker
-        from datetime import datetime
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
         
-        return render_template('profesional/agendar_cita.html',  # ✅ Usa tu template existente
+        return render_template('profesional/agendar_cita.html',
                             servicios=servicios,
                             profesional_id=profesional_id,
                             fecha_hoy=fecha_hoy)
@@ -1559,10 +1683,10 @@ def profesional_agendar():
 def profesional_crear_cita():
     """Crear cita desde el panel del profesional"""
     try:
-        # Debug: ver todos los datos del formulario
-        print("🔍 DEBUG - Datos del formulario recibidos:")
-        for key, value in request.form.items():
-            print(f"  {key}: {value}")
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('profesional_agendar'))
         
         cliente_nombre = request.form.get('cliente_nombre')
         cliente_telefono = request.form.get('cliente_telefono')
@@ -1573,10 +1697,7 @@ def profesional_crear_cita():
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
-        print(f"🔍 DEBUG - Session data: profesional_id={profesional_id}, negocio_id={negocio_id}")
-        
         if not all([cliente_nombre, cliente_telefono, servicio_id, fecha, hora, profesional_id]):
-            print("❌ DEBUG - Faltan campos requeridos")
             flash('Todos los campos son requeridos', 'error')
             return redirect(url_for('profesional_agendar'))
         
@@ -1591,7 +1712,6 @@ def profesional_crear_cita():
         
         cita_existente = cursor.fetchone()
         if cita_existente:
-            print(f"❌ DEBUG - Ya existe cita en {fecha} {hora}")
             flash('❌ Ya existe una cita en ese horario', 'error')
             conn.close()
             return redirect(url_for('profesional_agendar'))
@@ -1623,14 +1743,11 @@ def profesional_crear_cita():
         conn.commit()
         conn.close()
         
-        print(f"✅ DEBUG - Cita creada exitosamente. ID: {cita_id}")
         flash('✅ Cita agendada exitosamente', 'success')
         return redirect(url_for('profesional_dashboard'))
         
     except Exception as e:
-        print(f"❌ DEBUG - Error creando cita: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error creando cita: {e}")
         flash('❌ Error al agendar la cita', 'error')
         return redirect(url_for('profesional_agendar'))
 
@@ -1639,6 +1756,11 @@ def profesional_crear_cita():
 def completar_cita(cita_id):
     """Marcar cita como completada desde el panel del profesional"""
     try:
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('profesional_dashboard'))
+        
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
@@ -1858,8 +1980,6 @@ def api_horarios_disponibles():
         
         conn.close()
         
-        print(f"✅ Horarios disponibles para {fecha}: {horarios_disponibles}")
-        
         return jsonify({
             'horarios': horarios_disponibles,
             'duracion': duracion
@@ -1867,15 +1987,12 @@ def api_horarios_disponibles():
         
     except Exception as e:
         print(f"❌ Error en api_horarios_disponibles: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
-    
-
 
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
+
 @app.route('/migrar_hashes')
 def migrar_hashes():
     """Ruta temporal para migrar hashes - ELIMINAR DESPUÉS"""
@@ -1894,7 +2011,6 @@ def migrar_hashes():
         '''
     except Exception as e:
         return f'<h1>❌ Error migrando hashes:</h1><p>{e}</p>'
-
 
 @app.route('/')
 def index():

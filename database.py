@@ -6,6 +6,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import json
 import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
 
 def get_db_connection():
     """Establecer conexión a la base de datos"""

@@ -231,6 +231,8 @@
             </div>
             
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                 <div class="form-group">
                     <label for="negocio_id">Negocio</label>
                     <select id="negocio_id" name="negocio_id">
