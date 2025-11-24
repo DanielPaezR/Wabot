@@ -102,51 +102,55 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
 
 @whatsapp_bp.route('/webhook', methods=['POST'])
 def webhook_whatsapp():
-    """Webhook principal para WhatsApp - Versión con plantillas"""
+    """Webhook principal para WhatsApp - CON DEBUGGING"""
     try:
         # Obtener datos del mensaje
         incoming_msg = request.values.get('Body', '').strip()
         from_number = request.values.get('From', '').replace('whatsapp:', '')
         to_number = request.values.get('To', '')  # Número del negocio
         
-        print(f"📱 Mensaje de {from_number} a {to_number}: {incoming_msg}")
+        print(f"🔧 [DEBUG] WEBHOOK - Mensaje de {from_number} a {to_number}: '{incoming_msg}'")
         
         # Identificar negocio por el número que recibió el mensaje
+        print(f"🔧 [DEBUG] Buscando negocio para número: {to_number}")
         negocio = db.obtener_negocio_por_telefono(to_number)
         if not negocio:
-            print(f"❌ Negocio no encontrado para: {to_number}")
+            print(f"❌ [DEBUG] Negocio NO encontrado para: {to_number}")
             resp = MessagingResponse()
             resp.message("❌ Este número no está configurado en el sistema.")
             return str(resp)
         
+        print(f"✅ [DEBUG] Negocio identificado: {negocio['nombre']} (ID: {negocio['id']})")
+        
         if not negocio['activo']:
-            print(f"❌ Negocio inactivo: {negocio['nombre']}")
+            print(f"❌ [DEBUG] Negocio INACTIVO: {negocio['nombre']}")
             resp = MessagingResponse()
             resp.message("❌ Este negocio no está activo actualmente.")
             return str(resp)
         
-        print(f"✅ Negocio identificado: {negocio['nombre']} (ID: {negocio['id']})")
-        
         # ✅ CORRECCIÓN: Verificar si es un mensaje duplicado o automático
         if not incoming_msg or incoming_msg.isspace():
-            print("⚠️ Mensaje vacío o automático, ignorando...")
+            print(f"⚠️ [DEBUG] Mensaje vacío o automático, ignorando...")
             resp = MessagingResponse()
             return str(resp)
         
         # Procesar mensaje
+        print(f"🔧 [DEBUG] Llamando a procesar_mensaje...")
         respuesta = procesar_mensaje(incoming_msg, from_number, negocio['id'])
         
         # Enviar respuesta solo si hay contenido
         if respuesta:
+            print(f"🔧 [DEBUG] Enviando respuesta: {respuesta}")
             resp = MessagingResponse()
             resp.message(respuesta)
             return str(resp)
         else:
+            print(f"⚠️ [DEBUG] No hay respuesta para enviar")
             resp = MessagingResponse()
             return str(resp)
         
     except Exception as e:
-        print(f"❌ Error en webhook: {e}")
+        print(f"❌ [DEBUG] Error CRÍTICO en webhook: {e}")
         import traceback
         traceback.print_exc()
         
@@ -159,14 +163,16 @@ def webhook_whatsapp():
 # =============================================================================
 
 def procesar_mensaje(mensaje, numero, negocio_id):
-    """Procesar mensajes usando el sistema de plantillas - MEJORADO"""
+    """Procesar mensajes usando el sistema de plantillas - CON DEBUGGING"""
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    print(f"🔧 PROCESANDO MENSAJE: '{mensaje}' de {numero}")
+    print(f"🔧 [DEBUG] PROCESANDO MENSAJE: '{mensaje}' de {numero}")
+    print(f"🔧 [DEBUG] Clave conversación: {clave_conversacion}")
     
     # Comando especial para volver al menú principal
     if mensaje == '0':
+        print(f"🔧 [DEBUG] Comando '0' detectado - Volviendo al menú principal")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return saludo_inicial(numero, negocio_id)
@@ -177,23 +183,31 @@ def procesar_mensaje(mensaje, numero, negocio_id):
     # Si hay conversación activa, continuarla
     if clave_conversacion in conversaciones_activas:
         estado_actual = conversaciones_activas[clave_conversacion]['estado']
-        print(f"🔧 Conversación activa - Estado: {estado_actual}")
+        print(f"🔧 [DEBUG] Conversación activa encontrada - Estado: {estado_actual}")
         return continuar_conversacion(numero, mensaje, negocio_id)
+    
+    print(f"🔧 [DEBUG] No hay conversación activa - Procesando comando del menú")
     
     # Procesar comandos del menú principal SOLO si no hay conversación activa
     if mensaje == '1':
+        print(f"🔧 [DEBUG] Comando '1' detectado - Mostrando profesionales")
         return mostrar_profesionales(numero, negocio_id)
     elif mensaje == '2':
+        print(f"🔧 [DEBUG] Comando '2' detectado - Mostrando citas")
         return mostrar_mis_citas(numero, negocio_id)
     elif mensaje == '3':
+        print(f"🔧 [DEBUG] Comando '3' detectado - Cancelando reserva")
         conversaciones_activas[clave_conversacion] = {'estado': 'cancelando', 'timestamp': datetime.now()}
         return mostrar_citas_para_cancelar(numero, negocio_id)
     elif mensaje == '4':
+        print(f"🔧 [DEBUG] Comando '4' detectado - Mostrando ayuda")
         return mostrar_ayuda(negocio_id)
     elif mensaje in ['hola', 'hi', 'hello', 'buenas']:
+        print(f"🔧 [DEBUG] Saludo detectado - Mostrando menú inicial")
         return saludo_inicial(numero, negocio_id)
     else:
         # Mensaje no reconocido - mostrar menú principal
+        print(f"🔧 [DEBUG] Mensaje no reconocido - Mostrando menú principal")
         return renderizar_plantilla('menu_principal', negocio_id)
 
 def saludo_inicial(numero, negocio_id):
@@ -224,18 +238,101 @@ def saludo_inicial(numero, negocio_id):
     except Exception as e:
         print(f"❌ Error en saludo_inicial: {e}")
         return renderizar_plantilla('error_generico', negocio_id)
+    
+def obtener_profesionales_activos(negocio_id):
+    """Obtener profesionales activos - CON DEBUGGING"""
+    try:
+        print(f"🔧 [DEBUG] OBTENER_PROFESIONALES_ACTIVOS - Negocio: {negocio_id}")
+        
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, nombre, especialidad, pin, telefono
+            FROM profesionales 
+            WHERE negocio_id = ? AND activo = 1
+            ORDER BY nombre
+        ''', (negocio_id,))
+        
+        profesionales = []
+        for row in cursor.fetchall():
+            profesional = {
+                'id': row[0],
+                'nombre': row[1],
+                'especialidad': row[2],
+                'pin': row[3],
+                'telefono': row[4]
+            }
+            profesionales.append(profesional)
+            print(f"🔧 [DEBUG] Profesional encontrado: {profesional}")
+        
+        conn.close()
+        print(f"🔧 [DEBUG] Total profesionales activos: {len(profesionales)}")
+        return profesionales
+        
+    except Exception as e:
+        print(f"❌ [DEBUG] Error en obtener_profesionales_activos: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+def verificar_estado_base_datos(negocio_id):
+    """Función de diagnóstico para verificar el estado de la base de datos"""
+    try:
+        print(f"🔍 [DIAGNÓSTICO] Verificando base de datos para negocio {negocio_id}")
+        
+        # Verificar conexión a la base de datos
+        conn = sqlite3.connect('negocio.db')
+        cursor = conn.cursor()
+        
+        # Verificar tabla profesionales
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='profesionales'")
+        tabla_existe = cursor.fetchone()
+        print(f"🔍 [DIAGNÓSTICO] Tabla 'profesionales' existe: {bool(tabla_existe)}")
+        
+        if tabla_existe:
+            # Contar profesionales activos
+            cursor.execute('SELECT COUNT(*) FROM profesionales WHERE negocio_id = ? AND activo = 1', (negocio_id,))
+            count_activos = cursor.fetchone()[0]
+            print(f"🔍 [DIAGNÓSTICO] Profesionales activos: {count_activos}")
+            
+            # Mostrar todos los profesionales
+            cursor.execute('SELECT id, nombre, especialidad, activo FROM profesionales WHERE negocio_id = ?', (negocio_id,))
+            todos = cursor.fetchall()
+            print(f"🔍 [DIAGNÓSTICO] Todos los profesionales: {todos}")
+        
+        conn.close()
+        
+    except Exception as e:
+        print(f"❌ [DIAGNÓSTICO] Error en verificación: {e}")
+
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - USANDO PLANTILLAS - CORREGIDO"""
+    """Mostrar lista de profesionales disponibles - CON DEBUGGING COMPLETO"""
     try:
-        # ✅ CORRECCIÓN 1: Obtener siempre profesionales ACTIVOS desde la base de datos
+        print(f"🔧 [DEBUG] MOSTRAR_PROFESIONALES - Iniciando")
+        print(f"🔧 [DEBUG] Parámetros - Negocio: {negocio_id}, Cliente: {numero}")
+        
+        # ✅ CORRECCIÓN: Obtener siempre profesionales ACTIVOS desde la base de datos
+        print(f"🔧 [DEBUG] Llamando a obtener_profesionales_activos...")
         profesionales = db.obtener_profesionales_activos(negocio_id)
         
+        print(f"🔧 [DEBUG] Profesionales obtenidos: {len(profesionales)}")
+        for i, prof in enumerate(profesionales):
+            print(f"🔧 [DEBUG] Profesional {i+1}: ID={prof['id']}, Nombre='{prof['nombre']}', Especialidad='{prof['especialidad']}'")
+        
         if not profesionales:
+            print(f"🔧 [DEBUG] No hay profesionales disponibles")
             return "❌ No hay profesionales disponibles en este momento."
         
         # Obtener información del negocio para textos dinámicos
+        print(f"🔧 [DEBUG] Obteniendo información del negocio...")
         negocio = db.obtener_negocio_por_id(negocio_id)
+        print(f"🔧 [DEBUG] Negocio obtenido: {negocio}")
+        
+        if not negocio:
+            print(f"❌ [DEBUG] No se pudo obtener información del negocio")
+            return "❌ Error: Información del negocio no disponible."
         
         # Construir lista de profesionales
         lista_profesionales = ""
@@ -250,18 +347,26 @@ def mostrar_profesionales(numero, negocio_id):
             'timestamp': datetime.now()
         }
         
+        print(f"🔧 [DEBUG] Conversación activa guardada: {clave_conversacion}")
+        
         texto_profesional = 'estilista' if negocio['tipo_negocio'] == 'spa_unas' else 'profesional'
         emoji_profesional = '👩‍💼' if negocio['tipo_negocio'] == 'spa_unas' else '👨‍💼'
         
-        return f'''{emoji_profesional} *Nuestros {texto_profesional.title()}es* 
+        respuesta = f'''{emoji_profesional} *Nuestros {texto_profesional.title()}es* 
 
 {lista_profesionales}
 Responde con el *número* del {texto_profesional} que prefieres:
 
 💡 *O vuelve al menú principal con* *0*'''
         
+        print(f"🔧 [DEBUG] Respuesta preparada exitosamente")
+        print(f"🔧 [DEBUG] Respuesta: {respuesta}")
+        return respuesta
+        
     except Exception as e:
-        print(f"❌ Error en mostrar_profesionales: {e}")
+        print(f"❌ [DEBUG] Error CRÍTICO en mostrar_profesionales: {e}")
+        import traceback
+        traceback.print_exc()
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
