@@ -2759,8 +2759,13 @@ def catch_all(path):
 
 @app.route('/')
 def index():
-    """Página principal - SIMPLE Y DIRECTO"""
-    return "✅ ¡App funcionando! Ve a /login para acceder al sistema."
+    """Página principal - MÍNIMA"""
+    return """
+    <h1>✅ ¡App Funcionando!</h1>
+    <p>La aplicación Flask está ejecutándose correctamente.</p>
+    <a href="/login">Ir al Login</a> | 
+    <a href="/health">Health Check</a>
+    """
 
 @app.route('/test')
 def test():
@@ -2776,11 +2781,8 @@ def debug_session():
 # INICIALIZACIÓN
 # =============================================================================
 
-# Crear la aplicación Flask primero
-app_instance = app
-
 def initialize_app():
-    """Inicializar la aplicación"""
+    """Inicializar la aplicación - EJECUTAR SIEMPRE"""
     print("🚀 INICIALIZANDO APLICACIÓN...")
     
     try:
@@ -2797,11 +2799,11 @@ def initialize_app():
     except Exception as e:
         print(f"⚠️ Error en scheduler: {e}")
 
-# Inicializar SOLO si es el proceso principal
+# INICIALIZAR SIEMPRE, sin importar cómo se cargue el módulo
+print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
+initialize_app()
+
+# Solo para desarrollo local
 if __name__ == '__main__':
-    initialize_app()
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-else:
-    # Para Gunicorn, usar un approach diferente
-    print("🔧 MÓDULO CARGADO POR GUNICORN")
