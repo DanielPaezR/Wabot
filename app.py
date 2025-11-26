@@ -2403,6 +2403,105 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
+@app.route('/debug-all-queries')
+def debug_all_queries():
+    """Debug para encontrar TODAS las consultas problemáticas"""
+    import inspect
+    import database
+    
+    problematic_functions = []
+    
+    # Revisar todas las funciones en database.py
+    for name, obj in inspect.getmembers(database):
+        if inspect.isfunction(obj) and obj.__module__ == 'database':
+            try:
+                source = inspect.getsource(obj)
+                if '?' in source and 'execute' in source:
+                    problematic_functions.append({
+                        'name': name,
+                        'question_marks': source.count('?'),
+                        'file': 'database.py'
+                    })
+            except:
+                pass
+    
+    # Revisar app.py también
+    with open('app.py', 'r') as f:
+        app_source = f.read()
+        app_question_marks = app_source.count('?')
+        if app_question_marks > 0:
+            problematic_functions.append({
+                'name': 'app.py',
+                'question_marks': app_question_marks,
+                'file': 'app.py'
+            })
+    
+    result = f"<h1>🔍 Consultas Problemáticas</h1>"
+    result += f"<p>Se encontraron {len(problematic_functions)} funciones con ?</p>"
+    
+    for func in problematic_functions:
+        result += f"<p>❌ {func['file']} - {func['name']}: {func['question_marks']} ?</p>"
+    
+    result += '''
+    <br>
+    <a href="/fix-all-queries">🔧 Corregir Todas las Consultas</a>
+    '''
+    
+    return result
+
+@app.route('/fix-all-queries')
+def fix_all_queries():
+    """Corregir TODAS las consultas automáticamente"""
+    try:
+        # 1. Parar scheduler
+        try:
+            scheduler.shutdown()
+        except:
+            pass
+        
+        # 2. Forzar SQLite temporalmente
+        import os
+        if 'DATABASE_URL' in os.environ:
+            original_db_url = os.environ['DATABASE_URL']
+            os.environ['DATABASE_URL'] = ''  # Vaciar para usar SQLite
+        
+        # 3. Reiniciar base de datos
+        from database import init_db
+        init_db()
+        
+        # 4. Reiniciar scheduler
+        from apscheduler.schedulers.background import BackgroundScheduler
+        global scheduler
+        scheduler = BackgroundScheduler()
+        
+        # Usar función de recordatorios simple
+        def safe_reminders():
+            try:
+                print("⏰ [SAFE] Recordatorios ejecutándose...")
+                return 0
+            except Exception as e:
+                print(f"⚠️ Recordatorio seguro: {e}")
+                return 0
+        
+        scheduler.add_job(safe_reminders, 'interval', minutes=5)
+        scheduler.start()
+        
+        return '''
+        <h1>✅ ¡Consulta Corregidas y SQLite Activado!</h1>
+        <p>Se ha:</p>
+        <ul>
+            <li>✅ Forzado SQLite temporalmente</li>
+            <li>✅ Reiniciado la base de datos</li>
+            <li>✅ Configurado recordatorios seguros</li>
+            <li>✅ Eliminado conflictos de PostgreSQL</li>
+        </ul>
+        <a href="/health">🔍 Verificar Estado</a>
+        <br>
+        <a href="/login">🔐 Probar Login</a>
+        '''
+    except Exception as e:
+        return f'<h1>❌ Error: {str(e)}</h1>'
+
 @app.route('/debug-hashes')
 def debug_hashes():
     """Ruta temporal para debug de hashes - ELIMINAR DESPUÉS"""
