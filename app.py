@@ -14,6 +14,7 @@ import threading
 from scheduler import iniciar_scheduler
 import json
 from functools import wraps
+from database import get_db_connection
 
 # Cargar variables de entorno
 load_dotenv()
@@ -2482,33 +2483,129 @@ def corregir_hash(usuario_id):
 
 @app.route('/debug-database')
 def debug_database():
-    """Debug de conexión a base de datos"""
+    """Debug de conexión a base de datos - VERSIÓN CORREGIDA"""
     try:
+        # Importar aquí para evitar problemas de importación circular
+        from database import get_db_connection
+        
         conn = get_db_connection()
         
-        # Probar consulta simple
-        cursor = conn.cursor()
-        cursor.execute('SELECT version()')
-        version = cursor.fetchone()
+        # Determinar el tipo de base de datos
+        database_url = os.getenv('DATABASE_URL', '')
+        is_postgresql = 'postgresql' in database_url
         
-        # Probar si existe tabla de negocios
-        try:
-            cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'")
-            tablas = cursor.fetchone()
-        except:
-            tablas = {'count': 'Error al contar tablas'}
+        if is_postgresql:
+            # PostgreSQL
+            cursor = conn.cursor()
+            cursor.execute('SELECT version()')
+            version_result = cursor.fetchone()
+            version = version_result['version'] if version_result else 'No disponible'
+            
+            cursor.execute("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public'")
+            tablas_result = cursor.fetchone()
+            num_tablas = tablas_result['count'] if tablas_result else 0
+            
+            # Obtener lista de tablas
+            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            tablas = [row['table_name'] for row in cursor.fetchall()]
+            
+        else:
+            # SQLite
+            cursor = conn.cursor()
+            cursor.execute('SELECT sqlite_version()')
+            version_result = cursor.fetchone()
+            version = version_result[0] if version_result else 'No disponible'
+            
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tablas_result = cursor.fetchall()
+            tablas = [row[0] for row in tablas_result]
+            num_tablas = len(tablas)
         
         conn.close()
         
+        # Ocultar contraseña en la URL para seguridad
+        safe_database_url = database_url
+        if '@' in database_url:
+            # Ocultar contraseña: postgresql://usuario:password@host -> postgresql://usuario:****@host
+            parts = database_url.split('@')
+            user_part = parts[0]
+            if ':' in user_part:
+                user_pass = user_part.split(':')
+                if len(user_pass) == 3:  # postgresql://usuario:password@
+                    safe_database_url = f"{user_pass[0]}:{user_pass[1]}:****@{parts[1]}"
+                elif len(user_pass) == 2:  # usuario:password@
+                    safe_database_url = f"{user_pass[0]}:****@{parts[1]}"
+        
         return f'''
-        <h1>🔧 DEBUG DATABASE</h1>
-        <p><strong>Database URL:</strong> {os.getenv('DATABASE_URL', 'No configurada')}</p>
-        <p><strong>PostgreSQL Version:</strong> {version}</p>
-        <p><strong>Tablas existentes:</strong> {tablas}</p>
-        <p><strong>Tipo de conexión:</strong> {'PostgreSQL' if 'postgresql' in os.getenv('DATABASE_URL', '') else 'SQLite'}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>🔧 DEBUG DATABASE</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                .success {{ color: green; font-weight: bold; }}
+                .error {{ color: red; font-weight: bold; }}
+                .info {{ background: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; }}
+                table {{ border-collapse: collapse; width: 100%; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                th {{ background-color: #f2f2f2; }}
+            </style>
+        </head>
+        <body>
+            <h1>🔧 DEBUG DATABASE</h1>
+            
+            <div class="info">
+                <h3>📊 Información de Conexión</h3>
+                <p><strong>Tipo de BD:</strong> <span class="{'success' if is_postgresql else 'info'}">{'PostgreSQL 🐘' if is_postgresql else 'SQLite 💾'}</span></p>
+                <p><strong>Database URL:</strong> {safe_database_url or 'No configurada'}</p>
+                <p><strong>Versión:</strong> {version}</p>
+                <p><strong>Número de tablas:</strong> {num_tablas}</p>
+            </div>
+            
+            <div class="info">
+                <h3>📋 Tablas en la Base de Datos</h3>
+                {'<ul>' + ''.join(f'<li>{tabla}</li>' for tabla in tablas) + '</ul>' if tablas else '<p>No hay tablas</p>'}
+            </div>
+            
+            <div class="info">
+                <h3>🔍 Pruebas Adicionales</h3>
+                <p><a href="/test-db-query">Probar consulta a negocios</a></p>
+                <p><a href="/">Ir al inicio</a></p>
+            </div>
+        </body>
+        </html>
         '''
+        
     except Exception as e:
-        return f'<h1>❌ ERROR</h1><p>{e}</p>'
+        import traceback
+        error_details = traceback.format_exc()
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>❌ ERROR DATABASE</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                .error {{ color: red; background: #ffe6e6; padding: 15px; border-radius: 5px; }}
+                pre {{ background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }}
+            </style>
+        </head>
+        <body>
+            <h1>❌ ERROR EN CONEXIÓN A BASE DE DATOS</h1>
+            <div class="error">
+                <p><strong>Error:</strong> {str(e)}</p>
+            </div>
+            <h3>🔍 Detalles del Error:</h3>
+            <pre>{error_details}</pre>
+            <h3>💡 Posibles Soluciones:</h3>
+            <ul>
+                <li>Verificar que DATABASE_URL esté configurada en Railway</li>
+                <li>Verificar que psycopg2-binary esté en requirements.txt</li>
+                <li>Revisar que la función get_db_connection esté importada correctamente</li>
+            </ul>
+        </body>
+        </html>
+        '''
 
 @app.route('/migrar_hashes')
 def migrar_hashes():
