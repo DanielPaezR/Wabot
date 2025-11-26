@@ -521,7 +521,13 @@
                             </td>
                             <td>
                                 {% if usuario.ultimo_login %}
-                                    <span class="last-login">{{ usuario.ultimo_login[:16] }}</span>
+                                    <span class="last-login">
+                                        {% if usuario.ultimo_login is string %}
+                                            {{ usuario.ultimo_login[:16] }}
+                                        {% else %}
+                                            {{ usuario.ultimo_login.strftime('%Y-%m-%d %H:%M') }}
+                                        {% endif %}
+                                    </span>
                                 {% else %}
                                     <span class="last-login">Nunca</span>
                                 {% endif %}
@@ -594,7 +600,11 @@
                             <span class="detail-label">Último Login</span>
                             <span class="detail-value">
                                 {% if usuario.ultimo_login %}
-                                    {{ usuario.ultimo_login[:16] }}
+                                    {% if usuario.ultimo_login is string %}
+                                        {{ usuario.ultimo_login[:16] }}
+                                    {% else %}
+                                        {{ usuario.ultimo_login.strftime('%Y-%m-%d %H:%M') }}
+                                    {% endif %}
                                 {% else %}
                                     Nunca
                                 {% endif %}
