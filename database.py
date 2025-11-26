@@ -967,14 +967,14 @@ def actualizar_plantilla_negocio(negocio_id, nombre_plantilla, nueva_plantilla, 
         conn.close()
 
 def crear_plantillas_personalizadas_para_negocios():
-    """Crear copias personalizadas de plantillas base para todos los negocios - VERSIÓN POSTGRESQL CORREGIDA"""
+    """Crear copias personalizadas de plantillas base para todos los negocios - VERSIÓN CORREGIDA"""
     is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # ✅ CORRECCIÓN: PostgreSQL usa TRUE/FALSE en lugar de 1/0 para booleanos
+        # ✅ CORRECCIÓN: Usar TRUE para PostgreSQL, 1 para SQLite
         if is_postgresql:
             cursor.execute("SELECT id FROM negocios WHERE activo = TRUE")
         else:
@@ -982,6 +982,7 @@ def crear_plantillas_personalizadas_para_negocios():
         
         negocios = cursor.fetchall()
         
+        # Obtener plantillas base
         if is_postgresql:
             cursor.execute("SELECT * FROM plantillas_mensajes WHERE es_base = TRUE")
         else:
@@ -993,8 +994,13 @@ def crear_plantillas_personalizadas_para_negocios():
             negocio_id = negocio[0]
             
             for plantilla_base in plantillas_base:
-                nombre = plantilla_base[2]  # El nombre está en la posición 2
+                # Extraer datos según la estructura de la tabla
+                if is_postgresql:
+                    nombre = plantilla_base['nombre']
+                else:
+                    nombre = plantilla_base[2]  # El nombre está en la posición 2
                 
+                # Verificar si ya existe plantilla personalizada
                 if is_postgresql:
                     cursor.execute('''
                         SELECT id FROM plantillas_mensajes 
@@ -1007,6 +1013,7 @@ def crear_plantillas_personalizadas_para_negocios():
                     ''', (negocio_id, nombre))
                 
                 if not cursor.fetchone():
+                    # Crear plantilla personalizada
                     if is_postgresql:
                         cursor.execute('''
                             INSERT INTO plantillas_mensajes 
@@ -2061,35 +2068,36 @@ def obtener_usuarios_por_negocio(negocio_id):
 # =============================================================================
 
 def actualizar_esquema_bd():
-    """Actualizar esquema de base de datos existente de forma tolerante"""
+    """Actualizar esquema de base de datos existente de forma tolerante - VERSIÓN POSTGRESQL"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         print("🔧 ACTUALIZANDO ESQUEMA DE BD...")
         
-        # Solo intentar alterar tablas si existen
-        try:
-            cursor.execute("SELECT 1 FROM negocios LIMIT 1")
-            tabla_negocios_existe = True
-        except:
-            tabla_negocios_existe = False
+        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
         
-        if tabla_negocios_existe:
-            # ✅ VERIFICAR COLUMNA EMOJI EN NEGOCIOS
+        if not is_postgresql:
+            # Solo para SQLite - PRAGMA no existe en PostgreSQL
             try:
-                cursor.execute("PRAGMA table_info(negocios)")
-                columnas_negocios = cursor.fetchall()
-                columnas_negocios_existentes = [col[1] for col in columnas_negocios]
-                
-                if 'emoji' not in columnas_negocios_existentes:
-                    cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
-                    print("✅ Columna 'emoji' agregada a tabla negocios")
-            except Exception as e:
-                print(f"⚠️ Error verificando columna emoji: {e}")
+                cursor.execute("SELECT 1 FROM negocios LIMIT 1")
+                tabla_negocios_existe = True
+            except:
+                tabla_negocios_existe = False
+            
+            if tabla_negocios_existe:
+                try:
+                    cursor.execute("PRAGMA table_info(negocios)")
+                    columnas_negocios = cursor.fetchall()
+                    columnas_negocios_existentes = [col[1] for col in columnas_negocios]
+                    
+                    if 'emoji' not in columnas_negocios_existentes:
+                        cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
+                        print("✅ Columna 'emoji' agregada a tabla negocios")
+                except Exception as e:
+                    print(f"⚠️ Error verificando columna emoji: {e}")
         
-        # Para otras alteraciones, usar el mismo patrón...
-        
+        # Para PostgreSQL, las columnas ya se crearon con las tablas
         conn.commit()
         print("✅ Esquema de base de datos actualizado/verificado")
         
