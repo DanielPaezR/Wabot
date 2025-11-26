@@ -292,33 +292,19 @@ def eliminar_profesional(profesional_id, negocio_id):
 # =============================================================================
 # RUTAS DE AUTENTICACIÓN
 # =============================================================================
+
 @app.route('/')
 def index():
-    """Página principal - MÍNIMA Y DIRECTA"""
-    return """
-    <h1>✅ ¡App Funcionando!</h1>
-    <p>La aplicación Flask está ejecutándose correctamente.</p>
-    <p><strong>Base de datos:</strong> ✅ Conectada</p>
-    <p><strong>Scheduler:</strong> ✅ Activo</p>
-    <a href="/login">Ir al Login</a> | 
-    <a href="/health">Health Check</a> |
-    <a href="/debug-database">Debug DB</a>
-    """
+    """Página principal - SUPER SIMPLE"""
+    return "✅ ¡App Funcionando! Ve a /login"
 
 @app.route('/health')
 def health_check():
-    """Health check MÍNIMO"""
-    return jsonify({
-        "status": "healthy", 
-        "timestamp": datetime.now().isoformat(),
-        "database": "connected",
-        "service": "flask"
-    })
+    return jsonify({"status": "healthy", "app": "running"})
 
-@app.route('/test-minimal')
-def test_minimal():
-    """Test MÍNIMO sin dependencias"""
-    return "✅ TEST MINIMAL OK - Flask funcionando"
+@app.route('/test')
+def test():
+    return "✅ TEST OK"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -2776,11 +2762,11 @@ def debug_session():
     return jsonify(dict(session))
 
 # =============================================================================
-# INICIALIZACIÓN
+# INICIALIZACIÓN Y EJECUCIÓN
 # =============================================================================
 
 def initialize_app():
-    """Inicializar la aplicación - EJECUTAR SIEMPRE"""
+    """Inicializar la aplicación"""
     print("🚀 INICIALIZANDO APLICACIÓN...")
     
     try:
@@ -2797,30 +2783,15 @@ def initialize_app():
     except Exception as e:
         print(f"⚠️ Error en scheduler: {e}")
 
-# INICIALIZAR SIEMPRE
-print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
+# Inicializar siempre
+print("🔧 CARGANDO MÓDULO APP...")
 initialize_app()
 
-# Solo para desarrollo local
+# Ejecutar servidor
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
-# =============================================================================
-# EJECUCIÓN FORZADA PARA RAILWAY
-# =============================================================================
-if __name__ == '__main__':
-    print("🚀 INICIANDO SERVIDOR FLASK DIRECTAMENTE...")
-    port = int(os.getenv('PORT', 5000))
+    print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")
     app.run(host='0.0.0.0', port=port, debug=False)
 else:
-    # Para cuando Gunicorn carga el módulo
-    print("🔧 MÓDULO CARGADO - INICIALIZANDO...")
-    
-    def create_app():
-        """Factory para Gunicorn"""
-        initialize_app()
-        return app
-    
-    # Forzar inicialización incluso con Gunicorn
-    initialize_app()
+    # Para cuando se carga como módulo (Gunicorn)
+    print("🔧 MÓDULO CARGADO - APP LISTA")
