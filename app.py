@@ -116,6 +116,25 @@ def utility_processor():
 app.register_blueprint(whatsapp_bp, url_prefix='/whatsapp')
 
 # =============================================================================
+# RUTAS BÁSICAS - AGREGAR AL PRINCIPIO
+# =============================================================================
+
+@app.route('/')
+def index():
+    """Página principal - MÍNIMA"""
+    return "✅ ¡App Funcionando! Ve a /login para acceder al sistema."
+
+@app.route('/health')
+def health_check():
+    """Health check para Railway"""
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+
+@app.route('/test-simple')
+def test_simple():
+    """Ruta simple sin dependencias"""
+    return "✅ Ruta básica OK"
+
+# =============================================================================
 # FUNCIONES PARA GESTIÓN DE PROFESIONALES
 # =============================================================================
 
@@ -292,19 +311,6 @@ def eliminar_profesional(profesional_id, negocio_id):
 # =============================================================================
 # RUTAS DE AUTENTICACIÓN
 # =============================================================================
-
-@app.route('/')
-def index():
-    """Página principal - SUPER SIMPLE"""
-    return "✅ ¡App Funcionando! Ve a /login"
-
-@app.route('/health')
-def health_check():
-    return jsonify({"status": "healthy", "app": "running"})
-
-@app.route('/test')
-def test():
-    return "✅ TEST OK"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
