@@ -2390,7 +2390,7 @@ def debug_session():
     return jsonify(dict(session))
 
 # =============================================================================
-# RUTAS DE DEBUG PARA CONTRASEÑAS
+# RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
 
 @app.route('/debug/passwords')
@@ -2407,7 +2407,17 @@ def debug_passwords():
         resultados = []
         
         for usuario in usuarios:
-            usuario_id, email, password_hash, nombre = usuario
+            # Acceder correctamente a los valores según el tipo de cursor
+            if hasattr(usuario, 'keys'):  # Es un diccionario (RealDictCursor)
+                usuario_id = usuario['id']
+                email = usuario['email']
+                password_hash = usuario['password_hash']
+                nombre = usuario['nombre']
+            else:  # Es una tupla
+                usuario_id = usuario[0]
+                email = usuario[1]
+                password_hash = usuario[2]
+                nombre = usuario[3]
             
             if not password_hash:
                 estado = "❌ VACÍA"
@@ -2456,13 +2466,21 @@ def debug_reset_all_passwords():
         actualizados = 0
         
         for usuario in usuarios:
-            usuario_id, email, password_hash, nombre = usuario
+            # Acceder correctamente a los valores
+            if hasattr(usuario, 'keys'):  # Es un diccionario
+                usuario_id = usuario['id']
+                email = usuario['email']
+                nombre = usuario['nombre']
+            else:  # Es una tupla
+                usuario_id = usuario[0]
+                email = usuario[1]
+                nombre = usuario[3]
             
             # Generar hash SHA256 de '123456'
             nueva_password = "123456"
             nuevo_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
             
-            # Actualizar contraseña
+            # Actualizar contraseña - usar parámetros correctamente
             cursor.execute(
                 "UPDATE usuarios SET password_hash = %s WHERE id = %s",
                 (nuevo_hash, usuario_id)
@@ -2511,7 +2529,15 @@ def debug_reset_user_password(usuario_id):
             conn.close()
             return f"❌ Usuario {usuario_id} no encontrado"
         
-        email, nombre, password_hash_anterior = usuario
+        # Acceder correctamente a los valores
+        if hasattr(usuario, 'keys'):  # Es un diccionario
+            email = usuario['email']
+            nombre = usuario['nombre']
+            password_hash_anterior = usuario['password_hash']
+        else:  # Es una tupla
+            email = usuario[0]
+            nombre = usuario[1]
+            password_hash_anterior = usuario[2]
         
         # Generar hash SHA256 de '123456'
         nueva_password = "123456"
@@ -2539,59 +2565,40 @@ def debug_reset_user_password(usuario_id):
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-@app.route('/debug/create-test-users')
-def debug_create_test_users():
-    """Crear usuarios de prueba con contraseñas SHA256"""
+@app.route('/debug/test-login')
+def debug_test_login():
+    """Probar login con un usuario específico"""
     try:
-        auth_key = request.args.get('key', '')
-        if auth_key != 'test2024':
-            return "❌ No autorizado. Usa: /debug/create-test-users?key=test2024"
+        email = request.args.get('email', 'admin@negociobot.com')
+        password = request.args.get('password', 'admin123')
         
-        import hashlib
+        # Usar la función de verificación de la base de datos
+        usuario = db.verificar_usuario(email, password)
         
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        usuarios_prueba = [
-            ('admin@test.com', 'Admin Test', 'admin123', 'superadmin'),
-            ('owner@test.com', 'Dueño Test', 'owner123', 'propietario'),
-            ('pro@test.com', 'Profesional Test', 'pro123', 'profesional')
-        ]
-        
-        resultados = []
-        creados = 0
-        
-        for email, nombre, password, rol in usuarios_prueba:
-            # Verificar si ya existe
-            cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
-            if cursor.fetchone():
-                resultados.append(f"⚠️ {email}: Ya existe")
-                continue
-            
-            # Generar hash SHA256
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            
-            # Insertar usuario
-            cursor.execute(
-                "INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s, %s)",
-                (1, nombre, email, password_hash, rol)
-            )
-            
-            creados += 1
-            resultados.append(f"✅ {email}: Creado con contraseña '{password}'")
-        
-        conn.commit()
-        conn.close()
-        
-        return f"""
-        <h1>✅ Usuarios de Prueba Creados</h1>
-        <p><strong>Usuarios creados:</strong> {creados}</p>
-        <hr>
-        <h3>Resultados:</h3>
-        <pre>{chr(10).join(resultados)}</pre>
-        <hr>
-        <p><a href="/debug/passwords">← Ver estado de contraseñas</a></p>
-        """
+        if usuario:
+            return f"""
+            <h1>✅ Login Exitoso</h1>
+            <p><strong>Usuario:</strong> {usuario['nombre']}</p>
+            <p><strong>Email:</strong> {usuario['email']}</p>
+            <p><strong>Rol:</strong> {usuario['rol']}</p>
+            <p><strong>Negocio:</strong> {usuario['negocio_nombre']}</p>
+            <hr>
+            <p><a href="/login">→ Ir al login normal</a></p>
+            """
+        else:
+            return f"""
+            <h1>❌ Login Fallido</h1>
+            <p><strong>Email:</strong> {email}</p>
+            <p><strong>Contraseña:</strong> {password}</p>
+            <hr>
+            <p>Posibles problemas:</p>
+            <ul>
+                <li>Usuario no existe</li>
+                <li>Contraseña incorrecta</li>
+                <li>Usuario inactivo</li>
+            </ul>
+            <p><a href="/debug/passwords">← Ver estado de contraseñas</a></p>
+            """
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
