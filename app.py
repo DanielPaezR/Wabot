@@ -2492,11 +2492,11 @@ def corregir_hash(usuario_id):
     conn.close()
     
     return f'''
-    ✅ Hash corregido para {email}
-    <br>Contraseña: {password}
-    <br>Nuevo hash: {nuevo_hash}
-    <br><br>
-    <a href="/debug-hashes">Volver al debug</a> | 
+    <h1>✅ Hash corregido para {email}</h1>
+    <p><strong>Contraseña:</strong> {password}</p>
+    <p><strong>Nuevo hash:</strong> <code>{nuevo_hash}</code></p>
+    <br>
+    <a href="/debug-hashes">← Volver al debug</a> | 
     <a href="/login">Probar login</a>
     '''
 
