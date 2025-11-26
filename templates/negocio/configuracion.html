@@ -476,19 +476,19 @@
                                     <div class="horario-group">
                                         <label>Inicio Descanso:</label>
                                         <input type="time" 
-                                               name="dia_{{ dia.id }}_descanso_inicio" 
-                                               value="{{ dia.config.almuerzo_inicio or '' }}"
-                                               class="horario-input"
-                                               {% if not dia.config.activo %}disabled{% endif %}>
+                                            name="dia_{{ dia.id }}_descanso_inicio" 
+                                            value="{{ dia.config.almuerzo_inicio or '' }}"
+                                            class="horario-input"
+                                            {% if not dia.config.activo %}disabled{% endif %}>
                                     </div>
-                                    
+
                                     <div class="horario-group">
                                         <label>Fin Descanso:</label>
                                         <input type="time" 
-                                               name="dia_{{ dia.id }}_descanso_fin" 
-                                               value="{{ dia.config.almuerzo_fin or '' }}"
-                                               class="horario-input"
-                                               {% if not dia.config.activo %}disabled{% endif %}>
+                                            name="dia_{{ dia.id }}_descanso_fin" 
+                                            value="{{ dia.config.almuerzo_fin or '' }}"
+                                            class="horario-input"
+                                            {% if not dia.config.activo %}disabled{% endif %}>
                                     </div>
                                 </div>
                             </div>

@@ -851,14 +851,12 @@ def verificar_configuracion_negocio(negocio_id):
         print(f"❌ Error verificando configuración: {e}")
         return False
     
-def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios):
-    """Actualizar configuración completa del negocio - CON LIMPIEZA DE CACHE"""
+def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios_actualizados):
+    """Actualizar configuración completa del negocio - VERSIÓN CORREGIDA"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
-        print(f"🔧 ACTUALIZANDO CONFIGURACIÓN - Negocio: {negocio_id}")
-        
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
         # Actualizar información básica del negocio
         cursor.execute('''
             UPDATE negocios 
@@ -866,36 +864,60 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
             WHERE id = ?
         ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
         
-        # Actualizar horarios
-        for horario in horarios:
-            hora_inicio = horario['hora_inicio'] or '09:00'
-            hora_fin = horario['hora_fin'] or '19:00'
+        # Actualizar horarios por día
+        for horario in horarios_actualizados:
+            # ✅ CORRECCIÓN: Manejar valores vacíos para horarios de descanso
+            almuerzo_inicio = horario['almuerzo_inicio'] if horario['almuerzo_inicio'] else None
+            almuerzo_fin = horario['almuerzo_fin'] if horario['almuerzo_fin'] else None
             
+            # Verificar si ya existe un registro para este día
             cursor.execute('''
-                INSERT OR REPLACE INTO configuracion_horarios 
-                (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                negocio_id, 
-                horario['dia_id'],
-                1 if horario['activo'] else 0,
-                hora_inicio,
-                hora_fin,
-                horario['almuerzo_inicio'] or None,
-                horario['almuerzo_fin'] or None
-            ))
+                SELECT id FROM configuracion_horarios 
+                WHERE negocio_id = ? AND dia_semana = ?
+            ''', (negocio_id, horario['dia_id']))
+            
+            existe = cursor.fetchone()
+            
+            if existe:
+                # Actualizar registro existente
+                cursor.execute('''
+                    UPDATE configuracion_horarios 
+                    SET activo = ?, hora_inicio = ?, hora_fin = ?, 
+                        almuerzo_inicio = ?, almuerzo_fin = ?
+                    WHERE negocio_id = ? AND dia_semana = ?
+                ''', (
+                    horario['activo'], 
+                    horario['hora_inicio'], 
+                    horario['hora_fin'],
+                    almuerzo_inicio,  # ✅ Puede ser None si está vacío
+                    almuerzo_fin,     # ✅ Puede ser None si está vacío
+                    negocio_id, 
+                    horario['dia_id']
+                ))
+            else:
+                # Insertar nuevo registro
+                cursor.execute('''
+                    INSERT INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    negocio_id, 
+                    horario['dia_id'],
+                    horario['activo'], 
+                    horario['hora_inicio'], 
+                    horario['hora_fin'],
+                    almuerzo_inicio,  # ✅ Puede ser None si está vacío
+                    almuerzo_fin      # ✅ Puede ser None si está vacío
+                ))
         
         conn.commit()
         conn.close()
-        
-        # ✅ LIMPIAR CACHE DESPUÉS DE ACTUALIZAR
-        notificar_cambio_horarios(negocio_id)
-        
-        print("✅ Configuración completa guardada y cache limpiado")
         return True
         
     except Exception as e:
         print(f"❌ Error actualizando configuración: {e}")
+        conn.rollback()
+        conn.close()
         return False
 
 # =============================================================================

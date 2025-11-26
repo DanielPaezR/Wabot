@@ -1297,11 +1297,7 @@ def negocio_configuracion():
     
     # Obtener datos actuales del negocio
     negocio_row = db.obtener_negocio_por_id(negocio_id)
-    
-    # Convertir sqlite3.Row a diccionario
-    negocio = {}
-    if negocio_row:
-        negocio = dict(negocio_row)
+    negocio = dict(negocio_row) if negocio_row else {}
     
     # Parsear configuración existente
     config_actual = {}
@@ -1315,7 +1311,7 @@ def negocio_configuracion():
     dias_semana = []
     nombres_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     
-    for dia_id in range(1, 8):  # 1-7 para lunes-domingo
+    for dia_id in range(1, 8):
         try:
             conn = db.get_db_connection()
             cursor = conn.cursor()
@@ -1330,7 +1326,6 @@ def negocio_configuracion():
             conn.close()
             
             if resultado:
-                # ✅ DATOS REALES DE LA BD
                 dia_config = {
                     'activo': bool(resultado[0]),
                     'hora_inicio': resultado[1] or '09:00',
@@ -1339,9 +1334,8 @@ def negocio_configuracion():
                     'almuerzo_fin': resultado[4] or ''
                 }
             else:
-                # ✅ SI NO EXISTE, CREAR CONFIGURACIÓN POR DEFECTO (INACTIVO)
                 dia_config = {
-                    'activo': False,
+                    'activo': False,  # ✅ Por defecto INACTIVO
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
                     'almuerzo_inicio': '',
@@ -1356,12 +1350,11 @@ def negocio_configuracion():
             
         except Exception as e:
             print(f"⚠️ Error cargando día {dia_id}: {e}")
-            # En caso de error, usar valores por defecto
             dias_semana.append({
                 'id': dia_id,
                 'nombre': nombres_dias[dia_id-1],
                 'config': {
-                    'activo': False,
+                    'activo': False,  # ✅ Por defecto INACTIVO
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
                     'almuerzo_inicio': '',
@@ -1385,12 +1378,10 @@ def negocio_configuracion():
             telefono_contacto = request.form.get('telefono_contacto')
             politica_cancelacion = request.form.get('politica_cancelacion')
             
-            # ✅ CORRECCIÓN: Validar campos requeridos
             if not nombre or not tipo_negocio:
                 flash('❌ El nombre y tipo de negocio son obligatorios', 'error')
                 return redirect(url_for('negocio_configuracion'))
             
-            # Actualizar configuración del negocio
             nueva_configuracion = {
                 'saludo_personalizado': saludo_personalizado or '¡Hola! Soy tu asistente virtual para agendar citas.',
                 'horario_atencion': horario_atencion or 'Lunes a Sábado 9:00 AM - 7:00 PM',
@@ -1401,13 +1392,16 @@ def negocio_configuracion():
             
             # ===== PROCESAR HORARIOS =====
             horarios_actualizados = []
-            for dia_id in range(1, 8):  # 1-7 para lunes-domingo
-                # ✅ CORRECCIÓN: Usar get() en vez de acceder directamente
-                activo = request.form.get(f'dia_{dia_id}_activo') == 'on'
+            for dia_id in range(1, 8):
+                # ✅ CORRECCIÓN CRÍTICA: Los checkboxes solo se envían cuando están CHECKED
+                # Si no está en el request.form, significa que está DESACTIVADO
+                activo = f'dia_{dia_id}_activo' in request.form
                 hora_inicio = request.form.get(f'dia_{dia_id}_inicio', '09:00')
                 hora_fin = request.form.get(f'dia_{dia_id}_fin', '19:00')
                 almuerzo_inicio = request.form.get(f'dia_{dia_id}_descanso_inicio', '')
                 almuerzo_fin = request.form.get(f'dia_{dia_id}_descanso_fin', '')
+                
+                print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
                 
                 # ✅ CORRECCIÓN: Validar horarios solo si el día está activo
                 if activo:
@@ -1421,7 +1415,7 @@ def negocio_configuracion():
                 
                 horarios_actualizados.append({
                     'dia_id': dia_id,
-                    'activo': activo,
+                    'activo': activo,  # ✅ Esto ahora refleja correctamente el estado
                     'hora_inicio': hora_inicio,
                     'hora_fin': hora_fin,
                     'almuerzo_inicio': almuerzo_inicio,
@@ -1435,21 +1429,14 @@ def negocio_configuracion():
                 return redirect(url_for('negocio_configuracion'))
             
             print(f"🔍 DEBUG - Guardando configuración:")
-            print(f"  Negocio: {nombre}, Tipo: {tipo_negocio}")
-            print(f"  Días activos: {dias_activos}")
             for h in horarios_actualizados:
-                print(f"  Día {h['dia_id']}: {h['activo']} - {h['hora_inicio']} a {h['hora_fin']}")
+                print(f"  Día {h['dia_id']} ({nombres_dias[h['dia_id']-1]}): {h['activo']} - {h['hora_inicio']} a {h['hora_fin']}")
             
             # Guardar TODO en la base de datos
             if db.actualizar_configuracion_completa(
                 negocio_id, nombre, tipo_negocio, emoji, nueva_configuracion, horarios_actualizados
             ):
                 flash('✅ Configuración actualizada exitosamente', 'success')
-                
-                # ✅ CORRECCIÓN: Limpiar cache después de guardar
-                from database import notificar_cambio_horarios
-                notificar_cambio_horarios(negocio_id)
-                
             else:
                 flash('❌ Error al actualizar la configuración', 'error')
                 
@@ -1458,11 +1445,6 @@ def negocio_configuracion():
             import traceback
             traceback.print_exc()
             flash(f'❌ Error al procesar la configuración: {str(e)}', 'error')
-    
-    # ✅ CORRECCIÓN: Debug para verificar qué datos se envían al template
-    print(f"🔍 DEBUG - Enviando al template:")
-    for dia in dias_semana:
-        print(f"  Día {dia['id']} ({dia['nombre']}): activo={dia['config']['activo']}")
     
     return render_template('negocio/configuracion.html', 
                          negocio=negocio, 
