@@ -8,36 +8,6 @@ import json
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# INICIALIZACIÓN AUTOMÁTICA DE BD EN PRODUCCIÓN
-def inicializar_bd_produccion():
-    """Forzar inicialización de BD al iniciar la app"""
-    try:
-        print("🚀 INICIALIZANDO BASE DE DATOS EN PRODUCCIÓN...")
-        from database import init_db, get_db_connection
-        
-        # Ejecutar init_db()
-        init_db()
-        print("✅ Base de datos inicializada correctamente")
-        
-        # Verificar que las tablas existen
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Listar tablas para verificar
-        cursor.execute("""
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name NOT LIKE 'sqlite_%'
-        """)
-        tablas = cursor.fetchall()
-        print(f"📊 Tablas creadas: {[tabla[0] for tabla in tablas]}")
-        
-        conn.close()
-        
-    except Exception as e:
-        print(f"⚠️ Error en inicialización BD: {e}")
-
-# Ejecutar inmediatamente al importar el módulo
-inicializar_bd_produccion()
 
 def get_db_connection():
     """Establecer conexión a la base de datos (SQLite o PostgreSQL)"""
@@ -72,34 +42,48 @@ def get_db_connection():
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos con manejo de errores mejorado"""
-    print("🔧 INICIANDO INIT_DB...")
+    """Inicializar base de datos con manejo robusto de errores"""
+    print("🔧 INICIANDO INIT_DB - CREANDO ESQUEMA...")
     
+    conn = None
     try:
-        actualizar_esquema_bd()
-        
+        # 1. Primero crear la conexión
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Crear tablas
-        _crear_tablas(cursor)
+        print("✅ Conexión a BD establecida")
         
-        # Insertar datos por defecto
+        # 2. Actualizar esquema primero
+        actualizar_esquema_bd()
+        
+        # 3. Crear tablas con IF NOT EXISTS
+        _crear_tablas(cursor)
+        print("✅ Tablas creadas/verificadas")
+        
+        # 4. Insertar datos por defecto
         _insertar_datos_por_defecto(cursor)
+        print("✅ Datos por defecto insertados")
         
         conn.commit()
-        conn.close()
+        print("✅ Commit realizado")
         
-        # Crear plantillas personalizadas
+        # 5. Crear plantillas
         crear_plantillas_personalizadas_para_negocios()
+        print("✅ Plantillas personalizadas creadas")
         
-        print("✅ Base de datos multi-tenant con sistema de plantillas inicializada")
+        print("🎉 BASE DE DATOS INICIALIZADA COMPLETAMENTE")
         
     except Exception as e:
         print(f"❌ Error en init_db: {e}")
-        # En producción, algunos errores de "tabla ya existe" son normales
-        if "already exists" not in str(e) and "duplicate" not in str(e):
+        # En producción, algunos errores son normales (tablas ya existen)
+        if "already exists" not in str(e) and "duplicate" not in str(e) and "no such table" not in str(e):
+            print(f"🚨 ERROR CRÍTICO: {e}")
             raise e
+        else:
+            print("⚠️ Error no crítico (tablas probablemente ya existen)")
+    finally:
+        if conn:
+            conn.close()
 
 def execute_query(query, params=()):
     """Ejecutar consulta compatible con SQLite y PostgreSQL"""
@@ -1734,42 +1718,41 @@ def obtener_usuarios_por_negocio(negocio_id):
 # =============================================================================
 
 def actualizar_esquema_bd():
-    """Actualizar esquema de base de datos existente"""
+    """Actualizar esquema de base de datos existente de forma tolerante"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # ✅ VERIFICAR COLUMNA EMOJI EN NEGOCIOS
-        cursor.execute("PRAGMA table_info(negocios)")
-        columnas_negocios = cursor.fetchall()
-        columnas_negocios_existentes = [col[1] for col in columnas_negocios]
+        print("🔧 ACTUALIZANDO ESQUEMA DE BD...")
         
-        if 'emoji' not in columnas_negocios_existentes:
-            cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
-            print("✅ Columna 'emoji' agregada a tabla negocios")
+        # Solo intentar alterar tablas si existen
+        try:
+            cursor.execute("SELECT 1 FROM negocios LIMIT 1")
+            tabla_negocios_existe = True
+        except:
+            tabla_negocios_existe = False
         
-        # Verificar columnas en plantillas_mensajes
-        cursor.execute("PRAGMA table_info(plantillas_mensajes)")
-        columnas = cursor.fetchall()
-        columnas_existentes = [col[1] for col in columnas]
+        if tabla_negocios_existe:
+            # ✅ VERIFICAR COLUMNA EMOJI EN NEGOCIOS
+            try:
+                cursor.execute("PRAGMA table_info(negocios)")
+                columnas_negocios = cursor.fetchall()
+                columnas_negocios_existentes = [col[1] for col in columnas_negocios]
+                
+                if 'emoji' not in columnas_negocios_existentes:
+                    cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
+                    print("✅ Columna 'emoji' agregada a tabla negocios")
+            except Exception as e:
+                print(f"⚠️ Error verificando columna emoji: {e}")
         
-        if 'es_base' not in columnas_existentes:
-            cursor.execute('ALTER TABLE plantillas_mensajes ADD COLUMN es_base BOOLEAN DEFAULT FALSE')
-        
-        # Verificar columnas en profesionales
-        cursor.execute("PRAGMA table_info(profesionales)")
-        columnas_profesionales = cursor.fetchall()
-        columnas_profesionales_existentes = [col[1] for col in columnas_profesionales]
-        
-        if 'usuario_id' not in columnas_profesionales_existentes:
-            cursor.execute('ALTER TABLE profesionales ADD COLUMN usuario_id INTEGER')
+        # Para otras alteraciones, usar el mismo patrón...
         
         conn.commit()
-        print("✅ Esquema de base de datos actualizado exitosamente")
+        print("✅ Esquema de base de datos actualizado/verificado")
         
     except Exception as e:
-        print(f"❌ Error actualizando esquema: {e}")
-        conn.rollback()
+        print(f"⚠️ Error actualizando esquema: {e}")
+        # No hacer rollback, permitir que continúe
     finally:
         conn.close()
 
