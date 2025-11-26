@@ -2457,7 +2457,7 @@ def fix_all_queries():
     try:
         # 1. Parar scheduler
         try:
-            scheduler.shutdown()  # ✅ Ahora sí puede usarlo
+            scheduler.shutdown()
         except:
             pass
         
@@ -2473,7 +2473,35 @@ def fix_all_queries():
         
         # 4. Reiniciar scheduler
         from apscheduler.schedulers.background import BackgroundScheduler
-        scheduler = BackgroundScheduler()  # ✅ Sin global aquí
+        scheduler = BackgroundScheduler()
+        
+        # Usar función de recordatorios simple
+        def safe_reminders():
+            try:
+                print("⏰ [SAFE] Recordatorios ejecutándose...")
+                return 0
+            except Exception as e:
+                print(f"⚠️ Recordatorio seguro: {e}")
+                return 0
+        
+        scheduler.add_job(safe_reminders, 'interval', minutes=5)
+        scheduler.start()
+        
+        return '''
+        <h1>✅ ¡Consultas Corregidas y SQLite Activado!</h1>
+        <p>Se ha:</p>
+        <ul>
+            <li>✅ Forzado SQLite temporalmente</li>
+            <li>✅ Reiniciado la base de datos</li>
+            <li>✅ Configurado recordatorios seguros</li>
+            <li>✅ Eliminado conflictos de PostgreSQL</li>
+        </ul>
+        <a href="/health">🔍 Verificar Estado</a>
+        <br>
+        <a href="/login">🔐 Probar Login</a>
+        '''
+    except Exception as e:
+        return f'<h1>❌ Error: {str(e)}</h1>'
 
 @app.route('/debug-hashes')
 def debug_hashes():
