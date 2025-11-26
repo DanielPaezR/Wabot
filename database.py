@@ -616,9 +616,11 @@ def _insertar_plantillas_base(cursor, is_postgresql=False):
                 (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
                 VALUES (NULL, ?, ?, ?, ?, TRUE)
             ''', (nombre, plantilla, descripcion, variables))
+    
+    print("✅ Plantillas base insertadas correctamente")
 
 def _insertar_configuracion_horarios(cursor, is_postgresql=False):
-    """Insertar configuración de horarios por día - VERSIÓN POSTGRESQL CORREGIDA"""
+    """Insertar configuración de horarios por día - VERSIÓN POSTGRESQL COMPLETA"""
     dias_semana = [
         (0, '09:00', '19:00', '13:00', '14:00'),  # Lunes
         (1, '09:00', '19:00', '13:00', '14:00'),  # Martes
@@ -653,7 +655,7 @@ def _insertar_configuracion_horarios(cursor, is_postgresql=False):
                         INSERT INTO configuracion_horarios 
                         (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ''', (negocio_id, dia[0], 1, dia[1], dia[2], dia[3], dia[4]))
+                    ''', (negocio_id, dia[0], True, dia[1], dia[2], dia[3], dia[4]))
                     print(f"✅ Horario día {dia[0]} para negocio {negocio_id} insertado")
                 else:
                     print(f"⚠️ Horario día {dia[0]} para negocio {negocio_id} ya existe, saltando")
@@ -965,38 +967,64 @@ def actualizar_plantilla_negocio(negocio_id, nombre_plantilla, nueva_plantilla, 
         conn.close()
 
 def crear_plantillas_personalizadas_para_negocios():
-    """Crear copias personalizadas de plantillas base para todos los negocios"""
+    """Crear copias personalizadas de plantillas base para todos los negocios - VERSIÓN POSTGRESQL CORREGIDA"""
+    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT id FROM negocios WHERE activo = 1")
+        # ✅ CORRECCIÓN: PostgreSQL usa TRUE/FALSE en lugar de 1/0 para booleanos
+        if is_postgresql:
+            cursor.execute("SELECT id FROM negocios WHERE activo = TRUE")
+        else:
+            cursor.execute("SELECT id FROM negocios WHERE activo = 1")
+        
         negocios = cursor.fetchall()
         
-        cursor.execute("SELECT * FROM plantillas_mensajes WHERE es_base = TRUE")
+        if is_postgresql:
+            cursor.execute("SELECT * FROM plantillas_mensajes WHERE es_base = TRUE")
+        else:
+            cursor.execute("SELECT * FROM plantillas_mensajes WHERE es_base = TRUE")
+        
         plantillas_base = cursor.fetchall()
         
         for negocio in negocios:
             negocio_id = negocio[0]
             
             for plantilla_base in plantillas_base:
-                nombre = plantilla_base['nombre']
+                nombre = plantilla_base[2]  # El nombre está en la posición 2
                 
-                cursor.execute('''
-                    SELECT id FROM plantillas_mensajes 
-                    WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-                ''', (negocio_id, nombre))
+                if is_postgresql:
+                    cursor.execute('''
+                        SELECT id FROM plantillas_mensajes 
+                        WHERE negocio_id = %s AND nombre = %s AND es_base = FALSE
+                    ''', (negocio_id, nombre))
+                else:
+                    cursor.execute('''
+                        SELECT id FROM plantillas_mensajes 
+                        WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+                    ''', (negocio_id, nombre))
                 
                 if not cursor.fetchone():
-                    cursor.execute('''
-                        INSERT INTO plantillas_mensajes 
-                        (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                        VALUES (?, ?, ?, ?, ?, FALSE)
-                    ''', (negocio_id, nombre, plantilla_base['plantilla'], 
-                          plantilla_base['descripcion'], plantilla_base['variables_disponibles']))
+                    if is_postgresql:
+                        cursor.execute('''
+                            INSERT INTO plantillas_mensajes 
+                            (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                            VALUES (%s, %s, %s, %s, %s, FALSE)
+                        ''', (negocio_id, nombre, plantilla_base[3], plantilla_base[4], plantilla_base[5]))
+                    else:
+                        cursor.execute('''
+                            INSERT INTO plantillas_mensajes 
+                            (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                            VALUES (?, ?, ?, ?, ?, FALSE)
+                        ''', (negocio_id, nombre, plantilla_base[3], plantilla_base[4], plantilla_base[5]))
         
         conn.commit()
+        print("✅ Plantillas personalizadas creadas exitosamente")
+        
     except Exception as e:
+        conn.rollback()
         print(f"❌ Error creando plantillas personalizadas: {e}")
     finally:
         conn.close()
@@ -1357,16 +1385,27 @@ def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, acti
 # =============================================================================
 
 def obtener_profesionales(negocio_id=1):
-    """Obtener lista de todos los profesionales activos - CORREGIDA"""
+    """Obtener lista de todos los profesionales activos - CORREGIDA PARA POSTGRESQL"""
+    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, nombre, especialidad, pin, telefono, activo
-        FROM profesionales 
-        WHERE negocio_id = ? AND activo = TRUE
-        ORDER BY nombre
-    ''', (negocio_id,))
+    # ✅ CORRECCIÓN: Usar TRUE para PostgreSQL, 1 para SQLite
+    if is_postgresql:
+        cursor.execute('''
+            SELECT id, nombre, especialidad, pin, telefono, activo
+            FROM profesionales 
+            WHERE negocio_id = %s AND activo = TRUE
+            ORDER BY nombre
+        ''', (negocio_id,))
+    else:
+        cursor.execute('''
+            SELECT id, nombre, especialidad, pin, telefono, activo
+            FROM profesionales 
+            WHERE negocio_id = ? AND activo = 1
+            ORDER BY nombre
+        ''', (negocio_id,))
     
     profesionales = cursor.fetchall()
     conn.close()
