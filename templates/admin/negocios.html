@@ -469,10 +469,21 @@
                                     <span class="status-inactive">Inactivo</span>
                                 {% endif %}
                             </td>
-                            <td>{{ negocio.fecha_creacion_str }}</td>
+                            <td>
+                                {% if negocio.fecha_creacion %}
+                                    {% if negocio.fecha_creacion is string %}
+                                        {{ negocio.fecha_creacion[:10] }}
+                                    {% else %}
+                                        {{ negocio.fecha_creacion.strftime('%Y-%m-%d') }}
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td class="actions">
                                 <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
                                 <form method="POST" action="{{ url_for('admin_eliminar_negocio', negocio_id=negocio.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">🗑️ Eliminar</button>
                                 </form>
                             </td>
@@ -530,13 +541,24 @@
                         </div>
                         <div class="detail-item">
                             <span class="detail-label">Fecha Creación</span>
-                            <span class="detail-value">{{ negocio.fecha_creacion[:10] }}</span>
+                            <span class="detail-value">
+                                {% if negocio.fecha_creacion %}
+                                    {% if negocio.fecha_creacion is string %}
+                                        {{ negocio.fecha_creacion[:10] }}
+                                    {% else %}
+                                        {{ negocio.fecha_creacion.strftime('%Y-%m-%d') }}
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </span>
                         </div>
                     </div>
                     
                     <div class="card-actions">
                         <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
                         <form method="POST" action="{{ url_for('admin_eliminar_negocio', negocio_id=negocio.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">🗑️ Eliminar</button>
                         </form>
                     </div>
