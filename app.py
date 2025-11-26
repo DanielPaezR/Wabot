@@ -2747,6 +2747,11 @@ def health_check():
     """Health check para Railway"""
     return jsonify({"status": "healthy", "message": "Servidor funcionando"})
 
+@app.route('/ping')
+def ping():
+    """Simple ping endpoint"""
+    return "pong"
+
 @app.route('/<path:path>')
 def catch_all(path):
     """Manejar todas las rutas no definidas"""
@@ -2773,33 +2778,26 @@ def debug_session():
 # INICIALIZACIÓN
 # =============================================================================
 
-print("🚀 INICIALIZANDO APLICACIÓN...")
-
-# Inicializar base de datos
-try:
-    db.init_db()
-    print("✅ Base de datos inicializada")
-except Exception as e:
-    print(f"⚠️ Error en init_db: {e}")
-
-# Migrar hashes si es necesario
-try:
-    from database import migrar_hashes_automatico
-    migrar_hashes_automatico()
-    print("✅ Hashes migrados automáticamente")
-except Exception as e:
-    print(f"⚠️ Error en migración automática: {e}")
-
-# Iniciar scheduler en hilo separado
-try:
-    scheduler_thread = threading.Thread(target=iniciar_scheduler)
-    scheduler_thread.daemon = True
-    scheduler_thread.start()
-    print("✅ Scheduler de recordatorios iniciado en segundo plano")
-except Exception as e:
-    print(f"⚠️ No se pudo iniciar el scheduler: {e}")
-
-# Railway ejecuta la aplicación directamente con gunicorn
 if __name__ == '__main__':
+    # Inicializar base de datos
+    db.init_db()
+    
+    try:
+        from database import migrar_hashes_automatico
+        migrar_hashes_automatico()
+        print("✅ Hashes migrados automáticamente")
+    except Exception as e:
+        print(f"⚠️ Error en migración automática: {e}")
+
+    # Iniciar scheduler en hilo separado
+    try:
+        scheduler_thread = threading.Thread(target=iniciar_scheduler)
+        scheduler_thread.daemon = True
+        scheduler_thread.start()
+        print("✅ Scheduler de recordatorios iniciado en segundo plano")
+    except Exception as e:
+        print(f"⚠️ No se pudo iniciar el scheduler: {e}")
+    
+    # Iniciar aplicación
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False en producción
+    app.run(host='0.0.0.0', port=port, debug=False)
