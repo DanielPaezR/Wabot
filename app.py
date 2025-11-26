@@ -292,6 +292,20 @@ def eliminar_profesional(profesional_id, negocio_id):
 # =============================================================================
 # RUTAS DE AUTENTICACIÓN
 # =============================================================================
+@app.route('/')
+def index():
+    """Página principal - MÍNIMA"""
+    return "✅ ¡App Funcionando! Ve a /login para acceder al sistema."
+
+@app.route('/health')
+def health_check():
+    """Health check MÍNIMO"""
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+
+@app.route('/test-simple')
+def test_simple():
+    """Ruta simple sin dependencias"""
+    return "✅ Ruta básica OK"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -2741,36 +2755,7 @@ def migrar_hashes():
         '''
     except Exception as e:
         return f'<h1>❌ Error migrando hashes:</h1><p>{e}</p>'
-    
-@app.route('/health')
-def health_check():
-    """Health check para Railway"""
-    return jsonify({"status": "healthy", "message": "Servidor funcionando"})
 
-@app.route('/ping')
-def ping():
-    """Simple ping endpoint"""
-    return "pong"
-
-@app.route('/<path:path>')
-def catch_all(path):
-    """Manejar todas las rutas no definidas"""
-    return redirect(url_for('login'))
-
-@app.route('/')
-def index():
-    """Página principal - MÍNIMA"""
-    return """
-    <h1>✅ ¡App Funcionando!</h1>
-    <p>La aplicación Flask está ejecutándose correctamente.</p>
-    <a href="/login">Ir al Login</a> | 
-    <a href="/health">Health Check</a>
-    """
-
-@app.route('/test')
-def test():
-    """Test MÍNIMO"""
-    return "✅ TEST OK"
 
 @app.route('/debug-session')
 def debug_session():
@@ -2799,7 +2784,7 @@ def initialize_app():
     except Exception as e:
         print(f"⚠️ Error en scheduler: {e}")
 
-# INICIALIZAR SIEMPRE, sin importar cómo se cargue el módulo
+# INICIALIZAR SIEMPRE
 print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
 initialize_app()
 
