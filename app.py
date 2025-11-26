@@ -2390,6 +2390,147 @@ def debug_session():
     return jsonify(dict(session))
 
 # =============================================================================
+# RUTA SIMPLE DE DEBUG PARA ESTANDARIZAR CON SHA256_CRYPT
+# =============================================================================
+
+@app.route('/debug/fix-passwords')
+def debug_fix_passwords():
+    """Ruta simple para estandarizar hashes de contraseñas a sha256_crypt"""
+    try:
+        # Clave simple de seguridad
+        auth_key = request.args.get('key', '')
+        if auth_key != 'migrate2024':
+            return "❌ No autorizado. Usa: /debug/fix-passwords?key=migrate2024"
+        
+        from passlib.hash import sha256_crypt
+        from werkzeug.security import check_password_hash
+        
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        # Obtener todos los usuarios
+        cursor.execute("SELECT id, email, password, nombre FROM usuarios")
+        usuarios = cursor.fetchall()
+        
+        resultados = []
+        actualizados = 0
+        
+        for usuario in usuarios:
+            usuario_id, email, password, nombre = usuario
+            
+            # Si la contraseña está vacía, saltar
+            if not password:
+                resultados.append(f"❌ {email}: Contraseña vacía")
+                continue
+            
+            # Verificar si ya es sha256_crypt
+            if password.startswith('$5$') or password.startswith('$6$'):
+                try:
+                    # Verificar que el hash sea válido
+                    sha256_crypt.verify("test", password)  # Solo para verificar formato
+                    resultados.append(f"✅ {email}: Ya usa sha256_crypt")
+                    continue
+                except:
+                    resultados.append(f"⚠️ {email}: Hash sha256_crypt inválido")
+                    continue
+            
+            # Si es werkzeug, migrar a sha256_crypt
+            if password.startswith('pbkdf2:sha256:'):
+                try:
+                    # Para migrar de werkzeug a sha256_crypt necesitamos la contraseña original
+                    # Como no la tenemos, no podemos migrar automáticamente
+                    resultados.append(f"⚠️ {email}: Usa werkzeug (necesita reset manual)")
+                    continue
+                except:
+                    resultados.append(f"❌ {email}: Error detectando werkzeug")
+                    continue
+            
+            # Si parece texto plano (menos de 60 chars y no empieza con $)
+            if len(password) < 60 and not password.startswith('$'):
+                try:
+                    # Migrar texto plano a sha256_crypt
+                    nuevo_hash = sha256_crypt.hash(password)
+                    cursor.execute(
+                        "UPDATE usuarios SET password = %s WHERE id = %s",
+                        (nuevo_hash, usuario_id)
+                    )
+                    actualizados += 1
+                    resultados.append(f"✅ {email}: Migrado texto plano → sha256_crypt")
+                except Exception as e:
+                    resultados.append(f"❌ {email}: Error migrando: {str(e)}")
+                    continue
+            else:
+                resultados.append(f"❌ {email}: Formato desconocido: {password[:30]}...")
+        
+        conn.commit()
+        conn.close()
+        
+        # Crear respuesta simple
+        respuesta = f"""
+        <h1>🔧 Debug - Estandarización a SHA256_CRYPT</h1>
+        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
+        <p><strong>Actualizados:</strong> {actualizados}</p>
+        <hr>
+        <h3>Resultados:</h3>
+        <pre>{chr(10).join(resultados)}</pre>
+        <hr>
+        <p><em>Usuarios con werkzeug necesitan reset manual de contraseña.</em></p>
+        """
+        
+        return respuesta
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+@app.route('/debug/passwords')
+def debug_passwords():
+    """Ruta simple para ver estado de contraseñas"""
+    try:
+        from passlib.hash import sha256_crypt
+        
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, email, password, nombre FROM usuarios")
+        usuarios = cursor.fetchall()
+        conn.close()
+        
+        resultados = []
+        
+        for usuario in usuarios:
+            usuario_id, email, password, nombre = usuario
+            
+            if not password:
+                estado = "❌ VACÍA"
+            elif password.startswith('$5$') or password.startswith('$6$'):
+                try:
+                    sha256_crypt.verify("test", password)  # Solo verificar formato
+                    estado = "✅ SHA256_CRYPT"
+                except:
+                    estado = "⚠️ SHA256_CRYPT INVÁLIDO"
+            elif password.startswith('pbkdf2:sha256:'):
+                estado = "🔀 WERKZEUG (necesita migración)"
+            elif len(password) < 60:
+                estado = "🔓 TEXTO PLANO"
+            else:
+                estado = "❓ DESCONOCIDO"
+            
+            resultados.append(f"{estado} - {email}: {password[:30]}...")
+        
+        return f"""
+        <h1>🔧 Estado de Contraseñas (SHA256_CRYPT)</h1>
+        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
+        <hr>
+        <pre>{chr(10).join(resultados)}</pre>
+        <hr>
+        <p>Para migrar contraseñas en texto plano a sha256_crypt usa:</p>
+        <code>/debug/fix-passwords?key=migrate2024</code>
+        """
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+# =============================================================================
 # INICIALIZACIÓN - EJECUTAR SIEMPRE
 # =============================================================================
 
