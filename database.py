@@ -98,15 +98,22 @@ def init_db():
             conn.close()
 
 def execute_query(query, params=()):
-    """Ejecutar consulta compatible con SQLite y PostgreSQL"""
+    """Ejecutar consulta compatible con SQLite y PostgreSQL - VERSIÓN MEJORADA"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
+        # Detectar si es PostgreSQL
+        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+        
         # Adaptar consultas para PostgreSQL si es necesario
-        if hasattr(conn, 'cursor') and not isinstance(conn, sqlite3.Connection):
-            # Estamos en PostgreSQL
+        if is_postgresql:
+            # Reemplazar placeholders
             query = query.replace('?', '%s')
+            
+            # Adaptar INSERT OR IGNORE
+            if 'INSERT OR IGNORE' in query.upper():
+                query = adaptar_consultas_para_postgres(query)
         
         cursor.execute(query, params)
         
@@ -115,7 +122,7 @@ def execute_query(query, params=()):
             results = cursor.fetchall()
             
             # Convertir a diccionarios si es PostgreSQL
-            if hasattr(conn, 'cursor') and not isinstance(conn, sqlite3.Connection):
+            if is_postgresql:
                 columns = [desc[0] for desc in cursor.description]
                 results = [dict(zip(columns, row)) for row in results]
             else:
@@ -131,6 +138,8 @@ def execute_query(query, params=()):
     except Exception as e:
         conn.rollback()
         print(f"❌ Error en consulta: {e}")
+        print(f"🔍 Consulta: {query}")
+        print(f"🔍 Parámetros: {params}")
         raise e
     finally:
         cursor.close()
@@ -306,39 +315,75 @@ def _crear_tablas(cursor):
     cursor.execute(prof_servicios_sql)
 
 def _insertar_datos_por_defecto(cursor):
-    """Insertar datos por defecto en las tablas"""
+    """Insertar datos por defecto en las tablas - VERSIÓN POSTGRESQL COMPATIBLE"""
+    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    
     # Negocio por defecto
-    cursor.execute('''
-        INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-        VALUES (1, 'Negocio Premium', 'whatsapp:+14155238886', 'general', ?)
-    ''', (json.dumps({
-        "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
-        "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
-        "direccion": "Calle Principal #123",
-        "telefono_contacto": "+573001234567",
-        "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
-    }),))
+    if is_postgresql:
+        cursor.execute('''
+            INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+        ''', (
+            1, 
+            'Negocio Premium', 
+            'whatsapp:+14155238886', 
+            'general', 
+            json.dumps({
+                "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
+                "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
+                "direccion": "Calle Principal #123",
+                "telefono_contacto": "+573001234567",
+                "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
+            })
+        ))
+    else:
+        cursor.execute('''
+            INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            1, 
+            'Negocio Premium', 
+            'whatsapp:+14155238886', 
+            'general', 
+            json.dumps({
+                "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
+                "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
+                "direccion": "Calle Principal #123",
+                "telefono_contacto": "+573001234567",
+                "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
+            })
+        ))
+    
+    print("✅ Negocio por defecto insertado")
     
     # Usuarios por defecto
-    _insertar_usuarios_por_defecto(cursor)
+    _insertar_usuarios_por_defecto(cursor, is_postgresql)
     
     # Plantillas base
-    _insertar_plantillas_base(cursor)
+    _insertar_plantillas_base(cursor, is_postgresql)
     
     # Configuración
-    cursor.execute('INSERT OR IGNORE INTO configuracion (negocio_id) VALUES (1)')
+    if is_postgresql:
+        cursor.execute('''
+            INSERT INTO configuracion (negocio_id) 
+            VALUES (%s)
+            ON CONFLICT (negocio_id) DO NOTHING
+        ''', (1,))
+    else:
+        cursor.execute('INSERT OR IGNORE INTO configuracion (negocio_id) VALUES (1)')
     
     # Configuración de horarios
-    _insertar_configuracion_horarios(cursor)
+    _insertar_configuracion_horarios(cursor, is_postgresql)
     
     # Profesionales por defecto
-    _insertar_profesionales_por_defecto(cursor)
+    _insertar_profesionales_por_defecto(cursor, is_postgresql)
     
     # Servicios por defecto
-    _insertar_servicios_por_defecto(cursor)
+    _insertar_servicios_por_defecto(cursor, is_postgresql)
 
-def _insertar_usuarios_por_defecto(cursor):
-    """Insertar usuarios por defecto usando Werkzeug"""
+def _insertar_usuarios_por_defecto(cursor, is_postgresql=False):
+    """Insertar usuarios por defecto usando Werkzeug - VERSIÓN POSTGRESQL COMPATIBLE"""
     from werkzeug.security import generate_password_hash
     
     usuarios = [
@@ -349,12 +394,19 @@ def _insertar_usuarios_por_defecto(cursor):
     ]
     
     for negocio_id, nombre, email, password, rol in usuarios:
-        # ✅ USAR WERKZEUG (mismo que crear_usuario)
         password_hash = generate_password_hash(password)
-        cursor.execute('''
-            INSERT OR IGNORE INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
-            VALUES (?, ?, ?, ?, ?)
-        ''', (negocio_id, nombre, email, password_hash, rol))
+        
+        if is_postgresql:
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (email) DO NOTHING
+            ''', (negocio_id, nombre, email, password_hash, rol))
+        else:
+            cursor.execute('''
+                INSERT OR IGNORE INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (negocio_id, nombre, email, password_hash, rol))
 
 def migrar_hashes_automatico():
     """Migrar automáticamente los hashes al iniciar la app"""
@@ -386,20 +438,42 @@ def migrar_hashes_automatico():
         conn.close()
 
 def adaptar_consultas_para_postgres(sql):
-    """Adaptar consultas SQL de SQLite para PostgreSQL"""
+    """Adaptar consultas SQL de SQLite para PostgreSQL - VERSIÓN MEJORADA"""
     replacements = {
         'AUTOINCREMENT': 'SERIAL',
         'BOOLEAN DEFAULT 1': 'BOOLEAN DEFAULT TRUE',
         'BOOLEAN DEFAULT 0': 'BOOLEAN DEFAULT FALSE', 
         'INTEGER PRIMARY KEY AUTOINCREMENT': 'SERIAL PRIMARY KEY',
         'TIMESTAMP DEFAULT CURRENT_TIMESTAMP': 'TIMESTAMP DEFAULT NOW()',
-        'BLOB': 'BYTEA',
-        'INSERT OR IGNORE': 'INSERT ON CONFLICT DO NOTHING',
-        'INSERT OR REPLACE': 'INSERT ON CONFLICT DO UPDATE SET'
+        'BLOB': 'BYTEA'
     }
     
     for old, new in replacements.items():
         sql = sql.replace(old, new)
+    
+    # Manejar INSERT OR IGNORE de forma específica
+    if 'INSERT OR IGNORE' in sql.upper():
+        table_name = None
+        if 'INTO negocios' in sql:
+            table_name = 'negocios'
+            conflict_column = 'id'
+        elif 'INTO usuarios' in sql:
+            table_name = 'usuarios' 
+            conflict_column = 'email'
+        elif 'INTO configuracion' in sql:
+            table_name = 'configuracion'
+            conflict_column = 'negocio_id'
+        elif 'INTO configuracion_horarios' in sql:
+            table_name = 'configuracion_horarios'
+            conflict_column = 'negocio_id,dia_semana'
+        
+        if table_name:
+            sql = sql.replace('INSERT OR IGNORE', 'INSERT')
+            if 'ON CONFLICT' not in sql.upper():
+                sql += f' ON CONFLICT ({conflict_column}) DO NOTHING'
+        else:
+            # Para otras tablas, simplemente quitar OR IGNORE
+            sql = sql.replace('INSERT OR IGNORE', 'INSERT')
     
     return sql
 
@@ -444,10 +518,13 @@ def migrar_a_postgresql():
     finally:
         conn.close()
 
-def _insertar_plantillas_base(cursor):
-    """Insertar SOLO las 8 plantillas base principales del sistema"""
+def _insertar_plantillas_base(cursor, is_postgresql=False):
+    """Insertar SOLO las 8 plantillas base principales del sistema - VERSIÓN POSTGRESQL COMPATIBLE"""
     # Primero eliminar cualquier plantilla existente
-    cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
+    if is_postgresql:
+        cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
+    else:
+        cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
     
     plantillas_base = [
         ('saludo_inicial_nuevo', 
@@ -492,14 +569,21 @@ def _insertar_plantillas_base(cursor):
     ]
     
     for nombre, plantilla, descripcion, variables in plantillas_base:
-        cursor.execute('''
-            INSERT INTO plantillas_mensajes 
-            (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-            VALUES (NULL, ?, ?, ?, ?, TRUE)
-        ''', (nombre, plantilla, descripcion, variables))
+        if is_postgresql:
+            cursor.execute('''
+                INSERT INTO plantillas_mensajes 
+                (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                VALUES (NULL, %s, %s, %s, %s, TRUE)
+            ''', (nombre, plantilla, descripcion, variables))
+        else:
+            cursor.execute('''
+                INSERT INTO plantillas_mensajes 
+                (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                VALUES (NULL, ?, ?, ?, ?, TRUE)
+            ''', (nombre, plantilla, descripcion, variables))
 
-def _insertar_configuracion_horarios(cursor):
-    """Insertar configuración de horarios por día"""
+def _insertar_configuracion_horarios(cursor, is_postgresql=False):
+    """Insertar configuración de horarios por día - VERSIÓN POSTGRESQL COMPATIBLE"""
     dias_semana = [
         (0, '09:00', '19:00', '13:00', '14:00'),  # Lunes
         (1, '09:00', '19:00', '13:00', '14:00'),  # Martes
@@ -507,41 +591,85 @@ def _insertar_configuracion_horarios(cursor):
         (3, '09:00', '19:00', '13:00', '14:00'),  # Jueves
         (4, '09:00', '19:00', '13:00', '14:00'),  # Viernes
         (5, '09:00', '19:00', '13:00', '14:00'),  # Sábado
-        (6, '09:00', '13:00', None, None)         # Domingo
+        (6, '09:00', '13:00', '13:00', '14:00')         # Domingo
     ]
     
     # Para cada negocio existente
-    cursor.execute("SELECT id FROM negocios")
+    if is_postgresql:
+        cursor.execute("SELECT id FROM negocios")
+    else:
+        cursor.execute("SELECT id FROM negocios")
+    
     negocios = cursor.fetchall()
     
     for negocio in negocios:
-        negocio_id = negocio[0]
+        negocio_id = negocio[0] if is_postgresql else negocio[0]
         for dia in dias_semana:
-            cursor.execute('''
-                INSERT OR IGNORE INTO configuracion_horarios 
-                (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                VALUES (?, ?, 1, ?, ?, ?, ?)
-            ''', (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
+            if is_postgresql:
+                cursor.execute('''
+                    INSERT INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (negocio_id, dia_semana) DO NOTHING
+                ''', (negocio_id, dia[0], 1, dia[1], dia[2], dia[3], dia[4]))
+            else:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (?, ?, 1, ?, ?, ?, ?)
+                ''', (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
 
-def _insertar_profesionales_por_defecto(cursor):
-    """Insertar profesionales por defecto"""
-    cursor.execute('''
-        INSERT OR IGNORE INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) VALUES 
-        (1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3),
-        (2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4),
-        (3, 1, 'María Profesional', 'Especialista unisex', '9012', NULL)
-    ''')
+def _insertar_profesionales_por_defecto(cursor, is_postgresql=False):
+    """Insertar profesionales por defecto - VERSIÓN POSTGRESQL COMPATIBLE"""
+    if is_postgresql:
+        cursor.execute('''
+            INSERT INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) VALUES 
+            (%s, %s, %s, %s, %s, %s),
+            (%s, %s, %s, %s, %s, %s),
+            (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+        ''', (
+            1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3,
+            2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4,
+            3, 1, 'María Profesional', 'Especialista unisex', '9012', None
+        ))
+    else:
+        cursor.execute('''
+            INSERT OR IGNORE INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) VALUES 
+            (1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3),
+            (2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4),
+            (3, 1, 'María Profesional', 'Especialista unisex', '9012', NULL)
+        ''')
 
-def _insertar_servicios_por_defecto(cursor):
-    """Insertar servicios por defecto"""
-    cursor.execute('''
-        INSERT OR IGNORE INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) VALUES 
-        (1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar'),
-        (2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo'),
-        (3, 1, 'Servicio Premium', 75, 25000, 'Servicio premium'),
-        (4, 1, 'Servicio Express', 30, 12000, 'Servicio rápido'),
-        (5, 1, 'Servicio VIP', 90, 30000, 'Servicio exclusivo')
-    ''')
+def _insertar_servicios_por_defecto(cursor, is_postgresql=False):
+    """Insertar servicios por defecto - VERSIÓN POSTGRESQL COMPATIBLE"""
+    if is_postgresql:
+        cursor.execute('''
+            INSERT INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) VALUES 
+            (%s, %s, %s, %s, %s, %s),
+            (%s, %s, %s, %s, %s, %s),
+            (%s, %s, %s, %s, %s, %s),
+            (%s, %s, %s, %s, %s, %s),
+            (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+        ''', (
+            1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar',
+            2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo',
+            3, 1, 'Servicio Premium', 75, 25000, 'Servicio premium',
+            4, 1, 'Servicio Express', 30, 12000, 'Servicio rápido',
+            5, 1, 'Servicio VIP', 90, 30000, 'Servicio exclusivo'
+        ))
+    else:
+        cursor.execute('''
+            INSERT OR IGNORE INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) VALUES 
+            (1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar'),
+            (2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo'),
+            (3, 1, 'Servicio Premium', 75, 25000, 'Servicio premium'),
+            (4, 1, 'Servicio Express', 30, 12000, 'Servicio rápido'),
+            (5, 1, 'Servicio VIP', 90, 30000, 'Servicio exclusivo')
+        ''')
+
+
 
 # =============================================================================
 # SISTEMA DE PLANTILLAS
