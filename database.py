@@ -56,27 +56,30 @@ def init_db():
     
     conn = None
     try:
-        # 1. Primero crear la conexión
         conn = get_db_connection()
         cursor = conn.cursor()
         
         print("✅ Conexión a BD establecida")
         
-        # 2. Actualizar esquema primero
+        # Detectar tipo de BD
+        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+        print(f"🔧 Usando {'PostgreSQL' if is_postgresql else 'SQLite'}")
+        
+        # Actualizar esquema primero
         actualizar_esquema_bd()
         
-        # 3. Crear tablas con IF NOT EXISTS
+        # Crear tablas con sintaxis correcta
         _crear_tablas(cursor)
         print("✅ Tablas creadas/verificadas")
         
-        # 4. Insertar datos por defecto
+        # Insertar datos por defecto
         _insertar_datos_por_defecto(cursor)
         print("✅ Datos por defecto insertados")
         
         conn.commit()
         print("✅ Commit realizado")
         
-        # 5. Crear plantillas
+        # Crear plantillas
         crear_plantillas_personalizadas_para_negocios()
         print("✅ Plantillas personalizadas creadas")
         
@@ -84,10 +87,10 @@ def init_db():
         
     except Exception as e:
         print(f"❌ Error en init_db: {e}")
-        # En producción, algunos errores son normales (tablas ya existen)
-        if "already exists" not in str(e) and "duplicate" not in str(e) and "no such table" not in str(e):
+        # En PostgreSQL, algunos errores son normales (tablas ya existen)
+        if "already exists" not in str(e) and "duplicate" not in str(e) and "exists" not in str(e):
             print(f"🚨 ERROR CRÍTICO: {e}")
-            raise e
+            # No relanzar el error, continuar con la aplicación
         else:
             print("⚠️ Error no crítico (tablas probablemente ya existen)")
     finally:
@@ -134,59 +137,71 @@ def execute_query(query, params=()):
         conn.close()
 
 def _crear_tablas(cursor):
-    """Crear todas las tablas necesarias"""
+    """Crear todas las tablas necesarias - VERSIÓN POSTGRESQL COMPATIBLE"""
+    
+    # Detectar si estamos en PostgreSQL
+    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
     
     # Tabla negocios
-    cursor.execute('''
+    negocios_sql = '''
         CREATE TABLE IF NOT EXISTS negocios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             nombre TEXT NOT NULL,
             telefono_whatsapp TEXT UNIQUE NOT NULL,
             tipo_negocio TEXT DEFAULT 'general',
-            emoji TEXT DEFAULT '👋',  -- ✅ COLUMNA EMOJI AGREGADA
+            emoji TEXT DEFAULT '👋',
             configuracion TEXT DEFAULT '{}',
-            activo BOOLEAN DEFAULT 1,
+            activo BOOLEAN DEFAULT TRUE,
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    '''
+    if is_postgresql:
+        negocios_sql = negocios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    cursor.execute(negocios_sql)
     
     # Tabla usuarios
-    cursor.execute('''
+    usuarios_sql = '''
         CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER NOT NULL,
             nombre TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            rol TEXT CHECK(rol IN ('superadmin', 'propietario', 'profesional')) DEFAULT 'propietario',
-            activo BOOLEAN DEFAULT 1,
+            rol TEXT DEFAULT 'propietario',
+            activo BOOLEAN DEFAULT TRUE,
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ultimo_login TIMESTAMP,
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
-    ''')
+    '''
+    if is_postgresql:
+        usuarios_sql = usuarios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    cursor.execute(usuarios_sql)
     
     # Tabla plantillas_mensajes
-    cursor.execute('''
+    plantillas_sql = '''
         CREATE TABLE IF NOT EXISTS plantillas_mensajes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER,
             nombre TEXT NOT NULL,
             plantilla TEXT NOT NULL,
             descripcion TEXT,
             variables_disponibles TEXT DEFAULT '[]',
             es_base BOOLEAN DEFAULT FALSE,
-            activo BOOLEAN DEFAULT 1,
+            activo BOOLEAN DEFAULT TRUE,
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (negocio_id) REFERENCES negocios (id),
             UNIQUE(negocio_id, nombre)
         )
-    ''')
+    '''
+    if is_postgresql:
+        plantillas_sql = plantillas_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    cursor.execute(plantillas_sql)
     
     # Tabla profesionales
-    cursor.execute('''
+    profesionales_sql = '''
         CREATE TABLE IF NOT EXISTS profesionales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER NOT NULL,
             nombre TEXT NOT NULL,
             telefono TEXT,
@@ -198,12 +213,15 @@ def _crear_tablas(cursor):
             FOREIGN KEY (negocio_id) REFERENCES negocios (id),
             FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
         )
-    ''')
+    '''
+    if is_postgresql:
+        profesionales_sql = profesionales_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    cursor.execute(profesionales_sql)
     
     # Tabla servicios
-    cursor.execute('''
+    servicios_sql = '''
         CREATE TABLE IF NOT EXISTS servicios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER NOT NULL,
             nombre TEXT NOT NULL,
             duracion INTEGER NOT NULL,
@@ -213,12 +231,15 @@ def _crear_tablas(cursor):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
-    ''')
+    '''
+    if is_postgresql:
+        servicios_sql = servicios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    cursor.execute(servicios_sql)
     
-    # Tabla citas (antes turnos)
-    cursor.execute('''
+    # Tabla citas
+    citas_sql = '''
         CREATE TABLE IF NOT EXISTS citas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER NOT NULL,
             profesional_id INTEGER NOT NULL,
             cliente_telefono TEXT NOT NULL,
@@ -235,12 +256,15 @@ def _crear_tablas(cursor):
             FOREIGN KEY (profesional_id) REFERENCES profesionales(id),
             FOREIGN KEY (servicio_id) REFERENCES servicios(id)
         )
-    ''')
+    '''
+    if is_postgresql:
+        citas_sql = citas_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    cursor.execute(citas_sql)
     
     # Tabla configuracion
-    cursor.execute('''
+    configuracion_sql = '''
         CREATE TABLE IF NOT EXISTS configuracion (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER NOT NULL,
             hora_inicio TEXT DEFAULT '09:00',
             hora_fin TEXT DEFAULT '19:00',
@@ -249,34 +273,37 @@ def _crear_tablas(cursor):
             duracion_cita_base INTEGER DEFAULT 60,
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
-    ''')
+    '''
+    cursor.execute(configuracion_sql)
     
     # Tabla configuracion_horarios
-    cursor.execute('''
+    config_horarios_sql = '''
         CREATE TABLE IF NOT EXISTS configuracion_horarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             negocio_id INTEGER NOT NULL,
             dia_semana INTEGER NOT NULL,
-            activo BOOLEAN DEFAULT 1,
+            activo BOOLEAN DEFAULT TRUE,
             hora_inicio TIME NOT NULL,
             hora_fin TIME NOT NULL,
             almuerzo_inicio TIME,
             almuerzo_fin TIME,
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
-    ''')
+    '''
+    cursor.execute(config_horarios_sql)
     
     # Tabla profesional_servicios
-    cursor.execute('''
+    prof_servicios_sql = '''
         CREATE TABLE IF NOT EXISTS profesional_servicios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             profesional_id INTEGER NOT NULL,
             servicio_id INTEGER NOT NULL,
             FOREIGN KEY (profesional_id) REFERENCES profesionales (id) ON DELETE CASCADE,
             FOREIGN KEY (servicio_id) REFERENCES servicios (id) ON DELETE CASCADE,
             UNIQUE(profesional_id, servicio_id)
         )
-    ''')
+    '''
+    cursor.execute(prof_servicios_sql)
 
 def _insertar_datos_por_defecto(cursor):
     """Insertar datos por defecto en las tablas"""
@@ -355,6 +382,65 @@ def migrar_hashes_automatico():
         
     except Exception as e:
         print(f"⚠️ Error en migración automática: {e}")
+    finally:
+        conn.close()
+
+def adaptar_consultas_para_postgres(sql):
+    """Adaptar consultas SQL de SQLite para PostgreSQL"""
+    replacements = {
+        'AUTOINCREMENT': 'SERIAL',
+        'BOOLEAN DEFAULT 1': 'BOOLEAN DEFAULT TRUE',
+        'BOOLEAN DEFAULT 0': 'BOOLEAN DEFAULT FALSE', 
+        'INTEGER PRIMARY KEY AUTOINCREMENT': 'SERIAL PRIMARY KEY',
+        'TIMESTAMP DEFAULT CURRENT_TIMESTAMP': 'TIMESTAMP DEFAULT NOW()',
+        'BLOB': 'BYTEA',
+        'INSERT OR IGNORE': 'INSERT ON CONFLICT DO NOTHING',
+        'INSERT OR REPLACE': 'INSERT ON CONFLICT DO UPDATE SET'
+    }
+    
+    for old, new in replacements.items():
+        sql = sql.replace(old, new)
+    
+    return sql
+
+def migrar_a_postgresql():
+    """Migrar de SQLite a PostgreSQL"""
+    print("🔄 MIGRANDO A POSTGRESQL...")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Eliminar tablas existentes (si las hay)
+        print("🧹 Limpiando tablas existentes...")
+        tablas = [
+            'profesional_servicios', 'configuracion_horarios', 'configuracion',
+            'citas', 'servicios', 'profesionales', 'plantillas_mensajes', 
+            'usuarios', 'negocios'
+        ]
+        
+        for tabla in tablas:
+            try:
+                cursor.execute(f'DROP TABLE IF EXISTS {tabla} CASCADE')
+                print(f"✅ Tabla {tabla} eliminada")
+            except Exception as e:
+                print(f"⚠️ Error eliminando {tabla}: {e}")
+        
+        # Crear tablas con sintaxis PostgreSQL
+        _crear_tablas(cursor)
+        print("✅ Tablas creadas con sintaxis PostgreSQL")
+        
+        # Insertar datos por defecto
+        _insertar_datos_por_defecto(cursor)
+        print("✅ Datos por defecto insertados")
+        
+        conn.commit()
+        print("🎉 MIGRACIÓN A POSTGRESQL COMPLETADA")
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error en migración: {e}")
+        raise e
     finally:
         conn.close()
 

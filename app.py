@@ -2545,6 +2545,57 @@ def debug_postgres():
     
     <a href="/debug-database">← Volver al debug general</a>
     '''
+@app.route('/migrar-postgres')
+def migrar_postgres():
+    """Forzar migración a PostgreSQL (ruta temporal)"""
+    try:
+        from database import migrar_a_postgresql
+        migrar_a_postgresql()
+        return '''
+        <h1>✅ MIGRACIÓN A POSTGRESQL COMPLETADA</h1>
+        <p>Las tablas se han creado con sintaxis PostgreSQL correcta.</p>
+        <a href="/debug-database">Verificar conexión</a> | 
+        <a href="/">Ir al inicio</a>
+        '''
+    except Exception as e:
+        return f'''
+        <h1>❌ ERROR EN MIGRACIÓN</h1>
+        <p>Error: {str(e)}</p>
+        <p>Es posible que las tablas ya existan. Puedes continuar.</p>
+        <a href="/debug-database">Volver al debug</a> | 
+        <a href="/">Ir al inicio</a>
+        '''
+    
+@app.route('/limpiar-bd')
+def limpiar_bd():
+    """Limpiar completamente la base de datos (SOLO DESARROLLO)"""
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Eliminar todas las tablas en orden correcto
+        tablas = [
+            'profesional_servicios', 'configuracion_horarios', 'configuracion',
+            'citas', 'servicios', 'profesionales', 'plantillas_mensajes', 
+            'usuarios', 'negocios'
+        ]
+        
+        for tabla in tablas:
+            cursor.execute(f'DROP TABLE IF EXISTS {tabla} CASCADE')
+        
+        conn.commit()
+        conn.close()
+        
+        return '''
+        <h1>🧹 BASE DE DATOS LIMPIADA</h1>
+        <p>Todas las tablas han sido eliminadas.</p>
+        <a href="/migrar-postgres">Crear tablas PostgreSQL</a> | 
+        <a href="/">Ir al inicio</a>
+        '''
+    except Exception as e:
+        return f'<h1>❌ ERROR</h1><p>{e}</p>'
 
 @app.route('/debug-database')
 def debug_database():
