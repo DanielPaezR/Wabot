@@ -2762,11 +2762,11 @@ def debug_session():
     return jsonify(dict(session))
 
 # =============================================================================
-# INICIALIZACIÓN Y EJECUCIÓN
+# INICIALIZACIÓN - EJECUTAR SIEMPRE
 # =============================================================================
 
 def initialize_app():
-    """Inicializar la aplicación"""
+    """Inicializar la aplicación - EJECUTAR SIEMPRE"""
     print("🚀 INICIALIZANDO APLICACIÓN...")
     
     try:
@@ -2783,11 +2783,11 @@ def initialize_app():
     except Exception as e:
         print(f"⚠️ Error en scheduler: {e}")
 
-# Inicializar siempre
-print("🔧 CARGANDO MÓDULO APP...")
+# ✅ INICIALIZAR SIEMPRE - SIN IMPORTAR CÓMO SE CARGUE EL MÓDULO
+print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
 initialize_app()
 
-# Ejecutar servidor - MANEJO MEJORADO DEL PORT
+# Solo para desarrollo local
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")
