@@ -775,12 +775,32 @@ def obtener_negocio_por_id(negocio_id):
 
 
 def obtener_todos_negocios():
-    """Obtener todos los negocios"""
+    """Obtener todos los negocios - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
     sql = 'SELECT * FROM negocios ORDER BY fecha_creacion DESC'
     negocios = fetch_all(conn.cursor(), sql)
     conn.close()
-    return negocios
+    
+    # Procesar las fechas para la plantilla
+    negocios_procesados = []
+    for negocio in negocios:
+        if not isinstance(negocio, dict):
+            negocio_dict = dict(negocio)
+        else:
+            negocio_dict = negocio
+        
+        # Procesar fecha_creacion
+        if negocio_dict.get('fecha_creacion'):
+            if hasattr(negocio_dict['fecha_creacion'], 'strftime'):
+                negocio_dict['fecha_creacion_str'] = negocio_dict['fecha_creacion'].strftime('%Y-%m-%d')
+            else:
+                negocio_dict['fecha_creacion_str'] = str(negocio_dict['fecha_creacion'])[:10]
+        else:
+            negocio_dict['fecha_creacion_str'] = '-'
+        
+        negocios_procesados.append(negocio_dict)
+    
+    return negocios_procesados
 
 
 def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}'):

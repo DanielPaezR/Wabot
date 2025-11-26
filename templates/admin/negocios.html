@@ -469,7 +469,7 @@
                                     <span class="status-inactive">Inactivo</span>
                                 {% endif %}
                             </td>
-                            <td>{{ negocio.fecha_creacion[:10] }}</td>
+                            <td>{{ negocio.fecha_creacion_str }}</td>
                             <td class="actions">
                                 <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
                                 <form method="POST" action="{{ url_for('admin_eliminar_negocio', negocio_id=negocio.id) }}" style="display: inline;">
