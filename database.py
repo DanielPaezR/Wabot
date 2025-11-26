@@ -1638,44 +1638,8 @@ def notificar_cambio_horarios(negocio_id):
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
-def verificar_usuario(email, password):
-    """Verificar credenciales de usuario usando SHA256"""
-    conn = get_db_connection()
-    
-    usuario = conn.execute('''
-        SELECT u.*, n.nombre as negocio_nombre 
-        FROM usuarios u 
-        JOIN negocios n ON u.negocio_id = n.id 
-        WHERE u.email = ? AND u.activo = 1
-    ''', (email,)).fetchone()
-    
-    conn.close()
-    
-    if usuario:
-        # ✅ SHA256 (consistente con crear_usuario)
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        
-        if usuario['password_hash'] == password_hash:
-            # Actualizar último login
-            conn = get_db_connection()
-            conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?', 
-                        (datetime.now(), usuario['id']))
-            conn.commit()
-            conn.close()
-            
-            return {
-                'id': usuario['id'],
-                'nombre': usuario['nombre'],
-                'email': usuario['email'],
-                'rol': usuario['rol'],
-                'negocio_id': usuario['negocio_id'],
-                'negocio_nombre': usuario['negocio_nombre']
-            }
-    return None
-
 def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario usando SHA256 (mismo sistema que usuarios existentes)"""
+    """Crear usuario usando SHA256 (consistente con el sistema actual)"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1720,6 +1684,42 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         if conn:
             conn.close()
         return None
+
+def verificar_usuario(email, password):
+    """Verificar credenciales de usuario usando SHA256"""
+    conn = get_db_connection()
+    
+    usuario = conn.execute('''
+        SELECT u.*, n.nombre as negocio_nombre 
+        FROM usuarios u 
+        JOIN negocios n ON u.negocio_id = n.id 
+        WHERE u.email = ? AND u.activo = 1
+    ''', (email,)).fetchone()
+    
+    conn.close()
+    
+    if usuario:
+        # ✅ SHA256 (consistente con crear_usuario)
+        import hashlib
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        if usuario['password_hash'] == password_hash:
+            # Actualizar último login
+            conn = get_db_connection()
+            conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?', 
+                        (datetime.now(), usuario['id']))
+            conn.commit()
+            conn.close()
+            
+            return {
+                'id': usuario['id'],
+                'nombre': usuario['nombre'],
+                'email': usuario['email'],
+                'rol': usuario['rol'],
+                'negocio_id': usuario['negocio_id'],
+                'negocio_nombre': usuario['negocio_nombre']
+            }
+    return None
 
 def obtener_usuarios_por_negocio(negocio_id):
     """Obtener todos los usuarios de un negocio"""

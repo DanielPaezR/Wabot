@@ -2383,7 +2383,102 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
+@app.route('/debug-hashes')
+def debug_hashes():
+    """Ruta temporal para debug de hashes - ELIMINAR DESPUÉS"""
+    import hashlib
+    import sqlite3
+    
+    conn = sqlite3.connect('negocio.db')
+    cursor = conn.cursor()
+    
+    # Obtener todos los usuarios
+    cursor.execute('SELECT id, email, password_hash FROM usuarios')
+    usuarios = cursor.fetchall()
+    
+    resultado_html = "<h1>🔍 DEBUG DE HASHES SHA256</h1>"
+    resultado_html += f"<p>Total usuarios: {len(usuarios)}</p>"
+    resultado_html += "<table border='1' style='border-collapse: collapse; width: 100%;'>"
+    resultado_html += "<tr><th>Email</th><th>Hash Almacenado</th><th>Estado</th><th>Acción</th></tr>"
+    
+    for usuario_id, email, hash_actual in usuarios:
+        # Determinar contraseña esperada
+        if email == 'admin@negociobot.com':
+            password = 'admin123'
+        elif email == 'juan@negocio.com':
+            password = 'propietario123'
+        elif email in ['carlos@negocio.com', 'ana@negocio.com']:
+            password = 'profesional123'
+        else:
+            password = None
+        
+        if password:
+            hash_calculado = hashlib.sha256(password.encode()).hexdigest()
+            estado = "✅ CORRECTO" if hash_actual == hash_calculado else "❌ INCORRECTO"
+            
+            if hash_actual != hash_calculado:
+                accion = f"<a href='/corregir-hash/{usuario_id}'>Corregir</a>"
+            else:
+                accion = "✅"
+        else:
+            estado = "⚠️ DESCONOCIDO"
+            accion = "-"
+        
+        resultado_html += f"<tr><td>{email}</td><td style='font-family: monospace;'>{hash_actual}</td><td>{estado}</td><td>{accion}</td></tr>"
+    
+    resultado_html += "</table>"
+    resultado_html += "<br><a href='/login'>Ir al Login</a>"
+    
+    conn.close()
+    return resultado_html
 
+@app.route('/corregir-hash/<int:usuario_id>')
+def corregir_hash(usuario_id):
+    """Corregir hash de un usuario específico"""
+    import hashlib
+    import sqlite3
+    
+    conn = sqlite3.connect('negocio.db')
+    cursor = conn.cursor()
+    
+    # Obtener información del usuario
+    cursor.execute('SELECT email FROM usuarios WHERE id = ?', (usuario_id,))
+    usuario = cursor.fetchone()
+    
+    if not usuario:
+        return "❌ Usuario no encontrado"
+    
+    email = usuario[0]
+    
+    # Determinar contraseña según el email
+    if email == 'admin@negociobot.com':
+        password = 'admin123'
+    elif email == 'juan@negocio.com':
+        password = 'propietario123'
+    elif email in ['carlos@negocio.com', 'ana@negocio.com']:
+        password = 'profesional123'
+    else:
+        return f"❌ No se puede determinar la contraseña para {email}"
+    
+    # Calcular nuevo hash
+    nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
+    
+    # Actualizar en la base de datos
+    cursor.execute(
+        'UPDATE usuarios SET password_hash = ? WHERE id = ?',
+        (nuevo_hash, usuario_id)
+    )
+    conn.commit()
+    conn.close()
+    
+    return f'''
+    ✅ Hash corregido para {email}
+    <br>Contraseña: {password}
+    <br>Nuevo hash: {nuevo_hash}
+    <br><br>
+    <a href="/debug-hashes">Volver al debug</a> | 
+    <a href="/login">Probar login</a>
+    '''
 
 @app.route('/migrar_hashes')
 def migrar_hashes():
