@@ -534,7 +534,7 @@
         // Configuración - el propietario solo ve su propio negocio
         const NEGOCIO_ID = "{{ session.get('negocio_id') }}";
 
-        // ✅ CORRECCIÓN 2: Función mejorada para cargar estadísticas reales
+        // ✅ CORRECCIÓN: Función mejorada para cargar estadísticas con rutas reales
         async function cargarEstadisticas() {
             try {
                 const profesionalId = document.getElementById('profesional').value;
@@ -543,7 +543,7 @@
                 
                 console.log(`🔍 Cargando estadísticas: profesional=${profesionalId}, mes=${mes}, año=${año}`);
                 
-                // Construir URL con filtros
+                // ✅ RUTA CORREGIDA: Usar la ruta real de tu app.py
                 let url = `/negocio/api/estadisticas?mes=${mes}&año=${año}`;
                 if (profesionalId) {
                     url += `&profesional_id=${profesionalId}`;
@@ -572,12 +572,12 @@
                 document.getElementById('content').style.display = 'block';
 
                 // Actualizar tarjetas de estadísticas
-                actualizarStatsCards(data.resumen || data);
+                actualizarStatsCards(data);
                 
                 // Crear gráficos
                 crearGraficos(data);
                 
-                // Cargar citas recientes
+                // ✅ RUTA CORREGIDA: Cargar citas recientes
                 await cargarCitasRecientes(profesionalId);
 
             } catch (error) {
@@ -593,13 +593,20 @@
             }
         }
 
-        function actualizarStatsCards(resumen) {
+        function actualizarStatsCards(data) {
             const statsContainer = document.getElementById('stats-cards');
             
-            // Calcular tasa de éxito si no viene en los datos
-            const totalCitas = resumen.total_turnos || resumen.total_citas || 0;
-            const citasExitosas = (resumen.turnos_completados || resumen.citas_completadas || 0) + 
-                                 (resumen.turnos_confirmados || resumen.citas_confirmadas || 0);
+            // ✅ CORRECCIÓN: Manejo unificado de nombres de campos
+            const resumen = data.resumen || data;
+            
+            const totalCitas = resumen.total_citas || resumen.total_turnos || 0;
+            const citasConfirmadas = resumen.citas_confirmadas || resumen.turnos_confirmados || 0;
+            const citasCompletadas = resumen.citas_completadas || resumen.turnos_completados || 0;
+            const citasCanceladas = resumen.citas_canceladas || resumen.turnos_cancelados || 0;
+            const ingresosTotales = resumen.ingresos_totales || resumen.ingresos || 0;
+            
+            // Calcular tasa de éxito
+            const citasExitosas = citasCompletadas + citasConfirmadas;
             const tasaExito = totalCitas > 0 ? Math.round((citasExitosas / totalCitas) * 100) : 0;
             
             const stats = [
@@ -611,25 +618,25 @@
                 },
                 { 
                     label: 'Confirmadas', 
-                    value: resumen.turnos_confirmados || resumen.citas_confirmadas || 0,
+                    value: citasConfirmadas,
                     class: 'success',
                     icon: '✅'
                 },
                 { 
                     label: 'Completadas', 
-                    value: resumen.turnos_completados || resumen.citas_completadas || 0,
+                    value: citasCompletadas,
                     class: 'success',
                     icon: '🎯'
                 },
                 { 
                     label: 'Canceladas', 
-                    value: resumen.turnos_cancelados || resumen.citas_canceladas || 0,
+                    value: citasCanceladas,
                     class: 'danger',
                     icon: '❌'
                 },
                 { 
                     label: 'Ingresos Totales', 
-                    value: `$${(resumen.ingresos_totales || resumen.ingresos || 0).toLocaleString()}`,
+                    value: `$${ingresosTotales.toLocaleString()}`,
                     class: 'success',
                     icon: '💰'
                 },
@@ -653,57 +660,68 @@
             console.log('Creando gráficos con datos:', data);
             
             // Destruir gráficos existentes de forma segura
-            [window.chartEstados, window.chartIngresos, window.chartProfesionales, window.chartServicios].forEach(chart => {
+            const charts = [window.chartEstados, window.chartIngresos, window.chartProfesionales, window.chartServicios];
+            charts.forEach(chart => {
                 if (chart && typeof chart.destroy === 'function') {
                     chart.destroy();
                 }
             });
 
-            // Gráfico de estados
+            // ✅ CORRECCIÓN: Gráfico de estados con datos unificados
             const ctxEstados = document.getElementById('chartEstados');
             if (ctxEstados) {
                 try {
                     const resumen = data.resumen || data;
-                    window.chartEstados = new Chart(ctxEstados, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Confirmadas', 'Completadas', 'Canceladas'],
-                            datasets: [{
-                                data: [
-                                    resumen.turnos_confirmados || resumen.citas_confirmadas || 0,
-                                    resumen.turnos_completados || resumen.citas_completadas || 0,
-                                    resumen.turnos_cancelados || resumen.citas_canceladas || 0
-                                ],
-                                backgroundColor: ['#28a745', '#17a2b8', '#dc3545']
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
+                    const citasConfirmadas = resumen.citas_confirmadas || resumen.turnos_confirmados || 0;
+                    const citasCompletadas = resumen.citas_completadas || resumen.turnos_completados || 0;
+                    const citasCanceladas = resumen.citas_canceladas || resumen.turnos_cancelados || 0;
+
+                    // Solo crear gráfico si hay datos
+                    if (citasConfirmadas + citasCompletadas + citasCanceladas > 0) {
+                        window.chartEstados = new Chart(ctxEstados, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Confirmadas', 'Completadas', 'Canceladas'],
+                                datasets: [{
+                                    data: [citasConfirmadas, citasCompletadas, citasCanceladas],
+                                    backgroundColor: ['#28a745', '#17a2b8', '#dc3545']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        ctxEstados.innerHTML = '<div class="no-data">No hay datos para mostrar</div>';
+                    }
                 } catch (error) {
                     console.error('Error creando gráfico de estados:', error);
+                    ctxEstados.innerHTML = '<div class="no-data">Error al crear gráfico</div>';
                 }
             }
 
-            // Gráfico de ingresos
+            // ✅ CORRECCIÓN: Gráfico de ingresos mejorado
             const ctxIngresos = document.getElementById('chartIngresos');
             if (ctxIngresos) {
                 try {
-                    const tendencia = data.tendencia_mensual || data.ingresos_mensuales || {meses: ['Actual'], ingresos: [data.resumen?.ingresos_totales || data.ingresos || 0]};
+                    const tendencia = data.tendencia_mensual || data.ingresos_mensuales || data.resumen || data;
                     
+                    // Si no hay datos de tendencia, crear uno simple con el mes actual
+                    let meses = ['Mes Actual'];
+                    let ingresos = [tendencia.ingresos_totales || tendencia.ingresos || 0];
+
                     window.chartIngresos = new Chart(ctxIngresos, {
                         type: 'line',
                         data: {
-                            labels: tendencia.meses,
+                            labels: meses,
                             datasets: [{
                                 label: 'Ingresos Mensuales',
-                                data: tendencia.ingresos,
+                                data: ingresos,
                                 borderColor: '#3498db',
                                 backgroundColor: 'rgba(52, 152, 219, 0.1)',
                                 tension: 0.4,
@@ -726,70 +744,82 @@
                     });
                 } catch (error) {
                     console.error('Error creando gráfico de ingresos:', error);
+                    ctxIngresos.innerHTML = '<div class="no-data">Error al crear gráfico de ingresos</div>';
                 }
             }
 
-            // Gráfico de profesionales
+            // ✅ CORRECCIÓN: Gráfico de profesionales con datos reales
             const ctxProfesionales = document.getElementById('chartProfesionales');
             if (ctxProfesionales) {
                 try {
-                    const profesionales = data.profesionales_top || data.profesionales || [{nombre: 'Sin datos', total_turnos: 1}];
+                    const profesionales = data.profesionales_top || data.profesionales || [];
                     
-                    window.chartProfesionales = new Chart(ctxProfesionales, {
-                        type: 'pie',
-                        data: {
-                            labels: profesionales.map(p => p.nombre),
-                            datasets: [{
-                                data: profesionales.map(p => p.total_turnos || p.citas || 1),
-                                backgroundColor: ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6']
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
+                    if (profesionales.length > 0) {
+                        window.chartProfesionales = new Chart(ctxProfesionales, {
+                            type: 'pie',
+                            data: {
+                                labels: profesionales.map(p => p.nombre || 'Profesional'),
+                                datasets: [{
+                                    data: profesionales.map(p => p.total_citas || p.total_turnos || p.citas || 1),
+                                    backgroundColor: ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        ctxProfesionales.innerHTML = '<div class="no-data">No hay datos de profesionales</div>';
+                    }
                 } catch (error) {
                     console.error('Error creando gráfico de profesionales:', error);
+                    ctxProfesionales.innerHTML = '<div class="no-data">Error al crear gráfico</div>';
                 }
             }
 
-            // Gráfico de servicios
+            // ✅ CORRECCIÓN: Gráfico de servicios con datos reales
             const ctxServicios = document.getElementById('chartServicios');
             if (ctxServicios) {
                 try {
-                    const servicios = data.servicios_top || data.servicios || [{nombre: 'Sin datos', total_turnos: 1}];
+                    const servicios = data.servicios_top || data.servicios || [];
                     
-                    window.chartServicios = new Chart(ctxServicios, {
-                        type: 'bar',
-                        data: {
-                            labels: servicios.map(s => s.nombre),
-                            datasets: [{
-                                label: 'Citas',
-                                data: servicios.map(s => s.total_turnos || s.citas || 1),
-                                backgroundColor: '#27ae60'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            indexAxis: 'y',
-                            scales: {
-                                x: {
-                                    beginAtZero: true
+                    if (servicios.length > 0) {
+                        window.chartServicios = new Chart(ctxServicios, {
+                            type: 'bar',
+                            data: {
+                                labels: servicios.map(s => s.nombre || 'Servicio'),
+                                datasets: [{
+                                    label: 'Citas',
+                                    data: servicios.map(s => s.total_citas || s.total_turnos || s.citas || 1),
+                                    backgroundColor: '#27ae60'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                indexAxis: 'y',
+                                scales: {
+                                    x: {
+                                        beginAtZero: true
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        ctxServicios.innerHTML = '<div class="no-data">No hay datos de servicios</div>';
+                    }
                 } catch (error) {
                     console.error('Error creando gráfico de servicios:', error);
+                    ctxServicios.innerHTML = '<div class="no-data">Error al crear gráfico</div>';
                 }
             }
         }
 
+        // ✅ CORRECCIÓN: Función para cargar citas recientes con ruta real
         async function cargarCitasRecientes(profesionalId = '') {
             try {
                 let url = `/negocio/api/citas/recientes?limit=10`;
@@ -798,6 +828,11 @@
                 }
                 
                 const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}`);
+                }
+                
                 const citas = await response.json();
                 
                 const tabla = document.getElementById('tabla-citas');
@@ -822,7 +857,7 @@
                             ${citas.map(cita => `
                                 <tr>
                                     <td>${cita.cliente_nombre || 'Cliente'}</td>
-                                    <td>${cita.servicio_nombre || cita.servicio || 'Servicio'}</td>
+                                    <td>${cita.servicio_nombre || 'Servicio'}</td>
                                     <td>${cita.profesional_nombre || 'Profesional'}</td>
                                     <td>${cita.fecha || 'N/A'}</td>
                                     <td>${cita.hora || 'N/A'}</td>
@@ -864,6 +899,14 @@
                     <div class="stat-label">Canceladas</div>
                 </div>
             `;
+            
+            // Mostrar mensajes de error en los gráficos
+            ['chartEstados', 'chartIngresos', 'chartProfesionales', 'chartServicios'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.innerHTML = '<div class="no-data">Datos no disponibles</div>';
+                }
+            });
         }
 
         // Recargar cuando cambien los filtros

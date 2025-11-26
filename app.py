@@ -2342,34 +2342,37 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
-@app.route('/limpiar-horarios')
-def ejecutar_limpieza():
-    from database import get_db_connection
-    import database as db
-    
+@app.route('/migrar-usuarios')
+def migrar_usuarios():
+    """Ruta temporal para migrar usuarios a SHA256"""
     try:
+        from database import migrar_hashes_automatico, get_db_connection
+        import hashlib
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Limpiar duplicados
-        if db.limpiar_registros_duplicados_horarios(1):
-            # Eliminar día 7
-            cursor.execute('DELETE FROM configuracion_horarios WHERE negocio_id = 1 AND dia_semana = 7')
-            eliminados = cursor.rowcount
-            
-            conn.commit()
-            conn.close()
-            
-            return f"""
-            <h1>✅ Limpieza completada</h1>
-            <p>Día 7 eliminado: {eliminados} registro(s)</p>
-            <p><a href="/">Volver</a></p>
-            """
-        else:
-            return "❌ Error en la limpieza"
-            
+        # Lista de usuarios y sus contraseñas reales
+        usuarios = [
+            ('admin123', 'admin@negociobot.com'),
+            ('propietario123', 'juan@negocio.com'), 
+            ('profesional123', 'carlos@negocio.com'),
+            ('profesional123', 'ana@negocio.com')
+        ]
+        
+        for password, email in usuarios:
+            nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
+            cursor.execute('UPDATE usuarios SET password_hash = ? WHERE email = ?', 
+                          (nuevo_hash, email))
+            print(f"✅ Usuario {email} migrado")
+        
+        conn.commit()
+        conn.close()
+        
+        return "✅ Usuarios migrados a SHA256 correctamente"
+        
     except Exception as e:
-        return f"❌ Error: {e}"
+        return f"❌ Error migrando usuarios: {e}"
 
 @app.route('/migrar_hashes')
 def migrar_hashes():
