@@ -676,32 +676,41 @@ def admin_nuevo_usuario():
 @app.route('/admin/usuarios/<int:usuario_id>/toggle', methods=['POST'])
 @role_required(['superadmin'])
 def admin_toggle_usuario(usuario_id):
-    """Activar o desactivar un usuario"""
+    """Activar o desactivar un usuario - VERSIÓN CORREGIDA"""
     # Validar CSRF
     if not validate_csrf_token(request.form.get('csrf_token', '')):
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
         return redirect(url_for('admin_usuarios'))
     
-    conn = get_db_connection()
+    conn = db.get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Obtener estado actual del usuario
-        cursor.execute('SELECT activo FROM usuarios WHERE id = %s', (usuario_id,))
+        if db.is_postgresql():
+            cursor.execute('SELECT activo FROM usuarios WHERE id = %s', (usuario_id,))
+        else:
+            cursor.execute('SELECT activo FROM usuarios WHERE id = ?', (usuario_id,))
+        
         usuario = cursor.fetchone()
         
         if not usuario:
             flash('❌ Usuario no encontrado', 'error')
             return redirect(url_for('admin_usuarios'))
         
-        nuevo_estado = not usuario[0]  # Invertir estado
+        # Acceder correctamente a los valores
+        if hasattr(usuario, 'keys'):  # Es un diccionario
+            activo_actual = usuario['activo']
+        else:  # Es una tupla
+            activo_actual = usuario[0]
+        
+        nuevo_estado = not activo_actual  # Invertir estado
         
         # Actualizar estado
-        cursor.execute('''
-            UPDATE usuarios 
-            SET activo = %s 
-            WHERE id = %s
-        ''', (nuevo_estado, usuario_id))
+        if db.is_postgresql():
+            cursor.execute('UPDATE usuarios SET activo = %s WHERE id = %s', (nuevo_estado, usuario_id))
+        else:
+            cursor.execute('UPDATE usuarios SET activo = ? WHERE id = ?', (nuevo_estado, usuario_id))
         
         conn.commit()
         
@@ -712,7 +721,7 @@ def admin_toggle_usuario(usuario_id):
         
     except Exception as e:
         conn.rollback()
-        print(f"❌ Error cambiando estado de usuario: {e}")
+        print(f"❌ Error cambiando estado de usuario: {str(e)}")
         flash('❌ Error al cambiar el estado del usuario', 'error')
     finally:
         conn.close()
@@ -722,7 +731,7 @@ def admin_toggle_usuario(usuario_id):
 @app.route('/admin/usuarios/<int:usuario_id>/eliminar', methods=['POST'])
 @role_required(['superadmin'])
 def admin_eliminar_usuario(usuario_id):
-    """Eliminar un usuario (solo superadmin)"""
+    """Eliminar un usuario (solo superadmin) - VERSIÓN CORREGIDA"""
     # Validar CSRF
     if not validate_csrf_token(request.form.get('csrf_token', '')):
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
@@ -733,34 +742,51 @@ def admin_eliminar_usuario(usuario_id):
         flash('❌ No se puede eliminar el superadministrador principal', 'error')
         return redirect(url_for('admin_usuarios'))
     
-    conn = get_db_connection()
+    conn = db.get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Verificar si el usuario existe
-        cursor.execute('SELECT rol FROM usuarios WHERE id = %s', (usuario_id,))
+        cursor.execute('SELECT rol, email FROM usuarios WHERE id = %s', (usuario_id,))
         usuario = cursor.fetchone()
         
         if not usuario:
             flash('❌ Usuario no encontrado', 'error')
             return redirect(url_for('admin_usuarios'))
         
+        # Acceder correctamente a los valores según el tipo de cursor
+        if hasattr(usuario, 'keys'):  # Es un diccionario (RealDictCursor)
+            usuario_rol = usuario['rol']
+            usuario_email = usuario['email']
+        else:  # Es una tupla
+            usuario_rol = usuario[0]
+            usuario_email = usuario[1]
+        
+        print(f"🔧 Eliminando usuario: {usuario_email} (ID: {usuario_id}, Rol: {usuario_rol})")
+        
         # Si es profesional, también eliminar de la tabla profesionales
-        if usuario[0] == 'profesional':
-            cursor.execute('''
-                DELETE FROM profesionales 
-                WHERE usuario_id = %s
-            ''', (usuario_id,))
+        if usuario_rol == 'profesional':
+            if db.is_postgresql():
+                cursor.execute('DELETE FROM profesionales WHERE usuario_id = %s', (usuario_id,))
+            else:
+                cursor.execute('DELETE FROM profesionales WHERE usuario_id = ?', (usuario_id,))
+            print(f"✅ Relaciones de profesional eliminadas para usuario {usuario_id}")
         
         # Eliminar usuario
-        cursor.execute('DELETE FROM usuarios WHERE id = %s', (usuario_id,))
+        if db.is_postgresql():
+            cursor.execute('DELETE FROM usuarios WHERE id = %s', (usuario_id,))
+        else:
+            cursor.execute('DELETE FROM usuarios WHERE id = ?', (usuario_id,))
         
         conn.commit()
         flash('✅ Usuario eliminado exitosamente', 'success')
+        print(f"✅ Usuario {usuario_email} eliminado correctamente")
         
     except Exception as e:
         conn.rollback()
-        print(f"❌ Error eliminando usuario: {e}")
+        print(f"❌ Error eliminando usuario: {str(e)}")
+        import traceback
+        traceback.print_exc()
         flash('❌ Error al eliminar el usuario', 'error')
     finally:
         conn.close()
