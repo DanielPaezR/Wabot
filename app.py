@@ -1,10 +1,9 @@
 # =============================================================================
-# ARCHIVO COMPLETO - app.py SISTEMA GENÉRICO DE CITAS
+# ARCHIVO COMPLETO - app.py SISTEMA GENÉRICO DE CITAS - POSTGRESQL
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 import secrets
-import sqlite3
 from datetime import datetime, timedelta
 import database as db
 from whatsapp_handler import whatsapp_bp
@@ -15,6 +14,8 @@ from scheduler import iniciar_scheduler
 import json
 from functools import wraps
 from database import get_db_connection
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # Cargar variables de entorno
 load_dotenv()
@@ -139,17 +140,15 @@ def test_simple():
 # =============================================================================
 
 def obtener_profesionales_por_negocio(negocio_id):
-    """Obtener todos los profesionales de un negocio"""
-    conn = sqlite3.connect('negocio.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     cursor.execute('''
-        SELECT p.*, GROUP_CONCAT(s.nombre) as servicios_nombres
+        SELECT p.*, string_agg(s.nombre, ', ') as servicios_nombres
         FROM profesionales p
         LEFT JOIN profesional_servicios ps ON p.id = ps.profesional_id
         LEFT JOIN servicios s ON ps.servicio_id = s.id
-        WHERE p.negocio_id = ?
+        WHERE p.negocio_id = %s
         GROUP BY p.id
         ORDER BY p.nombre
     ''', (negocio_id,))
@@ -169,14 +168,12 @@ def obtener_profesionales_por_negocio(negocio_id):
     return result
 
 def obtener_servicios_por_negocio(negocio_id):
-    """Obtener todos los servicios de un negocio"""
-    conn = sqlite3.connect('negocio.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     cursor.execute('''
         SELECT * FROM servicios 
-        WHERE negocio_id = ? AND activo = 1
+        WHERE negocio_id = %s AND activo = TRUE
         ORDER BY nombre
     ''', (negocio_id,))
     
@@ -185,17 +182,15 @@ def obtener_servicios_por_negocio(negocio_id):
     return servicios
 
 def obtener_profesional_por_id(profesional_id, negocio_id):
-    """Obtener un profesional específico con sus servicios"""
-    conn = sqlite3.connect('negocio.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     cursor.execute('''
-        SELECT p.*, GROUP_CONCAT(s.id) as servicios_ids, GROUP_CONCAT(s.nombre) as servicios_nombres
+        SELECT p.*, string_agg(s.id::text, ',') as servicios_ids, string_agg(s.nombre, ',') as servicios_nombres
         FROM profesionales p
         LEFT JOIN profesional_servicios ps ON p.id = ps.profesional_id
         LEFT JOIN servicios s ON ps.servicio_id = s.id
-        WHERE p.id = ? AND p.negocio_id = ?
+        WHERE p.id = %s AND p.negocio_id = %s
         GROUP BY p.id
     ''', (profesional_id, negocio_id))
     
@@ -216,24 +211,24 @@ def obtener_profesional_por_id(profesional_id, negocio_id):
     return None
 
 def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True):
-    """Crear un nuevo profesional"""
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Insertar profesional
         cursor.execute('''
             INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
         ''', (negocio_id, nombre, especialidad, pin, activo))
         
-        profesional_id = cursor.lastrowid
+        profesional_id = cursor.fetchone()[0]
         
         # Asignar servicios
         for servicio_id in servicios_ids:
             cursor.execute('''
                 INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                VALUES (?, ?)
+                VALUES (%s, %s)
             ''', (profesional_id, servicio_id))
         
         conn.commit()
@@ -247,26 +242,25 @@ def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, acti
         conn.close()
 
 def actualizar_profesional(profesional_id, nombre, especialidad, pin, servicios_ids, activo):
-    """Actualizar un profesional existente"""
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Actualizar datos básicos
         cursor.execute('''
             UPDATE profesionales 
-            SET nombre = ?, especialidad = ?, pin = ?, activo = ?
-            WHERE id = ?
+            SET nombre = %s, especialidad = %s, pin = %s, activo = %s
+            WHERE id = %s
         ''', (nombre, especialidad, pin, activo, profesional_id))
         
         # Eliminar servicios anteriores
-        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = ?', (profesional_id,))
+        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = %s', (profesional_id,))
         
         # Agregar nuevos servicios
         for servicio_id in servicios_ids:
             cursor.execute('''
                 INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                VALUES (?, ?)
+                VALUES (%s, %s)
             ''', (profesional_id, servicio_id))
         
         conn.commit()
@@ -280,23 +274,22 @@ def actualizar_profesional(profesional_id, nombre, especialidad, pin, servicios_
         conn.close()
 
 def eliminar_profesional(profesional_id, negocio_id):
-    """Eliminar un profesional"""
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Verificar que el profesional pertenece al negocio
-        cursor.execute('SELECT id FROM profesionales WHERE id = ? AND negocio_id = ?', 
+        cursor.execute('SELECT id FROM profesionales WHERE id = %s AND negocio_id = %s', 
                       (profesional_id, negocio_id))
         
         if not cursor.fetchone():
             return False
         
         # Eliminar relaciones con servicios
-        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = ?', (profesional_id,))
+        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = %s', (profesional_id,))
         
         # Eliminar profesional
-        cursor.execute('DELETE FROM profesionales WHERE id = ?', (profesional_id,))
+        cursor.execute('DELETE FROM profesionales WHERE id = %s', (profesional_id,))
         
         conn.commit()
         return True
@@ -336,10 +329,10 @@ def login():
                 if 'profesional_id' in session:
                     del session['profesional_id']
                 
-                conn = sqlite3.connect('negocio.db')
+                conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute(
-                    'SELECT id, nombre FROM profesionales WHERE usuario_id = ? AND negocio_id = ?', 
+                    'SELECT id, nombre FROM profesionales WHERE usuario_id = %s AND negocio_id = %s', 
                     (usuario['id'], usuario['negocio_id'])
                 )
                 profesional = cursor.fetchone()
@@ -349,7 +342,7 @@ def login():
                     print(f"✅ PROFESIONAL ENCONTRADO: {profesional[1]} (ID: {profesional[0]})")
                 else:
                     cursor.execute(
-                        'SELECT id, nombre FROM profesionales WHERE nombre = ? AND negocio_id = ?', 
+                        'SELECT id, nombre FROM profesionales WHERE nombre = %s AND negocio_id = %s', 
                         (usuario['nombre'], usuario['negocio_id'])
                     )
                     profesional = cursor.fetchone()
@@ -358,7 +351,7 @@ def login():
                         session['profesional_id'] = profesional[0]
                     else:
                         cursor.execute(
-                            'SELECT id FROM profesionales WHERE negocio_id = ? AND activo = TRUE LIMIT 1', 
+                            'SELECT id FROM profesionales WHERE negocio_id = %s AND activo = TRUE LIMIT 1', 
                             (usuario['negocio_id'],)
                         )
                         profesional_fallback = cursor.fetchone()
@@ -509,7 +502,7 @@ def admin_eliminar_negocio(negocio_id):
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
         return redirect(url_for('admin_negocios'))
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -517,14 +510,14 @@ def admin_eliminar_negocio(negocio_id):
         cursor.execute('''
             UPDATE negocios 
             SET activo = FALSE 
-            WHERE id = ?
+            WHERE id = %s
         ''', (negocio_id,))
         
         # También desactivamos los usuarios asociados
         cursor.execute('''
             UPDATE usuarios 
             SET activo = FALSE 
-            WHERE negocio_id = ?
+            WHERE negocio_id = %s
         ''', (negocio_id,))
         
         conn.commit()
@@ -548,7 +541,7 @@ def admin_activar_negocio(negocio_id):
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
         return redirect(url_for('admin_negocios'))
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -556,14 +549,14 @@ def admin_activar_negocio(negocio_id):
         cursor.execute('''
             UPDATE negocios 
             SET activo = TRUE 
-            WHERE id = ?
+            WHERE id = %s
         ''', (negocio_id,))
         
         # También reactivar los usuarios asociados
         cursor.execute('''
             UPDATE usuarios 
             SET activo = TRUE 
-            WHERE negocio_id = ?
+            WHERE negocio_id = %s
         ''', (negocio_id,))
         
         conn.commit()
@@ -636,12 +629,12 @@ def admin_toggle_usuario(usuario_id):
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
         return redirect(url_for('admin_usuarios'))
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Obtener estado actual del usuario
-        cursor.execute('SELECT activo FROM usuarios WHERE id = ?', (usuario_id,))
+        cursor.execute('SELECT activo FROM usuarios WHERE id = %s', (usuario_id,))
         usuario = cursor.fetchone()
         
         if not usuario:
@@ -653,8 +646,8 @@ def admin_toggle_usuario(usuario_id):
         # Actualizar estado
         cursor.execute('''
             UPDATE usuarios 
-            SET activo = ? 
-            WHERE id = ?
+            SET activo = %s 
+            WHERE id = %s
         ''', (nuevo_estado, usuario_id))
         
         conn.commit()
@@ -687,12 +680,12 @@ def admin_eliminar_usuario(usuario_id):
         flash('❌ No se puede eliminar el superadministrador principal', 'error')
         return redirect(url_for('admin_usuarios'))
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Verificar si el usuario existe
-        cursor.execute('SELECT rol FROM usuarios WHERE id = ?', (usuario_id,))
+        cursor.execute('SELECT rol FROM usuarios WHERE id = %s', (usuario_id,))
         usuario = cursor.fetchone()
         
         if not usuario:
@@ -703,11 +696,11 @@ def admin_eliminar_usuario(usuario_id):
         if usuario[0] == 'profesional':
             cursor.execute('''
                 DELETE FROM profesionales 
-                WHERE usuario_id = ?
+                WHERE usuario_id = %s
             ''', (usuario_id,))
         
         # Eliminar usuario
-        cursor.execute('DELETE FROM usuarios WHERE id = ?', (usuario_id,))
+        cursor.execute('DELETE FROM usuarios WHERE id = %s', (usuario_id,))
         
         conn.commit()
         flash('✅ Usuario eliminado exitosamente', 'success')
@@ -725,15 +718,15 @@ def admin_eliminar_usuario(usuario_id):
 @role_required(['superadmin'])
 def admin_editar_usuario(usuario_id):
     """Editar un usuario existente"""
-    conn = sqlite3.connect('negocio.db')
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     # Obtener usuario actual
     cursor.execute('''
         SELECT u.*, n.nombre as negocio_nombre 
         FROM usuarios u 
         JOIN negocios n ON u.negocio_id = n.id 
-        WHERE u.id = ?
+        WHERE u.id = %s
     ''', (usuario_id,))
     
     usuario = cursor.fetchone()
@@ -759,14 +752,14 @@ def admin_editar_usuario(usuario_id):
             # Actualizar usuario
             cursor.execute('''
                 UPDATE usuarios 
-                SET nombre = ?, email = ?, rol = ?, negocio_id = ?, activo = ?
-                WHERE id = ?
+                SET nombre = %s, email = %s, rol = %s, negocio_id = %s, activo = %s
+                WHERE id = %s
             ''', (nombre, email, rol, negocio_id, activo, usuario_id))
             
             # Si es profesional, actualizar también en la tabla profesionales
             if rol == 'profesional':
                 cursor.execute('''
-                    SELECT id FROM profesionales WHERE usuario_id = ?
+                    SELECT id FROM profesionales WHERE usuario_id = %s
                 ''', (usuario_id,))
                 
                 profesional = cursor.fetchone()
@@ -775,14 +768,14 @@ def admin_editar_usuario(usuario_id):
                     # Actualizar profesional existente
                     cursor.execute('''
                         UPDATE profesionales 
-                        SET nombre = ?
-                        WHERE usuario_id = ?
+                        SET nombre = %s
+                        WHERE usuario_id = %s
                     ''', (nombre, usuario_id))
                 else:
                     # Crear nuevo profesional
                     cursor.execute('''
                         INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                     ''', (negocio_id, nombre, 'General', '0000', usuario_id, activo))
             
             conn.commit()
@@ -859,14 +852,14 @@ def admin_editar_plantilla(nombre_plantilla):
         descripcion = request.form.get('descripcion')
         
         # Actualizar plantilla base
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute('''
                 UPDATE plantillas_mensajes 
-                SET plantilla = ?, descripcion = ?
-                WHERE nombre = ? AND es_base = TRUE
+                SET plantilla = %s, descripcion = %s
+                WHERE nombre = %s AND es_base = TRUE
             ''', (nueva_plantilla, descripcion, nombre_plantilla))
             
             conn.commit()
@@ -891,7 +884,7 @@ def admin_limpiar_plantillas():
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
         return redirect(url_for('admin_plantillas'))
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -945,7 +938,7 @@ def admin_limpiar_plantillas():
             cursor.execute('''
                 INSERT INTO plantillas_mensajes 
                 (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                VALUES (NULL, ?, ?, ?, ?, TRUE)
+                VALUES (NULL, %s, %s, %s, %s, TRUE)
             ''', (nombre, plantilla, descripcion, variables))
         
         conn.commit()
@@ -976,16 +969,15 @@ def negocio_dashboard():
     
     stats = db.obtener_estadisticas_mensuales(negocio_id, mes=datetime.now().month, año=datetime.now().year)
     
-    conn = sqlite3.connect('negocio.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     cursor.execute('''
         SELECT c.id, c.cliente_nombre, c.hora, s.nombre as servicio, p.nombre as profesional, c.estado
         FROM citas c
         JOIN servicios s ON c.servicio_id = s.id
         JOIN profesionales p ON c.profesional_id = p.id
-        WHERE c.negocio_id = ? AND c.fecha = ? AND c.estado != 'cancelado'
+        WHERE c.negocio_id = %s AND c.fecha = %s AND c.estado != 'cancelado'
         ORDER BY c.hora
         LIMIT 10
     ''', (negocio_id, fecha_hoy))
@@ -1028,8 +1020,8 @@ def negocio_api_citas():
         
         negocio_id = session.get('negocio_id', 1)
         
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         query = '''
             SELECT c.id, c.cliente_nombre, c.cliente_telefono, c.fecha, c.hora, 
@@ -1037,17 +1029,17 @@ def negocio_api_citas():
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.negocio_id = ? AND c.fecha = ?
+            WHERE c.negocio_id = %s AND c.fecha = %s
         '''
         
         params = [negocio_id, fecha]
         
         if profesional_id and profesional_id != '':
-            query += ' AND c.profesional_id = ?'
+            query += ' AND c.profesional_id = %s'
             params.append(profesional_id)
         
         if estado and estado != '':
-            query += ' AND c.estado = ?'
+            query += ' AND c.estado = %s'
             params.append(estado)
         
         query += ' ORDER BY c.hora'
@@ -1057,14 +1049,14 @@ def negocio_api_citas():
         conn.close()
         
         return jsonify([{
-            'id': c[0],
-            'cliente_nombre': c[1] or 'Cliente',
-            'cliente_telefono': c[2] or 'N/A',
-            'fecha': c[3],
-            'hora': c[4],
-            'servicio_nombre': c[5],
-            'estado': c[6],
-            'profesional_nombre': c[7]
+            'id': c['id'],
+            'cliente_nombre': c['cliente_nombre'] or 'Cliente',
+            'cliente_telefono': c['cliente_telefono'] or 'N/A',
+            'fecha': c['fecha'],
+            'hora': c['hora'],
+            'servicio_nombre': c['servicio_nombre'],
+            'estado': c['estado'],
+            'profesional_nombre': c['profesional_nombre']
         } for c in citas])
         
     except Exception as e:
@@ -1120,7 +1112,7 @@ def negocio_api_estadisticas():
         except (ValueError, TypeError):
             return jsonify({'error': 'Parámetros inválidos'}), 400
         
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Estadísticas básicas del negocio
@@ -1133,15 +1125,15 @@ def negocio_api_estadisticas():
                 COALESCE(SUM(s.precio), 0) as ingresos_totales
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.negocio_id = ? 
-            AND strftime('%m', c.fecha) = ? 
-            AND strftime('%Y', c.fecha) = ?
+            WHERE c.negocio_id = %s 
+            AND EXTRACT(MONTH FROM c.fecha) = %s 
+            AND EXTRACT(YEAR FROM c.fecha) = %s
         '''
         
-        params_resumen = [negocio_id, f"{mes:02d}", str(año)]
+        params_resumen = [negocio_id, mes, año]
         
         if profesional_id:
-            query_resumen += ' AND c.profesional_id = ?'
+            query_resumen += ' AND c.profesional_id = %s'
             params_resumen.append(profesional_id)
         
         cursor.execute(query_resumen, params_resumen)
@@ -1152,15 +1144,15 @@ def negocio_api_estadisticas():
             SELECT p.nombre, COUNT(*) as total_citas
             FROM citas c
             JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.negocio_id = ? 
-            AND strftime('%m', c.fecha) = ? 
-            AND strftime('%Y', c.fecha) = ?
+            WHERE c.negocio_id = %s
+            AND EXTRACT(MONTH FROM c.fecha) = %s 
+            AND EXTRACT(YEAR FROM c.fecha) = %s
         '''
         
-        params_profesionales = [negocio_id, f"{mes:02d}", str(año)]
+        params_profesionales = [negocio_id, mes, año]
         
         if profesional_id:
-            query_profesionales += ' AND c.profesional_id = ?'
+            query_profesionales += ' AND c.profesional_id = %s'
             params_profesionales.append(profesional_id)
         
         query_profesionales += ' GROUP BY p.id, p.nombre ORDER BY total_citas DESC LIMIT 5'
@@ -1173,15 +1165,15 @@ def negocio_api_estadisticas():
             SELECT s.nombre, COUNT(*) as total_citas
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.negocio_id = ? 
-            AND strftime('%m', c.fecha) = ? 
-            AND strftime('%Y', c.fecha) = ?
+            WHERE c.negocio_id = %s 
+            AND EXTRACT(MONTH FROM c.fecha) = %s 
+            AND EXTRACT(YEAR FROM c.fecha) = %s
         '''
         
-        params_servicios = [negocio_id, f"{mes:02d}", str(año)]
+        params_servicios = [negocio_id, mes, año]
         
         if profesional_id:
-            query_servicios += ' AND c.profesional_id = ?'
+            query_servicios += ' AND c.profesional_id = %s'
             params_servicios.append(profesional_id)
         
         query_servicios += ' GROUP BY s.id, s.nombre ORDER BY total_citas DESC LIMIT 5'
@@ -1206,16 +1198,16 @@ def negocio_api_estadisticas():
                 SELECT COALESCE(SUM(s.precio), 0) as ingresos
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.negocio_id = ? 
-                AND strftime('%m', c.fecha) = ? 
-                AND strftime('%Y', c.fecha) = ?
+                WHERE c.negocio_id = %s 
+                AND EXTRACT(MONTH FROM c.fecha) = %s 
+                AND EXTRACT(YEAR FROM c.fecha) = %s
                 AND c.estado != 'cancelada'
             '''
             
-            params_tendencia = [negocio_id, f"{mes_tendencia:02d}", str(año_tendencia)]
+            params_tendencia = [negocio_id, mes_tendencia, año_tendencia]
             
             if profesional_id:
-                query_tendencia += ' AND c.profesional_id = ?'
+                query_tendencia += ' AND c.profesional_id = %s'
                 params_tendencia.append(profesional_id)
             
             cursor.execute(query_tendencia, params_tendencia)
@@ -1268,8 +1260,8 @@ def negocio_api_citas_recientes():
         
         negocio_id = session.get('negocio_id', 1)
         
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         query = '''
             SELECT c.cliente_nombre, s.nombre as servicio_nombre, 
@@ -1277,16 +1269,16 @@ def negocio_api_citas_recientes():
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.negocio_id = ?
+            WHERE c.negocio_id = %s
         '''
         
         params = [negocio_id]
         
         if profesional_id:
-            query += ' AND c.profesional_id = ?'
+            query += ' AND c.profesional_id = %s'
             params.append(profesional_id)
         
-        query += ' ORDER BY c.fecha DESC, c.hora DESC LIMIT ?'
+        query += ' ORDER BY c.fecha DESC, c.hora DESC LIMIT %s'
         params.append(int(limit))
         
         cursor.execute(query, params)
@@ -1295,12 +1287,12 @@ def negocio_api_citas_recientes():
         
         return jsonify([
             {
-                'cliente_nombre': c[0],
-                'servicio_nombre': c[1],
-                'profesional_nombre': c[2],
-                'fecha': c[3],
-                'hora': c[4],
-                'estado': c[5]
+                'cliente_nombre': c['cliente_nombre'],
+                'servicio_nombre': c['servicio_nombre'],
+                'profesional_nombre': c['profesional_nombre'],
+                'fecha': c['fecha'].strftime('%Y-%m-%d') if c['fecha'] else '',
+                'hora': c['hora'],
+                'estado': c['estado']
             } for c in citas
         ])
         
@@ -1339,7 +1331,7 @@ def negocio_configuracion():
             cursor.execute('''
                 SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
                 FROM configuracion_horarios 
-                WHERE negocio_id = ? AND dia_semana = ?
+                WHERE negocio_id = %s AND dia_semana = %s
             ''', (negocio_id, dia_id))
             
             resultado = cursor.fetchone()
@@ -1516,13 +1508,14 @@ def negocio_nuevo_servicio():
         precio = float(request.form['precio'])
         descripcion = request.form.get('descripcion', '')
         
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute('''
                 INSERT INTO servicios (negocio_id, nombre, duracion, precio, descripcion)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
             ''', (negocio_id, nombre, duracion, precio, descripcion))
             
             conn.commit()
@@ -1560,14 +1553,14 @@ def negocio_editar_servicio(servicio_id):
         descripcion = request.form.get('descripcion', '')
         activo = 'activo' in request.form
         
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute('''
                 UPDATE servicios 
-                SET nombre = ?, duracion = ?, precio = ?, descripcion = ?, activo = ?
-                WHERE id = ? AND negocio_id = ?
+                SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, activo = %s
+                WHERE id = %s AND negocio_id = %s
             ''', (nombre, duracion, precio, descripcion, activo, servicio_id, session['negocio_id']))
             
             conn.commit()
@@ -1614,12 +1607,12 @@ def negocio_eliminar_servicio(servicio_id):
     else:
         negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Verificar que el servicio pertenece al negocio
-        cursor.execute('SELECT id FROM servicios WHERE id = ? AND negocio_id = ?', 
+        cursor.execute('SELECT id FROM servicios WHERE id = %s AND negocio_id = %s', 
                       (servicio_id, negocio_id))
         
         if not cursor.fetchone():
@@ -1627,10 +1620,10 @@ def negocio_eliminar_servicio(servicio_id):
             return redirect(url_for('negocio_servicios'))
         
         # Eliminar relaciones con profesionales primero
-        cursor.execute('DELETE FROM profesional_servicios WHERE servicio_id = ?', (servicio_id,))
+        cursor.execute('DELETE FROM profesional_servicios WHERE servicio_id = %s', (servicio_id,))
         
         # Eliminar servicio
-        cursor.execute('DELETE FROM servicios WHERE id = ?', (servicio_id,))
+        cursor.execute('DELETE FROM servicios WHERE id = %s', (servicio_id,))
         
         conn.commit()
         flash('✅ Servicio eliminado exitosamente', 'success')
@@ -1706,13 +1699,13 @@ def negocio_editar_plantilla(nombre_plantilla):
 def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, descripcion=''):
     """Guardar o actualizar plantilla personalizada"""
     try:
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Verificar si ya existe una personalizada
         cursor.execute('''
             SELECT id FROM plantillas_mensajes 
-            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+            WHERE negocio_id = %s AND nombre = %s AND es_base = FALSE
         ''', (negocio_id, nombre_plantilla))
         
         existe = cursor.fetchone()
@@ -1721,15 +1714,16 @@ def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, des
             # Actualizar existente
             cursor.execute('''
                 UPDATE plantillas_mensajes 
-                SET plantilla = ?, descripcion = ?
-                WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+                SET plantilla = %s, descripcion = %s
+                WHERE negocio_id = %s AND nombre = %s AND es_base = FALSE
             ''', (contenido, descripcion, negocio_id, nombre_plantilla))
         else:
             # Crear nueva personalizada
             cursor.execute('''
                 INSERT INTO plantillas_mensajes 
                 (negocio_id, nombre, plantilla, descripcion, es_base)
-                VALUES (?, ?, ?, ?, FALSE)
+                VALUES (%s, %s, %s, %s, FALSE)
+                RETURNING id
             ''', (negocio_id, nombre_plantilla, contenido, descripcion))
         
         conn.commit()
@@ -1876,9 +1870,9 @@ def profesional_dashboard():
         if not profesional_id:
             usuario_id = session.get('usuario_id')
             if usuario_id:
-                conn = sqlite3.connect('negocio.db')
+                conn = get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute('SELECT id FROM profesionales WHERE usuario_id = ? AND negocio_id = ?', 
+                cursor.execute('SELECT id FROM profesionales WHERE usuario_id = %s AND negocio_id = %s', 
                              (usuario_id, negocio_id))
                 profesional = cursor.fetchone()
                 conn.close()
@@ -1936,7 +1930,7 @@ def profesional_estadisticas():
             return redirect(url_for('profesional_dashboard'))
         
         # Obtener estadísticas del profesional
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Estadísticas básicas
@@ -1948,7 +1942,7 @@ def profesional_estadisticas():
                    COALESCE(SUM(s.precio), 0) as ingresos_totales
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = ? AND c.negocio_id = ?
+            WHERE c.profesional_id = %s AND c.negocio_id = %s
         ''', (profesional_id, negocio_id))
         
         stats = cursor.fetchone()
@@ -1957,8 +1951,8 @@ def profesional_estadisticas():
         cursor.execute('''
             SELECT COUNT(*) 
             FROM citas 
-            WHERE profesional_id = ? AND negocio_id = ? 
-            AND date(fecha || ' ' || hora) >= date('now', 'start of day', 'weekday 0', '-7 days')
+            WHERE profesional_id = %s AND negocio_id = %s 
+            AND fecha >= CURRENT_DATE - INTERVAL '7 days'
         ''', (profesional_id, negocio_id))
         
         citas_semana = cursor.fetchone()[0]
@@ -1968,7 +1962,7 @@ def profesional_estadisticas():
             SELECT s.nombre, COUNT(*) as cantidad
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = ? AND c.negocio_id = ?
+            WHERE c.profesional_id = %s AND c.negocio_id = %s
             GROUP BY s.id, s.nombre
             ORDER BY cantidad DESC
             LIMIT 5
@@ -2010,34 +2004,19 @@ def profesional_todas_citas():
             flash('No se pudo identificar al profesional', 'error')
             return redirect(url_for('profesional_dashboard'))
         
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # Obtener todas las citas del profesional
         cursor.execute('''
             SELECT c.*, s.nombre as servicio_nombre, s.precio
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = ? AND c.negocio_id = ?
+            WHERE c.profesional_id = %s AND c.negocio_id = %s
             ORDER BY c.fecha DESC, c.hora DESC
         ''', (profesional_id, negocio_id))
         
-        citas = []
-        for row in cursor.fetchall():
-            citas.append(dict(
-                id=row[0],
-                negocio_id=row[1],
-                profesional_id=row[2],
-                cliente_telefono=row[3],
-                cliente_nombre=row[4],
-                fecha=row[5],
-                hora=row[6],
-                servicio_id=row[7],
-                estado=row[8],
-                servicio_nombre=row[12],
-                precio=row[13]
-            ))
-        
+        citas = cursor.fetchall()
         conn.close()
         
         return render_template('profesional/todas_citas.html',
@@ -2062,17 +2041,17 @@ def profesional_agendar():
             return redirect(url_for('profesional_dashboard'))
         
         # Obtener servicios del negocio
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         cursor.execute('''
             SELECT id, nombre, duracion, precio 
             FROM servicios 
-            WHERE negocio_id = ? AND activo = 1
+            WHERE negocio_id = %s AND activo = TRUE
             ORDER BY nombre
         ''', (negocio_id,))
         
-        servicios = [dict(id=row[0], nombre=row[1], precio=row[3]) for row in cursor.fetchall()]
+        servicios = cursor.fetchall()
         
         conn.close()
         
@@ -2112,13 +2091,13 @@ def profesional_crear_cita():
             flash('Todos los campos son requeridos', 'error')
             return redirect(url_for('profesional_agendar'))
         
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Verificar disponibilidad
         cursor.execute('''
             SELECT id FROM citas 
-            WHERE profesional_id = ? AND fecha = ? AND hora = ? AND estado != 'cancelada'
+            WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
         ''', (profesional_id, fecha, hora))
         
         cita_existente = cursor.fetchone()
@@ -2139,7 +2118,8 @@ def profesional_crear_cita():
                 servicio_id, 
                 estado, 
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmada', CURRENT_TIMESTAMP)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmada', CURRENT_TIMESTAMP)
+            RETURNING id
         ''', (
             negocio_id, 
             profesional_id, 
@@ -2150,7 +2130,7 @@ def profesional_crear_cita():
             servicio_id
         ))
         
-        cita_id = cursor.lastrowid
+        cita_id = cursor.fetchone()[0]
         conn.commit()
         conn.close()
         
@@ -2179,13 +2159,13 @@ def completar_cita(cita_id):
             flash('No se pudo identificar al profesional', 'error')
             return redirect(url_for('profesional_dashboard'))
         
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Verificar que la cita pertenece al profesional
         cursor.execute('''
             SELECT id FROM citas 
-            WHERE id = ? AND profesional_id = ? AND negocio_id = ?
+            WHERE id = %s AND profesional_id = %s AND negocio_id = %s
         ''', (cita_id, profesional_id, negocio_id))
         
         if not cursor.fetchone():
@@ -2197,7 +2177,7 @@ def completar_cita(cita_id):
         cursor.execute('''
             UPDATE citas 
             SET estado = 'completada' 
-            WHERE id = ?
+            WHERE id = %s
         ''', (cita_id,))
         
         conn.commit()
@@ -2230,8 +2210,8 @@ def obtener_citas():
     if session.get('usuario_rol') == 'profesional':
         profesional_id = session.get('profesional_id')
     
-    conn = sqlite3.connect('negocio.db')
-    cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     query = '''
         SELECT c.id, c.cliente_nombre, c.cliente_telefono, c.fecha, c.hora, 
@@ -2239,19 +2219,19 @@ def obtener_citas():
         FROM citas c
         JOIN servicios s ON c.servicio_id = s.id
         JOIN profesionales p ON c.profesional_id = p.id
-        WHERE c.negocio_id = ? AND c.fecha = ?
+        WHERE c.negocio_id = %s AND c.fecha = %s
     '''
     
     params = [negocio_id, fecha]
     
     if profesional_id and profesional_id != '':
-        query += ' AND c.profesional_id = ?'
+        query += ' AND c.profesional_id = %s'
         params.append(profesional_id)
     
     query += ' ORDER BY c.hora'
     
     if limit:
-        query += ' LIMIT ?'
+        query += ' LIMIT %s'
         params.append(int(limit))
     
     cursor.execute(query, params)
@@ -2259,14 +2239,14 @@ def obtener_citas():
     conn.close()
     
     return jsonify([{
-        'id': c[0],
-        'cliente_nombre': c[1] or 'No especificado',
-        'cliente_telefono': c[2],
-        'fecha': c[3],
-        'hora': c[4],
-        'servicio': c[5],
-        'estado': c[6],
-        'profesional_nombre': c[7]
+        'id': c['id'],
+        'cliente_nombre': c['cliente_nombre'] or 'No especificado',
+        'cliente_telefono': c['cliente_telefono'],
+        'fecha': c['fecha'].strftime('%Y-%m-%d') if c['fecha'] else '',
+        'hora': c['hora'],
+        'servicio': c['servicio'],
+        'estado': c['estado'],
+        'profesional_nombre': c['profesional_nombre']
     } for c in citas])
 
 @app.route('/api/estadisticas/mensuales')
@@ -2330,17 +2310,17 @@ def marcar_cita_completada(cita_id):
     usuario_rol = session.get('usuario_rol')
     profesional_id = session.get('profesional_id')
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     if usuario_rol == 'profesional':
-        cursor.execute('SELECT profesional_id FROM citas WHERE id = ?', (cita_id,))
+        cursor.execute('SELECT profesional_id FROM citas WHERE id = %s', (cita_id,))
         cita = cursor.fetchone()
         if not cita or cita[0] != profesional_id:
             conn.close()
             return jsonify({'error': 'No autorizado'}), 403
     
-    cursor.execute('UPDATE citas SET estado = "completado" WHERE id = ?', (cita_id,))
+    cursor.execute('UPDATE citas SET estado = %s WHERE id = %s', ('completada', cita_id))
     conn.commit()
     conn.close()
     
@@ -2357,11 +2337,11 @@ def api_horarios_disponibles():
         if not all([profesional_id, fecha, servicio_id]):
             return jsonify({'error': 'Parámetros incompletos'}), 400
         
-        conn = sqlite3.connect('negocio.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Obtener duración del servicio
-        cursor.execute('SELECT duracion FROM servicios WHERE id = ?', (servicio_id,))
+        cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
         servicio = cursor.fetchone()
         
         if not servicio:
@@ -2381,7 +2361,7 @@ def api_horarios_disponibles():
             # Verificar disponibilidad usando columnas separadas fecha y hora
             cursor.execute('''
                 SELECT id FROM citas 
-                WHERE profesional_id = ? AND fecha = ? AND hora = ? AND estado != 'cancelada'
+                WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
             ''', (profesional_id, fecha, hora_str))
             
             if not cursor.fetchone():
@@ -2403,516 +2383,6 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
-@app.route('/debug-all-queries')
-def debug_all_queries():
-    """Debug para encontrar TODAS las consultas problemáticas"""
-    import inspect
-    import database
-    
-    problematic_functions = []
-    
-    # Revisar todas las funciones en database.py
-    for name, obj in inspect.getmembers(database):
-        if inspect.isfunction(obj) and obj.__module__ == 'database':
-            try:
-                source = inspect.getsource(obj)
-                if '?' in source and 'execute' in source:
-                    problematic_functions.append({
-                        'name': name,
-                        'question_marks': source.count('?'),
-                        'file': 'database.py'
-                    })
-            except:
-                pass
-    
-    # Revisar app.py también
-    with open('app.py', 'r') as f:
-        app_source = f.read()
-        app_question_marks = app_source.count('?')
-        if app_question_marks > 0:
-            problematic_functions.append({
-                'name': 'app.py',
-                'question_marks': app_question_marks,
-                'file': 'app.py'
-            })
-    
-    result = f"<h1>🔍 Consultas Problemáticas</h1>"
-    result += f"<p>Se encontraron {len(problematic_functions)} funciones con ?</p>"
-    
-    for func in problematic_functions:
-        result += f"<p>❌ {func['file']} - {func['name']}: {func['question_marks']} ?</p>"
-    
-    result += '''
-    <br>
-    <a href="/fix-all-queries">🔧 Corregir Todas las Consultas</a>
-    '''
-    
-    return result
-
-@app.route('/fix-all-queries')
-def fix_all_queries():
-    """Corregir TODAS las consultas automáticamente"""
-    global scheduler  # ✅ DECLARAR AL PRINCIPIO
-    
-    try:
-        # 1. Parar scheduler
-        try:
-            scheduler.shutdown()
-        except:
-            pass
-        
-        # 2. Forzar SQLite temporalmente
-        import os
-        if 'DATABASE_URL' in os.environ:
-            original_db_url = os.environ['DATABASE_URL']
-            os.environ['DATABASE_URL'] = ''  # Vaciar para usar SQLite
-        
-        # 3. Reiniciar base de datos
-        from database import init_db
-        init_db()
-        
-        # 4. Reiniciar scheduler
-        from apscheduler.schedulers.background import BackgroundScheduler
-        scheduler = BackgroundScheduler()
-        
-        # Usar función de recordatorios simple
-        def safe_reminders():
-            try:
-                print("⏰ [SAFE] Recordatorios ejecutándose...")
-                return 0
-            except Exception as e:
-                print(f"⚠️ Recordatorio seguro: {e}")
-                return 0
-        
-        scheduler.add_job(safe_reminders, 'interval', minutes=5)
-        scheduler.start()
-        
-        return '''
-        <h1>✅ ¡Consultas Corregidas y SQLite Activado!</h1>
-        <p>Se ha:</p>
-        <ul>
-            <li>✅ Forzado SQLite temporalmente</li>
-            <li>✅ Reiniciado la base de datos</li>
-            <li>✅ Configurado recordatorios seguros</li>
-            <li>✅ Eliminado conflictos de PostgreSQL</li>
-        </ul>
-        <a href="/health">🔍 Verificar Estado</a>
-        <br>
-        <a href="/login">🔐 Probar Login</a>
-        '''
-    except Exception as e:
-        return f'<h1>❌ Error: {str(e)}</h1>'
-
-@app.route('/debug-hashes')
-def debug_hashes():
-    """Debug de hashes de contraseñas - VERSIÓN POSTGRESQL CORREGIDA"""
-    from database import get_db_connection
-    import hashlib
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # ✅ USAR CONSULTA COMPATIBLE CON POSTGRESQL
-    try:
-        # Detectar si es PostgreSQL
-        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-        
-        if is_postgresql:
-            cursor.execute('SELECT id, email, password_hash FROM usuarios')
-        else:
-            cursor.execute('SELECT id, email, password_hash FROM usuarios')
-        
-        usuarios_db = cursor.fetchall()
-        
-        usuarios = [
-            ('admin@negociobot.com', 'admin123'),
-            ('juan@negocio.com', 'propietario123'),
-            ('carlos@negocio.com', 'profesional123'),
-            ('ana@negocio.com', 'profesional123')
-        ]
-        
-        results = []
-        for email, password in usuarios:
-            # Buscar usuario en BD
-            usuario_encontrado = None
-            for user in usuarios_db:
-                if is_postgresql:
-                    if user['email'] == email:
-                        usuario_encontrado = user
-                        break
-                else:
-                    if user[1] == email:  # email está en posición 1
-                        usuario_encontrado = user
-                        break
-            
-            # Nuevo hash
-            nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
-            
-            if usuario_encontrado:
-                hash_actual = usuario_encontrado['password_hash'] if is_postgresql else usuario_encontrado[2]
-                coincide = hash_actual == nuevo_hash
-            else:
-                hash_actual = 'No encontrado'
-                coincide = False
-            
-            results.append({
-                'email': email,
-                'hash_actual': hash_actual,
-                'nuevo_hash': nuevo_hash,
-                'coincide': coincide
-            })
-        
-        conn.close()
-        
-        html = '<h1>🔍 Debug Hashes - PostgreSQL</h1>'
-        for r in results:
-            status = '✅' if r['coincide'] else '❌'
-            html += f'''
-            <div style="margin: 20px; padding: 10px; border: 1px solid {'green' if r['coincide'] else 'red'}">
-                <h3>{status} {r['email']}</h3>
-                <p><strong>Actual:</strong> {r['hash_actual']}</p>
-                <p><strong>Nuevo:</strong> {r['nuevo_hash']}</p>
-                <p><strong>Coincide:</strong> {r['coincide']}</p>
-            </div>
-            '''
-        
-        html += '<a href="/login">🔐 Probar Login</a>'
-        return html
-        
-    except Exception as e:
-        conn.close()
-        return f'<h1>❌ Error en debug-hashes: {str(e)}</h1>'
-
-@app.route('/corregir-hash/<int:usuario_id>')
-def corregir_hash(usuario_id):
-    """Corregir hash de un usuario específico - VERSIÓN POSTGRESQL"""
-    import hashlib
-    from database import get_db_connection
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Detectar si es PostgreSQL
-        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-        
-        # ✅ CONSULTA CORREGIDA PARA POSTGRESQL
-        if is_postgresql:
-            cursor.execute('SELECT email FROM usuarios WHERE id = %s', (usuario_id,))
-        else:
-            cursor.execute('SELECT email FROM usuarios WHERE id = ?', (usuario_id,))
-        
-        usuario = cursor.fetchone()
-        
-        if not usuario:
-            return "❌ Usuario no encontrado"
-        
-        # Obtener email (compatible con ambos)
-        email = usuario[0] if not is_postgresql else usuario['email']
-        
-        # Determinar contraseña según el email
-        if email == 'admin@negociobot.com':
-            password = 'admin123'
-        elif email == 'juan@negocio.com':
-            password = 'propietario123'
-        elif email in ['carlos@negocio.com', 'ana@negocio.com']:
-            password = 'profesional123'
-        else:
-            return f"❌ No se puede determinar la contraseña para {email}"
-        
-        # Calcular nuevo hash
-        nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
-        
-        # ✅ ACTUALIZACIÓN CORREGIDA PARA POSTGRESQL
-        if is_postgresql:
-            cursor.execute(
-                'UPDATE usuarios SET password_hash = %s WHERE id = %s',
-                (nuevo_hash, usuario_id)
-            )
-        else:
-            cursor.execute(
-                'UPDATE usuarios SET password_hash = ? WHERE id = ?',
-                (nuevo_hash, usuario_id)
-            )
-        
-        conn.commit()
-        
-        return f'''
-        <h1>✅ Hash corregido para {email}</h1>
-        <p><strong>Contraseña:</strong> {password}</p>
-        <p><strong>Nuevo hash:</strong> <code>{nuevo_hash}</code></p>
-        <br>
-        <a href="/debug-hashes">← Volver al debug</a> | 
-        <a href="/login">Probar login</a>
-        '''
-        
-    except Exception as e:
-        conn.rollback()
-        return f'<h1>❌ Error: {str(e)}</h1>'
-    finally:
-        conn.close()
-
-@app.route('/debug-postgres')
-def debug_postgres():
-    """Debug específico para PostgreSQL"""
-    import os
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    
-    database_url = os.getenv('DATABASE_URL')
-    
-    info = {
-        'database_url_exists': bool(database_url),
-        'database_url_length': len(database_url) if database_url else 0,
-        'database_url_prefix': database_url[:50] + '...' if database_url else 'No configurada',
-        'database_url_contains_postgresql': 'postgresql' in (database_url or ''),
-    }
-    
-    # Intentar conexión directa
-    connection_status = 'No intentada'
-    connection_error = None
-    
-    if database_url and 'postgresql' in database_url:
-        try:
-            # Asegurar formato correcto para psycopg2
-            db_url = database_url.replace('postgresql://', 'postgres://') if database_url.startswith('postgresql://') else database_url
-            
-            conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
-            cursor = conn.cursor()
-            
-            # Probar consultas básicas
-            cursor.execute('SELECT version()')
-            version = cursor.fetchone()['version']
-            
-            cursor.execute("SELECT current_database() as db_name, current_user as user")
-            db_info = cursor.fetchone()
-            
-            connection_status = '✅ CONEXIÓN EXITOSA'
-            info['postgres_version'] = version
-            info['database_info'] = dict(db_info)
-            
-            conn.close()
-            
-        except Exception as e:
-            connection_status = '❌ ERROR DE CONEXIÓN'
-            connection_error = str(e)
-            info['connection_error'] = str(e)
-    
-    return f'''
-    <h1>🔧 DEBUG POSTGRESQL ESPECÍFICO</h1>
-    
-    <h2>📊 Información de DATABASE_URL</h2>
-    <pre>{json.dumps(info, indent=2)}</pre>
-    
-    <h2>🔌 Estado de Conexión: {connection_status}</h2>
-    {f'<p style="color: red;"><strong>Error:</strong> {connection_error}</p>' if connection_error else ''}
-    
-    <h2>🚀 Acciones Recomendadas</h2>
-    <ol>
-        <li><strong>Verificar que la URL sea EXACTA</strong> (copiada desde PostgreSQL → Connect)</li>
-        <li><strong>Verificar que psycopg2-binary esté en requirements.txt</strong></li>
-        <li><strong>Probar la conexión manualmente</strong> con la URL completa</li>
-    </ol>
-    
-    <a href="/debug-database">← Volver al debug general</a>
-    '''
-@app.route('/migrar-postgres')
-def migrar_postgres():
-    """Forzar migración a PostgreSQL (ruta temporal)"""
-    try:
-        from database import migrar_a_postgresql
-        migrar_a_postgresql()
-        return '''
-        <h1>✅ MIGRACIÓN A POSTGRESQL COMPLETADA</h1>
-        <p>Las tablas se han creado con sintaxis PostgreSQL correcta.</p>
-        <a href="/debug-database">Verificar conexión</a> | 
-        <a href="/">Ir al inicio</a>
-        '''
-    except Exception as e:
-        return f'''
-        <h1>❌ ERROR EN MIGRACIÓN</h1>
-        <p>Error: {str(e)}</p>
-        <p>Es posible que las tablas ya existan. Puedes continuar.</p>
-        <a href="/debug-database">Volver al debug</a> | 
-        <a href="/">Ir al inicio</a>
-        '''
-    
-@app.route('/limpiar-bd')
-def limpiar_bd():
-    """Limpiar completamente la base de datos (SOLO DESARROLLO)"""
-    try:
-        from database import get_db_connection
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Eliminar todas las tablas en orden correcto
-        tablas = [
-            'profesional_servicios', 'configuracion_horarios', 'configuracion',
-            'citas', 'servicios', 'profesionales', 'plantillas_mensajes', 
-            'usuarios', 'negocios'
-        ]
-        
-        for tabla in tablas:
-            cursor.execute(f'DROP TABLE IF EXISTS {tabla} CASCADE')
-        
-        conn.commit()
-        conn.close()
-        
-        return '''
-        <h1>🧹 BASE DE DATOS LIMPIADA</h1>
-        <p>Todas las tablas han sido eliminadas.</p>
-        <a href="/migrar-postgres">Crear tablas PostgreSQL</a> | 
-        <a href="/">Ir al inicio</a>
-        '''
-    except Exception as e:
-        return f'<h1>❌ ERROR</h1><p>{e}</p>'
-
-@app.route('/debug-database')
-def debug_database():
-    """Debug de conexión a base de datos - VERSIÓN CORREGIDA"""
-    try:
-        # Importar aquí para evitar problemas de importación circular
-        from database import get_db_connection
-        
-        conn = get_db_connection()
-        
-        # Determinar el tipo de base de datos
-        database_url = os.getenv('DATABASE_URL', '')
-        is_postgresql = 'postgresql' in database_url
-        
-        if is_postgresql:
-            # PostgreSQL
-            cursor = conn.cursor()
-            cursor.execute('SELECT version()')
-            version_result = cursor.fetchone()
-            version = version_result['version'] if version_result else 'No disponible'
-            
-            cursor.execute("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public'")
-            tablas_result = cursor.fetchone()
-            num_tablas = tablas_result['count'] if tablas_result else 0
-            
-            # Obtener lista de tablas
-            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-            tablas = [row['table_name'] for row in cursor.fetchall()]
-            
-        else:
-            # SQLite
-            cursor = conn.cursor()
-            cursor.execute('SELECT sqlite_version()')
-            version_result = cursor.fetchone()
-            version = version_result[0] if version_result else 'No disponible'
-            
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tablas_result = cursor.fetchall()
-            tablas = [row[0] for row in tablas_result]
-            num_tablas = len(tablas)
-        
-        conn.close()
-        
-        # Ocultar contraseña en la URL para seguridad
-        safe_database_url = database_url
-        if '@' in database_url:
-            # Ocultar contraseña: postgresql://usuario:password@host -> postgresql://usuario:****@host
-            parts = database_url.split('@')
-            user_part = parts[0]
-            if ':' in user_part:
-                user_pass = user_part.split(':')
-                if len(user_pass) == 3:  # postgresql://usuario:password@
-                    safe_database_url = f"{user_pass[0]}:{user_pass[1]}:****@{parts[1]}"
-                elif len(user_pass) == 2:  # usuario:password@
-                    safe_database_url = f"{user_pass[0]}:****@{parts[1]}"
-        
-        return f'''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>🔧 DEBUG DATABASE</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .success {{ color: green; font-weight: bold; }}
-                .error {{ color: red; font-weight: bold; }}
-                .info {{ background: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; }}
-                table {{ border-collapse: collapse; width: 100%; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #f2f2f2; }}
-            </style>
-        </head>
-        <body>
-            <h1>🔧 DEBUG DATABASE</h1>
-            
-            <div class="info">
-                <h3>📊 Información de Conexión</h3>
-                <p><strong>Tipo de BD:</strong> <span class="{'success' if is_postgresql else 'info'}">{'PostgreSQL 🐘' if is_postgresql else 'SQLite 💾'}</span></p>
-                <p><strong>Database URL:</strong> {safe_database_url or 'No configurada'}</p>
-                <p><strong>Versión:</strong> {version}</p>
-                <p><strong>Número de tablas:</strong> {num_tablas}</p>
-            </div>
-            
-            <div class="info">
-                <h3>📋 Tablas en la Base de Datos</h3>
-                {'<ul>' + ''.join(f'<li>{tabla}</li>' for tabla in tablas) + '</ul>' if tablas else '<p>No hay tablas</p>'}
-            </div>
-            
-            <div class="info">
-                <h3>🔍 Pruebas Adicionales</h3>
-                <p><a href="/test-db-query">Probar consulta a negocios</a></p>
-                <p><a href="/">Ir al inicio</a></p>
-            </div>
-        </body>
-        </html>
-        '''
-        
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        return f'''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>❌ ERROR DATABASE</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .error {{ color: red; background: #ffe6e6; padding: 15px; border-radius: 5px; }}
-                pre {{ background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }}
-            </style>
-        </head>
-        <body>
-            <h1>❌ ERROR EN CONEXIÓN A BASE DE DATOS</h1>
-            <div class="error">
-                <p><strong>Error:</strong> {str(e)}</p>
-            </div>
-            <h3>🔍 Detalles del Error:</h3>
-            <pre>{error_details}</pre>
-            <h3>💡 Posibles Soluciones:</h3>
-            <ul>
-                <li>Verificar que DATABASE_URL esté configurada en Railway</li>
-                <li>Verificar que psycopg2-binary esté en requirements.txt</li>
-                <li>Revisar que la función get_db_connection esté importada correctamente</li>
-            </ul>
-        </body>
-        </html>
-        '''
-
-@app.route('/migrar_hashes')
-def migrar_hashes():
-    """Ruta temporal para migrar hashes - ELIMINAR DESPUÉS"""
-    try:
-        from database import migrar_hashes_automatico
-        migrar_hashes_automatico()
-        return '''
-        <h1>✅ Hashes migrados correctamente</h1>
-        <p>Ahora puedes <a href="/login">iniciar sesión</a> con:</p>
-        <ul>
-            <li>admin@negociobot.com / admin123</li>
-            <li>juan@negocio.com / propietario123</li>
-            <li>carlos@negocio.com / profesional123</li>
-        </ul>
-        <p><strong>⚠️ Recuerda eliminar esta ruta después de usarla</strong></p>
-        '''
-    except Exception as e:
-        return f'<h1>❌ Error migrando hashes:</h1><p>{e}</p>'
-
 
 @app.route('/debug-session')
 def debug_session():
@@ -2945,7 +2415,7 @@ def initialize_app():
 print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
 initialize_app()
 
-# Solo para desarrollo local
+# ✅ SALTO DE LÍNEA OBLIGATORIO AQUÍ
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")

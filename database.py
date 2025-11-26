@@ -1,57 +1,90 @@
 # =============================================================================
-# database.py - SISTEMA GENÉRICO DE CITAS
+# database.py - SISTEMA GENÉRICO DE CITAS - POSTGRESQL COMPLETO
 # =============================================================================
 import os
-import sqlite3
 from datetime import datetime, timedelta
 import json
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import sqlite3  # Para fallback
 
 
 def get_db_connection():
-    """Establecer conexión a la base de datos (SQLite o PostgreSQL) - VERSIÓN MEJORADA"""
+    """Establecer conexión a la base de datos (PostgreSQL o SQLite)"""
     database_url = os.getenv('DATABASE_URL')
-    
-    print(f"🔧 [DEBUG] Intentando conectar a: {database_url}")
     
     # Si estamos en producción con PostgreSQL
     if database_url and database_url.startswith('postgresql://'):
         try:
-            import psycopg2
-            from psycopg2.extras import RealDictCursor
-            
-            print("✅ Conectando a PostgreSQL...")
-            
             # Convertir URL de PostgreSQL para psycopg2
             if database_url.startswith('postgresql://'):
                 database_url = database_url.replace('postgresql://', 'postgres://')
             
             # Conectar con cursor que retorna diccionarios
             conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-            print("✅ Conexión PostgreSQL exitosa")
             return conn
             
-        except ImportError:
-            print("⚠️ psycopg2 no instalado, usando SQLite")
-            return sqlite3.connect('negocio.db')
         except Exception as e:
             print(f"❌ Error conectando a PostgreSQL: {e}")
             print("🔄 Fallback a SQLite...")
-            return sqlite3.connect('negocio.db')
+            conn = sqlite3.connect('negocio.db')
+            conn.row_factory = sqlite3.Row
+            return conn
     else:
         # Desarrollo local con SQLite
-        print("🔧 Usando SQLite local")
         conn = sqlite3.connect('negocio.db')
         conn.row_factory = sqlite3.Row
         return conn
+
+
+def is_postgresql():
+    """Determinar si estamos usando PostgreSQL"""
+    database_url = os.getenv('DATABASE_URL', '')
+    return database_url.startswith('postgresql://')
+
+
+def execute_sql(cursor, sql, params=()):
+    """Ejecutar SQL adaptado para PostgreSQL o SQLite"""
+    if is_postgresql():
+        # Reemplazar ? por %s para PostgreSQL
+        sql = sql.replace('?', '%s')
+    cursor.execute(sql, params)
+
+
+def fetch_all(cursor, sql, params=()):
+    """Ejecutar SELECT y retornar todos los resultados"""
+    execute_sql(cursor, sql, params)
+    results = cursor.fetchall()
+    
+    if is_postgresql():
+        # PostgreSQL ya retorna diccionarios por RealDictCursor
+        return results
+    else:
+        # SQLite: convertir Row a dict
+        return [dict(row) for row in results]
+
+
+def fetch_one(cursor, sql, params=()):
+    """Ejecutar SELECT y retornar un resultado"""
+    execute_sql(cursor, sql, params)
+    result = cursor.fetchone()
+    
+    if result:
+        if is_postgresql():
+            return dict(result)
+        else:
+            return dict(result)
+    return None
+
 
 # =============================================================================
 # INICIALIZACIÓN DE BASE DE DATOS
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos con manejo robusto de errores - VERSIÓN MEJORADA"""
+    """Inicializar base de datos"""
     print("🔧 INICIANDO INIT_DB - CREANDO ESQUEMA...")
     
     conn = None
@@ -59,29 +92,18 @@ def init_db():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        print("✅ Conexión a BD establecida")
-        
-        # Detectar tipo de BD
-        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-        print(f"🔧 Usando {'PostgreSQL' if is_postgresql else 'SQLite'}")
-        
-        # Actualizar esquema primero
-        actualizar_esquema_bd()
-        
-        # Crear tablas con sintaxis correcta
+        # Crear tablas
         _crear_tablas(cursor)
         print("✅ Tablas creadas/verificadas")
         
-        # Insertar datos por defecto (con manejo de errores mejorado)
+        # Insertar datos por defecto
         try:
             _insertar_datos_por_defecto(cursor)
             print("✅ Datos por defecto insertados")
         except Exception as e:
-            print(f"⚠️ Error no crítico en datos por defecto: {e}")
-            # Continuar incluso si hay errores de inserción
+            print(f"⚠️ Error en datos por defecto: {e}")
         
         conn.commit()
-        print("✅ Commit realizado")
         
         # Crear plantillas
         try:
@@ -94,74 +116,14 @@ def init_db():
         
     except Exception as e:
         print(f"❌ Error en init_db: {e}")
-        # En PostgreSQL, errores de duplicado/ya existen son normales
-        error_str = str(e).lower()
-        non_critical_errors = [
-            'already exists', 'duplicate', 'exists', 
-            'duplicate key', 'unique constraint', 'on conflict'
-        ]
-        
-        if any(err in error_str for err in non_critical_errors):
-            print("⚠️ Error no crítico (tablas/datos probablemente ya existen)")
-        else:
-            print(f"🚨 ERROR CRÍTICO: {e}")
     finally:
         if conn:
             conn.close()
 
-def execute_query(query, params=()):
-    """Ejecutar consulta compatible con SQLite y PostgreSQL - VERSIÓN MEJORADA"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Detectar si es PostgreSQL
-        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-        
-        # Adaptar consultas para PostgreSQL si es necesario
-        if is_postgresql:
-            # Reemplazar placeholders
-            query = query.replace('?', '%s')
-            
-            # Adaptar INSERT OR IGNORE
-            if 'INSERT OR IGNORE' in query.upper():
-                query = adaptar_consultas_para_postgres(query)
-        
-        cursor.execute(query, params)
-        
-        # Para SELECT, retornar resultados
-        if query.strip().upper().startswith('SELECT'):
-            results = cursor.fetchall()
-            
-            # Convertir a diccionarios si es PostgreSQL
-            if is_postgresql:
-                columns = [desc[0] for desc in cursor.description]
-                results = [dict(zip(columns, row)) for row in results]
-            else:
-                # SQLite ya retorna Row objects que se comportan como dicts
-                results = [dict(row) for row in results]
-                
-            return results
-        else:
-            # Para INSERT, UPDATE, DELETE
-            conn.commit()
-            return cursor.lastrowid if hasattr(cursor, 'lastrowid') else None
-            
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ Error en consulta: {e}")
-        print(f"🔍 Consulta: {query}")
-        print(f"🔍 Parámetros: {params}")
-        raise e
-    finally:
-        cursor.close()
-        conn.close()
 
 def _crear_tablas(cursor):
-    """Crear todas las tablas necesarias - VERSIÓN POSTGRESQL COMPATIBLE"""
-    
-    # Detectar si estamos en PostgreSQL
-    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    """Crear todas las tablas necesarias"""
+    postgres = is_postgresql()
     
     # Tabla negocios
     negocios_sql = '''
@@ -176,9 +138,9 @@ def _crear_tablas(cursor):
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     '''
-    if is_postgresql:
+    if postgres:
         negocios_sql = negocios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-    cursor.execute(negocios_sql)
+    execute_sql(cursor, negocios_sql)
     
     # Tabla usuarios
     usuarios_sql = '''
@@ -195,9 +157,9 @@ def _crear_tablas(cursor):
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
-    if is_postgresql:
+    if postgres:
         usuarios_sql = usuarios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-    cursor.execute(usuarios_sql)
+    execute_sql(cursor, usuarios_sql)
     
     # Tabla plantillas_mensajes
     plantillas_sql = '''
@@ -215,9 +177,9 @@ def _crear_tablas(cursor):
             UNIQUE(negocio_id, nombre)
         )
     '''
-    if is_postgresql:
+    if postgres:
         plantillas_sql = plantillas_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-    cursor.execute(plantillas_sql)
+    execute_sql(cursor, plantillas_sql)
     
     # Tabla profesionales
     profesionales_sql = '''
@@ -235,9 +197,9 @@ def _crear_tablas(cursor):
             FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
         )
     '''
-    if is_postgresql:
+    if postgres:
         profesionales_sql = profesionales_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-    cursor.execute(profesionales_sql)
+    execute_sql(cursor, profesionales_sql)
     
     # Tabla servicios
     servicios_sql = '''
@@ -253,9 +215,9 @@ def _crear_tablas(cursor):
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
-    if is_postgresql:
+    if postgres:
         servicios_sql = servicios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-    cursor.execute(servicios_sql)
+    execute_sql(cursor, servicios_sql)
     
     # Tabla citas
     citas_sql = '''
@@ -265,8 +227,8 @@ def _crear_tablas(cursor):
             profesional_id INTEGER NOT NULL,
             cliente_telefono TEXT NOT NULL,
             cliente_nombre TEXT,
-            fecha TEXT NOT NULL,
-            hora TEXT NOT NULL,
+            fecha DATE NOT NULL,
+            hora TIME NOT NULL,
             servicio_id INTEGER NOT NULL,
             estado TEXT DEFAULT 'confirmado',
             recordatorio_24h_enviado BOOLEAN DEFAULT FALSE,
@@ -278,9 +240,9 @@ def _crear_tablas(cursor):
             FOREIGN KEY (servicio_id) REFERENCES servicios(id)
         )
     '''
-    if is_postgresql:
+    if postgres:
         citas_sql = citas_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-    cursor.execute(citas_sql)
+    execute_sql(cursor, citas_sql)
     
     # Tabla configuracion
     configuracion_sql = '''
@@ -295,7 +257,7 @@ def _crear_tablas(cursor):
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
-    cursor.execute(configuracion_sql)
+    execute_sql(cursor, configuracion_sql)
     
     # Tabla configuracion_horarios
     config_horarios_sql = '''
@@ -311,7 +273,7 @@ def _crear_tablas(cursor):
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
-    cursor.execute(config_horarios_sql)
+    execute_sql(cursor, config_horarios_sql)
     
     # Tabla profesional_servicios
     prof_servicios_sql = '''
@@ -324,24 +286,22 @@ def _crear_tablas(cursor):
             UNIQUE(profesional_id, servicio_id)
         )
     '''
-    cursor.execute(prof_servicios_sql)
+    execute_sql(cursor, prof_servicios_sql)
+
 
 def _insertar_datos_por_defecto(cursor):
-    """Insertar datos por defecto en las tablas - VERSIÓN POSTGRESQL CORREGIDA"""
-    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    """Insertar datos por defecto en las tablas"""
+    postgres = is_postgresql()
     
     try:
-        # Negocio por defecto - VERIFICAR PRIMERO SI EXISTE
-        if is_postgresql:
+        # Negocio por defecto
+        if postgres:
             cursor.execute('SELECT id FROM negocios WHERE id = 1')
-            negocio_existe = cursor.fetchone()
-            
-            if not negocio_existe:
+            if not cursor.fetchone():
                 cursor.execute('''
                     INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-                    VALUES (%s, %s, %s, %s, %s)
+                    VALUES (1, %s, %s, %s, %s)
                 ''', (
-                    1, 
                     'Negocio Premium', 
                     'whatsapp:+14155238886', 
                     'general', 
@@ -353,15 +313,11 @@ def _insertar_datos_por_defecto(cursor):
                         "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
                     })
                 ))
-                print("✅ Negocio por defecto insertado")
-            else:
-                print("⚠️ Negocio por defecto ya existe, saltando inserción")
         else:
             cursor.execute('''
                 INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (1, ?, ?, ?, ?)
             ''', (
-                1, 
                 'Negocio Premium', 
                 'whatsapp:+14155238886', 
                 'general', 
@@ -373,45 +329,37 @@ def _insertar_datos_por_defecto(cursor):
                     "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
                 })
             ))
-            print("✅ Negocio por defecto insertado")
         
         # Usuarios por defecto
-        _insertar_usuarios_por_defecto(cursor, is_postgresql)
+        _insertar_usuarios_por_defecto(cursor)
         
         # Plantillas base
-        _insertar_plantillas_base(cursor, is_postgresql)
+        _insertar_plantillas_base(cursor)
         
-        # Configuración - VERIFICAR SI EXISTE
-        if is_postgresql:
+        # Configuración
+        if postgres:
             cursor.execute('SELECT id FROM configuracion WHERE negocio_id = 1')
-            config_existe = cursor.fetchone()
-            if not config_existe:
+            if not cursor.fetchone():
                 cursor.execute('INSERT INTO configuracion (negocio_id) VALUES (1)')
-                print("✅ Configuración por defecto insertada")
-            else:
-                print("⚠️ Configuración ya existe, saltando inserción")
         else:
             cursor.execute('INSERT OR IGNORE INTO configuracion (negocio_id) VALUES (1)')
-            print("✅ Configuración por defecto insertada")
         
         # Configuración de horarios
-        _insertar_configuracion_horarios(cursor, is_postgresql)
+        _insertar_configuracion_horarios(cursor)
         
         # Profesionales por defecto
-        _insertar_profesionales_por_defecto(cursor, is_postgresql)
+        _insertar_profesionales_por_defecto(cursor)
         
         # Servicios por defecto
-        _insertar_servicios_por_defecto(cursor, is_postgresql)
+        _insertar_servicios_por_defecto(cursor)
         
     except Exception as e:
         print(f"⚠️ Error insertando datos por defecto: {e}")
-        # En PostgreSQL, errores de duplicado son normales
-        if "duplicate key" not in str(e).lower() and "unique constraint" not in str(e).lower():
-            raise e
 
-def _insertar_usuarios_por_defecto(cursor, is_postgresql=False):
-    """Insertar usuarios por defecto usando Werkzeug - VERSIÓN POSTGRESQL CORREGIDA"""
-    from werkzeug.security import generate_password_hash
+
+def _insertar_usuarios_por_defecto(cursor):
+    """Insertar usuarios por defecto"""
+    postgres = is_postgresql()
     
     usuarios = [
         (1, 'Super Administrador', 'admin@negociobot.com', 'admin123', 'superadmin'),
@@ -423,140 +371,26 @@ def _insertar_usuarios_por_defecto(cursor, is_postgresql=False):
     for negocio_id, nombre, email, password, rol in usuarios:
         password_hash = generate_password_hash(password)
         
-        if is_postgresql:
-            # Verificar si el usuario ya existe
+        if postgres:
             cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
-            usuario_existe = cursor.fetchone()
-            
-            if not usuario_existe:
+            if not cursor.fetchone():
                 cursor.execute('''
                     INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
                     VALUES (%s, %s, %s, %s, %s)
                 ''', (negocio_id, nombre, email, password_hash, rol))
-                print(f"✅ Usuario {email} insertado")
-            else:
-                print(f"⚠️ Usuario {email} ya existe, saltando inserción")
         else:
             cursor.execute('''
                 INSERT OR IGNORE INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
                 VALUES (?, ?, ?, ?, ?)
             ''', (negocio_id, nombre, email, password_hash, rol))
-            print(f"✅ Usuario {email} insertado")
 
-def migrar_hashes_automatico():
-    """Migrar automáticamente los hashes al iniciar la app"""
-    from werkzeug.security import generate_password_hash
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Lista de usuarios a migrar
-        usuarios = [
-            ('admin123', 'admin@negociobot.com'),
-            ('propietario123', 'juan@negocio.com'), 
-            ('profesional123', 'carlos@negocio.com'),
-            ('profesional123', 'ana@negocio.com')
-        ]
-        
-        for password, email in usuarios:
-            nuevo_hash = generate_password_hash(password)
-            cursor.execute('UPDATE usuarios SET password_hash = ? WHERE email = ?', 
-                          (nuevo_hash, email))
-        
-        conn.commit()
-        print("✅ Hashes migrados a Werkzeug automáticamente")
-        
-    except Exception as e:
-        print(f"⚠️ Error en migración automática: {e}")
-    finally:
-        conn.close()
 
-def adaptar_consultas_para_postgres(sql):
-    """Adaptar consultas SQL de SQLite para PostgreSQL - VERSIÓN MEJORADA"""
-    replacements = {
-        'AUTOINCREMENT': 'SERIAL',
-        'BOOLEAN DEFAULT 1': 'BOOLEAN DEFAULT TRUE',
-        'BOOLEAN DEFAULT 0': 'BOOLEAN DEFAULT FALSE', 
-        'INTEGER PRIMARY KEY AUTOINCREMENT': 'SERIAL PRIMARY KEY',
-        'TIMESTAMP DEFAULT CURRENT_TIMESTAMP': 'TIMESTAMP DEFAULT NOW()',
-        'BLOB': 'BYTEA'
-    }
+def _insertar_plantillas_base(cursor):
+    """Insertar plantillas base del sistema"""
+    postgres = is_postgresql()
     
-    for old, new in replacements.items():
-        sql = sql.replace(old, new)
-    
-    # Manejar INSERT OR IGNORE de forma específica
-    if 'INSERT OR IGNORE' in sql.upper():
-        table_name = None
-        if 'INTO negocios' in sql:
-            table_name = 'negocios'
-            conflict_column = 'id'
-        elif 'INTO usuarios' in sql:
-            table_name = 'usuarios' 
-            conflict_column = 'email'
-        elif 'INTO configuracion' in sql:
-            table_name = 'configuracion'
-            conflict_column = 'negocio_id'
-        elif 'INTO configuracion_horarios' in sql:
-            table_name = 'configuracion_horarios'
-            conflict_column = 'negocio_id,dia_semana'
-        
-        if table_name:
-            sql = sql.replace('INSERT OR IGNORE', 'INSERT')
-            if 'ON CONFLICT' not in sql.upper():
-                sql += f' ON CONFLICT ({conflict_column}) DO NOTHING'
-        else:
-            # Para otras tablas, simplemente quitar OR IGNORE
-            sql = sql.replace('INSERT OR IGNORE', 'INSERT')
-    
-    return sql
-
-def migrar_a_postgresql():
-    """Migrar de SQLite a PostgreSQL"""
-    print("🔄 MIGRANDO A POSTGRESQL...")
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Eliminar tablas existentes (si las hay)
-        print("🧹 Limpiando tablas existentes...")
-        tablas = [
-            'profesional_servicios', 'configuracion_horarios', 'configuracion',
-            'citas', 'servicios', 'profesionales', 'plantillas_mensajes', 
-            'usuarios', 'negocios'
-        ]
-        
-        for tabla in tablas:
-            try:
-                cursor.execute(f'DROP TABLE IF EXISTS {tabla} CASCADE')
-                print(f"✅ Tabla {tabla} eliminada")
-            except Exception as e:
-                print(f"⚠️ Error eliminando {tabla}: {e}")
-        
-        # Crear tablas con sintaxis PostgreSQL
-        _crear_tablas(cursor)
-        print("✅ Tablas creadas con sintaxis PostgreSQL")
-        
-        # Insertar datos por defecto
-        _insertar_datos_por_defecto(cursor)
-        print("✅ Datos por defecto insertados")
-        
-        conn.commit()
-        print("🎉 MIGRACIÓN A POSTGRESQL COMPLETADA")
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ Error en migración: {e}")
-        raise e
-    finally:
-        conn.close()
-
-def _insertar_plantillas_base(cursor, is_postgresql=False):
-    """Insertar SOLO las 8 plantillas base principales del sistema - VERSIÓN POSTGRESQL COMPATIBLE"""
-    # Primero eliminar cualquier plantilla existente
-    if is_postgresql:
+    # Eliminar plantillas base existentes
+    if postgres:
         cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
     else:
         cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
@@ -604,7 +438,7 @@ def _insertar_plantillas_base(cursor, is_postgresql=False):
     ]
     
     for nombre, plantilla, descripcion, variables in plantillas_base:
-        if is_postgresql:
+        if postgres:
             cursor.execute('''
                 INSERT INTO plantillas_mensajes 
                 (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
@@ -616,59 +450,56 @@ def _insertar_plantillas_base(cursor, is_postgresql=False):
                 (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
                 VALUES (NULL, ?, ?, ?, ?, TRUE)
             ''', (nombre, plantilla, descripcion, variables))
-    
-    print("✅ Plantillas base insertadas correctamente")
 
-def _insertar_configuracion_horarios(cursor, is_postgresql=False):
-    """Insertar configuración de horarios por día - VERSIÓN POSTGRESQL COMPLETA"""
+
+def _insertar_configuracion_horarios(cursor):
+    """Insertar configuración de horarios por día"""
+    postgres = is_postgresql()
+    
     dias_semana = [
-        (0, '09:00', '19:00', '13:00', '14:00'),  # Lunes
-        (1, '09:00', '19:00', '13:00', '14:00'),  # Martes
-        (2, '09:00', '19:00', '13:00', '14:00'),  # Miércoles
-        (3, '09:00', '19:00', '13:00', '14:00'),  # Jueves
-        (4, '09:00', '19:00', '13:00', '14:00'),  # Viernes
-        (5, '09:00', '19:00', '13:00', '14:00'),  # Sábado
-        (6, '09:00', '13:00', None, None)         # Domingo
+        (1, '09:00', '19:00', '13:00', '14:00'),  # Lunes
+        (2, '09:00', '19:00', '13:00', '14:00'),  # Martes
+        (3, '09:00', '19:00', '13:00', '14:00'),  # Miércoles
+        (4, '09:00', '19:00', '13:00', '14:00'),  # Jueves
+        (5, '09:00', '19:00', '13:00', '14:00'),  # Viernes
+        (6, '09:00', '19:00', '13:00', '14:00'),  # Sábado
+        (7, '09:00', '13:00', None, None)         # Domingo
     ]
     
     # Para cada negocio existente
-    if is_postgresql:
-        cursor.execute("SELECT id FROM negocios")
+    if postgres:
+        cursor.execute('SELECT id FROM negocios')
     else:
-        cursor.execute("SELECT id FROM negocios")
+        cursor.execute('SELECT id FROM negocios')
     
     negocios = cursor.fetchall()
     
     for negocio in negocios:
-        negocio_id = negocio[0] if is_postgresql else negocio[0]
+        negocio_id = negocio[0]
         for dia in dias_semana:
-            if is_postgresql:
-                # Verificar si ya existe este horario
+            if postgres:
                 cursor.execute('''
                     SELECT id FROM configuracion_horarios 
                     WHERE negocio_id = %s AND dia_semana = %s
                 ''', (negocio_id, dia[0]))
-                horario_existe = cursor.fetchone()
-                
-                if not horario_existe:
+                if not cursor.fetchone():
                     cursor.execute('''
                         INSERT INTO configuracion_horarios 
                         (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ''', (negocio_id, dia[0], True, dia[1], dia[2], dia[3], dia[4]))
-                    print(f"✅ Horario día {dia[0]} para negocio {negocio_id} insertado")
-                else:
-                    print(f"⚠️ Horario día {dia[0]} para negocio {negocio_id} ya existe, saltando")
             else:
                 cursor.execute('''
                     INSERT OR IGNORE INTO configuracion_horarios 
                     (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
                     VALUES (?, ?, 1, ?, ?, ?, ?)
                 ''', (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
-                print(f"✅ Horario día {dia[0]} para negocio {negocio_id} insertado")
 
-def _insertar_profesionales_por_defecto(cursor, is_postgresql=False):
-    """Insertar profesionales por defecto - VERSIÓN POSTGRESQL CORREGIDA"""
+
+def _insertar_profesionales_por_defecto(cursor):
+    """Insertar profesionales por defecto"""
+    postgres = is_postgresql()
+    
     profesionales_data = [
         (1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3),
         (2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4),
@@ -676,28 +507,24 @@ def _insertar_profesionales_por_defecto(cursor, is_postgresql=False):
     ]
     
     for prof_data in profesionales_data:
-        if is_postgresql:
-            # Verificar si el profesional ya existe
+        if postgres:
             cursor.execute('SELECT id FROM profesionales WHERE id = %s', (prof_data[0],))
-            prof_existe = cursor.fetchone()
-            
-            if not prof_existe:
+            if not cursor.fetchone():
                 cursor.execute('''
                     INSERT INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) 
                     VALUES (%s, %s, %s, %s, %s, %s)
                 ''', prof_data)
-                print(f"✅ Profesional {prof_data[2]} insertado")
-            else:
-                print(f"⚠️ Profesional {prof_data[2]} ya existe, saltando inserción")
         else:
             cursor.execute('''
                 INSERT OR IGNORE INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) 
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', prof_data)
-            print(f"✅ Profesional {prof_data[2]} insertado")
 
-def _insertar_servicios_por_defecto(cursor, is_postgresql=False):
-    """Insertar servicios por defecto - VERSIÓN POSTGRESQL CORREGIDA"""
+
+def _insertar_servicios_por_defecto(cursor):
+    """Insertar servicios por defecto"""
+    postgres = is_postgresql()
+    
     servicios_data = [
         (1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar'),
         (2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo'),
@@ -707,25 +534,18 @@ def _insertar_servicios_por_defecto(cursor, is_postgresql=False):
     ]
     
     for serv_data in servicios_data:
-        if is_postgresql:
-            # Verificar si el servicio ya existe
+        if postgres:
             cursor.execute('SELECT id FROM servicios WHERE id = %s', (serv_data[0],))
-            serv_existe = cursor.fetchone()
-            
-            if not serv_existe:
+            if not cursor.fetchone():
                 cursor.execute('''
                     INSERT INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) 
                     VALUES (%s, %s, %s, %s, %s, %s)
                 ''', serv_data)
-                print(f"✅ Servicio {serv_data[2]} insertado")
-            else:
-                print(f"⚠️ Servicio {serv_data[2]} ya existe, saltando inserción")
         else:
             cursor.execute('''
                 INSERT OR IGNORE INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) 
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', serv_data)
-            print(f"✅ Servicio {serv_data[2]} insertado")
 
 
 # =============================================================================
@@ -733,58 +553,47 @@ def _insertar_servicios_por_defecto(cursor, is_postgresql=False):
 # =============================================================================
 
 def obtener_plantilla(negocio_id, nombre_plantilla):
-    """Obtener una plantilla específica (personalizada si existe, sino base) - VERSIÓN CORREGIDA"""
-    print(f"🔍 obtener_plantilla - negocio_id: {negocio_id}, nombre: {nombre_plantilla}")
+    """Obtener una plantilla específica"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
     try:
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
         # Primero buscar plantilla personalizada
-        cursor.execute('''
+        sql = '''
             SELECT * FROM plantillas_mensajes 
             WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-        ''', (negocio_id, nombre_plantilla))
-        
-        plantilla = cursor.fetchone()
+        '''
+        plantilla = fetch_one(cursor, sql, (negocio_id, nombre_plantilla))
         es_personalizada = True
         
         # Si no existe personalizada, usar la base
         if not plantilla:
-            cursor.execute('''
+            sql = '''
                 SELECT * FROM plantillas_mensajes 
                 WHERE nombre = ? AND es_base = TRUE
-            ''', (nombre_plantilla,))
-            plantilla = cursor.fetchone()
+            '''
+            plantilla = fetch_one(cursor, sql, (nombre_plantilla,))
             es_personalizada = False
         
-        conn.close()
-        
         if plantilla:
-            print(f"✅ Plantilla encontrada, tipo: {type(plantilla)}")
-            
-            # Convertir tupla a diccionario
-            columnas = ['id', 'negocio_id', 'nombre', 'plantilla', 'descripcion', 'variables_disponibles', 'es_base', 'activo', 'created_at']
-            plantilla_dict = dict(zip(columnas, plantilla))
-            plantilla_dict['es_personalizada'] = es_personalizada
-            
-            print(f"✅ Retornando objeto completo de plantilla")
-            return plantilla_dict  # ← ¡IMPORTANTE! Retornar el objeto completo
+            plantilla['es_personalizada'] = es_personalizada
+            return plantilla
         else:
-            print(f"❌ No se encontró plantilla: {nombre_plantilla}")
             return None
             
     except Exception as e:
         print(f"❌ Error en obtener_plantilla: {e}")
         return None
+    finally:
+        conn.close()
+
 
 def obtener_plantillas_base():
     """Obtener SOLO las 8 plantillas base del sistema"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Solo obtener las 8 plantillas base específicas
-    cursor.execute('''
+    sql = '''
         SELECT * FROM plantillas_mensajes 
         WHERE negocio_id IS NULL AND es_base = TRUE
         AND nombre IN (
@@ -804,237 +613,33 @@ def obtener_plantillas_base():
                 WHEN 'cita_cancelada' THEN 8
                 ELSE 9
             END
-    ''')
+    '''
     
-    plantillas = [dict(row) for row in cursor.fetchall()]
+    plantillas = fetch_all(cursor, sql)
     conn.close()
     return plantillas
 
+
 def obtener_plantillas_negocio(negocio_id):
-    """Obtener todas las plantillas disponibles para un negocio - VERSIÓN CORREGIDA"""
-    print(f"🔍 obtener_plantillas_negocio - negocio_id: {negocio_id}")
-    
-    try:
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        # Obtener nombres únicos de plantillas base
-        cursor.execute('''
-            SELECT DISTINCT nombre FROM plantillas_mensajes 
-            WHERE es_base = TRUE
-        ''')
-        nombres_plantillas = [row[0] for row in cursor.fetchall()]
-        
-        plantillas_resultado = []
-        
-        # Para cada nombre de plantilla, obtener la versión personalizada si existe
-        for nombre in nombres_plantillas:
-            plantilla = obtener_plantilla(negocio_id, nombre)
-            if plantilla:
-                plantillas_resultado.append(plantilla)
-        
-        conn.close()
-        
-        print(f"✅ Se encontraron {len(plantillas_resultado)} plantillas")
-        return plantillas_resultado
-        
-    except Exception as e:
-        print(f"❌ Error en obtener_plantillas_negocio: {e}")
-        return []
-
-def obtener_plantillas_unicas_negocio(negocio_id):
-    """Obtener plantillas únicas para un negocio (personalizadas si existen, sino base)"""
+    """Obtener todas las plantillas disponibles para un negocio"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT * FROM plantillas_mensajes 
-        WHERE (negocio_id = ? AND es_base = FALSE) 
-           OR (negocio_id IS NULL AND es_base = TRUE)
-        ORDER BY nombre
-    ''', (negocio_id,))
+    # Obtener nombres únicos de plantillas base
+    sql = 'SELECT DISTINCT nombre FROM plantillas_mensajes WHERE es_base = TRUE'
+    nombres_plantillas = [row['nombre'] for row in fetch_all(cursor, sql)]
     
-    todas_plantillas = [dict(row) for row in cursor.fetchall()]
+    plantillas_resultado = []
+    
+    # Para cada nombre de plantilla, obtener la versión personalizada si existe
+    for nombre in nombres_plantillas:
+        plantilla = obtener_plantilla(negocio_id, nombre)
+        if plantilla:
+            plantillas_resultado.append(plantilla)
+    
     conn.close()
-    
-    # Filtrar para mostrar solo una versión por nombre
-    plantillas_unicas = {}
-    for plantilla in todas_plantillas:
-        nombre = plantilla['nombre']
-        if nombre not in plantillas_unicas or plantilla.get('negocio_id') == negocio_id:
-            plantillas_unicas[nombre] = plantilla
-    
-    return list(plantillas_unicas.values())
+    return plantillas_resultado
 
-def procesar_plantilla(plantilla_texto, negocio_id, cliente_id=None, cita_id=None):
-    """Procesar una plantilla reemplazando variables con valores reales"""
-    try:
-        print(f"🔍 Procesando plantilla para negocio {negocio_id}")
-        
-        # Obtener datos del negocio
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT nombre, emoji, saludo_personalizado FROM negocios WHERE id = ?', (negocio_id,))
-        negocio = cursor.fetchone()
-        
-        if not negocio:
-            return plantilla_texto
-            
-        nombre_negocio, emoji_negocio, saludo_personalizado = negocio
-        
-        # Reemplazar variables básicas del negocio
-        plantilla_procesada = plantilla_texto
-        plantilla_procesada = plantilla_procesada.replace('{nombre_negocio}', nombre_negocio or 'Nuestro Negocio')
-        plantilla_procesada = plantilla_procesada.replace('{emoji_negocio}', emoji_negocio or '👋')
-        plantilla_procesada = plantilla_procesada.replace('{saludo_personalizado}', saludo_personalizado or '¡Estamos aquí para ayudarte!')
-        
-        # Si hay cliente_id, obtener datos del cliente
-        if cliente_id:
-            cursor.execute('SELECT nombre FROM clientes WHERE id = ?', (cliente_id,))
-            cliente = cursor.fetchone()
-            if cliente:
-                plantilla_procesada = plantilla_procesada.replace('{nombre_cliente}', cliente[0])
-        
-        # Si hay cita_id, obtener datos de la cita
-        if cita_id:
-            cursor.execute('''
-                SELECT fecha, hora, servicios.nombre 
-                FROM citas 
-                JOIN servicios ON citas.servicio_id = servicios.id 
-                WHERE citas.id = ?
-            ''', (cita_id,))
-            cita = cursor.fetchone()
-            if cita:
-                plantilla_procesada = plantilla_procesada.replace('{fecha_cita}', str(cita[0]))
-                plantilla_procesada = plantilla_procesada.replace('{hora_cita}', str(cita[1]))
-                plantilla_procesada = plantilla_procesada.replace('{servicio_cita}', cita[2] or 'Servicio')
-        
-        conn.close()
-        
-        print(f"✅ Plantilla procesada correctamente")
-        return plantilla_procesada
-        
-    except Exception as e:
-        print(f"❌ Error procesando plantilla: {e}")
-        return plantilla_texto  # Retornar plantilla original en caso de error
-
-def actualizar_plantilla_negocio(negocio_id, nombre_plantilla, nueva_plantilla, descripcion=None):
-    """Actualizar o crear plantilla personalizada para un negocio"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Verificar si ya existe una personalizada
-        cursor.execute('''
-            SELECT id FROM plantillas_mensajes 
-            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-        ''', (negocio_id, nombre_plantilla))
-        
-        existe = cursor.fetchone()
-        
-        if existe:
-            # Actualizar existente
-            cursor.execute('''
-                UPDATE plantillas_mensajes 
-                SET plantilla = ?, descripcion = ?
-                WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-            ''', (nueva_plantilla, descripcion, negocio_id, nombre_plantilla))
-        else:
-            # Crear nueva personalizada
-            cursor.execute('''
-                SELECT descripcion, variables_disponibles 
-                FROM plantillas_mensajes 
-                WHERE nombre = ? AND es_base = TRUE
-            ''', (nombre_plantilla,))
-            
-            plantilla_base = cursor.fetchone()
-            
-            if plantilla_base:
-                cursor.execute('''
-                    INSERT INTO plantillas_mensajes 
-                    (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                    VALUES (?, ?, ?, ?, ?, FALSE)
-                ''', (negocio_id, nombre_plantilla, nueva_plantilla, 
-                      descripcion or plantilla_base[0], plantilla_base[1]))
-        
-        conn.commit()
-        return True
-    except Exception as e:
-        print(f"❌ Error actualizando plantilla: {e}")
-        return False
-    finally:
-        conn.close()
-
-def crear_plantillas_personalizadas_para_negocios():
-    """Crear copias personalizadas de plantillas base para todos los negocios - VERSIÓN CORREGIDA"""
-    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # ✅ CORRECCIÓN: Usar TRUE para PostgreSQL, 1 para SQLite
-        if is_postgresql:
-            cursor.execute("SELECT id FROM negocios WHERE activo = TRUE")
-        else:
-            cursor.execute("SELECT id FROM negocios WHERE activo = 1")
-        
-        negocios = cursor.fetchall()
-        
-        # Obtener plantillas base
-        if is_postgresql:
-            cursor.execute("SELECT * FROM plantillas_mensajes WHERE es_base = TRUE")
-        else:
-            cursor.execute("SELECT * FROM plantillas_mensajes WHERE es_base = TRUE")
-        
-        plantillas_base = cursor.fetchall()
-        
-        for negocio in negocios:
-            negocio_id = negocio[0]
-            
-            for plantilla_base in plantillas_base:
-                # Extraer datos según la estructura de la tabla
-                if is_postgresql:
-                    nombre = plantilla_base['nombre']
-                else:
-                    nombre = plantilla_base[2]  # El nombre está en la posición 2
-                
-                # Verificar si ya existe plantilla personalizada
-                if is_postgresql:
-                    cursor.execute('''
-                        SELECT id FROM plantillas_mensajes 
-                        WHERE negocio_id = %s AND nombre = %s AND es_base = FALSE
-                    ''', (negocio_id, nombre))
-                else:
-                    cursor.execute('''
-                        SELECT id FROM plantillas_mensajes 
-                        WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-                    ''', (negocio_id, nombre))
-                
-                if not cursor.fetchone():
-                    # Crear plantilla personalizada
-                    if is_postgresql:
-                        cursor.execute('''
-                            INSERT INTO plantillas_mensajes 
-                            (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                            VALUES (%s, %s, %s, %s, %s, FALSE)
-                        ''', (negocio_id, nombre, plantilla_base[3], plantilla_base[4], plantilla_base[5]))
-                    else:
-                        cursor.execute('''
-                            INSERT INTO plantillas_mensajes 
-                            (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                            VALUES (?, ?, ?, ?, ?, FALSE)
-                        ''', (negocio_id, nombre, plantilla_base[3], plantilla_base[4], plantilla_base[5]))
-        
-        conn.commit()
-        print("✅ Plantillas personalizadas creadas exitosamente")
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ Error creando plantillas personalizadas: {e}")
-    finally:
-        conn.close()
 
 def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, descripcion=''):
     """Guardar o actualizar plantilla personalizada"""
@@ -1043,43 +648,43 @@ def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, des
     
     try:
         # Verificar si ya existe una personalizada
-        cursor.execute('''
+        sql = '''
             SELECT id FROM plantillas_mensajes 
             WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-        ''', (negocio_id, nombre_plantilla))
-        
-        existe = cursor.fetchone()
+        '''
+        existe = fetch_one(cursor, sql, (negocio_id, nombre_plantilla))
         
         if existe:
             # Actualizar existente
-            cursor.execute('''
+            sql = '''
                 UPDATE plantillas_mensajes 
                 SET plantilla = ?, descripcion = ?
                 WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-            ''', (contenido, descripcion, negocio_id, nombre_plantilla))
+            '''
+            execute_sql(cursor, sql, (contenido, descripcion, negocio_id, nombre_plantilla))
         else:
             # Crear nueva personalizada basada en la plantilla base
-            cursor.execute('''
+            sql = '''
                 SELECT descripcion, variables_disponibles 
                 FROM plantillas_mensajes 
                 WHERE nombre = ? AND es_base = TRUE
-            ''', (nombre_plantilla,))
-            
-            plantilla_base = cursor.fetchone()
+            '''
+            plantilla_base = fetch_one(cursor, sql, (nombre_plantilla,))
             
             descripcion_final = descripcion
             variables_disponibles = '[]'
             
             if plantilla_base:
                 if not descripcion_final:
-                    descripcion_final = plantilla_base[0]
-                variables_disponibles = plantilla_base[1]
+                    descripcion_final = plantilla_base['descripcion']
+                variables_disponibles = plantilla_base['variables_disponibles']
             
-            cursor.execute('''
+            sql = '''
                 INSERT INTO plantillas_mensajes 
                 (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
                 VALUES (?, ?, ?, ?, ?, FALSE)
-            ''', (negocio_id, nombre_plantilla, contenido, descripcion_final, variables_disponibles))
+            '''
+            execute_sql(cursor, sql, (negocio_id, nombre_plantilla, contenido, descripcion_final, variables_disponibles))
         
         conn.commit()
         return True
@@ -1091,147 +696,55 @@ def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, des
         conn.close()
 
 
-def actualizar_configuracion_negocio(negocio_id, nombre, tipo_negocio, emoji, saludo_personalizado,
-                                   horario_atencion, direccion, telefono_contacto, politica_cancelacion):
-    """Actualizar configuración del negocio"""
-    try:
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        # Crear objeto de configuración
-        configuracion = {
-            'saludo_personalizado': saludo_personalizado or '¡Hola! Soy tu asistente virtual para agendar citas.',
-            'horario_atencion': horario_atencion or 'Lunes a Sábado 9:00 AM - 7:00 PM',
-            'direccion': direccion or 'Calle Principal #123',
-            'telefono_contacto': telefono_contacto or '+573001234567',
-            'politica_cancelacion': politica_cancelacion or 'Puedes cancelar hasta 2 horas antes'
-        }
-        
-        # Actualizar negocio
-        cursor.execute('''
-            UPDATE negocios 
-            SET nombre = ?, tipo_negocio = ?, emoji = ?, configuracion = ?
-            WHERE id = ?
-        ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
-        
-        conn.commit()
-        conn.close()
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error actualizando configuración: {e}")
-        return False
-
-def verificar_configuracion_negocio(negocio_id):
-    """Verificar que el negocio tenga todos los datos necesarios para las plantillas"""
-    try:
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT nombre, emoji, saludo_personalizado FROM negocios WHERE id = ?', (negocio_id,))
-        negocio = cursor.fetchone()
-        
-        if not negocio:
-            return False
-            
-        nombre, emoji, saludo = negocio
-        
-        # Si falta algún dato, usar valores por defecto
-        needs_update = False
-        if not nombre:
-            nombre = "Mi Negocio"
-            needs_update = True
-        if not emoji:
-            emoji = "👋"
-            needs_update = True
-        if not saludo:
-            saludo = "¡Estamos aquí para ayudarte!"
-            needs_update = True
-            
-        if needs_update:
-            cursor.execute('''
-                UPDATE negocios 
-                SET nombre = ?, emoji = ?, saludo_personalizado = ?
-                WHERE id = ?
-            ''', (nombre, emoji, saludo, negocio_id))
-            conn.commit()
-            print(f"✅ Configuración actualizada para negocio {negocio_id}")
-        
-        conn.close()
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error verificando configuración: {e}")
-        return False
-    
-def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios_actualizados):
-    """Actualizar configuración completa del negocio - VERSIÓN CORREGIDA"""
+def crear_plantillas_personalizadas_para_negocios():
+    """Crear copias personalizadas de plantillas base para todos los negocios"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Actualizar información básica del negocio
-        cursor.execute('''
-            UPDATE negocios 
-            SET nombre = ?, tipo_negocio = ?, emoji = ?, configuracion = ?
-            WHERE id = ?
-        ''', (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
+        # Obtener todos los negocios activos
+        sql = "SELECT id FROM negocios WHERE activo = TRUE"
+        negocios = fetch_all(cursor, sql)
         
-        # Actualizar horarios por día
-        for horario in horarios_actualizados:
-            # ✅ CORRECCIÓN: Manejar valores vacíos para horarios de descanso
-            almuerzo_inicio = horario['almuerzo_inicio'] if horario['almuerzo_inicio'] else None
-            almuerzo_fin = horario['almuerzo_fin'] if horario['almuerzo_fin'] else None
+        # Obtener plantillas base
+        sql = "SELECT * FROM plantillas_mensajes WHERE es_base = TRUE"
+        plantillas_base = fetch_all(cursor, sql)
+        
+        for negocio in negocios:
+            negocio_id = negocio['id']
             
-            # Verificar si ya existe un registro para este día
-            cursor.execute('''
-                SELECT id FROM configuracion_horarios 
-                WHERE negocio_id = ? AND dia_semana = ?
-            ''', (negocio_id, horario['dia_id']))
-            
-            existe = cursor.fetchone()
-            
-            if existe:
-                # Actualizar registro existente
-                cursor.execute('''
-                    UPDATE configuracion_horarios 
-                    SET activo = ?, hora_inicio = ?, hora_fin = ?, 
-                        almuerzo_inicio = ?, almuerzo_fin = ?
-                    WHERE negocio_id = ? AND dia_semana = ?
-                ''', (
-                    horario['activo'], 
-                    horario['hora_inicio'], 
-                    horario['hora_fin'],
-                    almuerzo_inicio,  # ✅ Puede ser None si está vacío
-                    almuerzo_fin,     # ✅ Puede ser None si está vacío
-                    negocio_id, 
-                    horario['dia_id']
-                ))
-            else:
-                # Insertar nuevo registro
-                cursor.execute('''
-                    INSERT INTO configuracion_horarios 
-                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    negocio_id, 
-                    horario['dia_id'],
-                    horario['activo'], 
-                    horario['hora_inicio'], 
-                    horario['hora_fin'],
-                    almuerzo_inicio,  # ✅ Puede ser None si está vacío
-                    almuerzo_fin      # ✅ Puede ser None si está vacío
-                ))
+            for plantilla_base in plantillas_base:
+                nombre = plantilla_base['nombre']
+                
+                # Verificar si ya existe plantilla personalizada
+                sql = '''
+                    SELECT id FROM plantillas_mensajes 
+                    WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+                '''
+                if not fetch_one(cursor, sql, (negocio_id, nombre)):
+                    # Crear plantilla personalizada
+                    sql = '''
+                        INSERT INTO plantillas_mensajes 
+                        (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                        VALUES (?, ?, ?, ?, ?, FALSE)
+                    '''
+                    execute_sql(cursor, sql, (
+                        negocio_id, 
+                        nombre, 
+                        plantilla_base['plantilla'], 
+                        plantilla_base['descripcion'], 
+                        plantilla_base['variables_disponibles']
+                    ))
         
         conn.commit()
-        conn.close()
-        return True
+        print("✅ Plantillas personalizadas creadas exitosamente")
         
     except Exception as e:
-        print(f"❌ Error actualizando configuración: {e}")
         conn.rollback()
+        print(f"❌ Error creando plantillas personalizadas: {e}")
+    finally:
         conn.close()
-        return False
+
 
 # =============================================================================
 # GESTIÓN DE NEGOCIOS
@@ -1240,75 +753,78 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
 def obtener_negocio_por_telefono(telefono_whatsapp):
     """Obtener un negocio por su número de WhatsApp"""
     conn = get_db_connection()
-    negocio = conn.execute(
-        'SELECT * FROM negocios WHERE telefono_whatsapp = ? AND activo = 1',
-        (telefono_whatsapp,)
-    ).fetchone()
+    sql = 'SELECT * FROM negocios WHERE telefono_whatsapp = ? AND activo = TRUE'
+    negocio = fetch_one(conn.cursor(), sql, (telefono_whatsapp,))
     conn.close()
     return negocio
 
+
 def obtener_negocio_por_id(negocio_id):
-    """Obtener negocio por ID - RETORNA DICCIONARIO"""
-    try:
-        conn = sqlite3.connect('negocio.db')
-        conn.row_factory = sqlite3.Row  # Esto hace que retorne objetos Row
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT * FROM negocios WHERE id = ?', (negocio_id,))
-        negocio_row = cursor.fetchone()
-        conn.close()
-        
-        if negocio_row:
-            # ✅ Convertir Row a diccionario
-            return dict(negocio_row)
-        return None
-        
-    except Exception as e:
-        print(f"❌ Error obteniendo negocio: {e}")
-        return None
+    """Obtener negocio por ID"""
+    conn = get_db_connection()
+    sql = 'SELECT * FROM negocios WHERE id = ?'
+    negocio = fetch_one(conn.cursor(), sql, (negocio_id,))
+    conn.close()
+    return negocio
+
 
 def obtener_todos_negocios():
     """Obtener todos los negocios"""
     conn = get_db_connection()
-    negocios = conn.execute(
-        'SELECT * FROM negocios ORDER BY fecha_creacion DESC'
-    ).fetchall()
+    sql = 'SELECT * FROM negocios ORDER BY fecha_creacion DESC'
+    negocios = fetch_all(conn.cursor(), sql)
     conn.close()
     return negocios
+
 
 def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}'):
     """Crear un nuevo negocio"""
     conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
-        cursor = conn.cursor()
-        cursor.execute('''
+        sql = '''
             INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
             VALUES (?, ?, ?, ?, ?)
-        ''', (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))  # ✅ EMOJI AGREGADO
+        '''
+        execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
         
-        negocio_id = cursor.lastrowid
+        if is_postgresql():
+            cursor.execute('SELECT LASTVAL()')
+            negocio_id = cursor.fetchone()[0]
+        else:
+            negocio_id = cursor.lastrowid
         
         # Crear configuración por defecto
-        cursor.execute('INSERT INTO configuracion (negocio_id) VALUES (?)', (negocio_id,))
+        sql = 'INSERT INTO configuracion (negocio_id) VALUES (?)'
+        execute_sql(cursor, sql, (negocio_id,))
         
         # Crear configuración de horarios
         _insertar_configuracion_horarios_para_negocio(cursor, negocio_id)
         
         # Crear usuario propietario por defecto
         email_propietario = f"propietario{negocio_id}@negocio.com"
-        cursor.execute('''
+        sql = '''
             INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
             VALUES (?, ?, ?, ?, ?)
-        ''', (negocio_id, 'Propietario', email_propietario, generate_password_hash('propietario123'), 'propietario'))
+        '''
+        execute_sql(cursor, sql, (
+            negocio_id, 
+            'Propietario', 
+            email_propietario, 
+            generate_password_hash('propietario123'), 
+            'propietario'
+        ))
         
         # Crear servicios por defecto
         _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio)
         
         # Crear profesional por defecto
-        cursor.execute('''
+        sql = '''
             INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
             VALUES (?, ?, ?, ?)
-        ''', (negocio_id, 'Principal', 'Especialista', '0000'))
+        '''
+        execute_sql(cursor, sql, (negocio_id, 'Principal', 'Especialista', '0000'))
         
         conn.commit()
         
@@ -1323,24 +839,27 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
     finally:
         conn.close()
 
+
 def _insertar_configuracion_horarios_para_negocio(cursor, negocio_id):
     """Insertar configuración de horarios para un negocio específico"""
     dias_semana = [
-        (0, '09:00', '19:00', '13:00', '14:00'),
         (1, '09:00', '19:00', '13:00', '14:00'),
         (2, '09:00', '19:00', '13:00', '14:00'),
         (3, '09:00', '19:00', '13:00', '14:00'),
         (4, '09:00', '19:00', '13:00', '14:00'),
         (5, '09:00', '19:00', '13:00', '14:00'),
-        (6, '09:00', '13:00', None, None)
+        (6, '09:00', '19:00', '13:00', '14:00'),
+        (7, '09:00', '13:00', None, None)
     ]
     
     for dia in dias_semana:
-        cursor.execute('''
+        sql = '''
             INSERT INTO configuracion_horarios 
             (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-            VALUES (?, ?, 1, ?, ?, ?, ?)
-        ''', (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
+            VALUES (?, ?, TRUE, ?, ?, ?, ?)
+        '''
+        execute_sql(cursor, sql, (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
+
 
 def _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio):
     """Crear servicios por defecto según el tipo de negocio"""
@@ -1363,21 +882,25 @@ def _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio):
         ]
     
     for nombre, duracion, precio, descripcion in servicios:
-        cursor.execute('''
+        sql = '''
             INSERT INTO servicios (negocio_id, nombre, duracion, precio, descripcion)
             VALUES (?, ?, ?, ?, ?)
-        ''', (negocio_id, nombre, duracion, precio, descripcion))
+        '''
+        execute_sql(cursor, sql, (negocio_id, nombre, duracion, precio, descripcion))
+
 
 def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, activo, configuracion):
     """Actualizar un negocio existente"""
     conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
-        cursor = conn.cursor()
-        cursor.execute('''
+        sql = '''
             UPDATE negocios 
             SET nombre = ?, telefono_whatsapp = ?, tipo_negocio = ?, activo = ?, configuracion = ?
             WHERE id = ?
-        ''', (nombre, telefono_whatsapp, tipo_negocio, activo, configuracion, negocio_id))
+        '''
+        execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, activo, configuracion, negocio_id))
         
         conn.commit()
         return True
@@ -1387,356 +910,98 @@ def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, acti
     finally:
         conn.close()
 
+
 # =============================================================================
 # GESTIÓN DE PROFESIONALES Y SERVICIOS
 # =============================================================================
 
 def obtener_profesionales(negocio_id=1):
-    """Obtener lista de todos los profesionales activos - CORREGIDA PARA POSTGRESQL"""
-    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-    
+    """Obtener lista de todos los profesionales activos"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # ✅ CORRECCIÓN: Usar TRUE para PostgreSQL, 1 para SQLite
-    if is_postgresql:
-        cursor.execute('''
-            SELECT id, nombre, especialidad, pin, telefono, activo
-            FROM profesionales 
-            WHERE negocio_id = %s AND activo = TRUE
-            ORDER BY nombre
-        ''', (negocio_id,))
-    else:
-        cursor.execute('''
-            SELECT id, nombre, especialidad, pin, telefono, activo
-            FROM profesionales 
-            WHERE negocio_id = ? AND activo = 1
-            ORDER BY nombre
-        ''', (negocio_id,))
-    
-    profesionales = cursor.fetchall()
+    sql = '''
+        SELECT id, nombre, especialidad, pin, telefono, activo
+        FROM profesionales 
+        WHERE negocio_id = ? AND activo = TRUE
+        ORDER BY nombre
+    '''
+    profesionales = fetch_all(conn.cursor(), sql, (negocio_id,))
     conn.close()
-    
-    # ✅ CORRECCIÓN: Convertir a lista de diccionarios con estructura correcta
-    resultado = []
-    for p in profesionales:
-        resultado.append({
-            'id': p[0],
-            'nombre': p[1],
-            'especialidad': p[2] or 'General',
-            'pin': p[3],
-            'telefono': p[4],
-            'activo': bool(p[5])
-        })
-    
-    return resultado
+    return profesionales
+
 
 def obtener_servicios(negocio_id):
     """Obtener servicios activos de un negocio"""
-    try:
-        conn = sqlite3.connect('negocio.db')
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, nombre, duracion, precio 
-            FROM servicios 
-            WHERE negocio_id = ? AND activo = 1
-            ORDER BY nombre
-        ''', (negocio_id,))
-        
-        servicios = []
-        for row in cursor.fetchall():
-            servicios.append({
-                'id': row[0],
-                'nombre': row[1],
-                'duracion': row[2],
-                'precio': row[3]
-            })
-        
-        conn.close()
-        return servicios
-        
-    except Exception as e:
-        print(f"❌ Error en obtener_servicios: {e}")
-        return []
+    conn = get_db_connection()
+    sql = '''
+        SELECT id, nombre, duracion, precio 
+        FROM servicios 
+        WHERE negocio_id = ? AND activo = TRUE
+        ORDER BY nombre
+    '''
+    servicios = fetch_all(conn.cursor(), sql, (negocio_id,))
+    conn.close()
+    return servicios
+
 
 def obtener_servicio_por_id(servicio_id, negocio_id):
     """Obtener un servicio específico por ID"""
-    conn = sqlite3.connect('negocio.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM servicios 
-        WHERE id = ? AND negocio_id = ?
-    ''', (servicio_id, negocio_id))
-    
-    servicio = cursor.fetchone()
+    conn = get_db_connection()
+    sql = 'SELECT * FROM servicios WHERE id = ? AND negocio_id = ?'
+    servicio = fetch_one(conn.cursor(), sql, (servicio_id, negocio_id))
     conn.close()
-    
-    if servicio:
-        return dict(servicio)
-    return None
+    return servicio
 
-def obtener_servicios_negocio(negocio_id):
-    """Obtener servicios activos de un negocio"""
-    conn = sqlite3.connect('negocio.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT id, nombre, duracion, precio 
-        FROM servicios 
-        WHERE negocio_id = ? AND activo = 1
-        ORDER BY nombre
-    ''', (negocio_id,))
-    
-    servicios = []
-    for row in cursor.fetchall():
-        servicios.append({
-            'id': row[0],
-            'nombre': row[1],
-            'duracion': row[2],
-            'precio': row[3]
-        })
-    
-    conn.close()
-    return servicios
 
 def obtener_nombre_profesional(negocio_id, profesional_id):
     """Obtener nombre de un profesional por ID"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT nombre FROM profesionales WHERE negocio_id = ? AND id = ?', (negocio_id, profesional_id))
-    resultado = cursor.fetchone()
+    sql = 'SELECT nombre FROM profesionales WHERE negocio_id = ? AND id = ?'
+    resultado = fetch_one(conn.cursor(), sql, (negocio_id, profesional_id))
     conn.close()
-    
-    return resultado[0] if resultado else 'Profesional no encontrado'
+    return resultado['nombre'] if resultado else 'Profesional no encontrado'
+
 
 def obtener_nombre_servicio(negocio_id, servicio_id):
     """Obtener nombre de un servicio por ID"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT nombre FROM servicios WHERE negocio_id = ? AND id = ?', (negocio_id, servicio_id))
-    resultado = cursor.fetchone()
+    sql = 'SELECT nombre FROM servicios WHERE negocio_id = ? AND id = ?'
+    resultado = fetch_one(conn.cursor(), sql, (negocio_id, servicio_id))
     conn.close()
-    
-    return resultado[0] if resultado else 'Servicio no encontrado'
+    return resultado['nombre'] if resultado else 'Servicio no encontrado'
+
 
 def obtener_duracion_servicio(negocio_id, servicio_id):
     """Obtener duración de un servicio específico"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT duracion FROM servicios WHERE negocio_id = ? AND id = ?', (negocio_id, servicio_id))
-    resultado = cursor.fetchone()
+    sql = 'SELECT duracion FROM servicios WHERE negocio_id = ? AND id = ?'
+    resultado = fetch_one(conn.cursor(), sql, (negocio_id, servicio_id))
     conn.close()
-    return resultado[0] if resultado else None
+    return resultado['duracion'] if resultado else None
 
-def es_cliente_nuevo(telefono, negocio_id):
-    """Verificar si es un cliente nuevo"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT COUNT(*) FROM citas 
-        WHERE cliente_telefono = ? AND negocio_id = ? AND cliente_nombre IS NOT NULL
-    ''', (telefono, negocio_id))
-    
-    resultado = cursor.fetchone()
-    conn.close()
-    
-    count = resultado[0] if resultado else 0
-    return count == 0
-
-def obtener_nombre_cliente(telefono, negocio_id):
-    """Obtener el nombre del cliente"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT cliente_nombre FROM citas 
-        WHERE cliente_telefono = ? AND negocio_id = ? 
-        AND cliente_nombre IS NOT NULL 
-        AND cliente_nombre != '' 
-        AND cliente_nombre != 'Cliente'
-        ORDER BY created_at DESC LIMIT 1
-    ''', (telefono, negocio_id))
-    
-    resultado = cursor.fetchone()
-    conn.close()
-    
-    return resultado[0] if resultado else None
-
-def obtener_profesionales_por_negocio(negocio_id):
-    """Obtener todos los profesionales de un negocio"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT p.*, GROUP_CONCAT(s.nombre) as servicios_nombres
-        FROM profesionales p
-        LEFT JOIN profesional_servicios ps ON p.id = ps.profesional_id
-        LEFT JOIN servicios s ON ps.servicio_id = s.id
-        WHERE p.negocio_id = ?
-        GROUP BY p.id
-        ORDER BY p.nombre
-    ''', (negocio_id,))
-    
-    profesionales = cursor.fetchall()
-    conn.close()
-    
-    # Convertir a lista de diccionarios
-    result = []
-    for p in profesionales:
-        profesional_dict = dict(p)
-        # Procesar servicios
-        servicios_nombres = profesional_dict.get('servicios_nombres', '').split(',') if profesional_dict.get('servicios_nombres') else []
-        profesional_dict['servicios'] = [s.strip() for s in servicios_nombres if s.strip()]
-        result.append(profesional_dict)
-    
-    return result
-
-def obtener_profesional_por_id(profesional_id, negocio_id):
-    """Obtener un profesional específico con sus servicios"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT p.*, GROUP_CONCAT(s.id) as servicios_ids, GROUP_CONCAT(s.nombre) as servicios_nombres
-        FROM profesionales p
-        LEFT JOIN profesional_servicios ps ON p.id = ps.profesional_id
-        LEFT JOIN servicios s ON ps.servicio_id = s.id
-        WHERE p.id = ? AND p.negocio_id = ?
-        GROUP BY p.id
-    ''', (profesional_id, negocio_id))
-    
-    profesional = cursor.fetchone()
-    conn.close()
-    
-    if profesional:
-        profesional_dict = dict(profesional)
-        # Procesar servicios
-        servicios_ids = profesional_dict.get('servicios_ids', '').split(',') if profesional_dict.get('servicios_ids') else []
-        servicios_nombres = profesional_dict.get('servicios_nombres', '').split(',') if profesional_dict.get('servicios_nombres') else []
-        
-        profesional_dict['servicios_ids'] = [int(sid) for sid in servicios_ids if sid]
-        profesional_dict['servicios'] = [s.strip() for s in servicios_nombres if s.strip()]
-        
-        return profesional_dict
-    
-    return None
-
-def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True):
-    """Crear un nuevo profesional"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Insertar profesional
-        cursor.execute('''
-            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (negocio_id, nombre, especialidad, pin, activo))
-        
-        profesional_id = cursor.lastrowid
-        
-        # Asignar servicios
-        for servicio_id in servicios_ids:
-            cursor.execute('''
-                INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                VALUES (?, ?)
-            ''', (profesional_id, servicio_id))
-        
-        conn.commit()
-        return profesional_id
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Error creando profesional: {e}")
-        return None
-    finally:
-        conn.close()
-
-def actualizar_profesional(profesional_id, nombre, especialidad, pin, servicios_ids, activo):
-    """Actualizar un profesional existente"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Actualizar datos básicos
-        cursor.execute('''
-            UPDATE profesionales 
-            SET nombre = ?, especialidad = ?, pin = ?, activo = ?
-            WHERE id = ?
-        ''', (nombre, especialidad, pin, activo, profesional_id))
-        
-        # Eliminar servicios anteriores
-        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = ?', (profesional_id,))
-        
-        # Agregar nuevos servicios
-        for servicio_id in servicios_ids:
-            cursor.execute('''
-                INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                VALUES (?, ?)
-            ''', (profesional_id, servicio_id))
-        
-        conn.commit()
-        return True
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Error actualizando profesional: {e}")
-        return False
-    finally:
-        conn.close()
-
-def eliminar_profesional(profesional_id, negocio_id):
-    """Eliminar un profesional"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Verificar que el profesional pertenece al negocio
-        cursor.execute('SELECT id FROM profesionales WHERE id = ? AND negocio_id = ?', 
-                      (profesional_id, negocio_id))
-        
-        if not cursor.fetchone():
-            return False
-        
-        # Eliminar relaciones con servicios
-        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = ?', (profesional_id,))
-        
-        # Eliminar profesional
-        cursor.execute('DELETE FROM profesionales WHERE id = ?', (profesional_id,))
-        
-        conn.commit()
-        return True
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Error eliminando profesional: {e}")
-        return False
-    finally:
-        conn.close()
 
 # =============================================================================
-# GESTIÓN DE CITAS (antes turnos)
+# GESTIÓN DE CITAS
 # =============================================================================
 
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
     """Agregar nueva cita a la base de datos"""
     conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
-        cursor = conn.cursor()
-        cursor.execute('''
+        sql = '''
             INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id))
+        '''
+        execute_sql(cursor, sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id))
+        
+        if is_postgresql():
+            cursor.execute('SELECT LASTVAL()')
+            cita_id = cursor.fetchone()[0]
+        else:
+            cita_id = cursor.lastrowid
         
         conn.commit()
-        cita_id = cursor.lastrowid
         return cita_id
     except Exception as e:
         print(f"❌ Error al agregar cita: {e}")
@@ -1744,96 +1009,73 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
     finally:
         conn.close()
 
+
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
     """Obtener todas las citas de un profesional en un día específico"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
+    sql = '''
         SELECT c.hora, s.duracion 
         FROM citas c 
         JOIN servicios s ON c.servicio_id = s.id
         WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ? AND c.estado != 'cancelado'
         ORDER BY c.hora
-    ''', (negocio_id, profesional_id, fecha))
-    
-    citas = cursor.fetchall()
+    '''
+    citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
     conn.close()
     return citas
 
+
 def es_cliente_nuevo(telefono, negocio_id):
     """Verificar si es un cliente nuevo"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT COUNT(*) FROM citas 
-            WHERE cliente_telefono = ? AND negocio_id = ?
-        ''', (telefono, negocio_id))
-        
-        resultado = cursor.fetchone()
-        conn.close()
-        
-        count = resultado[0] if resultado else 0
-        return count == 0
-        
-    except Exception as e:
-        print(f"❌ ERROR en es_cliente_nuevo: {e}")
-        return True
+    conn = get_db_connection()
+    sql = '''
+        SELECT COUNT(*) as count FROM citas 
+        WHERE cliente_telefono = ? AND negocio_id = ?
+    '''
+    resultado = fetch_one(conn.cursor(), sql, (telefono, negocio_id))
+    conn.close()
+    count = resultado['count'] if resultado else 0
+    return count == 0
+
 
 def obtener_nombre_cliente(telefono, negocio_id):
     """Obtener el nombre del cliente"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT cliente_nombre FROM citas 
-            WHERE cliente_telefono = ? AND negocio_id = ? 
-            AND cliente_nombre IS NOT NULL 
-            AND cliente_nombre != '' 
-            AND cliente_nombre != 'Cliente'
-            ORDER BY created_at DESC LIMIT 1
-        ''', (telefono, negocio_id))
-        
-        resultado = cursor.fetchone()
-        conn.close()
-        
-        return resultado[0] if resultado else None
-        
-    except Exception as e:
-        print(f"❌ ERROR en obtener_nombre_cliente: {e}")
-        return None
+    conn = get_db_connection()
+    sql = '''
+        SELECT cliente_nombre FROM citas 
+        WHERE cliente_telefono = ? AND negocio_id = ? 
+        AND cliente_nombre IS NOT NULL 
+        AND cliente_nombre != '' 
+        AND cliente_nombre != 'Cliente'
+        ORDER BY created_at DESC LIMIT 1
+    '''
+    resultado = fetch_one(conn.cursor(), sql, (telefono, negocio_id))
+    conn.close()
+    return resultado['cliente_nombre'] if resultado else None
+
 
 def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
     """Obtener citas de un profesional para una fecha específica"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
+    sql = '''
         SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion
         FROM citas c
         JOIN servicios s ON c.servicio_id = s.id
         WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ?
         ORDER BY c.hora
-    ''', (negocio_id, profesional_id, fecha))
-    
-    citas = cursor.fetchall()
+    '''
+    citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
     conn.close()
-    
-    return [dict(cita) for cita in citas]
+    return citas
+
 
 # =============================================================================
 # CONFIGURACIÓN DE HORARIOS
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico - SIEMPRE CONSULTAR BD"""
+    """Obtener horarios para un día específico"""
     try:
-        # ✅ ELIMINAR CACHE - Siempre consultar base de datos fresca
-        print(f"🔧 [DEBUG] CONSULTANDO BD para horarios - Negocio: {negocio_id}, Fecha: {fecha}")
-        
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
         dia_semana_real = fecha_obj.weekday()  # 0=lunes, 1=martes, ..., 6=domingo
@@ -1842,26 +1084,22 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         dia_semana_bd = dia_semana_real + 1  # 0→1, 1→2, ..., 6→7
         
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
+        sql = '''
             SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
             FROM configuracion_horarios
             WHERE negocio_id = ? AND dia_semana = ?
-        ''', (negocio_id, dia_semana_bd))
-        
-        result = cursor.fetchone()
+        '''
+        result = fetch_one(conn.cursor(), sql, (negocio_id, dia_semana_bd))
         conn.close()
         
         if result:
-            horario = {
-                'activo': bool(result[0]),
-                'hora_inicio': result[1],
-                'hora_fin': result[2],
-                'almuerzo_inicio': result[3],
-                'almuerzo_fin': result[4]
+            return {
+                'activo': bool(result['activo']),
+                'hora_inicio': result['hora_inicio'],
+                'hora_fin': result['hora_fin'],
+                'almuerzo_inicio': result['almuerzo_inicio'],
+                'almuerzo_fin': result['almuerzo_fin']
             }
-            return horario
         else:
             return {
                 'activo': False,
@@ -1881,32 +1119,31 @@ def obtener_horarios_por_dia(negocio_id, fecha):
             'almuerzo_fin': None
         }
 
+
 def obtener_configuracion_horarios(negocio_id):
     """Obtener configuración de horarios por días"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
+    sql = '''
         SELECT dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
         FROM configuracion_horarios 
         WHERE negocio_id = ?
         ORDER BY dia_semana
-    ''', (negocio_id,))
-    
-    resultados = cursor.fetchall()
+    '''
+    resultados = fetch_all(conn.cursor(), sql, (negocio_id,))
     conn.close()
     
     dias_config = {}
     for row in resultados:
-        dias_config[row[0]] = {
-            'activo': bool(row[1]),
-            'hora_inicio': row[2],
-            'hora_fin': row[3],
-            'almuerzo_inicio': row[4],
-            'almuerzo_fin': row[5]
+        dias_config[row['dia_semana']] = {
+            'activo': bool(row['activo']),
+            'hora_inicio': row['hora_inicio'],
+            'hora_fin': row['hora_fin'],
+            'almuerzo_inicio': row['almuerzo_inicio'],
+            'almuerzo_fin': row['almuerzo_fin']
         }
     
     return dias_config
+
 
 def actualizar_configuracion_horarios(negocio_id, configuraciones):
     """Actualizar configuración de horarios"""
@@ -1915,11 +1152,27 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
     
     try:
         for dia_id, config in configuraciones.items():
-            cursor.execute('''
-                INSERT OR REPLACE INTO configuracion_horarios 
-                (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
+            if is_postgresql():
+                sql = '''
+                    INSERT INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (negocio_id, dia_semana) 
+                    DO UPDATE SET 
+                        activo = EXCLUDED.activo,
+                        hora_inicio = EXCLUDED.hora_inicio,
+                        hora_fin = EXCLUDED.hora_fin,
+                        almuerzo_inicio = EXCLUDED.almuerzo_inicio,
+                        almuerzo_fin = EXCLUDED.almuerzo_fin
+                '''
+            else:
+                sql = '''
+                    INSERT OR REPLACE INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                '''
+            
+            execute_sql(cursor, sql, (
                 negocio_id, dia_id, 
                 config.get('activo', False),
                 config.get('hora_inicio', '09:00'),
@@ -1936,102 +1189,80 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
     finally:
         conn.close()
 
-def notificar_cambio_horarios(negocio_id):
-    """Notificar que hubo cambios en horarios - limpiar cache"""
-    try:
-        # Importar y limpiar conversaciones activas
-        from whatsapp_handler import conversaciones_activas
-        
-        # Limpiar todas las conversaciones de este negocio
-        claves_a_eliminar = []
-        for clave in conversaciones_activas.keys():
-            if clave.endswith(f"_{negocio_id}"):
-                claves_a_eliminar.append(clave)
-        
-        for clave in claves_a_eliminar:
-            del conversaciones_activas[clave]
-        
-        print(f"✅ Cache limpiado: {len(claves_a_eliminar)} conversaciones eliminadas para negocio {negocio_id}")
-        return True
-        
-    except Exception as e:
-        print(f"⚠️ No se pudo limpiar cache: {e}")
-        return False
 
 # =============================================================================
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
 def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario usando SHA256 (consistente con el sistema actual)"""
+    """Crear usuario"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
         # Verificar si el email ya existe
-        cursor.execute('SELECT id FROM usuarios WHERE email = ?', (email,))
-        if cursor.fetchone():
+        sql = 'SELECT id FROM usuarios WHERE email = ?'
+        if fetch_one(cursor, sql, (email,)):
             conn.close()
             return None
         
-        # ✅ USAR SHA256 (igual que usuarios existentes)
+        # Usar SHA256
         import hashlib
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         
         # Insertar usuario
-        cursor.execute(
-            'INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)',
-            (negocio_id, nombre, email, hashed_password, rol)
-        )
-        nuevo_usuario_id = cursor.lastrowid
+        sql = 'INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)'
+        execute_sql(cursor, sql, (negocio_id, nombre, email, hashed_password, rol))
+        
+        if is_postgresql():
+            cursor.execute('SELECT LASTVAL()')
+            nuevo_usuario_id = cursor.fetchone()[0]
+        else:
+            nuevo_usuario_id = cursor.lastrowid
         
         # Si es profesional, crear automáticamente en tabla profesionales
         if rol == 'profesional':
-            cursor.execute(
-                'SELECT id FROM profesionales WHERE nombre = ? AND negocio_id = ?',
-                (nombre, negocio_id)
-            )
-            profesional_existente = cursor.fetchone()
-            
-            if not profesional_existente:
-                cursor.execute(
-                    'INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) VALUES (?, ?, ?, ?, ?, ?)',
-                    (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True)
-                )
+            sql = 'SELECT id FROM profesionales WHERE nombre = ? AND negocio_id = ?'
+            if not fetch_one(cursor, sql, (nombre, negocio_id)):
+                sql = '''
+                    INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
+                    VALUES (?, ?, ?, ?, ?, ?)
+                '''
+                execute_sql(cursor, sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
         
         conn.commit()
-        conn.close()
         return nuevo_usuario_id
         
     except Exception as e:
         print(f"❌ Error en crear_usuario: {e}")
-        if conn:
-            conn.close()
         return None
+    finally:
+        conn.close()
+
 
 def verificar_usuario(email, password):
-    """Verificar credenciales de usuario usando SHA256"""
+    """Verificar credenciales de usuario"""
     conn = get_db_connection()
     
-    usuario = conn.execute('''
+    sql = '''
         SELECT u.*, n.nombre as negocio_nombre 
         FROM usuarios u 
         JOIN negocios n ON u.negocio_id = n.id 
-        WHERE u.email = ? AND u.activo = 1
-    ''', (email,)).fetchone()
-    
+        WHERE u.email = ? AND u.activo = TRUE
+    '''
+    usuario = fetch_one(conn.cursor(), sql, (email,))
     conn.close()
     
     if usuario:
-        # ✅ SHA256 (consistente con crear_usuario)
+        # SHA256
         import hashlib
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
         if usuario['password_hash'] == password_hash:
             # Actualizar último login
             conn = get_db_connection()
-            conn.execute('UPDATE usuarios SET ultimo_login = ? WHERE id = ?', 
-                        (datetime.now(), usuario['id']))
+            sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
+            execute_sql(conn.cursor(), sql, (datetime.now(), usuario['id']))
             conn.commit()
             conn.close()
             
@@ -2045,122 +1276,134 @@ def verificar_usuario(email, password):
             }
     return None
 
+
 def obtener_usuarios_por_negocio(negocio_id):
     """Obtener todos los usuarios de un negocio"""
     conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
+    sql = '''
         SELECT u.*, n.nombre as negocio_nombre
         FROM usuarios u
         JOIN negocios n ON u.negocio_id = n.id
         WHERE u.negocio_id = ?
         ORDER BY u.fecha_creacion DESC
-    ''', (negocio_id,))
-    
-    usuarios = cursor.fetchall()
+    '''
+    usuarios = fetch_all(conn.cursor(), sql, (negocio_id,))
     conn.close()
-    
-    return [dict(usuario) for usuario in usuarios]
+    return usuarios
+
+
+def obtener_usuarios_todos():
+    """Obtener todos los usuarios del sistema"""
+    conn = get_db_connection()
+    sql = '''
+        SELECT u.*, n.nombre as negocio_nombre
+        FROM usuarios u
+        JOIN negocios n ON u.negocio_id = n.id
+        ORDER BY u.fecha_creacion DESC
+    '''
+    usuarios = fetch_all(conn.cursor(), sql)
+    conn.close()
+    return usuarios
+
 
 # =============================================================================
 # FUNCIONES AUXILIARES
 # =============================================================================
 
 def actualizar_esquema_bd():
-    """Actualizar esquema de base de datos existente de forma tolerante - VERSIÓN POSTGRESQL"""
+    """Actualizar esquema de base de datos existente"""
+    # Esta función es principalmente para SQLite
+    # En PostgreSQL, las columnas se crean automáticamente
+    if not is_postgresql():
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Verificar si existe la columna emoji en negocios
+            cursor.execute("PRAGMA table_info(negocios)")
+            columnas_negocios = cursor.fetchall()
+            columnas_negocios_existentes = [col[1] for col in columnas_negocios]
+            
+            if 'emoji' not in columnas_negocios_existentes:
+                cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
+            
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ Error actualizando esquema: {e}")
+        finally:
+            conn.close()
+
+
+def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios_actualizados):
+    """Actualizar configuración completa del negocio"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        print("🔧 ACTUALIZANDO ESQUEMA DE BD...")
+        # Actualizar información básica del negocio
+        sql = '''
+            UPDATE negocios 
+            SET nombre = ?, tipo_negocio = ?, emoji = ?, configuracion = ?
+            WHERE id = ?
+        '''
+        execute_sql(cursor, sql, (nombre, tipo_negocio, emoji, json.dumps(configuracion), negocio_id))
         
-        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-        
-        if not is_postgresql:
-            # Solo para SQLite - PRAGMA no existe en PostgreSQL
-            try:
-                cursor.execute("SELECT 1 FROM negocios LIMIT 1")
-                tabla_negocios_existe = True
-            except:
-                tabla_negocios_existe = False
+        # Actualizar horarios por día
+        for horario in horarios_actualizados:
+            almuerzo_inicio = horario['almuerzo_inicio'] if horario['almuerzo_inicio'] else None
+            almuerzo_fin = horario['almuerzo_fin'] if horario['almuerzo_fin'] else None
             
-            if tabla_negocios_existe:
-                try:
-                    cursor.execute("PRAGMA table_info(negocios)")
-                    columnas_negocios = cursor.fetchall()
-                    columnas_negocios_existentes = [col[1] for col in columnas_negocios]
-                    
-                    if 'emoji' not in columnas_negocios_existentes:
-                        cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
-                        print("✅ Columna 'emoji' agregada a tabla negocios")
-                except Exception as e:
-                    print(f"⚠️ Error verificando columna emoji: {e}")
+            # Verificar si ya existe un registro para este día
+            sql = '''
+                SELECT id FROM configuracion_horarios 
+                WHERE negocio_id = ? AND dia_semana = ?
+            '''
+            existe = fetch_one(cursor, sql, (negocio_id, horario['dia_id']))
+            
+            if existe:
+                # Actualizar registro existente
+                sql = '''
+                    UPDATE configuracion_horarios 
+                    SET activo = ?, hora_inicio = ?, hora_fin = ?, 
+                        almuerzo_inicio = ?, almuerzo_fin = ?
+                    WHERE negocio_id = ? AND dia_semana = ?
+                '''
+                execute_sql(cursor, sql, (
+                    horario['activo'], 
+                    horario['hora_inicio'], 
+                    horario['hora_fin'],
+                    almuerzo_inicio,
+                    almuerzo_fin,
+                    negocio_id, 
+                    horario['dia_id']
+                ))
+            else:
+                # Insertar nuevo registro
+                sql = '''
+                    INSERT INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                '''
+                execute_sql(cursor, sql, (
+                    negocio_id, 
+                    horario['dia_id'],
+                    horario['activo'], 
+                    horario['hora_inicio'], 
+                    horario['hora_fin'],
+                    almuerzo_inicio,
+                    almuerzo_fin
+                ))
         
-        # Para PostgreSQL, las columnas ya se crearon con las tablas
         conn.commit()
-        print("✅ Esquema de base de datos actualizado/verificado")
+        return True
         
     except Exception as e:
-        print(f"⚠️ Error actualizando esquema: {e}")
-        # No hacer rollback, permitir que continúe
+        print(f"❌ Error actualizando configuración: {e}")
+        conn.rollback()
+        return False
     finally:
         conn.close()
 
-# =============================================================================
-# FUNCIONES DE UTILIDAD PARA HORARIOS
-# =============================================================================
-
-def es_horario_almuerzo(hora, config):
-    """Verificar si es horario de almuerzo"""
-    if not config.get('almuerzo_inicio') or not config.get('almuerzo_fin'):
-        return False
-        
-    almuerzo_ini = datetime.strptime(config['almuerzo_inicio'], '%H:%M')
-    almuerzo_fin = datetime.strptime(config['almuerzo_fin'], '%H:%M')
-    hora_time = hora.time()
-    
-    return almuerzo_ini.time() <= hora_time < almuerzo_fin.time()
-
-def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config):
-    """Verificar si un horario está disponible"""
-    hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
-    
-    # Verificar que no se pase del horario de cierre
-    hora_fin_jornada = datetime.strptime(config['hora_fin'], '%H:%M')
-    if hora_fin_servicio.time() > hora_fin_jornada.time():
-        return False
-    
-    # Verificar que no interfiera con horario de almuerzo
-    if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config):
-        return False
-    
-    # Verificar que no se solape con otras citas
-    for cita_ocupada in citas_ocupadas:
-        hora_cita = datetime.strptime(cita_ocupada[0], '%H:%M')
-        duracion_cita = cita_ocupada[1]
-        hora_fin_cita = hora_cita + timedelta(minutes=duracion_cita)
-        
-        if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-            return False
-    
-    return True
-
-def se_solapa_con_almuerzo(hora_inicio, hora_fin, config):
-    """Verificar si un horario se solapa con el almuerzo"""
-    if not config.get('almuerzo_inicio') or not config.get('almuerzo_fin'):
-        return False
-        
-    almuerzo_ini = datetime.strptime(config['almuerzo_inicio'], '%H:%M')
-    almuerzo_fin = datetime.strptime(config['almuerzo_fin'], '%H:%M')
-    
-    return (hora_inicio.time() < almuerzo_fin.time() and 
-            hora_fin.time() > almuerzo_ini.time())
-
-def se_solapan(inicio1, fin1, inicio2, fin2):
-    """Verificar si dos intervalos de tiempo se solapan"""
-    return (inicio1.time() < fin2.time() and 
-            fin1.time() > inicio2.time())
 
 # =============================================================================
 # ESTADÍSTICAS
@@ -2177,26 +1420,40 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
     cursor = conn.cursor()
     
     # Construir consulta base
-    query = '''
-        SELECT 
-            COUNT(*) as total_citas,
-            SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
-            SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
-            SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
-            SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as citas_pendientes,
-            SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END) as ingresos_totales
-        FROM citas c
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.negocio_id = ? AND strftime('%m', c.fecha) = ? AND strftime('%Y', c.fecha) = ?
-    '''
+    if is_postgresql():
+        query = '''
+            SELECT 
+                COUNT(*) as total_citas,
+                SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
+                SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as citas_pendientes,
+                SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END) as ingresos_totales
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = %s AND EXTRACT(MONTH FROM c.fecha) = %s AND EXTRACT(YEAR FROM c.fecha) = %s
+        '''
+    else:
+        query = '''
+            SELECT 
+                COUNT(*) as total_citas,
+                SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
+                SUM(CASE WHEN estado = 'pendiente' THEN 1 ELSE 0 END) as citas_pendientes,
+                SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END) as ingresos_totales
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = ? AND strftime('%m', c.fecha) = ? AND strftime('%Y', c.fecha) = ?
+        '''
     
-    params = [negocio_id, f"{mes:02d}", str(año)]
+    params = [negocio_id, mes, año]
     
     if profesional_id:
         query += ' AND c.profesional_id = ?'
         params.append(profesional_id)
     
-    cursor.execute(query, params)
+    execute_sql(cursor, query, params)
     stats = cursor.fetchone()
     
     # Calcular tasa de éxito
@@ -2219,23 +1476,21 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
     conn.close()
     return estadisticas
 
+
 # =============================================================================
 # FUNCIONES PARA RECORDATORIOS Y NOTIFICACIONES
 # =============================================================================
 
 def obtener_citas_proximas_recordatorio():
-    """Obtener citas próximas para recordatorios - VERSIÓN POSTGRESQL CORREGIDA"""
-    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-    
+    """Obtener citas próximas para recordatorios"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     # Citas en 24 horas
     fecha_24h = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d')
     
-    if is_postgresql:
-        # ✅ CONSULTA CORREGIDA PARA POSTGRESQL
-        cursor.execute('''
+    if is_postgresql():
+        sql = '''
             SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
                    p.nombre as profesional_nombre, s.nombre as servicio_nombre,
                    s.duracion, s.precio
@@ -2246,10 +1501,9 @@ def obtener_citas_proximas_recordatorio():
             WHERE c.fecha = %s AND c.estado = 'confirmado' 
             AND c.recordatorio_24h_enviado = FALSE
             ORDER BY c.hora
-        ''', (fecha_24h,))
+        '''
     else:
-        # SQLite
-        cursor.execute('''
+        sql = '''
             SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
                    p.nombre as profesional_nombre, s.nombre as servicio_nombre,
                    s.duracion, s.precio
@@ -2260,16 +1514,15 @@ def obtener_citas_proximas_recordatorio():
             WHERE c.fecha = ? AND c.estado = 'confirmado' 
             AND c.recordatorio_24h_enviado = FALSE
             ORDER BY c.hora
-        ''', (fecha_24h,))
+        '''
     
-    citas_24h = [dict(row) for row in cursor.fetchall()]
+    citas_24h = fetch_all(cursor, sql, (fecha_24h,))
     
     # Citas en 1 hora (mismo día)
     fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     
-    if is_postgresql:
-        # ✅ CONSULTA CORREGIDA PARA POSTGRESQL
-        cursor.execute('''
+    if is_postgresql():
+        sql = '''
             SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
                    p.nombre as profesional_nombre, s.nombre as servicio_nombre,
                    s.duracion, s.precio
@@ -2282,10 +1535,9 @@ def obtener_citas_proximas_recordatorio():
             AND c.hora::time BETWEEN (NOW() + INTERVAL '55 minutes')::time 
                                AND (NOW() + INTERVAL '65 minutes')::time
             ORDER BY c.hora
-        ''', (fecha_hoy,))
+        '''
     else:
-        # SQLite
-        cursor.execute('''
+        sql = '''
             SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
                    p.nombre as profesional_nombre, s.nombre as servicio_nombre,
                    s.duracion, s.precio
@@ -2297,9 +1549,9 @@ def obtener_citas_proximas_recordatorio():
             AND c.recordatorio_1h_enviado = FALSE
             AND TIME(c.hora) BETWEEN TIME('now', '+55 minutes') AND TIME('now', '+65 minutes')
             ORDER BY c.hora
-        ''', (fecha_hoy,))
+        '''
     
-    citas_1h = [dict(row) for row in cursor.fetchall()]
+    citas_1h = fetch_all(cursor, sql, (fecha_hoy,))
     
     conn.close()
     
@@ -2308,37 +1560,19 @@ def obtener_citas_proximas_recordatorio():
         'citas_1h': citas_1h
     }
 
+
 def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
-    """Marcar recordatorio como enviado - VERSIÓN POSTGRESQL CORREGIDA"""
-    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
-    
+    """Marcar recordatorio como enviado"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         if tipo_recordatorio == '24h':
-            if is_postgresql:
-                cursor.execute('''
-                    UPDATE citas SET recordatorio_24h_enviado = TRUE 
-                    WHERE id = %s
-                ''', (cita_id,))
-            else:
-                cursor.execute('''
-                    UPDATE citas SET recordatorio_24h_enviado = TRUE 
-                    WHERE id = ?
-                ''', (cita_id,))
+            sql = 'UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = ?'
         elif tipo_recordatorio == '1h':
-            if is_postgresql:
-                cursor.execute('''
-                    UPDATE citas SET recordatorio_1h_enviado = TRUE 
-                    WHERE id = %s
-                ''', (cita_id,))
-            else:
-                cursor.execute('''
-                    UPDATE citas SET recordatorio_1h_enviado = TRUE 
-                    WHERE id = ?
-                ''', (cita_id,))
+            sql = 'UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = ?'
         
+        execute_sql(cursor, sql, (cita_id,))
         conn.commit()
         return True
     except Exception as e:
@@ -2346,48 +1580,3 @@ def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
         return False
     finally:
         conn.close()
-
-# =============================================================================
-# FUNCIONES PARA ADMINISTRADOR
-# =============================================================================
-def limpiar_registros_duplicados_horarios(negocio_id):
-    """Eliminar registros duplicados en configuracion_horarios"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            DELETE FROM configuracion_horarios 
-            WHERE id NOT IN (
-                SELECT MAX(id) 
-                FROM configuracion_horarios 
-                WHERE negocio_id = ? 
-                GROUP BY dia_semana
-            ) AND negocio_id = ?
-        ''', (negocio_id, negocio_id))
-        
-        conn.commit()
-        conn.close()
-        print(f"✅ Registros duplicados eliminados para negocio {negocio_id}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error limpiando registros duplicados: {e}")
-        return False
-
-def obtener_usuarios_todos():
-    """Obtener todos los usuarios del sistema"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT u.*, n.nombre as negocio_nombre
-        FROM usuarios u
-        JOIN negocios n ON u.negocio_id = n.id
-        ORDER BY u.fecha_creacion DESC
-    ''')
-    
-    usuarios = cursor.fetchall()
-    conn.close()
-    
-    return [dict(usuario) for usuario in usuarios]

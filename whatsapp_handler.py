@@ -1,13 +1,11 @@
 from flask import Blueprint, request
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
-import sqlite3
 from datetime import datetime, timedelta
 import database as db
 import json
 import os
 from dotenv import load_dotenv
-import database
 
 load_dotenv()
 
@@ -17,11 +15,11 @@ whatsapp_bp = Blueprint('whatsapp', __name__)
 conversaciones_activas = {}
 
 # =============================================================================
-# MOTOR DE PLANTILLAS (CORREGIDO)
+# MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL)
 # =============================================================================
 
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
-    """Motor principal de plantillas - CORREGIDO"""
+    """Motor principal de plantillas - CORREGIDO PARA POSTGRESQL"""
     try:
         # Obtener plantilla de la base de datos
         plantilla_data = db.obtener_plantilla(negocio_id, nombre_plantilla)
@@ -45,7 +43,7 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
             return "❌ Error: Negocio no encontrado"
         
         # Cargar configuración del negocio
-        config_json = negocio['configuracion'] if 'configuracion' in negocio.keys() else '{}'
+        config_json = negocio['configuracion'] if 'configuracion' in negocio else '{}'
         try:
             config = json.loads(config_json)
         except:
@@ -97,12 +95,12 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
         return f"❌ Error al procesar plantilla '{nombre_plantilla}'"
 
 # =============================================================================
-# WEBHOOK PRINCIPAL (CORREGIDO)
+# WEBHOOK PRINCIPAL (CORREGIDO PARA POSTGRESQL)
 # =============================================================================
 
 @whatsapp_bp.route('/webhook', methods=['POST'])
 def webhook_whatsapp():
-    """Webhook principal para WhatsApp - CON DEBUGGING"""
+    """Webhook principal para WhatsApp - CON DEBUGGING Y POSTGRESQL"""
     try:
         # Obtener datos del mensaje
         incoming_msg = request.values.get('Body', '').strip()
@@ -159,7 +157,7 @@ def webhook_whatsapp():
         return str(resp)
 
 # =============================================================================
-# LÓGICA PRINCIPAL DE MENSAJES (MEJORADA)
+# LÓGICA PRINCIPAL DE MENSAJES (MEJORADA PARA POSTGRESQL)
 # =============================================================================
 
 def procesar_mensaje(mensaje, numero, negocio_id):
@@ -239,9 +237,8 @@ def saludo_inicial(numero, negocio_id):
         print(f"❌ Error en saludo_inicial: {e}")
         return renderizar_plantilla('error_generico', negocio_id)
 
-
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - CORREGIDO"""
+    """Mostrar lista de profesionales disponibles - CORREGIDO PARA POSTGRESQL"""
     try:
         print(f"🔧 [DEBUG] MOSTRAR_PROFESIONALES - Iniciando")
         print(f"🔧 [DEBUG] Parámetros - Negocio: {negocio_id}, Cliente: {numero}")
@@ -311,7 +308,7 @@ Responde con el *número* del {texto_profesional} que prefieres:
         return renderizar_plantilla('error_generico', negocio_id)
     
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CORREGIDO"""
+    """Mostrar servicios disponibles - CORREGIDO PARA POSTGRESQL"""
     try:
         # ✅ CORRECCIÓN: Usar la función que existe y filtrar activos
         print(f"🔧 [DEBUG] Llamando a db.obtener_servicios...")
@@ -329,7 +326,6 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         if not servicios:
             return "❌ No hay servicios disponibles en este momento."
         
-        # El resto del código permanece igual...
         # Construir lista de servicios
         lista_servicios = ""
         for i, servicio in enumerate(servicios, 1):
@@ -355,61 +351,9 @@ Responde con el *número* del servicio que deseas:
     except Exception as e:
         print(f"❌ [DEBUG] Error en mostrar_servicios: {e}")
         return renderizar_plantilla('error_generico', negocio_id)
-    
-def verificar_configuracion_horarios_completa(negocio_id):
-    """Diagnóstico completo de la configuración de horarios"""
-    try:
-        print(f"🔍 [DIAGNÓSTICO HORARIOS] Verificando configuración para negocio {negocio_id}")
-        
-        # 1. Verificar tabla configuracion_horarios
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='configuracion_horarios'")
-        tabla_existe = cursor.fetchone()
-        print(f"🔍 [DIAGNÓSTICO] Tabla 'configuracion_horarios' existe: {bool(tabla_existe)}")
-        
-        if not tabla_existe:
-            print(f"🔍 [DIAGNÓSTICO] ❌ La tabla configuracion_horarios NO existe")
-            conn.close()
-            return False
-        
-        # 2. Verificar registros existentes
-        cursor.execute('SELECT COUNT(*) FROM configuracion_horarios WHERE negocio_id = ?', (negocio_id,))
-        count = cursor.fetchone()[0]
-        print(f"🔍 [DIAGNÓSTICO] Registros existentes: {count}")
-        
-        # 3. Mostrar configuración actual
-        cursor.execute('''
-            SELECT dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin 
-            FROM configuracion_horarios WHERE negocio_id = ? ORDER BY dia_semana
-        ''', (negocio_id,))
-        
-        horarios = cursor.fetchall()
-        print(f"🔍 [DIAGNÓSTICO] Configuración actual:")
-        for dia, activo, inicio, fin, alm_ini, alm_fin in horarios:
-            estado = "✅ ACTIVO" if activo else "❌ INACTIVO"
-            almuerzo = f" | Almuerzo: {alm_ini}-{alm_fin}" if alm_ini and alm_fin else ""
-            print(f"🔍 [DIAGNÓSTICO] - Día {dia}: {estado} ({inicio} - {fin}){almuerzo}")
-        
-        conn.close()
-        
-        # 4. Verificar funcionamiento para próximos días
-        print(f"🔍 [DIAGNÓSTICO] Verificando disponibilidad próximos 7 días:")
-        for i in range(7):
-            fecha = (datetime.now() + timedelta(days=i)).strftime('%Y-%m-%d')
-            horario_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
-            estado = "✅ DISPONIBLE" if horario_dia.get('activo') else "❌ NO DISPONIBLE"
-            print(f"🔍 [DIAGNÓSTICO] - {fecha}: {estado}")
-            
-        return True
-        
-    except Exception as e:
-        print(f"❌ [DIAGNÓSTICO] Error en verificación de horarios: {e}")
-        return False
 
 def mostrar_fechas_disponibles(numero, negocio_id):
-    """Mostrar fechas disponibles para agendar"""
+    """Mostrar fechas disponibles para agendar - POSTGRESQL"""
     try:
         # Obtener próximas fechas donde el negocio está activo
         fechas_disponibles = obtener_proximas_fechas_disponibles(negocio_id)
@@ -440,7 +384,7 @@ Responde con el *número* de la fecha que prefieres:
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
-    """Mostrar horarios disponibles para una fecha específica - VERSIÓN MEJORADA"""
+    """Mostrar horarios disponibles para una fecha específica - VERSIÓN MEJORADA PARA POSTGRESQL"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if not fecha_seleccionada:
@@ -544,17 +488,18 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
 {opciones_navegacion}'''
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - USANDO PLANTILLAS"""
+    """Mostrar citas del cliente - USANDO PLANTILLAS Y POSTGRESQL"""
     try:
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
+        # ✅ CORRECCIÓN: Consulta PostgreSQL
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.cliente_telefono = ? AND c.negocio_id = ? AND c.fecha >= date('now')
+            WHERE c.cliente_telefono = %s AND c.negocio_id = %s AND c.fecha >= CURRENT_DATE
             ORDER BY c.fecha, c.hora
         ''', (numero, negocio_id))
         
@@ -568,8 +513,9 @@ def mostrar_mis_citas(numero, negocio_id):
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
         respuesta = f"📋 *Tus citas programadas* - {nombre_cliente}:\n\n"
         
-        for id_cita, fecha, hora, servicio, estado, profesional_nombre in citas:
-            fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+        for cita in citas:
+            id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
+            fecha_str = datetime.strptime(str(fecha), '%Y-%m-%d').strftime('%d/%m')
             emoji = "✅" if estado == 'confirmado' else "❌"
             respuesta += f"{emoji} *{fecha_str}* - {hora}\n"
             respuesta += f"   👨‍💼 {profesional_nombre} - {servicio}\n"
@@ -585,17 +531,18 @@ def mostrar_mis_citas(numero, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_citas_para_cancelar(numero, negocio_id):
-    """Mostrar citas que pueden ser canceladas - MEJORADO"""
+    """Mostrar citas que pueden ser canceladas - MEJORADO PARA POSTGRESQL"""
     try:
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
+        # ✅ CORRECCIÓN: Consulta PostgreSQL
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, p.nombre as profesional_nombre, s.nombre as servicio_nombre
             FROM citas c
             JOIN profesionales p ON c.profesional_id = p.id
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.cliente_telefono = ? AND c.negocio_id = ? AND c.fecha >= date('now') AND c.estado = 'confirmado'
+            WHERE c.cliente_telefono = %s AND c.negocio_id = %s AND c.fecha >= CURRENT_DATE AND c.estado = 'confirmado'
             ORDER BY c.fecha, c.hora
         ''', (numero, negocio_id))
         
@@ -617,8 +564,9 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
         respuesta = f"❌ *Citas para cancelar* - {nombre_cliente}:\n\n"
         
-        for id_cita, fecha, hora, profesional_nombre, servicio_nombre in citas:
-            fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+        for cita in citas:
+            id_cita, fecha, hora, profesional_nombre, servicio_nombre = cita
+            fecha_str = datetime.strptime(str(fecha), '%Y-%m-%d').strftime('%d/%m')
             respuesta += f"📅 {fecha_str} - {hora}\n"
             respuesta += f"   👨‍💼 {profesional_nombre} - {servicio_nombre}\n"
             respuesta += f"   🎫 ID: #{id_cita}\n\n"
@@ -644,7 +592,7 @@ def mostrar_ayuda(negocio_id):
     return renderizar_plantilla('ayuda_general', negocio_id)
 
 # =============================================================================
-# LÓGICA DE CONVERSACIÓN CONTINUA (MEJORADA)
+# LÓGICA DE CONVERSACIÓN CONTINUA (MEJORADA PARA POSTGRESQL)
 # =============================================================================
 
 def continuar_conversacion(numero, mensaje, negocio_id):
@@ -687,7 +635,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
-    """Procesar nombre del cliente nuevo - MEJORADO"""
+    """Procesar nombre del cliente nuevo - MEJORADO PARA POSTGRESQL"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -710,11 +658,11 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id FROM profesionales WHERE negocio_id = ? AND activo = 1 LIMIT 1', (negocio_id,))
+        cursor.execute('SELECT id FROM profesionales WHERE negocio_id = %s AND activo = true LIMIT 1', (negocio_id,))
         profesional = cursor.fetchone()
         profesional_id = profesional[0] if profesional else 1
         
-        cursor.execute('SELECT id FROM servicios WHERE negocio_id = ? AND activo = 1 LIMIT 1', (negocio_id,))
+        cursor.execute('SELECT id FROM servicios WHERE negocio_id = %s AND activo = true LIMIT 1', (negocio_id,))
         servicio = cursor.fetchone()
         servicio_id = servicio[0] if servicio else 1
         
@@ -729,7 +677,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
             # ✅ CORRECCIÓN IMPORTANTE: Actualizar el estado a 'completado' para que no aparezca en listados
             conn = db.get_db_connection()
             cursor = conn.cursor()
-            cursor.execute('UPDATE citas SET estado = "completado" WHERE id = ?', (cita_id,))
+            cursor.execute('UPDATE citas SET estado = %s WHERE id = %s', ('completado', cita_id))
             conn.commit()
             conn.close()
             print(f"✅ DEBUG: Cita marcada como completada")
@@ -992,7 +940,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return "❌ Agendamiento cancelado. Si necesitas algo más, ¡estaré aquí!"
 
 def procesar_cancelacion_cita(numero, mensaje, negocio_id):
-    """Procesar cancelación de cita - MEJORADO"""
+    """Procesar cancelación de cita - MEJORADO PARA POSTGRESQL"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -1020,8 +968,8 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('UPDATE citas SET estado = "cancelado" WHERE id = ? AND negocio_id = ?', 
-                      (cita_id, negocio_id))
+        cursor.execute('UPDATE citas SET estado = %s WHERE id = %s AND negocio_id = %s', 
+                      ('cancelado', cita_id, negocio_id))
         
         conn.commit()
         conn.close()
@@ -1032,7 +980,7 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         
         # Usar plantilla para mensaje de cancelación
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-        fecha_str = datetime.strptime(cita_info[1], '%Y-%m-%d').strftime('%d/%m')
+        fecha_str = datetime.strptime(str(cita_info[1]), '%Y-%m-%d').strftime('%d/%m')
         
         return renderizar_plantilla('cita_cancelada', negocio_id, {
             'cliente_nombre': nombre_cliente,
@@ -1047,7 +995,7 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def procesar_cancelacion_directa(numero, cita_id, negocio_id):
-    """Procesar cancelación cuando solo hay una cita - GENÉRICO"""
+    """Procesar cancelación cuando solo hay una cita - GENÉRICO PARA POSTGRESQL"""
     if cita_id == '0':
         clave_conversacion = f"{numero}_{negocio_id}"
         if clave_conversacion in conversaciones_activas:
@@ -1058,8 +1006,8 @@ def procesar_cancelacion_directa(numero, cita_id, negocio_id):
     conn = db.get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('UPDATE citas SET estado = "cancelado" WHERE id = ? AND negocio_id = ?', 
-                  (cita_id, negocio_id))
+    cursor.execute('UPDATE citas SET estado = %s WHERE id = %s AND negocio_id = %s', 
+                  ('cancelado', cita_id, negocio_id))
     
     conn.commit()
     conn.close()
@@ -1073,11 +1021,11 @@ Hola {nombre_cliente}, has cancelado tu cita (ID: #{cita_id}).
 Esperamos verte pronto en otra ocasión.'''
 
 # =============================================================================
-# FUNCIONES AUXILIARES (MANTENIDAS)
+# FUNCIONES AUXILIARES (CONVERTIDAS A POSTGRESQL)
 # =============================================================================
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
-    """Obtener las próximas fechas donde el negocio está activo - VERSIÓN MEJORADA"""
+    """Obtener las próximas fechas donde el negocio está activo - VERSIÓN MEJORADA PARA POSTGRESQL"""
     fechas_disponibles = []
     fecha_actual = datetime.now()
     
@@ -1132,7 +1080,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - VERSIÓN MEJORADA"""
+    """Generar horarios disponibles considerando la configuración por días - VERSIÓN MEJORADA PARA POSTGRESQL"""
     print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
@@ -1309,7 +1257,7 @@ def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
 
 def enviar_mensaje_whatsapp(destino, mensaje):
     """Enviar mensaje de WhatsApp usando Twilio"""
-    # Configuración Twilio (la misma que ya está arriba)
+    # Configuración Twilio
     TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
     TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
     TWILIO_WHATSAPP_NUMBER = os.getenv('TWILIO_WHATSAPP_NUMBER')
@@ -1336,7 +1284,7 @@ def enviar_mensaje_whatsapp(destino, mensaje):
         return False
 
 # =============================================================================
-# FUNCIONES PARA RECORDATORIOS AUTOMÁTICOS
+# FUNCIONES PARA RECORDATORIOS AUTOMÁTICOS (POSTGRESQL)
 # =============================================================================
 
 def enviar_recordatorio_24h(cita):
@@ -1346,10 +1294,10 @@ def enviar_recordatorio_24h(cita):
         cliente_telefono = cita['cliente_telefono']
         
         # Obtener plantilla de recordatorio
-        plantilla = database.obtener_plantilla(negocio_id, 'recordatorio_24h')
-        if not plantilla:
+        plantilla_data = db.obtener_plantilla(negocio_id, 'recordatorio_24h')
+        if not plantilla_data:
             # Plantilla por defecto si no existe
-            plantilla = '''
+            plantilla_texto = '''
 ⏰ *RECORDATORIO - {nombre_negocio}*
 
 ¡Hola {cliente_nombre}! 
@@ -1370,9 +1318,11 @@ Te recordamos que tienes una cita programada para mañana:
 
 ¡Te esperamos!
             '''
+        else:
+            plantilla_texto = plantilla_data.get('plantilla', '')
         
         # Obtener configuración del negocio
-        negocio = database.obtener_negocio_por_id(negocio_id)
+        negocio = db.obtener_negocio_por_id(negocio_id)
         config = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
         
         # Preparar variables para la plantilla
@@ -1388,10 +1338,14 @@ Te recordamos que tienes una cita programada para mañana:
         }
         
         # Formatear mensaje
-        mensaje = plantilla.format(**variables)
+        mensaje_final = plantilla_texto
+        for key, value in variables.items():
+            placeholder = f"{{{key}}}"
+            if placeholder in mensaje_final:
+                mensaje_final = mensaje_final.replace(placeholder, str(value))
         
         # Enviar mensaje
-        enviar_mensaje_whatsapp(cliente_telefono, mensaje)
+        enviar_mensaje_whatsapp(cliente_telefono, mensaje_final)
         
         print(f"✅ Recordatorio 24h enviado a {cliente_telefono}")
         return True
@@ -1407,10 +1361,10 @@ def enviar_recordatorio_1h(cita):
         cliente_telefono = cita['cliente_telefono']
         
         # Obtener plantilla de recordatorio
-        plantilla = database.obtener_plantilla(negocio_id, 'recordatorio_1h')
-        if not plantilla:
+        plantilla_data = db.obtener_plantilla(negocio_id, 'recordatorio_1h')
+        if not plantilla_data:
             # Plantilla por defecto si no existe
-            plantilla = '''
+            plantilla_texto = '''
 🔔 *RECORDATORIO INMEDIATO - {nombre_negocio}*
 
 ¡Hola {cliente_nombre}! 
@@ -1429,9 +1383,11 @@ Tu cita es en aproximadamente 1 hora:
 
 ¡Nos vemos pronto!
             '''
+        else:
+            plantilla_texto = plantilla_data.get('plantilla', '')
         
         # Obtener configuración del negocio
-        negocio = database.obtener_negocio_por_id(negocio_id)
+        negocio = db.obtener_negocio_por_id(negocio_id)
         config = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
         
         # Preparar variables para la plantilla
@@ -1445,10 +1401,14 @@ Tu cita es en aproximadamente 1 hora:
         }
         
         # Formatear mensaje
-        mensaje = plantilla.format(**variables)
+        mensaje_final = plantilla_texto
+        for key, value in variables.items():
+            placeholder = f"{{{key}}}"
+            if placeholder in mensaje_final:
+                mensaje_final = mensaje_final.replace(placeholder, str(value))
         
         # Enviar mensaje
-        enviar_mensaje_whatsapp(cliente_telefono, mensaje)
+        enviar_mensaje_whatsapp(cliente_telefono, mensaje_final)
         
         print(f"✅ Recordatorio 1h enviado a {cliente_telefono}")
         return True
@@ -1464,14 +1424,14 @@ def notificar_profesional_nueva_cita(cita):
         profesional_id = cita['profesional_id']
         
         # Obtener información del profesional
-        profesional = database.obtener_profesional_por_id(profesional_id, negocio_id)
+        profesional = db.obtener_profesional_por_id(profesional_id, negocio_id)
         if not profesional or not profesional.get('telefono'):
             return False
         
         telefono_profesional = profesional['telefono']
         
         # Plantilla de notificación para profesionales
-        plantilla = '''
+        plantilla_texto = '''
 📋 *NUEVA CITA AGENDADA*
 
 Tienes una nueva cita programada:
@@ -1497,10 +1457,14 @@ Tienes una nueva cita programada:
         }
         
         # Formatear mensaje
-        mensaje = plantilla.format(**variables)
+        mensaje_final = plantilla_texto
+        for key, value in variables.items():
+            placeholder = f"{{{key}}}"
+            if placeholder in mensaje_final:
+                mensaje_final = mensaje_final.replace(placeholder, str(value))
         
         # Enviar mensaje al profesional
-        enviar_mensaje_whatsapp(telefono_profesional, mensaje)
+        enviar_mensaje_whatsapp(telefono_profesional, mensaje_final)
         
         print(f"✅ Notificación enviada al profesional {profesional['nombre']}")
         return True
