@@ -2787,16 +2787,17 @@ def debug_session():
 # INICIALIZACIÓN
 # =============================================================================
 
-def initialize_app():
-    """Función de inicialización que se llama una sola vez"""
-    print("🚀 INICIALIZANDO APLICACIÓN...")
-    
+# SOLO inicializar cuando se ejecute directamente con Flask (no con Gunicorn)
+if __name__ == '__main__':
     # Inicializar base de datos
+    db.init_db()
+    
     try:
-        db.init_db()
-        print("✅ Base de datos inicializada")
+        from database import migrar_hashes_automatico
+        migrar_hashes_automatico()
+        print("✅ Hashes migrados automáticamente")
     except Exception as e:
-        print(f"⚠️ Error en init_db: {e}")
+        print(f"⚠️ Error en migración automática: {e}")
 
     # Iniciar scheduler en hilo separado
     try:
@@ -2806,14 +2807,7 @@ def initialize_app():
         print("✅ Scheduler de recordatorios iniciado en segundo plano")
     except Exception as e:
         print(f"⚠️ No se pudo iniciar el scheduler: {e}")
-
-# Llamar inicialización solo cuando se ejecute directamente con Flask
-if __name__ == '__main__':
-    initialize_app()
+    
+    # Iniciar aplicación
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-else:
-    # Para Gunicorn, inicializar en el primer request
-    @app.before_first_request
-    def initialize_on_first_request():
-        initialize_app()
