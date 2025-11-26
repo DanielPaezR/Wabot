@@ -51,7 +51,7 @@ def get_db_connection():
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos con manejo robusto de errores"""
+    """Inicializar base de datos con manejo robusto de errores - VERSIÓN MEJORADA"""
     print("🔧 INICIANDO INIT_DB - CREANDO ESQUEMA...")
     
     conn = None
@@ -72,27 +72,39 @@ def init_db():
         _crear_tablas(cursor)
         print("✅ Tablas creadas/verificadas")
         
-        # Insertar datos por defecto
-        _insertar_datos_por_defecto(cursor)
-        print("✅ Datos por defecto insertados")
+        # Insertar datos por defecto (con manejo de errores mejorado)
+        try:
+            _insertar_datos_por_defecto(cursor)
+            print("✅ Datos por defecto insertados")
+        except Exception as e:
+            print(f"⚠️ Error no crítico en datos por defecto: {e}")
+            # Continuar incluso si hay errores de inserción
         
         conn.commit()
         print("✅ Commit realizado")
         
         # Crear plantillas
-        crear_plantillas_personalizadas_para_negocios()
-        print("✅ Plantillas personalizadas creadas")
+        try:
+            crear_plantillas_personalizadas_para_negocios()
+            print("✅ Plantillas personalizadas creadas")
+        except Exception as e:
+            print(f"⚠️ Error creando plantillas: {e}")
         
         print("🎉 BASE DE DATOS INICIALIZADA COMPLETAMENTE")
         
     except Exception as e:
         print(f"❌ Error en init_db: {e}")
-        # En PostgreSQL, algunos errores son normales (tablas ya existen)
-        if "already exists" not in str(e) and "duplicate" not in str(e) and "exists" not in str(e):
-            print(f"🚨 ERROR CRÍTICO: {e}")
-            # No relanzar el error, continuar con la aplicación
+        # En PostgreSQL, errores de duplicado/ya existen son normales
+        error_str = str(e).lower()
+        non_critical_errors = [
+            'already exists', 'duplicate', 'exists', 
+            'duplicate key', 'unique constraint', 'on conflict'
+        ]
+        
+        if any(err in error_str for err in non_critical_errors):
+            print("⚠️ Error no crítico (tablas/datos probablemente ya existen)")
         else:
-            print("⚠️ Error no crítico (tablas probablemente ya existen)")
+            print(f"🚨 ERROR CRÍTICO: {e}")
     finally:
         if conn:
             conn.close()
@@ -315,75 +327,90 @@ def _crear_tablas(cursor):
     cursor.execute(prof_servicios_sql)
 
 def _insertar_datos_por_defecto(cursor):
-    """Insertar datos por defecto en las tablas - VERSIÓN POSTGRESQL COMPATIBLE"""
+    """Insertar datos por defecto en las tablas - VERSIÓN POSTGRESQL CORREGIDA"""
     is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
     
-    # Negocio por defecto
-    if is_postgresql:
-        cursor.execute('''
-            INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO NOTHING
-        ''', (
-            1, 
-            'Negocio Premium', 
-            'whatsapp:+14155238886', 
-            'general', 
-            json.dumps({
-                "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
-                "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
-                "direccion": "Calle Principal #123",
-                "telefono_contacto": "+573001234567",
-                "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
-            })
-        ))
-    else:
-        cursor.execute('''
-            INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-            VALUES (?, ?, ?, ?, ?)
-        ''', (
-            1, 
-            'Negocio Premium', 
-            'whatsapp:+14155238886', 
-            'general', 
-            json.dumps({
-                "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
-                "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
-                "direccion": "Calle Principal #123",
-                "telefono_contacto": "+573001234567",
-                "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
-            })
-        ))
-    
-    print("✅ Negocio por defecto insertado")
-    
-    # Usuarios por defecto
-    _insertar_usuarios_por_defecto(cursor, is_postgresql)
-    
-    # Plantillas base
-    _insertar_plantillas_base(cursor, is_postgresql)
-    
-    # Configuración
-    if is_postgresql:
-        cursor.execute('''
-            INSERT INTO configuracion (negocio_id) 
-            VALUES (%s)
-            ON CONFLICT (negocio_id) DO NOTHING
-        ''', (1,))
-    else:
-        cursor.execute('INSERT OR IGNORE INTO configuracion (negocio_id) VALUES (1)')
-    
-    # Configuración de horarios
-    _insertar_configuracion_horarios(cursor, is_postgresql)
-    
-    # Profesionales por defecto
-    _insertar_profesionales_por_defecto(cursor, is_postgresql)
-    
-    # Servicios por defecto
-    _insertar_servicios_por_defecto(cursor, is_postgresql)
+    try:
+        # Negocio por defecto - VERIFICAR PRIMERO SI EXISTE
+        if is_postgresql:
+            cursor.execute('SELECT id FROM negocios WHERE id = 1')
+            negocio_existe = cursor.fetchone()
+            
+            if not negocio_existe:
+                cursor.execute('''
+                    INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (
+                    1, 
+                    'Negocio Premium', 
+                    'whatsapp:+14155238886', 
+                    'general', 
+                    json.dumps({
+                        "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
+                        "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
+                        "direccion": "Calle Principal #123",
+                        "telefono_contacto": "+573001234567",
+                        "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
+                    })
+                ))
+                print("✅ Negocio por defecto insertado")
+            else:
+                print("⚠️ Negocio por defecto ya existe, saltando inserción")
+        else:
+            cursor.execute('''
+                INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                1, 
+                'Negocio Premium', 
+                'whatsapp:+14155238886', 
+                'general', 
+                json.dumps({
+                    "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
+                    "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
+                    "direccion": "Calle Principal #123",
+                    "telefono_contacto": "+573001234567",
+                    "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
+                })
+            ))
+            print("✅ Negocio por defecto insertado")
+        
+        # Usuarios por defecto
+        _insertar_usuarios_por_defecto(cursor, is_postgresql)
+        
+        # Plantillas base
+        _insertar_plantillas_base(cursor, is_postgresql)
+        
+        # Configuración - VERIFICAR SI EXISTE
+        if is_postgresql:
+            cursor.execute('SELECT id FROM configuracion WHERE negocio_id = 1')
+            config_existe = cursor.fetchone()
+            if not config_existe:
+                cursor.execute('INSERT INTO configuracion (negocio_id) VALUES (1)')
+                print("✅ Configuración por defecto insertada")
+            else:
+                print("⚠️ Configuración ya existe, saltando inserción")
+        else:
+            cursor.execute('INSERT OR IGNORE INTO configuracion (negocio_id) VALUES (1)')
+            print("✅ Configuración por defecto insertada")
+        
+        # Configuración de horarios
+        _insertar_configuracion_horarios(cursor, is_postgresql)
+        
+        # Profesionales por defecto
+        _insertar_profesionales_por_defecto(cursor, is_postgresql)
+        
+        # Servicios por defecto
+        _insertar_servicios_por_defecto(cursor, is_postgresql)
+        
+    except Exception as e:
+        print(f"⚠️ Error insertando datos por defecto: {e}")
+        # En PostgreSQL, errores de duplicado son normales
+        if "duplicate key" not in str(e).lower() and "unique constraint" not in str(e).lower():
+            raise e
 
 def _insertar_usuarios_por_defecto(cursor, is_postgresql=False):
-    """Insertar usuarios por defecto usando Werkzeug - VERSIÓN POSTGRESQL COMPATIBLE"""
+    """Insertar usuarios por defecto usando Werkzeug - VERSIÓN POSTGRESQL CORREGIDA"""
     from werkzeug.security import generate_password_hash
     
     usuarios = [
@@ -397,16 +424,24 @@ def _insertar_usuarios_por_defecto(cursor, is_postgresql=False):
         password_hash = generate_password_hash(password)
         
         if is_postgresql:
-            cursor.execute('''
-                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (email) DO NOTHING
-            ''', (negocio_id, nombre, email, password_hash, rol))
+            # Verificar si el usuario ya existe
+            cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
+            usuario_existe = cursor.fetchone()
+            
+            if not usuario_existe:
+                cursor.execute('''
+                    INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (negocio_id, nombre, email, password_hash, rol))
+                print(f"✅ Usuario {email} insertado")
+            else:
+                print(f"⚠️ Usuario {email} ya existe, saltando inserción")
         else:
             cursor.execute('''
                 INSERT OR IGNORE INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
                 VALUES (?, ?, ?, ?, ?)
             ''', (negocio_id, nombre, email, password_hash, rol))
+            print(f"✅ Usuario {email} insertado")
 
 def migrar_hashes_automatico():
     """Migrar automáticamente los hashes al iniciar la app"""
@@ -583,7 +618,7 @@ def _insertar_plantillas_base(cursor, is_postgresql=False):
             ''', (nombre, plantilla, descripcion, variables))
 
 def _insertar_configuracion_horarios(cursor, is_postgresql=False):
-    """Insertar configuración de horarios por día - VERSIÓN POSTGRESQL COMPATIBLE"""
+    """Insertar configuración de horarios por día - VERSIÓN POSTGRESQL CORREGIDA"""
     dias_semana = [
         (0, '09:00', '19:00', '13:00', '14:00'),  # Lunes
         (1, '09:00', '19:00', '13:00', '14:00'),  # Martes
@@ -591,7 +626,7 @@ def _insertar_configuracion_horarios(cursor, is_postgresql=False):
         (3, '09:00', '19:00', '13:00', '14:00'),  # Jueves
         (4, '09:00', '19:00', '13:00', '14:00'),  # Viernes
         (5, '09:00', '19:00', '13:00', '14:00'),  # Sábado
-        (6, '09:00', '13:00', '13:00', '14:00')         # Domingo
+        (6, '09:00', '13:00', None, None)         # Domingo
     ]
     
     # Para cada negocio existente
@@ -606,69 +641,89 @@ def _insertar_configuracion_horarios(cursor, is_postgresql=False):
         negocio_id = negocio[0] if is_postgresql else negocio[0]
         for dia in dias_semana:
             if is_postgresql:
+                # Verificar si ya existe este horario
                 cursor.execute('''
-                    INSERT INTO configuracion_horarios 
-                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (negocio_id, dia_semana) DO NOTHING
-                ''', (negocio_id, dia[0], 1, dia[1], dia[2], dia[3], dia[4]))
+                    SELECT id FROM configuracion_horarios 
+                    WHERE negocio_id = %s AND dia_semana = %s
+                ''', (negocio_id, dia[0]))
+                horario_existe = cursor.fetchone()
+                
+                if not horario_existe:
+                    cursor.execute('''
+                        INSERT INTO configuracion_horarios 
+                        (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ''', (negocio_id, dia[0], 1, dia[1], dia[2], dia[3], dia[4]))
+                    print(f"✅ Horario día {dia[0]} para negocio {negocio_id} insertado")
+                else:
+                    print(f"⚠️ Horario día {dia[0]} para negocio {negocio_id} ya existe, saltando")
             else:
                 cursor.execute('''
                     INSERT OR IGNORE INTO configuracion_horarios 
                     (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
                     VALUES (?, ?, 1, ?, ?, ?, ?)
                 ''', (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
+                print(f"✅ Horario día {dia[0]} para negocio {negocio_id} insertado")
 
 def _insertar_profesionales_por_defecto(cursor, is_postgresql=False):
-    """Insertar profesionales por defecto - VERSIÓN POSTGRESQL COMPATIBLE"""
-    if is_postgresql:
-        cursor.execute('''
-            INSERT INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) VALUES 
-            (%s, %s, %s, %s, %s, %s),
-            (%s, %s, %s, %s, %s, %s),
-            (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO NOTHING
-        ''', (
-            1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3,
-            2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4,
-            3, 1, 'María Profesional', 'Especialista unisex', '9012', None
-        ))
-    else:
-        cursor.execute('''
-            INSERT OR IGNORE INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) VALUES 
-            (1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3),
-            (2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4),
-            (3, 1, 'María Profesional', 'Especialista unisex', '9012', NULL)
-        ''')
+    """Insertar profesionales por defecto - VERSIÓN POSTGRESQL CORREGIDA"""
+    profesionales_data = [
+        (1, 1, 'Carlos Profesional', 'Especialista en servicios clásicos', '1234', 3),
+        (2, 1, 'Ana Profesional', 'Especialista en tratamientos', '5678', 4),
+        (3, 1, 'María Profesional', 'Especialista unisex', '9012', None)
+    ]
+    
+    for prof_data in profesionales_data:
+        if is_postgresql:
+            # Verificar si el profesional ya existe
+            cursor.execute('SELECT id FROM profesionales WHERE id = %s', (prof_data[0],))
+            prof_existe = cursor.fetchone()
+            
+            if not prof_existe:
+                cursor.execute('''
+                    INSERT INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', prof_data)
+                print(f"✅ Profesional {prof_data[2]} insertado")
+            else:
+                print(f"⚠️ Profesional {prof_data[2]} ya existe, saltando inserción")
+        else:
+            cursor.execute('''
+                INSERT OR IGNORE INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', prof_data)
+            print(f"✅ Profesional {prof_data[2]} insertado")
 
 def _insertar_servicios_por_defecto(cursor, is_postgresql=False):
-    """Insertar servicios por defecto - VERSIÓN POSTGRESQL COMPATIBLE"""
-    if is_postgresql:
-        cursor.execute('''
-            INSERT INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) VALUES 
-            (%s, %s, %s, %s, %s, %s),
-            (%s, %s, %s, %s, %s, %s),
-            (%s, %s, %s, %s, %s, %s),
-            (%s, %s, %s, %s, %s, %s),
-            (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO NOTHING
-        ''', (
-            1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar',
-            2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo',
-            3, 1, 'Servicio Premium', 75, 25000, 'Servicio premium',
-            4, 1, 'Servicio Express', 30, 12000, 'Servicio rápido',
-            5, 1, 'Servicio VIP', 90, 30000, 'Servicio exclusivo'
-        ))
-    else:
-        cursor.execute('''
-            INSERT OR IGNORE INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) VALUES 
-            (1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar'),
-            (2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo'),
-            (3, 1, 'Servicio Premium', 75, 25000, 'Servicio premium'),
-            (4, 1, 'Servicio Express', 30, 12000, 'Servicio rápido'),
-            (5, 1, 'Servicio VIP', 90, 30000, 'Servicio exclusivo')
-        ''')
-
+    """Insertar servicios por defecto - VERSIÓN POSTGRESQL CORREGIDA"""
+    servicios_data = [
+        (1, 1, 'Servicio Básico', 45, 15000, 'Servicio estándar'),
+        (2, 1, 'Servicio Completo', 60, 20000, 'Servicio completo'),
+        (3, 1, 'Servicio Premium', 75, 25000, 'Servicio premium'),
+        (4, 1, 'Servicio Express', 30, 12000, 'Servicio rápido'),
+        (5, 1, 'Servicio VIP', 90, 30000, 'Servicio exclusivo')
+    ]
+    
+    for serv_data in servicios_data:
+        if is_postgresql:
+            # Verificar si el servicio ya existe
+            cursor.execute('SELECT id FROM servicios WHERE id = %s', (serv_data[0],))
+            serv_existe = cursor.fetchone()
+            
+            if not serv_existe:
+                cursor.execute('''
+                    INSERT INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', serv_data)
+                print(f"✅ Servicio {serv_data[2]} insertado")
+            else:
+                print(f"⚠️ Servicio {serv_data[2]} ya existe, saltando inserción")
+        else:
+            cursor.execute('''
+                INSERT OR IGNORE INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', serv_data)
+            print(f"✅ Servicio {serv_data[2]} insertado")
 
 
 # =============================================================================
