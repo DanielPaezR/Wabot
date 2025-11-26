@@ -2390,7 +2390,7 @@ def debug_session():
     return jsonify(dict(session))
 
 # =============================================================================
-# RUTA SIMPLE DE DEBUG PARA CONTRASEÑAS
+# RUTAS DE DEBUG PARA CONTRASEÑAS
 # =============================================================================
 
 @app.route('/debug/passwords')
@@ -2400,27 +2400,27 @@ def debug_passwords():
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT id, email, password, nombre FROM usuarios")
+        cursor.execute("SELECT id, email, password_hash, nombre FROM usuarios")
         usuarios = cursor.fetchall()
         conn.close()
         
         resultados = []
         
         for usuario in usuarios:
-            usuario_id, email, password, nombre = usuario
+            usuario_id, email, password_hash, nombre = usuario
             
-            if not password:
+            if not password_hash:
                 estado = "❌ VACÍA"
-            elif password.startswith('$5$') or password.startswith('$6$'):
-                estado = "✅ SHA256_CRYPT"
-            elif password.startswith('pbkdf2:sha256:'):
-                estado = "🔀 WERKZEUG"
-            elif len(password) < 60:
+            elif password_hash.startswith('pbkdf2:sha256:'):
+                estado = "✅ WERKZEUG"
+            elif len(password_hash) == 64:  # SHA256 tiene 64 caracteres
+                estado = "🔐 SHA256"
+            elif len(password_hash) < 60:
                 estado = "🔓 TEXTO PLANO"
             else:
                 estado = "❓ DESCONOCIDO"
             
-            resultados.append(f"{estado} - {email}: {password[:30]}...")
+            resultados.append(f"{estado} - {email}: {password_hash[:30]}...")
         
         return f"""
         <h1>🔧 Estado de Contraseñas</h1>
@@ -2428,51 +2428,99 @@ def debug_passwords():
         <hr>
         <pre>{chr(10).join(resultados)}</pre>
         <hr>
-        <p><strong>Usuarios con TEXTO PLANO necesitan migración</strong></p>
+        <p><strong>Para resetear contraseñas:</strong></p>
+        <p><code>/debug/reset-all-passwords?key=reset2024</code></p>
         """
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-@app.route('/debug/reset-password/<int:usuario_id>')
-def debug_reset_password(usuario_id):
-    """Resetear contraseña de usuario específico a '123456' con sha256_crypt"""
+@app.route('/debug/reset-all-passwords')
+def debug_reset_all_passwords():
+    """Resetear todas las contraseñas a '123456' usando SHA256"""
     try:
         # Clave simple de seguridad
         auth_key = request.args.get('key', '')
         if auth_key != 'reset2024':
-            return "❌ No autorizado. Usa: /debug/reset-password/USUARIO_ID?key=reset2024"
+            return "❌ No autorizado. Usa: /debug/reset-all-passwords?key=reset2024"
         
-        # Generar hash sha256_crypt manualmente (sin passlib)
         import hashlib
-        import secrets
         
-        # Crear un hash similar a sha256_crypt
-        salt = secrets.token_hex(8)
-        password_plain = "123456"
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
         
-        # Hash simple (esto es temporal, deberías instalar passlib después)
-        hash_obj = hashlib.sha256()
-        hash_obj.update(f"{password_plain}{salt}".encode())
-        password_hash = f"sha256${salt}${hash_obj.hexdigest()}"
+        cursor.execute("SELECT id, email, password_hash, nombre FROM usuarios")
+        usuarios = cursor.fetchall()
+        
+        resultados = []
+        actualizados = 0
+        
+        for usuario in usuarios:
+            usuario_id, email, password_hash, nombre = usuario
+            
+            # Generar hash SHA256 de '123456'
+            nueva_password = "123456"
+            nuevo_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
+            
+            # Actualizar contraseña
+            cursor.execute(
+                "UPDATE usuarios SET password_hash = %s WHERE id = %s",
+                (nuevo_hash, usuario_id)
+            )
+            
+            actualizados += 1
+            resultados.append(f"✅ {email}: Reset a '123456'")
+        
+        conn.commit()
+        conn.close()
+        
+        return f"""
+        <h1>✅ Contraseñas Reseteadas</h1>
+        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
+        <p><strong>Contraseñas actualizadas:</strong> {actualizados}</p>
+        <hr>
+        <h3>Resultados:</h3>
+        <pre>{chr(10).join(resultados)}</pre>
+        <hr>
+        <p><strong>Todas las contraseñas ahora son: 123456</strong></p>
+        <p><a href="/login">→ Ir al login</a></p>
+        """
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+@app.route('/debug/reset-user-password/<int:usuario_id>')
+def debug_reset_user_password(usuario_id):
+    """Resetear contraseña de un usuario específico"""
+    try:
+        # Clave simple de seguridad
+        auth_key = request.args.get('key', '')
+        if auth_key != 'reset2024':
+            return "❌ No autorizado. Usa: /debug/reset-user-password/USUARIO_ID?key=reset2024"
+        
+        import hashlib
         
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
         # Verificar que el usuario existe
-        cursor.execute("SELECT email, nombre FROM usuarios WHERE id = %s", (usuario_id,))
+        cursor.execute("SELECT email, nombre, password_hash FROM usuarios WHERE id = %s", (usuario_id,))
         usuario = cursor.fetchone()
         
         if not usuario:
             conn.close()
             return f"❌ Usuario {usuario_id} no encontrado"
         
-        email, nombre = usuario
+        email, nombre, password_hash_anterior = usuario
+        
+        # Generar hash SHA256 de '123456'
+        nueva_password = "123456"
+        nuevo_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
         
         # Actualizar contraseña
         cursor.execute(
-            "UPDATE usuarios SET password = %s WHERE id = %s",
-            (password_hash, usuario_id)
+            "UPDATE usuarios SET password_hash = %s WHERE id = %s",
+            (nuevo_hash, usuario_id)
         )
         
         conn.commit()
@@ -2482,7 +2530,8 @@ def debug_reset_password(usuario_id):
         <h1>✅ Contraseña Reseteada</h1>
         <p><strong>Usuario:</strong> {nombre} ({email})</p>
         <p><strong>Nueva contraseña:</strong> 123456</p>
-        <p><strong>Hash generado:</strong> {password_hash[:50]}...</p>
+        <p><strong>Hash anterior:</strong> {password_hash_anterior[:30]}...</p>
+        <p><strong>Hash nuevo:</strong> {nuevo_hash}</p>
         <hr>
         <p><a href="/debug/passwords">← Volver al estado</a></p>
         """
@@ -2490,62 +2539,58 @@ def debug_reset_password(usuario_id):
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-@app.route('/debug/simple-fix')
-def debug_simple_fix():
-    """Solución simple: resetear todas las contraseñas problemáticas"""
+@app.route('/debug/create-test-users')
+def debug_create_test_users():
+    """Crear usuarios de prueba con contraseñas SHA256"""
     try:
         auth_key = request.args.get('key', '')
-        if auth_key != 'fix2024':
-            return "❌ No autorizado. Usa: /debug/simple-fix?key=fix2024"
+        if auth_key != 'test2024':
+            return "❌ No autorizado. Usa: /debug/create-test-users?key=test2024"
+        
+        import hashlib
         
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT id, email, password, nombre FROM usuarios")
-        usuarios = cursor.fetchall()
+        usuarios_prueba = [
+            ('admin@test.com', 'Admin Test', 'admin123', 'superadmin'),
+            ('owner@test.com', 'Dueño Test', 'owner123', 'propietario'),
+            ('pro@test.com', 'Profesional Test', 'pro123', 'profesional')
+        ]
         
         resultados = []
-        reseteados = 0
+        creados = 0
         
-        for usuario in usuarios:
-            usuario_id, email, password, nombre = usuario
+        for email, nombre, password, rol in usuarios_prueba:
+            # Verificar si ya existe
+            cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+            if cursor.fetchone():
+                resultados.append(f"⚠️ {email}: Ya existe")
+                continue
             
-            # Si no tiene contraseña o es texto plano, resetear
-            if not password or (len(password) < 60 and not password.startswith('$')):
-                # Generar hash simple
-                import hashlib
-                import secrets
-                
-                salt = secrets.token_hex(8)
-                password_plain = "123456"
-                hash_obj = hashlib.sha256()
-                hash_obj.update(f"{password_plain}{salt}".encode())
-                password_hash = f"sha256${salt}${hash_obj.hexdigest()}"
-                
-                # Actualizar
-                cursor.execute(
-                    "UPDATE usuarios SET password = %s WHERE id = %s",
-                    (password_hash, usuario_id)
-                )
-                
-                reseteados += 1
-                resultados.append(f"✅ {email}: Reset a '123456'")
-            else:
-                resultados.append(f"✅ {email}: OK ({password[:20]}...)")
+            # Generar hash SHA256
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            # Insertar usuario
+            cursor.execute(
+                "INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) VALUES (%s, %s, %s, %s, %s)",
+                (1, nombre, email, password_hash, rol)
+            )
+            
+            creados += 1
+            resultados.append(f"✅ {email}: Creado con contraseña '{password}'")
         
         conn.commit()
         conn.close()
         
         return f"""
-        <h1>🔧 Fix Simple Completado</h1>
-        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
-        <p><strong>Contraseñas reseteadas:</strong> {reseteados}</p>
+        <h1>✅ Usuarios de Prueba Creados</h1>
+        <p><strong>Usuarios creados:</strong> {creados}</p>
         <hr>
         <h3>Resultados:</h3>
         <pre>{chr(10).join(resultados)}</pre>
         <hr>
-        <p><strong>Todas las contraseñas reseteadas son: 123456</strong></p>
-        <p><a href="/login">→ Ir al login</a></p>
+        <p><a href="/debug/passwords">← Ver estado de contraseñas</a></p>
         """
         
     except Exception as e:
