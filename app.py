@@ -575,16 +575,46 @@ def admin_activar_negocio(negocio_id):
 # RUTAS PARA GESTIÓN DE USUARIOS
 # =============================================================================
 
+# =============================================================================
+# CORRECCIÓN PARA LA RUTA admin_usuarios
+# =============================================================================
+
 @app.route('/admin/usuarios')
 @role_required(['superadmin'])
 def admin_usuarios():
-    """Gestión de usuarios"""
-    usuarios = []
-    for negocio in db.obtener_todos_negocios():
-        usuarios_negocio = db.obtener_usuarios_por_negocio(negocio['id'])
-        usuarios.extend(usuarios_negocio)
-    
-    return render_template('admin/usuarios.html', usuarios=usuarios)
+    """Gestión de usuarios - VERSIÓN CORREGIDA"""
+    try:
+        usuarios = []
+        for negocio in db.obtener_todos_negocios():
+            usuarios_negocio = db.obtener_usuarios_por_negocio(negocio['id'])
+            usuarios.extend(usuarios_negocio)
+        
+        # Procesar los datos para la plantilla
+        usuarios_procesados = []
+        for usuario in usuarios:
+            usuario_dict = dict(usuario) if not isinstance(usuario, dict) else usuario
+            
+            # Convertir datetime a string para la plantilla
+            if usuario_dict.get('ultimo_login'):
+                if hasattr(usuario_dict['ultimo_login'], 'strftime'):
+                    # Es un objeto datetime, convertirlo a string
+                    usuario_dict['ultimo_login_str'] = usuario_dict['ultimo_login'].strftime('%Y-%m-%d %H:%M')
+                else:
+                    # Ya es string
+                    usuario_dict['ultimo_login_str'] = str(usuario_dict['ultimo_login'])[:16]
+            else:
+                usuario_dict['ultimo_login_str'] = 'Nunca'
+            
+            usuarios_procesados.append(usuario_dict)
+        
+        return render_template('admin/usuarios.html', usuarios=usuarios_procesados)
+        
+    except Exception as e:
+        print(f"❌ Error en admin_usuarios: {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Error al cargar la página de usuarios', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/usuarios/nuevo', methods=['GET', 'POST'])
 @role_required(['superadmin'])

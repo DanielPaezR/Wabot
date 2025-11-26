@@ -1278,18 +1278,35 @@ def verificar_usuario(email, password):
 
 
 def obtener_usuarios_por_negocio(negocio_id):
-    """Obtener todos los usuarios de un negocio"""
+    """Obtener todos los usuarios de un negocio - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
     sql = '''
         SELECT u.*, n.nombre as negocio_nombre
         FROM usuarios u
         JOIN negocios n ON u.negocio_id = n.id
-        WHERE u.negocio_id = ?
+        WHERE u.negocio_id = %s
         ORDER BY u.fecha_creacion DESC
     '''
     usuarios = fetch_all(conn.cursor(), sql, (negocio_id,))
     conn.close()
-    return usuarios
+    
+    # Procesar los resultados para asegurar que son diccionarios
+    usuarios_procesados = []
+    for usuario in usuarios:
+        if not isinstance(usuario, dict):
+            usuario_dict = dict(usuario)
+        else:
+            usuario_dict = usuario
+        
+        # Asegurar que ultimo_login sea manejable
+        if usuario_dict.get('ultimo_login') and hasattr(usuario_dict['ultimo_login'], 'strftime'):
+            usuario_dict['ultimo_login_str'] = usuario_dict['ultimo_login'].strftime('%Y-%m-%d %H:%M')
+        else:
+            usuario_dict['ultimo_login_str'] = str(usuario_dict.get('ultimo_login', ''))[:16] if usuario_dict.get('ultimo_login') else 'Nunca'
+        
+        usuarios_procesados.append(usuario_dict)
+    
+    return usuarios_procesados
 
 
 def obtener_usuarios_todos():
