@@ -2505,24 +2505,112 @@ def fix_all_queries():
 
 @app.route('/debug-hashes')
 def debug_hashes():
-    """Ruta temporal para debug de hashes - ELIMINAR DESPUÉS"""
+    """Debug de hashes de contraseñas - VERSIÓN POSTGRESQL CORREGIDA"""
+    from database import get_db_connection
     import hashlib
-    import sqlite3
     
-    conn = sqlite3.connect('negocio.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Obtener todos los usuarios
-    cursor.execute('SELECT id, email, password_hash FROM usuarios')
-    usuarios = cursor.fetchall()
+    # ✅ USAR CONSULTA COMPATIBLE CON POSTGRESQL
+    try:
+        # Detectar si es PostgreSQL
+        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+        
+        if is_postgresql:
+            cursor.execute('SELECT id, email, password_hash FROM usuarios')
+        else:
+            cursor.execute('SELECT id, email, password_hash FROM usuarios')
+        
+        usuarios_db = cursor.fetchall()
+        
+        usuarios = [
+            ('admin@negociobot.com', 'admin123'),
+            ('juan@negocio.com', 'propietario123'),
+            ('carlos@negocio.com', 'profesional123'),
+            ('ana@negocio.com', 'profesional123')
+        ]
+        
+        results = []
+        for email, password in usuarios:
+            # Buscar usuario en BD
+            usuario_encontrado = None
+            for user in usuarios_db:
+                if is_postgresql:
+                    if user['email'] == email:
+                        usuario_encontrado = user
+                        break
+                else:
+                    if user[1] == email:  # email está en posición 1
+                        usuario_encontrado = user
+                        break
+            
+            # Nuevo hash
+            nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
+            
+            if usuario_encontrado:
+                hash_actual = usuario_encontrado['password_hash'] if is_postgresql else usuario_encontrado[2]
+                coincide = hash_actual == nuevo_hash
+            else:
+                hash_actual = 'No encontrado'
+                coincide = False
+            
+            results.append({
+                'email': email,
+                'hash_actual': hash_actual,
+                'nuevo_hash': nuevo_hash,
+                'coincide': coincide
+            })
+        
+        conn.close()
+        
+        html = '<h1>🔍 Debug Hashes - PostgreSQL</h1>'
+        for r in results:
+            status = '✅' if r['coincide'] else '❌'
+            html += f'''
+            <div style="margin: 20px; padding: 10px; border: 1px solid {'green' if r['coincide'] else 'red'}">
+                <h3>{status} {r['email']}</h3>
+                <p><strong>Actual:</strong> {r['hash_actual']}</p>
+                <p><strong>Nuevo:</strong> {r['nuevo_hash']}</p>
+                <p><strong>Coincide:</strong> {r['coincide']}</p>
+            </div>
+            '''
+        
+        html += '<a href="/login">🔐 Probar Login</a>'
+        return html
+        
+    except Exception as e:
+        conn.close()
+        return f'<h1>❌ Error en debug-hashes: {str(e)}</h1>'
+
+@app.route('/corregir-hash/<int:usuario_id>')
+def corregir_hash(usuario_id):
+    """Corregir hash de un usuario específico - VERSIÓN POSTGRESQL"""
+    import hashlib
+    from database import get_db_connection
     
-    resultado_html = "<h1>🔍 DEBUG DE HASHES SHA256</h1>"
-    resultado_html += f"<p>Total usuarios: {len(usuarios)}</p>"
-    resultado_html += "<table border='1' style='border-collapse: collapse; width: 100%;'>"
-    resultado_html += "<tr><th>Email</th><th>Hash Almacenado</th><th>Estado</th><th>Acción</th></tr>"
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    for usuario_id, email, hash_actual in usuarios:
-        # Determinar contraseña esperada
+    try:
+        # Detectar si es PostgreSQL
+        is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+        
+        # ✅ CONSULTA CORREGIDA PARA POSTGRESQL
+        if is_postgresql:
+            cursor.execute('SELECT email FROM usuarios WHERE id = %s', (usuario_id,))
+        else:
+            cursor.execute('SELECT email FROM usuarios WHERE id = ?', (usuario_id,))
+        
+        usuario = cursor.fetchone()
+        
+        if not usuario:
+            return "❌ Usuario no encontrado"
+        
+        # Obtener email (compatible con ambos)
+        email = usuario[0] if not is_postgresql else usuario['email']
+        
+        # Determinar contraseña según el email
         if email == 'admin@negociobot.com':
             password = 'admin123'
         elif email == 'juan@negocio.com':
@@ -2530,75 +2618,39 @@ def debug_hashes():
         elif email in ['carlos@negocio.com', 'ana@negocio.com']:
             password = 'profesional123'
         else:
-            password = None
+            return f"❌ No se puede determinar la contraseña para {email}"
         
-        if password:
-            hash_calculado = hashlib.sha256(password.encode()).hexdigest()
-            estado = "✅ CORRECTO" if hash_actual == hash_calculado else "❌ INCORRECTO"
-            
-            if hash_actual != hash_calculado:
-                accion = f"<a href='/corregir-hash/{usuario_id}'>Corregir</a>"
-            else:
-                accion = "✅"
+        # Calcular nuevo hash
+        nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # ✅ ACTUALIZACIÓN CORREGIDA PARA POSTGRESQL
+        if is_postgresql:
+            cursor.execute(
+                'UPDATE usuarios SET password_hash = %s WHERE id = %s',
+                (nuevo_hash, usuario_id)
+            )
         else:
-            estado = "⚠️ DESCONOCIDO"
-            accion = "-"
+            cursor.execute(
+                'UPDATE usuarios SET password_hash = ? WHERE id = ?',
+                (nuevo_hash, usuario_id)
+            )
         
-        resultado_html += f"<tr><td>{email}</td><td style='font-family: monospace;'>{hash_actual}</td><td>{estado}</td><td>{accion}</td></tr>"
-    
-    resultado_html += "</table>"
-    resultado_html += "<br><a href='/login'>Ir al Login</a>"
-    
-    conn.close()
-    return resultado_html
-
-@app.route('/corregir-hash/<int:usuario_id>')
-def corregir_hash(usuario_id):
-    """Corregir hash de un usuario específico"""
-    import hashlib
-    import sqlite3
-    
-    conn = sqlite3.connect('negocio.db')
-    cursor = conn.cursor()
-    
-    # Obtener información del usuario
-    cursor.execute('SELECT email FROM usuarios WHERE id = ?', (usuario_id,))
-    usuario = cursor.fetchone()
-    
-    if not usuario:
-        return "❌ Usuario no encontrado"
-    
-    email = usuario[0]
-    
-    # Determinar contraseña según el email
-    if email == 'admin@negociobot.com':
-        password = 'admin123'
-    elif email == 'juan@negocio.com':
-        password = 'propietario123'
-    elif email in ['carlos@negocio.com', 'ana@negocio.com']:
-        password = 'profesional123'
-    else:
-        return f"❌ No se puede determinar la contraseña para {email}"
-    
-    # Calcular nuevo hash
-    nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
-    
-    # Actualizar en la base de datos
-    cursor.execute(
-        'UPDATE usuarios SET password_hash = ? WHERE id = ?',
-        (nuevo_hash, usuario_id)
-    )
-    conn.commit()
-    conn.close()
-    
-    return f'''
-    <h1>✅ Hash corregido para {email}</h1>
-    <p><strong>Contraseña:</strong> {password}</p>
-    <p><strong>Nuevo hash:</strong> <code>{nuevo_hash}</code></p>
-    <br>
-    <a href="/debug-hashes">← Volver al debug</a> | 
-    <a href="/login">Probar login</a>
-    '''
+        conn.commit()
+        
+        return f'''
+        <h1>✅ Hash corregido para {email}</h1>
+        <p><strong>Contraseña:</strong> {password}</p>
+        <p><strong>Nuevo hash:</strong> <code>{nuevo_hash}</code></p>
+        <br>
+        <a href="/debug-hashes">← Volver al debug</a> | 
+        <a href="/login">Probar login</a>
+        '''
+        
+    except Exception as e:
+        conn.rollback()
+        return f'<h1>❌ Error: {str(e)}</h1>'
+    finally:
+        conn.close()
 
 @app.route('/debug-postgres')
 def debug_postgres():
