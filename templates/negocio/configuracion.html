@@ -596,7 +596,7 @@
             event.target.classList.add('active');
         }
 
-        // Tu función toggleDia existente...
+        // Función para habilitar/deshabilitar inputs de horarios
         function toggleDia(diaId, activo) {
             const diaCard = document.getElementById(`dia-${diaId}`);
             const inputs = diaCard.querySelectorAll('input[type="time"]');
@@ -604,11 +604,17 @@
             if (activo) {
                 diaCard.classList.remove('inactivo');
                 diaCard.classList.add('activo');
-                inputs.forEach(input => input.disabled = false);
+                inputs.forEach(input => {
+                    input.disabled = false;
+                    input.required = true;
+                });
             } else {
                 diaCard.classList.remove('activo');
                 diaCard.classList.add('inactivo');
-                inputs.forEach(input => input.disabled = true);
+                inputs.forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
             }
         }
 
@@ -621,17 +627,70 @@
                 });
             });
 
-            // Inicializar días (tu código existente)
+            // Inicializar días - ✅ CORRECCIÓN: Usar los datos reales de la base de datos
             document.querySelectorAll('input[type="checkbox"][name*="_activo"]').forEach(checkbox => {
-                const diaId = checkbox.name.replace('dia_', '').replace('_activo', '');
-                toggleDia(parseInt(diaId), checkbox.checked);
-            });
+                const diaId = checkbox.getAttribute('data-dia-id');
+                const estaActivo = checkbox.checked;
+                
+                // Aplicar el estado inicial desde los datos del servidor
+                toggleDia(parseInt(diaId), estaActivo);
 
-            document.querySelectorAll('.toggle-dia').forEach(toggle => {
-                toggle.addEventListener('change', function() {
+                // Agregar event listener para cambios
+                checkbox.addEventListener('change', function() {
                     const diaId = this.getAttribute('data-dia-id');
                     toggleDia(parseInt(diaId), this.checked);
                 });
+            });
+
+            // ✅ CORRECCIÓN: Validación antes de enviar el formulario
+            document.querySelector('form').addEventListener('submit', function(e) {
+                let formularioValido = true;
+                let mensajesError = [];
+
+                // Validar que al menos un día esté activo
+                const diasActivos = document.querySelectorAll('input[type="checkbox"][name*="_activo"]:checked');
+                if (diasActivos.length === 0) {
+                    formularioValido = false;
+                    mensajesError.push('Debe haber al menos un día activo para atención');
+                }
+
+                // Validar horarios en días activos
+                diasActivos.forEach(checkbox => {
+                    const diaId = checkbox.getAttribute('data-dia-id');
+                    const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`).value;
+                    const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`).value;
+
+                    if (!horaInicio || !horaFin) {
+                        formularioValido = false;
+                        mensajesError.push(`El día ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent} necesita horario de inicio y fin`);
+                    }
+
+                    if (horaInicio && horaFin && horaInicio >= horaFin) {
+                        formularioValido = false;
+                        mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, la hora de inicio debe ser anterior a la hora de fin`);
+                    }
+                });
+
+                if (!formularioValido) {
+                    e.preventDefault();
+                    alert('❌ Errores en el formulario:\n\n' + mensajesError.join('\n'));
+                } else {
+                    // Mostrar mensaje de confirmación
+                    if (confirm('¿Estás seguro de que quieres guardar los cambios en la configuración?')) {
+                        // El formulario se enviará normalmente
+                        console.log('✅ Enviando formulario de configuración...');
+                    } else {
+                        e.preventDefault();
+                    }
+                }
+            });
+
+            // ✅ CORRECCIÓN: Debug para verificar estado de los días
+            console.log('🔍 Estado inicial de los días:');
+            document.querySelectorAll('input[type="checkbox"][name*="_activo"]').forEach(checkbox => {
+                const diaId = checkbox.getAttribute('data-dia-id');
+                const estaActivo = checkbox.checked;
+                console.log(`Día ${diaId}: ${estaActivo ? 'ACTIVO' : 'INACTIVO'}`);
             });
         });
     </script>

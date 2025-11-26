@@ -446,16 +446,23 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     if not fecha_seleccionada:
         fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', datetime.now().strftime('%Y-%m-%d'))
     
-    # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
-    horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha_seleccionada)
-    
-    if not horarios_dia or not horarios_dia['activo']:
+    # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO (con la nueva función mejorada)
+    if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
         # Obtener información del negocio para el mensaje
         negocio = db.obtener_negocio_por_id(negocio_id)
         config_negocio = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
         
         fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-        mensaje = f"❌ *{negocio['nombre']}* no atiende el {fecha_formateada}.\n\n"
+        
+        # Determinar el mensaje específico
+        fecha_actual = datetime.now()
+        fecha_cita = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
+        
+        if fecha_cita.date() == fecha_actual.date():
+            mensaje = f"❌ *{negocio['nombre']}* no tiene horarios disponibles para hoy.\n\n"
+        else:
+            mensaje = f"❌ *{negocio['nombre']}* no atiende el {fecha_formateada}.\n\n"
+        
         mensaje += f"📅 *Horarios de atención:*\n"
         mensaje += f"{config_negocio.get('horario_atencion', 'Lunes a Sábado 9:00 AM - 7:00 PM')}\n\n"
         mensaje += "Por favor, selecciona otra fecha.\n\n"
@@ -469,12 +476,23 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
     pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
     
-    # ✅ CORRECCIÓN 3: Generar horarios disponibles con datos ACTUALIZADOS
+    # ✅ CORRECCIÓN: Generar horarios disponibles con datos ACTUALIZADOS
     horarios_disponibles = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha_seleccionada, servicio_id)
     
     if not horarios_disponibles:
         fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-        return f"❌ No hay horarios disponibles para el {fecha_formateada}. Por favor, selecciona otra fecha.\n\n💡 *Vuelve al menú principal con* *0*"
+        
+        # Mensaje específico según si es hoy o no
+        fecha_actual = datetime.now()
+        fecha_cita = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
+        
+        if fecha_cita.date() == fecha_actual.date():
+            mensaje = f"❌ No hay horarios disponibles para hoy. Todos los horarios de hoy ya han pasado.\n\n"
+        else:
+            mensaje = f"❌ No hay horarios disponibles para el {fecha_formateada}.\n\n"
+        
+        mensaje += "Por favor, selecciona otra fecha.\n\n💡 *Vuelve al menú principal con* *0*"
+        return mensaje
     
     # Datos para el mensaje
     profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
@@ -1063,7 +1081,6 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     
     print(f"🔧 [DEBUG] OBTENER_FECHAS_DISPONIBLES - Negocio: {negocio_id}")
     
-    # ✅ CORRECCIÓN: Mostrar siempre los próximos X días, NO solo desde hoy
     for i in range(dias_a_mostrar):
         fecha = fecha_actual + timedelta(days=i)
         fecha_str = fecha.strftime('%Y-%m-%d')
@@ -1073,13 +1090,29 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
         
         print(f"🔧 [DEBUG] Fecha {fecha_str}: activo={horarios_dia.get('activo')}")
         
+        # ✅ CORRECCIÓN: Solo agregar si el día está activo
         if horarios_dia and horarios_dia['activo']:
-            # Formatear fecha para mostrar
-            if i == 0:
-                fecha_formateada = "Hoy"
-            elif i == 1:
-                fecha_formateada = "Mañana"
+            # ✅ CORRECCIÓN: Para HOY, verificar horarios futuros
+            if i == 0:  # Es hoy
+                # Verificar si hay horarios disponibles para hoy
+                horarios_hoy = generar_horarios_disponibles_actualizado(
+                    negocio_id, 
+                    None,  # No necesitamos profesional específico aquí
+                    fecha_str, 
+                    None   # No necesitamos servicio específico aquí
+                )
+                
+                # Solo mostrar "Hoy" si hay horarios disponibles
+                if verificar_disponibilidad_basica(negocio_id, fecha_str):
+                    fechas_disponibles.append({
+                        'fecha': fecha_str,
+                        'mostrar': "Hoy"
+                    })
+                    print(f"🔧 [DEBUG] ✅ Hoy agregado - Hay horarios disponibles")
+                else:
+                    print(f"🔧 [DEBUG] ❌ Hoy NO agregado - No hay horarios disponibles")
             else:
+                # Para días futuros, solo verificar que el día esté activo
                 fecha_formateada = fecha.strftime('%A %d/%m').title()
                 # Traducir días
                 fecha_formateada = fecha_formateada.replace('Monday', 'Lunes')\
@@ -1089,20 +1122,23 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
                                                   .replace('Friday', 'Viernes')\
                                                   .replace('Saturday', 'Sábado')\
                                                   .replace('Sunday', 'Domingo')
-            
-            fechas_disponibles.append({
-                'fecha': fecha_str,
-                'mostrar': fecha_formateada
-            })
-            print(f"🔧 [DEBUG] ✅ Fecha {fecha_str} agregada como disponible")
+                
+                if i == 1:
+                    fecha_formateada = "Mañana"
+                
+                fechas_disponibles.append({
+                    'fecha': fecha_str,
+                    'mostrar': fecha_formateada
+                })
+                print(f"🔧 [DEBUG] ✅ Fecha {fecha_str} agregada como disponible")
         else:
-            print(f"🔧 [DEBUG] ❌ Fecha {fecha_str} NO disponible (activo=False)")
+            print(f"🔧 [DEBUG] ❌ Fecha {fecha_str} NO disponible (activo=False o no configurado)")
     
     print(f"🔧 [DEBUG] Total fechas disponibles: {len(fechas_disponibles)}")
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días"""
+    """Generar horarios disponibles considerando la configuración por días - CORREGIDA"""
     print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
@@ -1113,6 +1149,11 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         return []  # Día no activo, no hay horarios disponibles
     
     print(f"✅ Día activo. Horario: {horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']}")
+    
+    # ✅ CORRECCIÓN: Si es hoy, no mostrar horarios pasados
+    fecha_actual = datetime.now()
+    fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
+    es_hoy = fecha_cita.date() == fecha_actual.date()
     
     # Obtener citas ya agendadas
     citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
@@ -1134,6 +1175,15 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     while hora_actual < hora_fin:
         hora_str = hora_actual.strftime('%H:%M')
         
+        # ✅ CORRECCIÓN IMPORTANTE: Si es hoy, omitir horarios pasados
+        if es_hoy:
+            hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
+            # Agregar margen de 30 minutos para permitir agendar con algo de anticipación
+            if hora_actual_completa < (fecha_actual - timedelta(minutes=30)):
+                print(f"⏰ Horario {hora_str} omitido (es pasado para hoy)")
+                hora_actual += timedelta(minutes=30)
+                continue
+        
         # Verificar si no es horario de almuerzo
         if not es_horario_almuerzo(hora_actual, horarios_dia):
             # Verificar disponibilidad
@@ -1145,6 +1195,36 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     
     print(f"🎯 Total horarios disponibles: {len(horarios)}")
     return horarios
+
+def verificar_disponibilidad_basica(negocio_id, fecha):
+    """Verificación rápida de disponibilidad para una fecha (sin profesional específico)"""
+    try:
+        # Verificar si el día está activo
+        horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
+        if not horarios_dia or not horarios_dia['activo']:
+            return False
+        
+        # Si es hoy, verificar que queden horarios futuros
+        fecha_actual = datetime.now()
+        fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
+        
+        if fecha_cita.date() == fecha_actual.date():
+            # Para hoy, verificar si hay al menos un horario futuro
+            hora_actual = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
+            hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
+            
+            while hora_actual < hora_fin:
+                hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
+                if hora_actual_completa >= (fecha_actual - timedelta(minutes=30)):
+                    return True  # Hay al menos un horario futuro
+                hora_actual += timedelta(minutes=30)
+            return False  # No hay horarios futuros para hoy
+        
+        return True  # Para días futuros, solo con que el día esté activo es suficiente
+        
+    except Exception as e:
+        print(f"❌ Error en verificación básica: {e}")
+        return False
 
 def es_horario_almuerzo(hora, config_dia):
     """Verificar si es horario de almuerzo"""

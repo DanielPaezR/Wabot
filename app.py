@@ -1292,7 +1292,7 @@ def negocio_api_citas_recientes():
 @app.route('/negocio/configuracion', methods=['GET', 'POST'])
 @login_required
 def negocio_configuracion():
-    """Configuración del negocio - HORARIOS + INFORMACIÓN"""
+    """Configuración del negocio - HORARIOS + INFORMACIÓN - VERSIÓN CORREGIDA"""
     negocio_id = session['negocio_id']
     
     # Obtener datos actuales del negocio
@@ -1311,21 +1311,12 @@ def negocio_configuracion():
         except:
             config_actual = {}
     
-    # ✅ SOLUCIÓN TEMPORAL: Usar datos por defecto para horarios
-    dias_semana = [
-        {'id': 1, 'nombre': 'Lunes', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
-        {'id': 2, 'nombre': 'Martes', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
-        {'id': 3, 'nombre': 'Miércoles', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
-        {'id': 4, 'nombre': 'Jueves', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
-        {'id': 5, 'nombre': 'Viernes', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
-        {'id': 6, 'nombre': 'Sábado', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}},
-        {'id': 7, 'nombre': 'Domingo', 'config': {'activo': False, 'hora_inicio': '09:00', 'hora_fin': '19:00', 'almuerzo_inicio': '', 'almuerzo_fin': ''}}
-    ]
+    # ✅ CORRECCIÓN: Obtener datos REALES de la base de datos
+    dias_semana = []
+    nombres_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     
-    # ✅ INTENTAR OBTENER DATOS REALES DE LA BASE DE DATOS
-    try:
-        for dia in dias_semana:
-            # Intentar obtener datos reales para cada día
+    for dia_id in range(1, 8):  # 1-7 para lunes-domingo
+        try:
             conn = db.get_db_connection()
             cursor = conn.cursor()
             
@@ -1333,23 +1324,51 @@ def negocio_configuracion():
                 SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
                 FROM configuracion_horarios 
                 WHERE negocio_id = ? AND dia_semana = ?
-            ''', (negocio_id, dia['id']))
+            ''', (negocio_id, dia_id))
             
             resultado = cursor.fetchone()
             conn.close()
             
             if resultado:
-                dia['config'] = {
+                # ✅ DATOS REALES DE LA BD
+                dia_config = {
                     'activo': bool(resultado[0]),
                     'hora_inicio': resultado[1] or '09:00',
                     'hora_fin': resultado[2] or '19:00',
                     'almuerzo_inicio': resultado[3] or '',
                     'almuerzo_fin': resultado[4] or ''
                 }
-    except Exception as e:
-        print(f"⚠️ No se pudieron cargar horarios desde BD: {e}")
-        # Mantener los valores por defecto
-    
+            else:
+                # ✅ SI NO EXISTE, CREAR CONFIGURACIÓN POR DEFECTO (INACTIVO)
+                dia_config = {
+                    'activo': False,
+                    'hora_inicio': '09:00',
+                    'hora_fin': '19:00',
+                    'almuerzo_inicio': '',
+                    'almuerzo_fin': ''
+                }
+                
+            dias_semana.append({
+                'id': dia_id,
+                'nombre': nombres_dias[dia_id-1],
+                'config': dia_config
+            })
+            
+        except Exception as e:
+            print(f"⚠️ Error cargando día {dia_id}: {e}")
+            # En caso de error, usar valores por defecto
+            dias_semana.append({
+                'id': dia_id,
+                'nombre': nombres_dias[dia_id-1],
+                'config': {
+                    'activo': False,
+                    'hora_inicio': '09:00',
+                    'hora_fin': '19:00',
+                    'almuerzo_inicio': '',
+                    'almuerzo_fin': ''
+                }
+            })
+
     if request.method == 'POST':
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
@@ -1366,6 +1385,11 @@ def negocio_configuracion():
             telefono_contacto = request.form.get('telefono_contacto')
             politica_cancelacion = request.form.get('politica_cancelacion')
             
+            # ✅ CORRECCIÓN: Validar campos requeridos
+            if not nombre or not tipo_negocio:
+                flash('❌ El nombre y tipo de negocio son obligatorios', 'error')
+                return redirect(url_for('negocio_configuracion'))
+            
             # Actualizar configuración del negocio
             nueva_configuracion = {
                 'saludo_personalizado': saludo_personalizado or '¡Hola! Soy tu asistente virtual para agendar citas.',
@@ -1377,15 +1401,26 @@ def negocio_configuracion():
             
             # ===== PROCESAR HORARIOS =====
             horarios_actualizados = []
-            for dia in dias_semana:
-                activo = request.form.get(f'dia_{dia["id"]}_activo') == 'on'
-                hora_inicio = request.form.get(f'dia_{dia["id"]}_inicio')
-                hora_fin = request.form.get(f'dia_{dia["id"]}_fin')
-                almuerzo_inicio = request.form.get(f'dia_{dia["id"]}_descanso_inicio')
-                almuerzo_fin = request.form.get(f'dia_{dia["id"]}_descanso_fin')
+            for dia_id in range(1, 8):  # 1-7 para lunes-domingo
+                # ✅ CORRECCIÓN: Usar get() en vez de acceder directamente
+                activo = request.form.get(f'dia_{dia_id}_activo') == 'on'
+                hora_inicio = request.form.get(f'dia_{dia_id}_inicio', '09:00')
+                hora_fin = request.form.get(f'dia_{dia_id}_fin', '19:00')
+                almuerzo_inicio = request.form.get(f'dia_{dia_id}_descanso_inicio', '')
+                almuerzo_fin = request.form.get(f'dia_{dia_id}_descanso_fin', '')
+                
+                # ✅ CORRECCIÓN: Validar horarios solo si el día está activo
+                if activo:
+                    if not hora_inicio or not hora_fin:
+                        flash(f'❌ El {nombres_dias[dia_id-1]} necesita horario de inicio y fin', 'error')
+                        return redirect(url_for('negocio_configuracion'))
+                    
+                    if hora_inicio >= hora_fin:
+                        flash(f'❌ En {nombres_dias[dia_id-1]}, la hora de inicio debe ser anterior a la hora de fin', 'error')
+                        return redirect(url_for('negocio_configuracion'))
                 
                 horarios_actualizados.append({
-                    'dia_id': dia['id'],
+                    'dia_id': dia_id,
                     'activo': activo,
                     'hora_inicio': hora_inicio,
                     'hora_fin': hora_fin,
@@ -1393,17 +1428,41 @@ def negocio_configuracion():
                     'almuerzo_fin': almuerzo_fin
                 })
             
+            # ✅ CORRECCIÓN: Verificar que al menos un día esté activo
+            dias_activos = sum(1 for h in horarios_actualizados if h['activo'])
+            if dias_activos == 0:
+                flash('❌ Debe haber al menos un día activo para atención', 'error')
+                return redirect(url_for('negocio_configuracion'))
+            
+            print(f"🔍 DEBUG - Guardando configuración:")
+            print(f"  Negocio: {nombre}, Tipo: {tipo_negocio}")
+            print(f"  Días activos: {dias_activos}")
+            for h in horarios_actualizados:
+                print(f"  Día {h['dia_id']}: {h['activo']} - {h['hora_inicio']} a {h['hora_fin']}")
+            
             # Guardar TODO en la base de datos
             if db.actualizar_configuracion_completa(
                 negocio_id, nombre, tipo_negocio, emoji, nueva_configuracion, horarios_actualizados
             ):
                 flash('✅ Configuración actualizada exitosamente', 'success')
+                
+                # ✅ CORRECCIÓN: Limpiar cache después de guardar
+                from database import notificar_cambio_horarios
+                notificar_cambio_horarios(negocio_id)
+                
             else:
                 flash('❌ Error al actualizar la configuración', 'error')
                 
         except Exception as e:
             print(f"❌ Error en configuración: {e}")
-            flash('❌ Error al procesar la configuración', 'error')
+            import traceback
+            traceback.print_exc()
+            flash(f'❌ Error al procesar la configuración: {str(e)}', 'error')
+    
+    # ✅ CORRECCIÓN: Debug para verificar qué datos se envían al template
+    print(f"🔍 DEBUG - Enviando al template:")
+    for dia in dias_semana:
+        print(f"  Día {dia['id']} ({dia['nombre']}): activo={dia['config']['activo']}")
     
     return render_template('negocio/configuracion.html', 
                          negocio=negocio, 
@@ -2342,37 +2401,7 @@ def api_horarios_disponibles():
 # =============================================================================
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
-@app.route('/migrar-usuarios')
-def migrar_usuarios():
-    """Ruta temporal para migrar usuarios a SHA256"""
-    try:
-        from database import migrar_hashes_automatico, get_db_connection
-        import hashlib
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Lista de usuarios y sus contraseñas reales
-        usuarios = [
-            ('admin123', 'admin@negociobot.com'),
-            ('propietario123', 'juan@negocio.com'), 
-            ('profesional123', 'carlos@negocio.com'),
-            ('profesional123', 'ana@negocio.com')
-        ]
-        
-        for password, email in usuarios:
-            nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
-            cursor.execute('UPDATE usuarios SET password_hash = ? WHERE email = ?', 
-                          (nuevo_hash, email))
-            print(f"✅ Usuario {email} migrado")
-        
-        conn.commit()
-        conn.close()
-        
-        return "✅ Usuarios migrados a SHA256 correctamente"
-        
-    except Exception as e:
-        return f"❌ Error migrando usuarios: {e}"
+
 
 @app.route('/migrar_hashes')
 def migrar_hashes():
