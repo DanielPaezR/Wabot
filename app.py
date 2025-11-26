@@ -2481,6 +2481,71 @@ def corregir_hash(usuario_id):
     <a href="/login">Probar login</a>
     '''
 
+@app.route('/debug-postgres')
+def debug_postgres():
+    """Debug específico para PostgreSQL"""
+    import os
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    
+    database_url = os.getenv('DATABASE_URL')
+    
+    info = {
+        'database_url_exists': bool(database_url),
+        'database_url_length': len(database_url) if database_url else 0,
+        'database_url_prefix': database_url[:50] + '...' if database_url else 'No configurada',
+        'database_url_contains_postgresql': 'postgresql' in (database_url or ''),
+    }
+    
+    # Intentar conexión directa
+    connection_status = 'No intentada'
+    connection_error = None
+    
+    if database_url and 'postgresql' in database_url:
+        try:
+            # Asegurar formato correcto para psycopg2
+            db_url = database_url.replace('postgresql://', 'postgres://') if database_url.startswith('postgresql://') else database_url
+            
+            conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
+            cursor = conn.cursor()
+            
+            # Probar consultas básicas
+            cursor.execute('SELECT version()')
+            version = cursor.fetchone()['version']
+            
+            cursor.execute("SELECT current_database() as db_name, current_user as user")
+            db_info = cursor.fetchone()
+            
+            connection_status = '✅ CONEXIÓN EXITOSA'
+            info['postgres_version'] = version
+            info['database_info'] = dict(db_info)
+            
+            conn.close()
+            
+        except Exception as e:
+            connection_status = '❌ ERROR DE CONEXIÓN'
+            connection_error = str(e)
+            info['connection_error'] = str(e)
+    
+    return f'''
+    <h1>🔧 DEBUG POSTGRESQL ESPECÍFICO</h1>
+    
+    <h2>📊 Información de DATABASE_URL</h2>
+    <pre>{json.dumps(info, indent=2)}</pre>
+    
+    <h2>🔌 Estado de Conexión: {connection_status}</h2>
+    {f'<p style="color: red;"><strong>Error:</strong> {connection_error}</p>' if connection_error else ''}
+    
+    <h2>🚀 Acciones Recomendadas</h2>
+    <ol>
+        <li><strong>Verificar que la URL sea EXACTA</strong> (copiada desde PostgreSQL → Connect)</li>
+        <li><strong>Verificar que psycopg2-binary esté en requirements.txt</strong></li>
+        <li><strong>Probar la conexión manualmente</strong> con la URL completa</li>
+    </ol>
+    
+    <a href="/debug-database">← Volver al debug general</a>
+    '''
+
 @app.route('/debug-database')
 def debug_database():
     """Debug de conexión a base de datos - VERSIÓN CORREGIDA"""
