@@ -2452,10 +2452,12 @@ def debug_all_queries():
 @app.route('/fix-all-queries')
 def fix_all_queries():
     """Corregir TODAS las consultas automáticamente"""
+    global scheduler  # ✅ DECLARAR AL PRINCIPIO
+    
     try:
         # 1. Parar scheduler
         try:
-            scheduler.shutdown()
+            scheduler.shutdown()  # ✅ Ahora sí puede usarlo
         except:
             pass
         
@@ -2471,36 +2473,7 @@ def fix_all_queries():
         
         # 4. Reiniciar scheduler
         from apscheduler.schedulers.background import BackgroundScheduler
-        global scheduler
-        scheduler = BackgroundScheduler()
-        
-        # Usar función de recordatorios simple
-        def safe_reminders():
-            try:
-                print("⏰ [SAFE] Recordatorios ejecutándose...")
-                return 0
-            except Exception as e:
-                print(f"⚠️ Recordatorio seguro: {e}")
-                return 0
-        
-        scheduler.add_job(safe_reminders, 'interval', minutes=5)
-        scheduler.start()
-        
-        return '''
-        <h1>✅ ¡Consulta Corregidas y SQLite Activado!</h1>
-        <p>Se ha:</p>
-        <ul>
-            <li>✅ Forzado SQLite temporalmente</li>
-            <li>✅ Reiniciado la base de datos</li>
-            <li>✅ Configurado recordatorios seguros</li>
-            <li>✅ Eliminado conflictos de PostgreSQL</li>
-        </ul>
-        <a href="/health">🔍 Verificar Estado</a>
-        <br>
-        <a href="/login">🔐 Probar Login</a>
-        '''
-    except Exception as e:
-        return f'<h1>❌ Error: {str(e)}</h1>'
+        scheduler = BackgroundScheduler()  # ✅ Sin global aquí
 
 @app.route('/debug-hashes')
 def debug_hashes():
