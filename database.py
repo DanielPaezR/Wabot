@@ -1,7 +1,7 @@
 # =============================================================================
 # database.py - SISTEMA GENÉRICO DE CITAS
 # =============================================================================
-
+import os
 import sqlite3
 from datetime import datetime, timedelta
 import json
@@ -9,35 +9,101 @@ import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 
 def get_db_connection():
-    """Establecer conexión a la base de datos"""
-    conn = sqlite3.connect('negocio.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Establecer conexión a la base de datos (SQLite o PostgreSQL)"""
+    database_url = os.getenv('DATABASE_URL')
+    
+    # Si estamos en producción con PostgreSQL
+    if database_url and database_url.startswith('postgresql://'):
+        try:
+            import psycopg2
+            # Convertir URL de PostgreSQL para psycopg2
+            if database_url.startswith('postgresql://'):
+                database_url = database_url.replace('postgresql://', 'postgres://')
+            conn = psycopg2.connect(database_url)
+            
+            # Crear un cursor que retorne diccionarios (similar a sqlite3.Row)
+            def dict_factory(cursor, row):
+                return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+            
+            # No podemos modificar psycopg2 directamente, pero adaptaremos las consultas
+            return conn
+        except ImportError:
+            print("⚠️ psycopg2 no instalado, usando SQLite")
+            return sqlite3.connect('negocio.db')
+    else:
+        # Desarrollo local con SQLite
+        conn = sqlite3.connect('negocio.db')
+        conn.row_factory = sqlite3.Row
+        return conn
 
 # =============================================================================
 # INICIALIZACIÓN DE BASE DE DATOS
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos con esquema multi-tenant"""
-    actualizar_esquema_bd()
-    
+    """Inicializar base de datos - compatible con PostgreSQL"""
+    try:
+        actualizar_esquema_bd()
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Crear tablas
+        _crear_tablas(cursor)
+        
+        # Insertar datos por defecto
+        _insertar_datos_por_defecto(cursor)
+        
+        conn.commit()
+        print("✅ Base de datos inicializada correctamente")
+        
+    except Exception as e:
+        print(f"❌ Error inicializando BD: {e}")
+        # En PostgreSQL, algunos errores son normales (tablas ya existen)
+        if "already exists" not in str(e):
+            raise e
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def execute_query(query, params=()):
+    """Ejecutar consulta compatible con SQLite y PostgreSQL"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Crear tablas
-    _crear_tablas(cursor)
-    
-    # Insertar datos por defecto
-    _insertar_datos_por_defecto(cursor)
-    
-    conn.commit()
-    conn.close()
-    
-    # Crear plantillas personalizadas
-    crear_plantillas_personalizadas_para_negocios()
-    
-    print("✅ Base de datos multi-tenant con sistema de plantillas inicializada")
+    try:
+        # Adaptar consultas para PostgreSQL si es necesario
+        if hasattr(conn, 'cursor') and not isinstance(conn, sqlite3.Connection):
+            # Estamos en PostgreSQL
+            query = query.replace('?', '%s')
+        
+        cursor.execute(query, params)
+        
+        # Para SELECT, retornar resultados
+        if query.strip().upper().startswith('SELECT'):
+            results = cursor.fetchall()
+            
+            # Convertir a diccionarios si es PostgreSQL
+            if hasattr(conn, 'cursor') and not isinstance(conn, sqlite3.Connection):
+                columns = [desc[0] for desc in cursor.description]
+                results = [dict(zip(columns, row)) for row in results]
+            else:
+                # SQLite ya retorna Row objects que se comportan como dicts
+                results = [dict(row) for row in results]
+                
+            return results
+        else:
+            # Para INSERT, UPDATE, DELETE
+            conn.commit()
+            return cursor.lastrowid if hasattr(cursor, 'lastrowid') else None
+            
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error en consulta: {e}")
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 def _crear_tablas(cursor):
     """Crear todas las tablas necesarias"""
