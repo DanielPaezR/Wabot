@@ -17,5 +17,5 @@ COPY . .
 # Exponer puerto
 EXPOSE 5000
 
-# Comando de inicio
-CMD ["python", "app.py"]
+# Comando de inicio - usar variable de entorno directamente
+CMD python app.py

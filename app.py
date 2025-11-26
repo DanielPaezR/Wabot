@@ -2787,11 +2787,8 @@ def initialize_app():
 print("🔧 CARGANDO MÓDULO APP...")
 initialize_app()
 
-# Ejecutar servidor
+# Ejecutar servidor - MANEJO MEJORADO DEL PORT
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")
     app.run(host='0.0.0.0', port=port, debug=False)
-else:
-    # Para cuando se carga como módulo (Gunicorn)
-    print("🔧 MÓDULO CARGADO - APP LISTA")
