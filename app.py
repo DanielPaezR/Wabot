@@ -2390,104 +2390,13 @@ def debug_session():
     return jsonify(dict(session))
 
 # =============================================================================
-# RUTA SIMPLE DE DEBUG PARA ESTANDARIZAR CON SHA256_CRYPT
+# RUTA SIMPLE DE DEBUG PARA CONTRASEÑAS
 # =============================================================================
-
-@app.route('/debug/fix-passwords')
-def debug_fix_passwords():
-    """Ruta simple para estandarizar hashes de contraseñas a sha256_crypt"""
-    try:
-        # Clave simple de seguridad
-        auth_key = request.args.get('key', '')
-        if auth_key != 'migrate2024':
-            return "❌ No autorizado. Usa: /debug/fix-passwords?key=migrate2024"
-        
-        from passlib.hash import sha256_crypt
-        from werkzeug.security import check_password_hash
-        
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        # Obtener todos los usuarios
-        cursor.execute("SELECT id, email, password, nombre FROM usuarios")
-        usuarios = cursor.fetchall()
-        
-        resultados = []
-        actualizados = 0
-        
-        for usuario in usuarios:
-            usuario_id, email, password, nombre = usuario
-            
-            # Si la contraseña está vacía, saltar
-            if not password:
-                resultados.append(f"❌ {email}: Contraseña vacía")
-                continue
-            
-            # Verificar si ya es sha256_crypt
-            if password.startswith('$5$') or password.startswith('$6$'):
-                try:
-                    # Verificar que el hash sea válido
-                    sha256_crypt.verify("test", password)  # Solo para verificar formato
-                    resultados.append(f"✅ {email}: Ya usa sha256_crypt")
-                    continue
-                except:
-                    resultados.append(f"⚠️ {email}: Hash sha256_crypt inválido")
-                    continue
-            
-            # Si es werkzeug, migrar a sha256_crypt
-            if password.startswith('pbkdf2:sha256:'):
-                try:
-                    # Para migrar de werkzeug a sha256_crypt necesitamos la contraseña original
-                    # Como no la tenemos, no podemos migrar automáticamente
-                    resultados.append(f"⚠️ {email}: Usa werkzeug (necesita reset manual)")
-                    continue
-                except:
-                    resultados.append(f"❌ {email}: Error detectando werkzeug")
-                    continue
-            
-            # Si parece texto plano (menos de 60 chars y no empieza con $)
-            if len(password) < 60 and not password.startswith('$'):
-                try:
-                    # Migrar texto plano a sha256_crypt
-                    nuevo_hash = sha256_crypt.hash(password)
-                    cursor.execute(
-                        "UPDATE usuarios SET password = %s WHERE id = %s",
-                        (nuevo_hash, usuario_id)
-                    )
-                    actualizados += 1
-                    resultados.append(f"✅ {email}: Migrado texto plano → sha256_crypt")
-                except Exception as e:
-                    resultados.append(f"❌ {email}: Error migrando: {str(e)}")
-                    continue
-            else:
-                resultados.append(f"❌ {email}: Formato desconocido: {password[:30]}...")
-        
-        conn.commit()
-        conn.close()
-        
-        # Crear respuesta simple
-        respuesta = f"""
-        <h1>🔧 Debug - Estandarización a SHA256_CRYPT</h1>
-        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
-        <p><strong>Actualizados:</strong> {actualizados}</p>
-        <hr>
-        <h3>Resultados:</h3>
-        <pre>{chr(10).join(resultados)}</pre>
-        <hr>
-        <p><em>Usuarios con werkzeug necesitan reset manual de contraseña.</em></p>
-        """
-        
-        return respuesta
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
 @app.route('/debug/passwords')
 def debug_passwords():
     """Ruta simple para ver estado de contraseñas"""
     try:
-        from passlib.hash import sha256_crypt
-        
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
@@ -2503,13 +2412,9 @@ def debug_passwords():
             if not password:
                 estado = "❌ VACÍA"
             elif password.startswith('$5$') or password.startswith('$6$'):
-                try:
-                    sha256_crypt.verify("test", password)  # Solo verificar formato
-                    estado = "✅ SHA256_CRYPT"
-                except:
-                    estado = "⚠️ SHA256_CRYPT INVÁLIDO"
+                estado = "✅ SHA256_CRYPT"
             elif password.startswith('pbkdf2:sha256:'):
-                estado = "🔀 WERKZEUG (necesita migración)"
+                estado = "🔀 WERKZEUG"
             elif len(password) < 60:
                 estado = "🔓 TEXTO PLANO"
             else:
@@ -2518,13 +2423,129 @@ def debug_passwords():
             resultados.append(f"{estado} - {email}: {password[:30]}...")
         
         return f"""
-        <h1>🔧 Estado de Contraseñas (SHA256_CRYPT)</h1>
+        <h1>🔧 Estado de Contraseñas</h1>
         <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
         <hr>
         <pre>{chr(10).join(resultados)}</pre>
         <hr>
-        <p>Para migrar contraseñas en texto plano a sha256_crypt usa:</p>
-        <code>/debug/fix-passwords?key=migrate2024</code>
+        <p><strong>Usuarios con TEXTO PLANO necesitan migración</strong></p>
+        """
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+@app.route('/debug/reset-password/<int:usuario_id>')
+def debug_reset_password(usuario_id):
+    """Resetear contraseña de usuario específico a '123456' con sha256_crypt"""
+    try:
+        # Clave simple de seguridad
+        auth_key = request.args.get('key', '')
+        if auth_key != 'reset2024':
+            return "❌ No autorizado. Usa: /debug/reset-password/USUARIO_ID?key=reset2024"
+        
+        # Generar hash sha256_crypt manualmente (sin passlib)
+        import hashlib
+        import secrets
+        
+        # Crear un hash similar a sha256_crypt
+        salt = secrets.token_hex(8)
+        password_plain = "123456"
+        
+        # Hash simple (esto es temporal, deberías instalar passlib después)
+        hash_obj = hashlib.sha256()
+        hash_obj.update(f"{password_plain}{salt}".encode())
+        password_hash = f"sha256${salt}${hash_obj.hexdigest()}"
+        
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar que el usuario existe
+        cursor.execute("SELECT email, nombre FROM usuarios WHERE id = %s", (usuario_id,))
+        usuario = cursor.fetchone()
+        
+        if not usuario:
+            conn.close()
+            return f"❌ Usuario {usuario_id} no encontrado"
+        
+        email, nombre = usuario
+        
+        # Actualizar contraseña
+        cursor.execute(
+            "UPDATE usuarios SET password = %s WHERE id = %s",
+            (password_hash, usuario_id)
+        )
+        
+        conn.commit()
+        conn.close()
+        
+        return f"""
+        <h1>✅ Contraseña Reseteada</h1>
+        <p><strong>Usuario:</strong> {nombre} ({email})</p>
+        <p><strong>Nueva contraseña:</strong> 123456</p>
+        <p><strong>Hash generado:</strong> {password_hash[:50]}...</p>
+        <hr>
+        <p><a href="/debug/passwords">← Volver al estado</a></p>
+        """
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+@app.route('/debug/simple-fix')
+def debug_simple_fix():
+    """Solución simple: resetear todas las contraseñas problemáticas"""
+    try:
+        auth_key = request.args.get('key', '')
+        if auth_key != 'fix2024':
+            return "❌ No autorizado. Usa: /debug/simple-fix?key=fix2024"
+        
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, email, password, nombre FROM usuarios")
+        usuarios = cursor.fetchall()
+        
+        resultados = []
+        reseteados = 0
+        
+        for usuario in usuarios:
+            usuario_id, email, password, nombre = usuario
+            
+            # Si no tiene contraseña o es texto plano, resetear
+            if not password or (len(password) < 60 and not password.startswith('$')):
+                # Generar hash simple
+                import hashlib
+                import secrets
+                
+                salt = secrets.token_hex(8)
+                password_plain = "123456"
+                hash_obj = hashlib.sha256()
+                hash_obj.update(f"{password_plain}{salt}".encode())
+                password_hash = f"sha256${salt}${hash_obj.hexdigest()}"
+                
+                # Actualizar
+                cursor.execute(
+                    "UPDATE usuarios SET password = %s WHERE id = %s",
+                    (password_hash, usuario_id)
+                )
+                
+                reseteados += 1
+                resultados.append(f"✅ {email}: Reset a '123456'")
+            else:
+                resultados.append(f"✅ {email}: OK ({password[:20]}...)")
+        
+        conn.commit()
+        conn.close()
+        
+        return f"""
+        <h1>🔧 Fix Simple Completado</h1>
+        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
+        <p><strong>Contraseñas reseteadas:</strong> {reseteados}</p>
+        <hr>
+        <h3>Resultados:</h3>
+        <pre>{chr(10).join(resultados)}</pre>
+        <hr>
+        <p><strong>Todas las contraseñas reseteadas son: 123456</strong></p>
+        <p><a href="/login">→ Ir al login</a></p>
         """
         
     except Exception as e:
