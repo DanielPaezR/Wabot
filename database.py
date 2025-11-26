@@ -46,11 +46,15 @@ def is_postgresql():
 
 
 def execute_sql(cursor, sql, params=()):
-    """Ejecutar SQL adaptado para PostgreSQL o SQLite"""
+    """Ejecutar SQL adaptado para PostgreSQL o SQLite - VERSIÓN MEJORADA"""
     if is_postgresql():
         # Reemplazar ? por %s para PostgreSQL
         sql = sql.replace('?', '%s')
-    cursor.execute(sql, params)
+        # Usar execute directamente para PostgreSQL
+        cursor.execute(sql, params)
+    else:
+        # SQLite
+        cursor.execute(sql, params)
 
 
 def fetch_all(cursor, sql, params=()):
@@ -67,14 +71,16 @@ def fetch_all(cursor, sql, params=()):
 
 
 def fetch_one(cursor, sql, params=()):
-    """Ejecutar SELECT y retornar un resultado"""
+    """Ejecutar SELECT y retornar un resultado - VERSIÓN MEJORADA"""
     execute_sql(cursor, sql, params)
     result = cursor.fetchone()
     
     if result:
         if is_postgresql():
-            return dict(result)
+            # PostgreSQL con RealDictCursor retorna diccionarios
+            return dict(result) if hasattr(result, 'keys') else result
         else:
+            # SQLite: convertir Row a dict
             return dict(result)
     return None
 
@@ -1201,7 +1207,7 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
     
     try:
         # Verificar si el email ya existe
-        sql = 'SELECT id FROM usuarios WHERE email = ?'
+        sql = 'SELECT id FROM usuarios WHERE email = %s'
         if fetch_one(cursor, sql, (email,)):
             print(f"❌ Email ya existe: {email}")
             conn.close()
@@ -1231,27 +1237,49 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         
         print(f"🔧 Creando usuario: {email}, negocio_id: {negocio_id}, rol: {rol}")
         
-        # Insertar usuario
-        sql = 'INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)'
-        execute_sql(cursor, sql, (negocio_id, nombre, email, hashed_password, rol))
-        
+        # Insertar usuario y obtener el ID
         if is_postgresql():
-            cursor.execute('SELECT LASTVAL()')
-            nuevo_usuario_id = cursor.fetchone()[0]
+            sql = '''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            '''
+            cursor.execute(sql, (negocio_id, nombre, email, hashed_password, rol))
+            result = cursor.fetchone()
+            nuevo_usuario_id = result['id'] if result else None
         else:
+            sql = '''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
+                VALUES (?, ?, ?, ?, ?)
+            '''
+            execute_sql(cursor, sql, (negocio_id, nombre, email, hashed_password, rol))
             nuevo_usuario_id = cursor.lastrowid
+        
+        if not nuevo_usuario_id:
+            print(f"❌ No se pudo obtener el ID del nuevo usuario")
+            conn.rollback()
+            conn.close()
+            return None
         
         print(f"✅ Usuario creado con ID: {nuevo_usuario_id}")
         
         # Si es profesional, crear automáticamente en tabla profesionales
         if rol == 'profesional':
-            sql = 'SELECT id FROM profesionales WHERE nombre = ? AND negocio_id = ?'
+            sql = 'SELECT id FROM profesionales WHERE nombre = %s AND negocio_id = %s'
             if not fetch_one(cursor, sql, (nombre, negocio_id)):
-                sql = '''
-                    INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                '''
-                execute_sql(cursor, sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
+                if is_postgresql():
+                    sql = '''
+                        INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    '''
+                    cursor.execute(sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
+                else:
+                    sql = '''
+                        INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    '''
+                    execute_sql(cursor, sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
                 print(f"✅ Profesional creado para usuario: {nuevo_usuario_id}")
         
         conn.commit()
