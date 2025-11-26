@@ -10,29 +10,38 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def get_db_connection():
-    """Establecer conexión a la base de datos (SQLite o PostgreSQL)"""
+    """Establecer conexión a la base de datos (SQLite o PostgreSQL) - VERSIÓN MEJORADA"""
     database_url = os.getenv('DATABASE_URL')
+    
+    print(f"🔧 [DEBUG] Intentando conectar a: {database_url}")
     
     # Si estamos en producción con PostgreSQL
     if database_url and database_url.startswith('postgresql://'):
         try:
             import psycopg2
+            from psycopg2.extras import RealDictCursor
+            
+            print("✅ Conectando a PostgreSQL...")
+            
             # Convertir URL de PostgreSQL para psycopg2
             if database_url.startswith('postgresql://'):
                 database_url = database_url.replace('postgresql://', 'postgres://')
-            conn = psycopg2.connect(database_url)
             
-            # Crear un cursor que retorne diccionarios (similar a sqlite3.Row)
-            def dict_factory(cursor, row):
-                return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
-            
-            # No podemos modificar psycopg2 directamente, pero adaptaremos las consultas
+            # Conectar con cursor que retorna diccionarios
+            conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+            print("✅ Conexión PostgreSQL exitosa")
             return conn
+            
         except ImportError:
             print("⚠️ psycopg2 no instalado, usando SQLite")
             return sqlite3.connect('negocio.db')
+        except Exception as e:
+            print(f"❌ Error conectando a PostgreSQL: {e}")
+            print("🔄 Fallback a SQLite...")
+            return sqlite3.connect('negocio.db')
     else:
         # Desarrollo local con SQLite
+        print("🔧 Usando SQLite local")
         conn = sqlite3.connect('negocio.db')
         conn.row_factory = sqlite3.Row
         return conn

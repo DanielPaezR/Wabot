@@ -440,7 +440,7 @@ Responde con el *número* de la fecha que prefieres:
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
-    """Mostrar horarios disponibles para una fecha específica - CORREGIDA"""
+    """Mostrar horarios disponibles para una fecha específica - VERSIÓN MEJORADA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if not fecha_seleccionada:
@@ -459,7 +459,8 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         fecha_cita = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
         
         if fecha_cita.date() == fecha_actual.date():
-            mensaje = f"❌ *{negocio['nombre']}* no tiene horarios disponibles para hoy.\n\n"
+            mensaje = f"❌ *{negocio['nombre']}* no tiene horarios disponibles para hoy con al menos 1 hora de anticipación.\n\n"
+            mensaje += "💡 *Sugerencia:* Agenda para mañana o selecciona otro día.\n\n"
         else:
             mensaje = f"❌ *{negocio['nombre']}* no atiende el {fecha_formateada}.\n\n"
         
@@ -487,7 +488,8 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         fecha_cita = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
         
         if fecha_cita.date() == fecha_actual.date():
-            mensaje = f"❌ No hay horarios disponibles para hoy. Todos los horarios de hoy ya han pasado.\n\n"
+            mensaje = f"❌ No hay horarios disponibles para hoy con al menos 1 hora de anticipación.\n\n"
+            mensaje += "💡 *Sugerencia:* Agenda para mañana o selecciona otro día.\n\n"
         else:
             mensaje = f"❌ No hay horarios disponibles para el {fecha_formateada}.\n\n"
         
@@ -1075,7 +1077,7 @@ Esperamos verte pronto en otra ocasión.'''
 # =============================================================================
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
-    """Obtener las próximas fechas donde el negocio está activo - CORREGIDA"""
+    """Obtener las próximas fechas donde el negocio está activo - VERSIÓN MEJORADA"""
     fechas_disponibles = []
     fecha_actual = datetime.now()
     
@@ -1092,25 +1094,17 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
         
         # ✅ CORRECCIÓN: Solo agregar si el día está activo
         if horarios_dia and horarios_dia['activo']:
-            # ✅ CORRECCIÓN: Para HOY, verificar horarios futuros
+            # ✅ CORRECCIÓN MEJORADA: Para HOY, verificar horarios futuros con margen
             if i == 0:  # Es hoy
-                # Verificar si hay horarios disponibles para hoy
-                horarios_hoy = generar_horarios_disponibles_actualizado(
-                    negocio_id, 
-                    None,  # No necesitamos profesional específico aquí
-                    fecha_str, 
-                    None   # No necesitamos servicio específico aquí
-                )
-                
-                # Solo mostrar "Hoy" si hay horarios disponibles
+                # Verificar si hay horarios disponibles para hoy con margen mínimo
                 if verificar_disponibilidad_basica(negocio_id, fecha_str):
                     fechas_disponibles.append({
                         'fecha': fecha_str,
                         'mostrar': "Hoy"
                     })
-                    print(f"🔧 [DEBUG] ✅ Hoy agregado - Hay horarios disponibles")
+                    print(f"🔧 [DEBUG] ✅ Hoy agregado - Hay horarios disponibles con margen")
                 else:
-                    print(f"🔧 [DEBUG] ❌ Hoy NO agregado - No hay horarios disponibles")
+                    print(f"🔧 [DEBUG] ❌ Hoy NO agregado - No hay horarios disponibles con margen mínimo")
             else:
                 # Para días futuros, solo verificar que el día esté activo
                 fecha_formateada = fecha.strftime('%A %d/%m').title()
@@ -1138,7 +1132,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - CORREGIDA"""
+    """Generar horarios disponibles considerando la configuración por días - VERSIÓN MEJORADA"""
     print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
@@ -1150,7 +1144,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     
     print(f"✅ Día activo. Horario: {horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']}")
     
-    # ✅ CORRECCIÓN: Si es hoy, no mostrar horarios pasados
+    # ✅ CORRECCIÓN: Si es hoy, considerar margen mínimo de anticipación
     fecha_actual = datetime.now()
     fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
     es_hoy = fecha_cita.date() == fecha_actual.date()
@@ -1175,12 +1169,20 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     while hora_actual < hora_fin:
         hora_str = hora_actual.strftime('%H:%M')
         
-        # ✅ CORRECCIÓN IMPORTANTE: Si es hoy, omitir horarios pasados
+        # ✅ CORRECCIÓN MEJORADA: Si es hoy, aplicar margen mínimo de 1 hora
         if es_hoy:
+            # Combinar fecha actual con hora del horario
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-            # Agregar margen de 30 minutos para permitir agendar con algo de anticipación
-            if hora_actual_completa < (fecha_actual - timedelta(minutes=30)):
-                print(f"⏰ Horario {hora_str} omitido (es pasado para hoy)")
+            
+            # Calcular tiempo hasta el horario
+            tiempo_hasta_horario = hora_actual_completa - fecha_actual
+            
+            # ✅ MARGEN MÍNIMO: 60 minutos (1 hora) de anticipación
+            margen_minimo_minutos = 60
+            
+            # Si el horario es muy pronto (menos de 1 hora), omitirlo
+            if tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
+                print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos, mínimo {margen_minimo_minutos} minutos requeridos)")
                 hora_actual += timedelta(minutes=30)
                 continue
         
@@ -1197,28 +1199,31 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     return horarios
 
 def verificar_disponibilidad_basica(negocio_id, fecha):
-    """Verificación rápida de disponibilidad para una fecha (sin profesional específico)"""
+    """Verificación rápida de disponibilidad para una fecha (sin profesional específico) - VERSIÓN MEJORADA"""
     try:
         # Verificar si el día está activo
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
         if not horarios_dia or not horarios_dia['activo']:
             return False
         
-        # Si es hoy, verificar que queden horarios futuros
+        # Si es hoy, verificar que queden horarios futuros con margen mínimo
         fecha_actual = datetime.now()
         fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
         
         if fecha_cita.date() == fecha_actual.date():
-            # Para hoy, verificar si hay al menos un horario futuro
+            # Para hoy, verificar si hay al menos un horario futuro con margen de 1 hora
             hora_actual = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
             hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
             
             while hora_actual < hora_fin:
                 hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-                if hora_actual_completa >= (fecha_actual - timedelta(minutes=30)):
-                    return True  # Hay al menos un horario futuro
+                
+                # ✅ MARGEN MÍNIMO: 60 minutos (1 hora)
+                if hora_actual_completa >= (fecha_actual + timedelta(minutes=60)):
+                    return True  # Hay al menos un horario futuro con margen suficiente
+                
                 hora_actual += timedelta(minutes=30)
-            return False  # No hay horarios futuros para hoy
+            return False  # No hay horarios futuros con margen suficiente para hoy
         
         return True  # Para días futuros, solo con que el día esté activo es suficiente
         

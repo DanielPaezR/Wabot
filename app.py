@@ -2480,6 +2480,36 @@ def corregir_hash(usuario_id):
     <a href="/login">Probar login</a>
     '''
 
+@app.route('/debug-database')
+def debug_database():
+    """Debug de conexión a base de datos"""
+    try:
+        conn = get_db_connection()
+        
+        # Probar consulta simple
+        cursor = conn.cursor()
+        cursor.execute('SELECT version()')
+        version = cursor.fetchone()
+        
+        # Probar si existe tabla de negocios
+        try:
+            cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'")
+            tablas = cursor.fetchone()
+        except:
+            tablas = {'count': 'Error al contar tablas'}
+        
+        conn.close()
+        
+        return f'''
+        <h1>🔧 DEBUG DATABASE</h1>
+        <p><strong>Database URL:</strong> {os.getenv('DATABASE_URL', 'No configurada')}</p>
+        <p><strong>PostgreSQL Version:</strong> {version}</p>
+        <p><strong>Tablas existentes:</strong> {tablas}</p>
+        <p><strong>Tipo de conexión:</strong> {'PostgreSQL' if 'postgresql' in os.getenv('DATABASE_URL', '') else 'SQLite'}</p>
+        '''
+    except Exception as e:
+        return f'<h1>❌ ERROR</h1><p>{e}</p>'
+
 @app.route('/migrar_hashes')
 def migrar_hashes():
     """Ruta temporal para migrar hashes - ELIMINAR DESPUÉS"""
