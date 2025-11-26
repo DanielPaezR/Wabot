@@ -2224,45 +2224,80 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
 # =============================================================================
 
 def obtener_citas_proximas_recordatorio():
-    """Obtener citas próximas para recordatorios"""
+    """Obtener citas próximas para recordatorios - VERSIÓN POSTGRESQL CORREGIDA"""
+    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
     # Citas en 24 horas
     fecha_24h = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d')
-    hora_actual = datetime.now().strftime('%H:%M')
     
-    cursor.execute('''
-        SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
-               p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-               s.duracion, s.precio
-        FROM citas c
-        JOIN negocios n ON c.negocio_id = n.id
-        JOIN profesionales p ON c.profesional_id = p.id
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.fecha = ? AND c.estado = 'confirmado' 
-        AND c.recordatorio_24h_enviado = FALSE
-        ORDER BY c.hora
-    ''', (fecha_24h,))
+    if is_postgresql:
+        # ✅ CONSULTA CORREGIDA PARA POSTGRESQL
+        cursor.execute('''
+            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
+                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
+                   s.duracion, s.precio
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.fecha = %s AND c.estado = 'confirmado' 
+            AND c.recordatorio_24h_enviado = FALSE
+            ORDER BY c.hora
+        ''', (fecha_24h,))
+    else:
+        # SQLite
+        cursor.execute('''
+            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
+                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
+                   s.duracion, s.precio
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.fecha = ? AND c.estado = 'confirmado' 
+            AND c.recordatorio_24h_enviado = FALSE
+            ORDER BY c.hora
+        ''', (fecha_24h,))
     
     citas_24h = [dict(row) for row in cursor.fetchall()]
     
     # Citas en 1 hora (mismo día)
     fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     
-    cursor.execute('''
-        SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
-               p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-               s.duracion, s.precio
-        FROM citas c
-        JOIN negocios n ON c.negocio_id = n.id
-        JOIN profesionales p ON c.profesional_id = p.id
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.fecha = ? AND c.estado = 'confirmado'
-        AND c.recordatorio_1h_enviado = FALSE
-        AND TIME(c.hora) BETWEEN TIME('now', '+55 minutes') AND TIME('now', '+65 minutes')
-        ORDER BY c.hora
-    ''', (fecha_hoy,))
+    if is_postgresql:
+        # ✅ CONSULTA CORREGIDA PARA POSTGRESQL
+        cursor.execute('''
+            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
+                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
+                   s.duracion, s.precio
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.fecha = %s AND c.estado = 'confirmado'
+            AND c.recordatorio_1h_enviado = FALSE
+            AND c.hora::time BETWEEN (NOW() + INTERVAL '55 minutes')::time 
+                               AND (NOW() + INTERVAL '65 minutes')::time
+            ORDER BY c.hora
+        ''', (fecha_hoy,))
+    else:
+        # SQLite
+        cursor.execute('''
+            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
+                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
+                   s.duracion, s.precio
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.fecha = ? AND c.estado = 'confirmado'
+            AND c.recordatorio_1h_enviado = FALSE
+            AND TIME(c.hora) BETWEEN TIME('now', '+55 minutes') AND TIME('now', '+65 minutes')
+            ORDER BY c.hora
+        ''', (fecha_hoy,))
     
     citas_1h = [dict(row) for row in cursor.fetchall()]
     
@@ -2274,21 +2309,35 @@ def obtener_citas_proximas_recordatorio():
     }
 
 def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
-    """Marcar recordatorio como enviado"""
+    """Marcar recordatorio como enviado - VERSIÓN POSTGRESQL CORREGIDA"""
+    is_postgresql = os.getenv('DATABASE_URL', '').startswith('postgresql://')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         if tipo_recordatorio == '24h':
-            cursor.execute('''
-                UPDATE citas SET recordatorio_24h_enviado = TRUE 
-                WHERE id = ?
-            ''', (cita_id,))
+            if is_postgresql:
+                cursor.execute('''
+                    UPDATE citas SET recordatorio_24h_enviado = TRUE 
+                    WHERE id = %s
+                ''', (cita_id,))
+            else:
+                cursor.execute('''
+                    UPDATE citas SET recordatorio_24h_enviado = TRUE 
+                    WHERE id = ?
+                ''', (cita_id,))
         elif tipo_recordatorio == '1h':
-            cursor.execute('''
-                UPDATE citas SET recordatorio_1h_enviado = TRUE 
-                WHERE id = ?
-            ''', (cita_id,))
+            if is_postgresql:
+                cursor.execute('''
+                    UPDATE citas SET recordatorio_1h_enviado = TRUE 
+                    WHERE id = %s
+                ''', (cita_id,))
+            else:
+                cursor.execute('''
+                    UPDATE citas SET recordatorio_1h_enviado = TRUE 
+                    WHERE id = ?
+                ''', (cita_id,))
         
         conn.commit()
         return True
