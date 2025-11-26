@@ -2759,24 +2759,13 @@ def catch_all(path):
 
 @app.route('/')
 def index():
-    """Página principal - Redirigir según autenticación"""
-    if 'usuario_id' in session:
-        return redirect(url_for(get_redirect_url_by_role(session.get('usuario_rol'))))
-    else:
-        return redirect(url_for('login'))
-    
-@app.route('/status')
-def status():
-    """Endpoint simple para verificar que la app está funcionando"""
-    return jsonify({
-        "status": "ok",
-        "message": "Aplicación funcionando",
-        "timestamp": datetime.now().isoformat()
-    })
+    """Página principal - SIMPLE Y DIRECTO"""
+    return "✅ ¡App funcionando! Ve a /login para acceder al sistema."
 
 @app.route('/test')
-def test_endpoint():
-    return "✅ El servidor Flask está funcionando correctamente!"
+def test():
+    """Test MÍNIMO"""
+    return "✅ TEST OK"
 
 @app.route('/debug-session')
 def debug_session():
@@ -2787,31 +2776,32 @@ def debug_session():
 # INICIALIZACIÓN
 # =============================================================================
 
+# Crear la aplicación Flask primero
+app_instance = app
+
 def initialize_app():
-    """Inicializar la aplicación una sola vez"""
+    """Inicializar la aplicación"""
     print("🚀 INICIALIZANDO APLICACIÓN...")
     
-    # Inicializar base de datos
     try:
         db.init_db()
         print("✅ Base de datos inicializada")
     except Exception as e:
         print(f"⚠️ Error en init_db: {e}")
 
-    # Iniciar scheduler en hilo separado
     try:
         scheduler_thread = threading.Thread(target=iniciar_scheduler)
         scheduler_thread.daemon = True
         scheduler_thread.start()
-        print("✅ Scheduler de recordatorios iniciado en segundo plano")
+        print("✅ Scheduler iniciado")
     except Exception as e:
-        print(f"⚠️ No se pudo iniciar el scheduler: {e}")
+        print(f"⚠️ Error en scheduler: {e}")
 
-# Inicializar la aplicación cuando el módulo se carga
-print("🔧 CARGANDO MÓDULO APP...")
-initialize_app()
-
-# Solo ejecutar con Flask en desarrollo
+# Inicializar SOLO si es el proceso principal
 if __name__ == '__main__':
+    initialize_app()
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+else:
+    # Para Gunicorn, usar un approach diferente
+    print("🔧 MÓDULO CARGADO POR GUNICORN")
