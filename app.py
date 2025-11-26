@@ -294,18 +294,31 @@ def eliminar_profesional(profesional_id, negocio_id):
 # =============================================================================
 @app.route('/')
 def index():
-    """Página principal - MÍNIMA"""
-    return "✅ ¡App Funcionando! Ve a /login para acceder al sistema."
+    """Página principal - MÍNIMA Y DIRECTA"""
+    return """
+    <h1>✅ ¡App Funcionando!</h1>
+    <p>La aplicación Flask está ejecutándose correctamente.</p>
+    <p><strong>Base de datos:</strong> ✅ Conectada</p>
+    <p><strong>Scheduler:</strong> ✅ Activo</p>
+    <a href="/login">Ir al Login</a> | 
+    <a href="/health">Health Check</a> |
+    <a href="/debug-database">Debug DB</a>
+    """
 
 @app.route('/health')
 def health_check():
     """Health check MÍNIMO"""
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "database": "connected",
+        "service": "flask"
+    })
 
-@app.route('/test-simple')
-def test_simple():
-    """Ruta simple sin dependencias"""
-    return "✅ Ruta básica OK"
+@app.route('/test-minimal')
+def test_minimal():
+    """Test MÍNIMO sin dependencias"""
+    return "✅ TEST MINIMAL OK - Flask funcionando"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -2792,3 +2805,22 @@ initialize_app()
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
+# =============================================================================
+# EJECUCIÓN FORZADA PARA RAILWAY
+# =============================================================================
+if __name__ == '__main__':
+    print("🚀 INICIANDO SERVIDOR FLASK DIRECTAMENTE...")
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
+else:
+    # Para cuando Gunicorn carga el módulo
+    print("🔧 MÓDULO CARGADO - INICIALIZANDO...")
+    
+    def create_app():
+        """Factory para Gunicorn"""
+        initialize_app()
+        return app
+    
+    # Forzar inicialización incluso con Gunicorn
+    initialize_app()
