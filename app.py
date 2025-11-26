@@ -2764,6 +2764,15 @@ def index():
         return redirect(url_for(get_redirect_url_by_role(session.get('usuario_rol'))))
     else:
         return redirect(url_for('login'))
+    
+@app.route('/status')
+def status():
+    """Endpoint simple para verificar que la app está funcionando"""
+    return jsonify({
+        "status": "ok",
+        "message": "Aplicación funcionando",
+        "timestamp": datetime.now().isoformat()
+    })
 
 @app.route('/test')
 def test_endpoint():
@@ -2778,16 +2787,16 @@ def debug_session():
 # INICIALIZACIÓN
 # =============================================================================
 
-if __name__ == '__main__':
-    # Inicializar base de datos
-    db.init_db()
+def initialize_app():
+    """Función de inicialización que se llama una sola vez"""
+    print("🚀 INICIALIZANDO APLICACIÓN...")
     
+    # Inicializar base de datos
     try:
-        from database import migrar_hashes_automatico
-        migrar_hashes_automatico()
-        print("✅ Hashes migrados automáticamente")
+        db.init_db()
+        print("✅ Base de datos inicializada")
     except Exception as e:
-        print(f"⚠️ Error en migración automática: {e}")
+        print(f"⚠️ Error en init_db: {e}")
 
     # Iniciar scheduler en hilo separado
     try:
@@ -2797,7 +2806,14 @@ if __name__ == '__main__':
         print("✅ Scheduler de recordatorios iniciado en segundo plano")
     except Exception as e:
         print(f"⚠️ No se pudo iniciar el scheduler: {e}")
-    
-    # Iniciar aplicación
+
+# Llamar inicialización solo cuando se ejecute directamente con Flask
+if __name__ == '__main__':
+    initialize_app()
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+else:
+    # Para Gunicorn, inicializar en el primer request
+    @app.before_first_request
+    def initialize_on_first_request():
+        initialize_app()
