@@ -8,6 +8,37 @@ import json
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# INICIALIZACIÓN AUTOMÁTICA DE BD EN PRODUCCIÓN
+def inicializar_bd_produccion():
+    """Forzar inicialización de BD al iniciar la app"""
+    try:
+        print("🚀 INICIALIZANDO BASE DE DATOS EN PRODUCCIÓN...")
+        from database import init_db, get_db_connection
+        
+        # Ejecutar init_db()
+        init_db()
+        print("✅ Base de datos inicializada correctamente")
+        
+        # Verificar que las tablas existen
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Listar tablas para verificar
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name NOT LIKE 'sqlite_%'
+        """)
+        tablas = cursor.fetchall()
+        print(f"📊 Tablas creadas: {[tabla[0] for tabla in tablas]}")
+        
+        conn.close()
+        
+    except Exception as e:
+        print(f"⚠️ Error en inicialización BD: {e}")
+
+# Ejecutar inmediatamente al importar el módulo
+inicializar_bd_produccion()
+
 def get_db_connection():
     """Establecer conexión a la base de datos (SQLite o PostgreSQL)"""
     database_url = os.getenv('DATABASE_URL')
@@ -41,7 +72,9 @@ def get_db_connection():
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos - compatible con PostgreSQL"""
+    """Inicializar base de datos con manejo de errores mejorado"""
+    print("🔧 INICIANDO INIT_DB...")
+    
     try:
         actualizar_esquema_bd()
         
@@ -55,16 +88,18 @@ def init_db():
         _insertar_datos_por_defecto(cursor)
         
         conn.commit()
-        print("✅ Base de datos inicializada correctamente")
+        conn.close()
+        
+        # Crear plantillas personalizadas
+        crear_plantillas_personalizadas_para_negocios()
+        
+        print("✅ Base de datos multi-tenant con sistema de plantillas inicializada")
         
     except Exception as e:
-        print(f"❌ Error inicializando BD: {e}")
-        # En PostgreSQL, algunos errores son normales (tablas ya existen)
-        if "already exists" not in str(e):
+        print(f"❌ Error en init_db: {e}")
+        # En producción, algunos errores de "tabla ya existe" son normales
+        if "already exists" not in str(e) and "duplicate" not in str(e):
             raise e
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 def execute_query(query, params=()):
     """Ejecutar consulta compatible con SQLite y PostgreSQL"""
