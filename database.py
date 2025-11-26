@@ -274,7 +274,7 @@ def _insertar_datos_por_defecto(cursor):
     # Negocio por defecto
     cursor.execute('''
         INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-        VALUES (1, 'Negocio Premium', 'whatsapp:+573001234567', 'general', ?)
+        VALUES (1, 'Negocio Premium', 'whatsapp:+14155238886', 'general', ?)
     ''', (json.dumps({
         "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
         "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
@@ -302,8 +302,8 @@ def _insertar_datos_por_defecto(cursor):
     _insertar_servicios_por_defecto(cursor)
 
 def _insertar_usuarios_por_defecto(cursor):
-    """Insertar usuarios por defecto"""
-    import hashlib
+    """Insertar usuarios por defecto usando Werkzeug"""
+    from werkzeug.security import generate_password_hash
     
     usuarios = [
         (1, 'Super Administrador', 'admin@negociobot.com', 'admin123', 'superadmin'),
@@ -313,8 +313,8 @@ def _insertar_usuarios_por_defecto(cursor):
     ]
     
     for negocio_id, nombre, email, password, rol in usuarios:
-        # ✅ USAR SHA256 (mismo método que verificar_usuario)
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        # ✅ USAR WERKZEUG (mismo que crear_usuario)
+        password_hash = generate_password_hash(password)
         cursor.execute('''
             INSERT OR IGNORE INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
             VALUES (?, ?, ?, ?, ?)
@@ -322,6 +322,8 @@ def _insertar_usuarios_por_defecto(cursor):
 
 def migrar_hashes_automatico():
     """Migrar automáticamente los hashes al iniciar la app"""
+    from werkzeug.security import generate_password_hash
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -335,12 +337,12 @@ def migrar_hashes_automatico():
         ]
         
         for password, email in usuarios:
-            nuevo_hash = hashlib.sha256(password.encode()).hexdigest()
+            nuevo_hash = generate_password_hash(password)
             cursor.execute('UPDATE usuarios SET password_hash = ? WHERE email = ?', 
                           (nuevo_hash, email))
         
         conn.commit()
-        print("✅ Hashes migrados automáticamente")
+        print("✅ Hashes migrados a Werkzeug automáticamente")
         
     except Exception as e:
         print(f"⚠️ Error en migración automática: {e}")
@@ -1615,7 +1617,7 @@ def notificar_cambio_horarios(negocio_id):
 # =============================================================================
 
 def verificar_usuario(email, password):
-    """Verificar credenciales de usuario"""
+    """Verificar credenciales de usuario usando SHA256"""
     conn = get_db_connection()
     
     usuario = conn.execute('''
@@ -1627,8 +1629,9 @@ def verificar_usuario(email, password):
     
     conn.close()
     
-    # ✅ CAMBIO: Usar SHA256 en vez de check_password_hash
     if usuario:
+        # ✅ SHA256 (consistente con crear_usuario)
+        import hashlib
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
         if usuario['password_hash'] == password_hash:
@@ -1650,7 +1653,7 @@ def verificar_usuario(email, password):
     return None
 
 def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario y si es profesional, crear también en tabla profesionales"""
+    """Crear usuario usando SHA256 (mismo sistema que usuarios existentes)"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -1661,8 +1664,9 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
             conn.close()
             return None
         
-        # Hash de la contraseña
-        hashed_password = generate_password_hash(password)
+        # ✅ USAR SHA256 (igual que usuarios existentes)
+        import hashlib
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
         
         # Insertar usuario
         cursor.execute(
