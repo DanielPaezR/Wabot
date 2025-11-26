@@ -619,7 +619,7 @@ def admin_usuarios():
 @app.route('/admin/usuarios/nuevo', methods=['GET', 'POST'])
 @role_required(['superadmin'])
 def admin_nuevo_usuario():
-    """Crear nuevo usuario"""
+    """Crear nuevo usuario - VERSIÓN CORREGIDA"""
     if request.method == 'POST':
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
@@ -632,20 +632,43 @@ def admin_nuevo_usuario():
         password = request.form.get('password')
         rol = request.form.get('rol', 'propietario')
         
-        if not all([negocio_id, nombre, email, password]):
+        print(f"🔧 Datos del formulario: negocio_id={negocio_id}, nombre={nombre}, email={email}, rol={rol}")
+        
+        # Validaciones
+        if not all([nombre, email, password]):
             flash('Todos los campos son requeridos', 'error')
             return redirect(url_for('admin_nuevo_usuario'))
         
-        usuario_id = db.crear_usuario(negocio_id, nombre, email, password, rol)
+        if len(password) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
         
-        if usuario_id:
-            if rol == 'profesional':
-                flash(f'Usuario profesional "{nombre}" creado exitosamente', 'success')
+        # Si es superadmin y no se seleccionó negocio, usar negocio por defecto
+        if rol == 'superadmin' and (not negocio_id or negocio_id == ''):
+            negocio_id = 1
+        
+        # Validar que se haya seleccionado negocio para roles que lo requieren
+        if rol != 'superadmin' and (not negocio_id or negocio_id == ''):
+            flash('Debes seleccionar un negocio para este rol', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        
+        try:
+            usuario_id = db.crear_usuario(negocio_id, nombre, email, password, rol)
+            
+            if usuario_id:
+                if rol == 'profesional':
+                    flash(f'Usuario profesional "{nombre}" creado exitosamente', 'success')
+                else:
+                    flash('Usuario creado exitosamente', 'success')
+                return redirect(url_for('admin_usuarios'))
             else:
-                flash('Usuario creado exitosamente', 'success')
-            return redirect(url_for('admin_usuarios'))
-        else:
-            flash('Error al crear usuario. El email puede estar en uso.', 'error')
+                flash('Error al crear usuario. El email puede estar en uso o hay un problema con los datos.', 'error')
+                return redirect(url_for('admin_nuevo_usuario'))
+                
+        except Exception as e:
+            print(f"❌ Error creando usuario: {e}")
+            flash('Error interno al crear el usuario', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
     
     negocios = db.obtener_todos_negocios()
     return render_template('admin/nuevo_usuario.html', negocios=negocios)

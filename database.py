@@ -1195,7 +1195,7 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # =============================================================================
 
 def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario"""
+    """Crear usuario - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -1203,12 +1203,33 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         # Verificar si el email ya existe
         sql = 'SELECT id FROM usuarios WHERE email = ?'
         if fetch_one(cursor, sql, (email,)):
+            print(f"❌ Email ya existe: {email}")
+            conn.close()
+            return None
+        
+        # Validar que el negocio_id sea válido (no vacío o None)
+        if not negocio_id or negocio_id == '':
+            if rol == 'superadmin':
+                # Para superadmin, usar negocio_id 1 por defecto
+                negocio_id = 1
+            else:
+                print(f"❌ Negocio_id requerido para rol: {rol}")
+                conn.close()
+                return None
+        
+        # Convertir negocio_id a entero si es string
+        try:
+            negocio_id = int(negocio_id)
+        except (ValueError, TypeError):
+            print(f"❌ Negocio_id inválido: {negocio_id}")
             conn.close()
             return None
         
         # Usar SHA256
         import hashlib
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        
+        print(f"🔧 Creando usuario: {email}, negocio_id: {negocio_id}, rol: {rol}")
         
         # Insertar usuario
         sql = 'INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) VALUES (?, ?, ?, ?, ?)'
@@ -1220,6 +1241,8 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         else:
             nuevo_usuario_id = cursor.lastrowid
         
+        print(f"✅ Usuario creado con ID: {nuevo_usuario_id}")
+        
         # Si es profesional, crear automáticamente en tabla profesionales
         if rol == 'profesional':
             sql = 'SELECT id FROM profesionales WHERE nombre = ? AND negocio_id = ?'
@@ -1229,12 +1252,16 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
                     VALUES (?, ?, ?, ?, ?, ?)
                 '''
                 execute_sql(cursor, sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
+                print(f"✅ Profesional creado para usuario: {nuevo_usuario_id}")
         
         conn.commit()
         return nuevo_usuario_id
         
     except Exception as e:
-        print(f"❌ Error en crear_usuario: {e}")
+        conn.rollback()
+        print(f"❌ Error en crear_usuario: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
     finally:
         conn.close()
