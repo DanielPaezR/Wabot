@@ -27,6 +27,12 @@
         .stat-card:hover {
             transform: translateY(-2px);
         }
+        .no-data {
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -170,9 +176,9 @@
                     </div>
                 </div>
 
-                <!-- Gráficos -->
+                <!-- Gráficos con datos reales -->
                 <div class="row mb-4">
-                    <div class="col-md-8">
+                    <div class="col-md-6">
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="card-title mb-0">
@@ -180,19 +186,19 @@
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <canvas id="graficoEstados" height="200"></canvas>
+                                <canvas id="graficoEstados" height="250"></canvas>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="card-title mb-0">
-                                    <i class="fas fa-chart-bar"></i> Servicios Más Populares
+                                    <i class="fas fa-chart-bar"></i> Servicios Más Solicitados
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <canvas id="graficoServicios" height="200"></canvas>
+                                <canvas id="graficoServicios" height="250"></canvas>
                             </div>
                         </div>
                     </div>
@@ -213,14 +219,54 @@
                                         <thead>
                                             <tr>
                                                 <th>Servicio</th>
-                                                <th>Cantidad</th>
+                                                <th>Cantidad de Citas</th>
                                                 <th>Porcentaje</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tablaServicios">
-                                            <!-- Se llena con JavaScript -->
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted no-data">
+                                                    <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información adicional -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-info-circle"></i> Información de las Estadísticas
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>📊 Métricas Incluidas:</h6>
+                                        <ul class="list-unstyled">
+                                            <li>✅ <strong>Total de Citas:</strong> Todas las citas asignadas</li>
+                                            <li>✅ <strong>Citas Completadas:</strong> Servicios finalizados</li>
+                                            <li>✅ <strong>Citas Confirmadas:</strong> Reservas activas</li>
+                                            <li>✅ <strong>Citas Canceladas:</strong> Reservas canceladas</li>
+                                            <li>✅ <strong>Ingresos Totales:</strong> Suma de todos los servicios</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>📈 Cálculos Automáticos:</h6>
+                                        <ul class="list-unstyled">
+                                            <li>🎯 <strong>Tasa de Éxito:</strong> (Completadas / Total) × 100</li>
+                                            <li>💰 <strong>Promedio por Cita:</strong> Ingresos / Total Citas</li>
+                                            <li>📅 <strong>Citas Semanales:</strong> Basado en datos del mes</li>
+                                            <li>📋 <strong>Servicios Populares:</strong> Ordenados por demanda</li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -256,10 +302,20 @@
         async function cargarEstadisticas() {
             const mes = document.getElementById('mesSelector').value;
             const año = document.getElementById('añoSelector').value;
+            const profesionalId = '{{ estadisticas.profesional_id if estadisticas else session.get("profesional_id", "") }}';
+
+            // Mostrar loading
+            document.getElementById('tablaServicios').innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-muted no-data">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                    </td>
+                </tr>
+            `;
 
             try {
                 // Cargar estadísticas desde tu API existente
-                const url = `/negocio/api/estadisticas?mes=${mes}&año=${año}&profesional_id={{ estadisticas.profesional_id if estadisticas else session.get('profesional_id', '') }}`;
+                const url = `/negocio/api/estadisticas?mes=${mes}&año=${año}&profesional_id=${profesionalId}`;
                 const response = await fetch(url);
                 
                 if (!response.ok) {
@@ -273,7 +329,8 @@
                 
             } catch (error) {
                 console.error('Error cargando estadísticas:', error);
-                mostrarError('No se pudieron cargar las estadísticas');
+                mostrarError('No se pudieron cargar las estadísticas. Intenta nuevamente.');
+                mostrarDatosVacios();
             }
         }
 
@@ -289,8 +346,9 @@
             const promedio = resumen.total_citas > 0 ? (resumen.ingresos_totales || 0) / resumen.total_citas : 0;
             document.getElementById('promedioIngreso').textContent = `$${Math.round(promedio).toLocaleString()}`;
             
-            // Citas de esta semana (usando datos existentes o cálculo simple)
-            document.getElementById('citasSemana').textContent = resumen.citas_semana || Math.round(resumen.total_citas / 4) || 0;
+            // Citas de esta semana (estimación basada en datos mensuales)
+            const citasSemanales = Math.round((resumen.total_citas || 0) / 4.33); // Promedio semanal del mes
+            document.getElementById('citasSemana').textContent = citasSemanales;
         }
 
         function actualizarGraficos(stats) {
@@ -298,7 +356,7 @@
             if (chartEstados) chartEstados.destroy();
             if (chartServicios) chartServicios.destroy();
 
-            // Gráfico de estados de citas
+            // Gráfico de estados de citas (SOLO CON DATOS REALES)
             const ctxEstados = document.getElementById('graficoEstados').getContext('2d');
             const estadosData = {
                 completadas: stats.resumen.citas_completadas || 0,
@@ -306,41 +364,48 @@
                 canceladas: stats.resumen.citas_canceladas || 0
             };
 
-            chartEstados = new Chart(ctxEstados, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Completadas', 'Confirmadas', 'Canceladas'],
-                    datasets: [{
-                        data: [estadosData.completadas, estadosData.confirmadas, estadosData.canceladas],
-                        backgroundColor: [
-                            'rgb(40, 167, 69)',  // Verde para completadas
-                            'rgb(255, 193, 7)',  // Amarillo para confirmadas
-                            'rgb(220, 53, 69)'   // Rojo para canceladas
-                        ],
-                        borderWidth: 2,
-                        borderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const total = estadosData.completadas + estadosData.confirmadas + estadosData.canceladas;
-                                    const percentage = total > 0 ? Math.round((context.raw / total) * 100) : 0;
-                                    return `${context.label}: ${context.raw} (${percentage}%)`;
+            // Solo crear gráfico si hay datos
+            const totalEstados = estadosData.completadas + estadosData.confirmadas + estadosData.canceladas;
+            
+            if (totalEstados > 0) {
+                chartEstados = new Chart(ctxEstados, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completadas', 'Confirmadas', 'Canceladas'],
+                        datasets: [{
+                            data: [estadosData.completadas, estadosData.confirmadas, estadosData.canceladas],
+                            backgroundColor: [
+                                'rgb(40, 167, 69)',  // Verde para completadas
+                                'rgb(255, 193, 7)',  // Amarillo para confirmadas
+                                'rgb(220, 53, 69)'   // Rojo para canceladas
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const percentage = Math.round((context.raw / totalEstados) * 100);
+                                        return `${context.label}: ${context.raw} (${percentage}%)`;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            } else {
+                document.getElementById('graficoEstados').innerHTML = 
+                    '<div class="text-center text-muted no-data">No hay datos de citas para mostrar</div>';
+            }
 
-            // Gráfico de servicios populares
+            // Gráfico de servicios populares (SOLO CON DATOS REALES)
             const ctxServicios = document.getElementById('graficoServicios').getContext('2d');
             const servicios = stats.servicios_top || [];
             
@@ -385,9 +450,8 @@
                     }
                 });
             } else {
-                // Mostrar mensaje si no hay datos
                 document.getElementById('graficoServicios').innerHTML = 
-                    '<div class="text-center text-muted p-4">No hay datos de servicios</div>';
+                    '<div class="text-center text-muted no-data">No hay datos de servicios para mostrar</div>';
             }
         }
 
@@ -411,10 +475,37 @@
             } else {
                 tabla.innerHTML = `
                     <tr>
-                        <td colspan="3" class="text-center text-muted">No hay datos de servicios</td>
+                        <td colspan="3" class="text-center text-muted no-data">
+                            No hay datos de servicios para el período seleccionado
+                        </td>
                     </tr>
                 `;
             }
+        }
+
+        function mostrarDatosVacios() {
+            // Mostrar estado vacío en todos los elementos
+            document.getElementById('totalCitas').textContent = '0';
+            document.getElementById('citasCompletadas').textContent = '0';
+            document.getElementById('citasConfirmadas').textContent = '0';
+            document.getElementById('citasCanceladas').textContent = '0';
+            document.getElementById('ingresosTotales').textContent = '$0';
+            document.getElementById('tasaExito').textContent = '0%';
+            document.getElementById('promedioIngreso').textContent = '$0';
+            document.getElementById('citasSemana').textContent = '0';
+            
+            document.getElementById('graficoEstados').innerHTML = 
+                '<div class="text-center text-muted no-data">No hay datos disponibles</div>';
+            document.getElementById('graficoServicios').innerHTML = 
+                '<div class="text-center text-muted no-data">No hay datos disponibles</div>';
+            
+            document.getElementById('tablaServicios').innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-muted no-data">
+                        No se pudieron cargar los datos
+                    </td>
+                </tr>
+            `;
         }
 
         function mostrarError(mensaje) {
@@ -422,20 +513,13 @@
             const alerta = document.createElement('div');
             alerta.className = 'alert alert-danger alert-dismissible fade show';
             alerta.innerHTML = `
-                ${mensaje}
+                <i class="fas fa-exclamation-triangle"></i> ${mensaje}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             
             // Insertar al inicio del main content
             const main = document.querySelector('main');
             main.insertBefore(alerta, main.firstChild);
-            
-            // Auto-eliminar después de 5 segundos
-            setTimeout(() => {
-                if (alerta.parentNode) {
-                    alerta.remove();
-                }
-            }, 5000);
         }
     </script>
 

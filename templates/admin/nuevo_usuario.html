@@ -188,6 +188,25 @@
             margin-top: 0.5rem;
             border-left: 4px solid #6c757d;
         }
+
+        .password-requirements {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: #856404;
+        }
+
+        .password-requirements ul {
+            margin: 0.5rem 0 0 1rem;
+            padding: 0;
+        }
+
+        .password-requirements li {
+            margin-bottom: 0.25rem;
+        }
     </style>
 </head>
 <body>
@@ -230,7 +249,7 @@
                 </div>
             </div>
             
-            <form method="POST">
+            <form method="POST" id="userForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="form-group">
@@ -256,7 +275,20 @@
                 
                 <div class="form-group">
                     <label for="password">Contraseña *</label>
-                    <input type="password" id="password" name="password" required placeholder="Mínimo 6 caracteres">
+                    <input type="password" id="password" name="password" required placeholder="Mínimo 6 caracteres" minlength="6">
+                    <div class="password-requirements">
+                        <strong>Requisitos de contraseña:</strong>
+                        <ul>
+                            <li>Mínimo 6 caracteres</li>
+                            <li>Se recomienda usar letras y números</li>
+                            <li>Evita contraseñas muy simples</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirmar Contraseña *</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required placeholder="Repite la contraseña">
                 </div>
                 
                 <div class="form-group">
@@ -268,12 +300,35 @@
                     </select>
                 </div>
 
+                <!-- Campos específicos para Profesional -->
+                <div id="profesionalFields" class="conditional-field">
+                    <h4 style="margin-bottom: 1rem; color: #2c3e50;">👨‍💼 Información del Profesional</h4>
+                    
+                    <div class="form-group">
+                        <label for="especialidad">Especialidad</label>
+                        <input type="text" id="especialidad" name="especialidad" placeholder="Ej: Corte de Cabello, Manicure, Masajes">
+                        <div class="optional-field">Opcional - Describe la especialidad del profesional</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="telefono">Teléfono de Contacto</label>
+                        <input type="text" id="telefono" name="telefono" placeholder="Ej: +57 300 123 4567">
+                        <div class="optional-field">Opcional - Para contacto interno</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profesional_pin">PIN de Acceso Rápido</label>
+                        <input type="text" id="profesional_pin" name="profesional_pin" placeholder="Ej: 1234" maxlength="4" pattern="[0-9]{4}">
+                        <div class="optional-field">Opcional - 4 dígitos para acceso rápido del profesional (solo números)</div>
+                    </div>
+                </div>
+
                 <div id="profesionalInfo" class="conditional-field">
                     <strong>💡 Información para Profesional:</strong><br>
-                    Después de crear el usuario, podrás asignarle servicios específicos y configurar su perfil desde el panel del negocio.
+                    El profesional podrá acceder al sistema con su email y contraseña. El PIN es opcional para acceso rápido desde dispositivos móviles.
                 </div>
                 
-                <button type="submit" class="btn-primary">👤 Crear Usuario</button>
+                <button type="submit" class="btn-primary" id="submitBtn">👤 Crear Usuario</button>
             </form>
         </div>
     </div>
@@ -282,6 +337,7 @@
         function toggleNegocioField() {
             const rol = document.getElementById('rol').value;
             const negocioField = document.getElementById('negocio_id');
+            const profesionalFields = document.getElementById('profesionalFields');
             const profesionalInfo = document.getElementById('profesionalInfo');
             
             if (rol === 'superadmin') {
@@ -293,17 +349,81 @@
                 negocioField.disabled = false;
             }
             
-            // Mostrar/ocultar información para profesionales
+            // Mostrar/ocultar campos específicos para profesionales
             if (rol === 'profesional') {
+                profesionalFields.style.display = 'block';
                 profesionalInfo.style.display = 'block';
             } else {
+                profesionalFields.style.display = 'none';
                 profesionalInfo.style.display = 'none';
             }
+        }
+
+        function validateForm() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const negocioField = document.getElementById('negocio_id');
+            const rol = document.getElementById('rol').value;
+
+            // Validar que las contraseñas coincidan
+            if (password !== confirmPassword) {
+                alert('❌ Las contraseñas no coinciden. Por favor, verifica.');
+                return false;
+            }
+
+            // Validar longitud de contraseña
+            if (password.length < 6) {
+                alert('❌ La contraseña debe tener al menos 6 caracteres.');
+                return false;
+            }
+
+            // Validar que se seleccione negocio para roles que lo requieren
+            if (rol !== 'superadmin' && !negocioField.value) {
+                alert('❌ Debes seleccionar un negocio para este rol.');
+                return false;
+            }
+
+            // Validar PIN del profesional si se proporciona
+            const profesionalPin = document.getElementById('profesional_pin').value;
+            if (profesionalPin && !/^\d{4}$/.test(profesionalPin)) {
+                alert('❌ El PIN debe contener exactamente 4 dígitos numéricos.');
+                return false;
+            }
+
+            return true;
         }
         
         // Ejecutar al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             toggleNegocioField();
+
+            // Agregar validación al formulario
+            document.getElementById('userForm').addEventListener('submit', function(e) {
+                if (!validateForm()) {
+                    e.preventDefault();
+                }
+            });
+
+            // Validar contraseñas en tiempo real
+            document.getElementById('confirm_password').addEventListener('input', function() {
+                const password = document.getElementById('password').value;
+                const confirmPassword = this.value;
+                
+                if (confirmPassword && password !== confirmPassword) {
+                    this.style.borderColor = '#e74c3c';
+                } else {
+                    this.style.borderColor = '#e1e5e9';
+                }
+            });
+
+            // Validar longitud de contraseña en tiempo real
+            document.getElementById('password').addEventListener('input', function() {
+                if (this.value.length < 6) {
+                    this.style.borderColor = '#e74c3c';
+                } else {
+                    this.style.borderColor = '#e1e5e9';
+                }
+            });
         });
     </script>
 </body>

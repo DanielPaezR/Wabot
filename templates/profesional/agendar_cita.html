@@ -328,46 +328,62 @@
             var xhr = new XMLHttpRequest();
             var url = '/api/horarios_disponibles?profesional_id=' + profesionalId + '&fecha=' + fecha + '&servicio_id=' + servicio;
             
+            console.log('🔍 Solicitando horarios:', url);
+            
             xhr.open('GET', url, true);
             xhr.onload = function() {
                 if (xhr.status === 200) {
-                    var data = JSON.parse(xhr.responseText);
-                    if (data.horarios && data.horarios.length > 0) {
-                        var html = '<div class="horarios-grid">';
-                        for (var i = 0; i < data.horarios.length; i++) {
-                            html += '<div class="hora-btn" data-hora="' + data.horarios[i] + '">' + data.horarios[i] + '</div>';
-                        }
-                        html += '</div>';
-                        container.innerHTML = html;
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        console.log('🔍 Respuesta recibida:', data);
                         
-                        // Agregar eventos a los botones después de crearlos
-                        var botones = document.getElementsByClassName('hora-btn');
-                        for (var j = 0; j < botones.length; j++) {
-                            botones[j].addEventListener('click', function() {
-                                // Quitar selección de todos
-                                for (var k = 0; k < botones.length; k++) {
-                                    botones[k].classList.remove('selected');
-                                }
-                                // Seleccionar este
-                                this.classList.add('selected');
-                                document.getElementById('hora').value = this.getAttribute('data-hora');
-                                
-                                // Feedback visual
-                                this.style.transform = 'scale(1.05)';
-                                setTimeout(() => {
-                                    this.style.transform = 'scale(1)';
-                                }, 150);
-                            });
+                        if (data.horarios && data.horarios.length > 0) {
+                            var html = '<div class="horarios-grid">';
+                            for (var i = 0; i < data.horarios.length; i++) {
+                                html += '<div class="hora-btn" data-hora="' + data.horarios[i] + '">' + data.horarios[i] + '</div>';
+                            }
+                            html += '</div>';
+                            container.innerHTML = html;
+                            
+                            // Agregar eventos a los botones después de crearlos
+                            var botones = document.getElementsByClassName('hora-btn');
+                            for (var j = 0; j < botones.length; j++) {
+                                botones[j].addEventListener('click', function() {
+                                    // Quitar selección de todos
+                                    for (var k = 0; k < botones.length; k++) {
+                                        botones[k].classList.remove('selected');
+                                    }
+                                    // Seleccionar este
+                                    this.classList.add('selected');
+                                    document.getElementById('hora').value = this.getAttribute('data-hora');
+                                    
+                                    // Feedback visual
+                                    this.style.transform = 'scale(1.05)';
+                                    setTimeout(() => {
+                                        this.style.transform = 'scale(1)';
+                                    }, 150);
+                                });
+                            }
+                        } else {
+                            container.innerHTML = '<p class="text-danger">❌ No hay horarios disponibles para esta fecha</p>';
                         }
-                    } else {
-                        container.innerHTML = '<p class="text-danger">❌ No hay horarios disponibles para esta fecha</p>';
+                    } catch (e) {
+                        console.error('❌ Error parseando JSON:', e);
+                        container.innerHTML = '<p class="text-danger">❌ Error procesando los horarios</p>';
                     }
                 } else {
-                    container.innerHTML = '<p class="text-danger">❌ Error cargando horarios. Intenta nuevamente.</p>';
+                    console.error('❌ Error HTTP:', xhr.status);
+                    try {
+                        var errorData = JSON.parse(xhr.responseText);
+                        container.innerHTML = '<p class="text-danger">❌ ' + (errorData.error || 'Error cargando horarios') + '</p>';
+                    } catch (e) {
+                        container.innerHTML = '<p class="text-danger">❌ Error cargando horarios. Intenta nuevamente.</p>';
+                    }
                 }
             };
             
             xhr.onerror = function() {
+                console.error('❌ Error de conexión');
                 container.innerHTML = '<p class="text-danger">❌ Error de conexión. Verifica tu internet.</p>';
             };
             

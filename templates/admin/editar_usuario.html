@@ -6,6 +6,28 @@
     <title>Editar Usuario - Sistema de Citas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .password-section {
+            border-left: 4px solid #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .toggle-password {
+            cursor: pointer;
+            color: #6c757d;
+        }
+        .toggle-password:hover {
+            color: #0d6efd;
+        }
+        .password-strength {
+            height: 4px;
+            margin-top: 5px;
+            border-radius: 2px;
+        }
+        .strength-weak { background-color: #dc3545; width: 25%; }
+        .strength-medium { background-color: #ffc107; width: 50%; }
+        .strength-strong { background-color: #198754; width: 75%; }
+        .strength-very-strong { background-color: #198754; width: 100%; }
+    </style>
 </head>
 <body>
     <div class="container-fluid">
@@ -70,8 +92,13 @@
 
                 <div class="card">
                     <div class="card-body">
-                        <form method="POST">
+                        <form method="POST" id="userForm">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            
+                            <!-- Información Básica -->
+                            <h5 class="mb-3 text-primary">
+                                <i class="fas fa-user-circle"></i> Información Básica
+                            </h5>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
@@ -126,11 +153,78 @@
                                 </div>
                             </div>
 
+                            <!-- Cambio de Contraseña -->
+                            <div class="mt-4 p-3 password-section">
+                                <h5 class="mb-3 text-primary">
+                                    <i class="fas fa-key"></i> Cambiar Contraseña
+                                </h5>
+                                <div class="alert alert-info">
+                                    <small>
+                                        <i class="fas fa-info-circle"></i> 
+                                        Completa solo si deseas cambiar la contraseña del usuario. 
+                                        Deja en blanco para mantener la contraseña actual.
+                                    </small>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="nueva_password" class="form-label">Nueva Contraseña</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="nueva_password" 
+                                                       name="nueva_password" placeholder="Dejar en blanco para no cambiar"
+                                                       minlength="6">
+                                                <span class="input-group-text toggle-password" data-target="nueva_password">
+                                                    <i class="fas fa-eye"></i>
+                                                </span>
+                                            </div>
+                                            <div class="password-strength" id="passwordStrength"></div>
+                                            <div class="form-text">
+                                                <small>Mínimo 6 caracteres. Fuerza: <span id="strengthText">-</span></small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="confirmar_password" class="form-label">Confirmar Contraseña</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="confirmar_password" 
+                                                       name="confirmar_password" placeholder="Repetir nueva contraseña">
+                                                <span class="input-group-text toggle-password" data-target="confirmar_password">
+                                                    <i class="fas fa-eye"></i>
+                                                </span>
+                                            </div>
+                                            <div class="form-text">
+                                                <small id="passwordMatchText"></small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Opción de reset simple -->
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="reset_simple" name="reset_simple">
+                                        <label class="form-check-label" for="reset_simple">
+                                            <strong>Resetear a contraseña simple:</strong> "123456"
+                                        </label>
+                                    </div>
+                                    <div class="form-text">
+                                        <small>Marca esta opción para establecer una contraseña temporal fácil de recordar.</small>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mt-4">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Actualizar Usuario
                                 </button>
                                 <a href="{{ url_for('admin_usuarios') }}" class="btn btn-secondary">Cancelar</a>
+                                
+                                <!-- Botón para solo cambiar contraseña -->
+                                <button type="button" class="btn btn-outline-warning" id="btnOnlyPassword">
+                                    <i class="fas fa-key"></i> Solo Cambiar Contraseña
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -140,9 +234,181 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Toggle para mostrar/ocultar contraseña
+        document.querySelectorAll('.toggle-password').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                const icon = this.querySelector('i');
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            });
+        });
+
+        // Validación de fortaleza de contraseña
+        document.getElementById('nueva_password').addEventListener('input', function() {
+            const password = this.value;
+            const strengthBar = document.getElementById('passwordStrength');
+            const strengthText = document.getElementById('strengthText');
+            
+            if (password.length === 0) {
+                strengthBar.className = 'password-strength';
+                strengthBar.style.width = '0%';
+                strengthText.textContent = '-';
+                return;
+            }
+
+            let strength = 0;
+            let feedback = '';
+
+            // Longitud mínima
+            if (password.length >= 6) strength += 1;
+            
+            // Contiene números
+            if (/\d/.test(password)) strength += 1;
+            
+            // Contiene letras minúsculas y mayúsculas
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 1;
+            
+            // Contiene caracteres especiales
+            if (/[^a-zA-Z0-9]/.test(password)) strength += 1;
+            
+            // Longitud mayor a 8
+            if (password.length >= 8) strength += 1;
+
+            // Actualizar barra y texto
+            switch(strength) {
+                case 0:
+                case 1:
+                    strengthBar.className = 'password-strength strength-weak';
+                    feedback = 'Débil';
+                    break;
+                case 2:
+                    strengthBar.className = 'password-strength strength-medium';
+                    feedback = 'Media';
+                    break;
+                case 3:
+                    strengthBar.className = 'password-strength strength-strong';
+                    feedback = 'Fuerte';
+                    break;
+                case 4:
+                case 5:
+                    strengthBar.className = 'password-strength strength-very-strong';
+                    feedback = 'Muy Fuerte';
+                    break;
+            }
+            
+            strengthText.textContent = feedback;
+        });
+
+        // Validación de coincidencia de contraseñas
+        document.getElementById('confirmar_password').addEventListener('input', function() {
+            const password = document.getElementById('nueva_password').value;
+            const confirmPassword = this.value;
+            const matchText = document.getElementById('passwordMatchText');
+            
+            if (confirmPassword.length === 0) {
+                matchText.textContent = '';
+                matchText.className = 'form-text';
+                return;
+            }
+
+            if (password === confirmPassword) {
+                matchText.textContent = '✓ Las contraseñas coinciden';
+                matchText.className = 'form-text text-success';
+            } else {
+                matchText.textContent = '✗ Las contraseñas no coinciden';
+                matchText.className = 'form-text text-danger';
+            }
+        });
+
+        // Reset simple
+        document.getElementById('reset_simple').addEventListener('change', function() {
+            if (this.checked) {
+                document.getElementById('nueva_password').value = '123456';
+                document.getElementById('confirmar_password').value = '123456';
+                document.getElementById('nueva_password').dispatchEvent(new Event('input'));
+                document.getElementById('confirmar_password').dispatchEvent(new Event('input'));
+            }
+        });
+
+        // Botón para solo cambiar contraseña
+        document.getElementById('btnOnlyPassword').addEventListener('click', function() {
+            const nuevaPassword = document.getElementById('nueva_password').value;
+            const confirmarPassword = document.getElementById('confirmar_password').value;
+            
+            if (!nuevaPassword) {
+                alert('❌ Por favor, ingresa una nueva contraseña');
+                return;
+            }
+            
+            if (nuevaPassword !== confirmarPassword) {
+                alert('❌ Las contraseñas no coinciden');
+                return;
+            }
+            
+            if (nuevaPassword.length < 6) {
+                alert('❌ La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            
+            if (confirm('¿Estás seguro de que quieres cambiar solo la contraseña de este usuario?')) {
+                // Crear un formulario temporal solo para cambiar contraseña
+                const form = document.getElementById('userForm');
+                const tempForm = document.createElement('form');
+                tempForm.method = 'POST';
+                tempForm.action = form.action;
+                
+                // Agregar campos necesarios
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = '{{ csrf_token() }}';
+                tempForm.appendChild(csrfInput);
+                
+                const passwordInput = document.createElement('input');
+                passwordInput.type = 'hidden';
+                passwordInput.name = 'nueva_password';
+                passwordInput.value = nuevaPassword;
+                tempForm.appendChild(passwordInput);
+                
+                const onlyPasswordInput = document.createElement('input');
+                onlyPasswordInput.type = 'hidden';
+                onlyPasswordInput.name = 'only_password';
+                onlyPasswordInput.value = 'true';
+                tempForm.appendChild(onlyPasswordInput);
+                
+                document.body.appendChild(tempForm);
+                tempForm.submit();
+            }
+        });
+
+        // Validación del formulario principal
+        document.getElementById('userForm').addEventListener('submit', function(e) {
+            const nuevaPassword = document.getElementById('nueva_password').value;
+            const confirmarPassword = document.getElementById('confirmar_password').value;
+            
+            if (nuevaPassword && nuevaPassword.length < 6) {
+                e.preventDefault();
+                alert('❌ La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            
+            if (nuevaPassword && nuevaPassword !== confirmarPassword) {
+                e.preventDefault();
+                alert('❌ Las contraseñas no coinciden');
+                return;
+            }
+        });
+    </script>
 </body>
 </html>
-                <p>Accede al panel de control específico para negocios. Gestiona citas, profesionales y más.</p>
-            </a>
-        </div>
-    </div>

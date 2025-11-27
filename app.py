@@ -832,7 +832,7 @@ def admin_eliminar_usuario(usuario_id):
 @app.route('/admin/usuarios/<int:usuario_id>/editar', methods=['GET', 'POST'])
 @role_required(['superadmin'])
 def admin_editar_usuario(usuario_id):
-    """Editar un usuario existente"""
+    """Editar un usuario existente - VERSIÓN CON CAMBIO DE CONTRASEÑA"""
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
@@ -862,39 +862,71 @@ def admin_editar_usuario(usuario_id):
         rol = request.form.get('rol')
         negocio_id = request.form.get('negocio_id')
         activo = request.form.get('activo') == 'on'
+        nueva_password = request.form.get('nueva_password')
+        only_password = request.form.get('only_password') == 'true'
         
         try:
-            # Actualizar usuario
-            cursor.execute('''
-                UPDATE usuarios 
-                SET nombre = %s, email = %s, rol = %s, negocio_id = %s, activo = %s
-                WHERE id = %s
-            ''', (nombre, email, rol, negocio_id, activo, usuario_id))
-            
-            # Si es profesional, actualizar también en la tabla profesionales
-            if rol == 'profesional':
-                cursor.execute('''
-                    SELECT id FROM profesionales WHERE usuario_id = %s
-                ''', (usuario_id,))
-                
-                profesional = cursor.fetchone()
-                
-                if profesional:
-                    # Actualizar profesional existente
+            if only_password:
+                # Solo cambiar contraseña
+                if nueva_password:
+                    import hashlib
+                    hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                    
                     cursor.execute('''
-                        UPDATE profesionales 
-                        SET nombre = %s
-                        WHERE usuario_id = %s
-                    ''', (nombre, usuario_id))
+                        UPDATE usuarios 
+                        SET password_hash = %s
+                        WHERE id = %s
+                    ''', (hashed_password, usuario_id))
+                    
+                    conn.commit()
+                    flash('✅ Contraseña actualizada exitosamente', 'success')
                 else:
-                    # Crear nuevo profesional
+                    flash('❌ No se proporcionó una nueva contraseña', 'error')
+                    
+            else:
+                # Actualizar todos los datos del usuario
+                update_query = '''
+                    UPDATE usuarios 
+                    SET nombre = %s, email = %s, rol = %s, negocio_id = %s, activo = %s
+                '''
+                params = [nombre, email, rol, negocio_id, activo, usuario_id]
+                
+                # Si se proporciona nueva contraseña, incluirla en la actualización
+                if nueva_password:
+                    import hashlib
+                    hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                    update_query += ', password_hash = %s'
+                    params.insert(5, hashed_password)
+                
+                update_query += ' WHERE id = %s'
+                
+                cursor.execute(update_query, params)
+                
+                # Si es profesional, actualizar también en la tabla profesionales
+                if rol == 'profesional':
                     cursor.execute('''
-                        INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    ''', (negocio_id, nombre, 'General', '0000', usuario_id, activo))
+                        SELECT id FROM profesionales WHERE usuario_id = %s
+                    ''', (usuario_id,))
+                    
+                    profesional = cursor.fetchone()
+                    
+                    if profesional:
+                        # Actualizar profesional existente
+                        cursor.execute('''
+                            UPDATE profesionales 
+                            SET nombre = %s
+                            WHERE usuario_id = %s
+                        ''', (nombre, usuario_id))
+                    else:
+                        # Crear nuevo profesional
+                        cursor.execute('''
+                            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        ''', (negocio_id, nombre, 'General', '0000', usuario_id, activo))
+                
+                conn.commit()
+                flash('✅ Usuario actualizado exitosamente', 'success')
             
-            conn.commit()
-            flash('✅ Usuario actualizado exitosamente', 'success')
             return redirect(url_for('admin_usuarios'))
             
         except Exception as e:
@@ -2607,56 +2639,126 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles"""
+    """API para obtener horarios disponibles - VERSIÓN MEJORADA"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
         servicio_id = request.args.get('servicio_id')
         
+        print(f"🔍 DEBUG api_horarios_disponibles: profesional_id={profesional_id}, fecha={fecha}, servicio_id={servicio_id}")
+        
         if not all([profesional_id, fecha, servicio_id]):
             return jsonify({'error': 'Parámetros incompletos'}), 400
         
+        # Obtener negocio_id del profesional
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        if db.is_postgresql():
+            cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
+        else:
+            cursor.execute('SELECT negocio_id FROM profesionales WHERE id = ?', (profesional_id,))
+        
+        profesional = cursor.fetchone()
+        if not profesional:
+            conn.close()
+            return jsonify({'error': 'Profesional no encontrado'}), 404
+        
+        # ✅ CORRECCIÓN: Acceder correctamente al negocio_id
+        if hasattr(profesional, 'keys'):  # Es un diccionario
+            negocio_id = profesional['negocio_id']
+        else:  # Es una tupla
+            negocio_id = profesional[0]
+        
         # Obtener duración del servicio
-        cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
+        if db.is_postgresql():
+            cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
+        else:
+            cursor.execute('SELECT duracion FROM servicios WHERE id = ?', (servicio_id,))
+        
         servicio = cursor.fetchone()
         
         if not servicio:
             conn.close()
             return jsonify({'error': 'Servicio no encontrado'}), 404
         
-        duracion = servicio[0]
+        # ✅ CORRECCIÓN: Acceder correctamente a la duración
+        if hasattr(servicio, 'keys'):  # Es un diccionario
+            duracion = servicio['duracion']
+        else:  # Es una tupla
+            duracion = servicio[0]
         
-        # Generar horarios disponibles (de 8:00 a 20:00)
+        print(f"🔍 Duración del servicio: {duracion} minutos, Negocio ID: {negocio_id}")
+        
+        # Obtener horarios laborales del negocio para esta fecha
+        horarios_laborales = db.obtener_horarios_por_dia(negocio_id, fecha)
+        print(f"🔍 Horarios laborales: {horarios_laborales}")
+        
+        if not horarios_laborales or not horarios_laborales['activo']:
+            conn.close()
+            return jsonify({'error': 'El negocio no trabaja este día'}), 400
+        
+        # Generar horarios disponibles dentro del horario laboral
         horarios_disponibles = []
-        hora_actual = 8  # 8:00 AM
-        hora_fin = 20    # 8:00 PM
         
+        # Convertir horarios laborales a objetos datetime para facilitar el cálculo
+        hora_inicio = datetime.strptime(horarios_laborales['hora_inicio'], '%H:%M')
+        hora_fin = datetime.strptime(horarios_laborales['hora_fin'], '%H:%M')
+        
+        # Si hay horario de almuerzo, obtenerlo
+        almuerzo_inicio = None
+        almuerzo_fin = None
+        if horarios_laborales['almuerzo_inicio'] and horarios_laborales['almuerzo_fin']:
+            almuerzo_inicio = datetime.strptime(horarios_laborales['almuerzo_inicio'], '%H:%M')
+            almuerzo_fin = datetime.strptime(horarios_laborales['almuerzo_fin'], '%H:%M')
+        
+        # Generar horarios cada hora dentro del horario laboral
+        hora_actual = hora_inicio
         while hora_actual < hora_fin:
-            hora_str = f"{hora_actual:02d}:00"
+            # Verificar si está dentro del horario de almuerzo
+            es_almuerzo = False
+            if almuerzo_inicio and almuerzo_fin:
+                es_almuerzo = almuerzo_inicio <= hora_actual < almuerzo_fin
             
-            # Verificar disponibilidad usando columnas separadas fecha y hora
-            cursor.execute('''
-                SELECT id FROM citas 
-                WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
-            ''', (profesional_id, fecha, hora_str))
+            if not es_almuerzo:
+                hora_str = hora_actual.strftime('%H:%M')
+                
+                # Verificar disponibilidad
+                if db.is_postgresql():
+                    cursor.execute('''
+                        SELECT id FROM citas 
+                        WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
+                    ''', (profesional_id, fecha, hora_str))
+                else:
+                    cursor.execute('''
+                        SELECT id FROM citas 
+                        WHERE profesional_id = ? AND fecha = ? AND hora = ? AND estado != 'cancelada'
+                    ''', (profesional_id, fecha, hora_str))
+                
+                if not cursor.fetchone():
+                    horarios_disponibles.append(hora_str)
             
-            if not cursor.fetchone():
-                horarios_disponibles.append(hora_str)
-            
-            hora_actual += 1
+            # Avanzar 1 hora
+            hora_actual += timedelta(hours=1)
         
         conn.close()
         
+        print(f"🔍 Horarios disponibles encontrados: {len(horarios_disponibles)}: {horarios_disponibles}")
+        
         return jsonify({
             'horarios': horarios_disponibles,
-            'duracion': duracion
+            'duracion': duracion,
+            'horario_laboral': {
+                'inicio': horarios_laborales['hora_inicio'],
+                'fin': horarios_laborales['hora_fin'],
+                'almuerzo': f"{horarios_laborales['almuerzo_inicio']} - {horarios_laborales['almuerzo_fin']}" if horarios_laborales['almuerzo_inicio'] else None
+            }
         })
         
     except Exception as e:
         print(f"❌ Error en api_horarios_disponibles: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 # =============================================================================
