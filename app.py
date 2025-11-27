@@ -419,10 +419,11 @@ def admin_nuevo_negocio():
         nombre = request.form.get('nombre')
         telefono_whatsapp = request.form.get('telefono_whatsapp')
         tipo_negocio = request.form.get('tipo_negocio', 'general')
+        emoji = request.form.get('emoji', '👋')  # ✅ NUEVO: Obtener el emoji
         
         # Configuración por defecto
         configuracion = {
-            "saludo_personalizado": f"¡Hola! Soy tu asistente virtual para agendar citas",
+            "saludo_personalizado": request.form.get('saludo_personalizado', f"¡Hola! Soy tu asistente virtual para agendar citas"),
             "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
             "direccion": "Calle Principal #123",
             "telefono_contacto": telefono_whatsapp.replace('whatsapp:', ''),
@@ -432,7 +433,7 @@ def admin_nuevo_negocio():
         if not telefono_whatsapp.startswith('whatsapp:'):
             telefono_whatsapp = f'whatsapp:{telefono_whatsapp}'
         
-        negocio_id = db.crear_negocio(nombre, telefono_whatsapp, tipo_negocio, json.dumps(configuracion))
+        negocio_id = db.crear_negocio(nombre, telefono_whatsapp, tipo_negocio, json.dumps(configuracion), emoji)
         
         if negocio_id:
             flash('Negocio creado exitosamente', 'success')

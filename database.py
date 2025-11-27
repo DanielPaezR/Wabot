@@ -829,7 +829,12 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
                 RETURNING id
             '''
             cursor.execute(sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
-            negocio_id = cursor.fetchone()[0]
+            result = cursor.fetchone()
+            # ✅ CORRECCIÓN: Acceder correctamente al resultado
+            if hasattr(result, 'keys'):  # Es un diccionario (RealDictCursor)
+                negocio_id = result['id']
+            else:  # Es una tupla
+                negocio_id = result[0] if result else None
         else:
             # Para SQLite
             sql = '''
@@ -839,6 +844,11 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
             execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
             negocio_id = cursor.lastrowid
         
+        if not negocio_id:
+            print("❌ No se pudo obtener el ID del negocio creado")
+            conn.rollback()
+            return None
+            
         print(f"✅ Negocio creado con ID: {negocio_id}")
         
         # Crear configuración por defecto
