@@ -477,7 +477,7 @@ def _insertar_plantillas_base(cursor):
 
 
 def _insertar_configuracion_horarios(cursor):
-    """Insertar configuración de horarios por día"""
+    """Insertar configuración de horarios por día - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()
     
     dias_semana = [
@@ -499,7 +499,12 @@ def _insertar_configuracion_horarios(cursor):
     negocios = cursor.fetchall()
     
     for negocio in negocios:
-        negocio_id = negocio[0]
+        # ✅ CORRECCIÓN: Acceder correctamente al ID del negocio
+        if hasattr(negocio, 'keys'):  # Es un diccionario (RealDictCursor)
+            negocio_id = negocio['id']
+        else:  # Es una tupla
+            negocio_id = negocio[0]
+            
         for dia in dias_semana:
             if postgres:
                 cursor.execute('''
@@ -521,7 +526,7 @@ def _insertar_configuracion_horarios(cursor):
 
 
 def _insertar_profesionales_por_defecto(cursor):
-    """Insertar profesionales por defecto"""
+    """Insertar profesionales por defecto - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()
     
     profesionales_data = [
@@ -533,7 +538,8 @@ def _insertar_profesionales_por_defecto(cursor):
     for prof_data in profesionales_data:
         if postgres:
             cursor.execute('SELECT id FROM profesionales WHERE id = %s', (prof_data[0],))
-            if not cursor.fetchone():
+            resultado = cursor.fetchone()
+            if not resultado:
                 cursor.execute('''
                     INSERT INTO profesionales (id, negocio_id, nombre, especialidad, pin, usuario_id) 
                     VALUES (%s, %s, %s, %s, %s, %s)
@@ -546,7 +552,7 @@ def _insertar_profesionales_por_defecto(cursor):
 
 
 def _insertar_servicios_por_defecto(cursor):
-    """Insertar servicios por defecto"""
+    """Insertar servicios por defecto - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()
     
     servicios_data = [
@@ -560,7 +566,8 @@ def _insertar_servicios_por_defecto(cursor):
     for serv_data in servicios_data:
         if postgres:
             cursor.execute('SELECT id FROM servicios WHERE id = %s', (serv_data[0],))
-            if not cursor.fetchone():
+            resultado = cursor.fetchone()
+            if not resultado:
                 cursor.execute('''
                     INSERT INTO servicios (id, negocio_id, nombre, duracion, precio, descripcion) 
                     VALUES (%s, %s, %s, %s, %s, %s)
