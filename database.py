@@ -312,13 +312,14 @@ def _insertar_datos_por_defecto(cursor):
             # Negocio por defecto - NO especificar ID para PostgreSQL
             if postgres:
                 cursor.execute('''
-                    INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion) 
+                    VALUES (%s, %s, %s, %s, %s)
                     RETURNING id
                 ''', (
                     'Negocio Premium', 
                     'whatsapp:+14155238886', 
                     'general', 
+                    '👋',  # ✅ Agregar emoji
                     json.dumps({
                         "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
                         "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
@@ -327,16 +328,21 @@ def _insertar_datos_por_defecto(cursor):
                         "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
                     })
                 ))
-                negocio_id = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                if hasattr(result, 'keys'):
+                    negocio_id = result['id']
+                else:
+                    negocio_id = result[0] if result else None
                 print(f"✅ Negocio por defecto creado con ID: {negocio_id}")
             else:
                 cursor.execute('''
-                    INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-                    VALUES (1, ?, ?, ?, ?)
+                    INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion) 
+                    VALUES (1, ?, ?, ?, ?, ?)
                 ''', (
                     'Negocio Premium', 
                     'whatsapp:+14155238886', 
                     'general', 
+                    '👋',  # ✅ Agregar emoji
                     json.dumps({
                         "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
                         "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
@@ -348,7 +354,7 @@ def _insertar_datos_por_defecto(cursor):
         else:
             print("✅ Negocio por defecto ya existe")
         
-        # Resto del código para usuarios, plantillas, etc. permanece igual
+        # Resto del código permanece igual...
         _insertar_usuarios_por_defecto(cursor)
         _insertar_plantillas_base(cursor)
         
@@ -815,7 +821,7 @@ def obtener_todos_negocios():
     return negocios_procesados
 
 
-def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}'):
+def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}', emoji='👋'):
     """Crear un nuevo negocio - VERSIÓN CORREGIDA PARA POSTGRESQL"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -828,7 +834,7 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING id
             '''
-            cursor.execute(sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
+            cursor.execute(sql, (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion))
             result = cursor.fetchone()
             # ✅ CORRECCIÓN: Acceder correctamente al resultado
             if hasattr(result, 'keys'):  # Es un diccionario (RealDictCursor)
@@ -841,7 +847,7 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
                 INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
                 VALUES (?, ?, ?, ?, ?)
             '''
-            execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
+            execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion))
             negocio_id = cursor.lastrowid
         
         if not negocio_id:
