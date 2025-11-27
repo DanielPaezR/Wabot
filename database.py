@@ -1646,19 +1646,33 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
     execute_sql(cursor, query, params)
     stats = cursor.fetchone()
     
+    # ✅ CORRECCIÓN: Acceder correctamente a los valores según el tipo de cursor
+    if hasattr(stats, 'keys'):  # Es un diccionario (RealDictCursor)
+        total_citas = stats['total_citas'] or 0
+        citas_confirmadas = stats['citas_confirmadas'] or 0
+        citas_completadas = stats['citas_completadas'] or 0
+        citas_canceladas = stats['citas_canceladas'] or 0
+        citas_pendientes = stats['citas_pendientes'] or 0
+        ingresos_totales = stats['ingresos_totales'] or 0
+    else:  # Es una tupla
+        total_citas = stats[0] or 0 if stats else 0
+        citas_confirmadas = stats[1] or 0 if stats else 0
+        citas_completadas = stats[2] or 0 if stats else 0
+        citas_canceladas = stats[3] or 0 if stats else 0
+        citas_pendientes = stats[4] or 0 if stats else 0
+        ingresos_totales = stats[5] or 0 if stats else 0
+    
     # Calcular tasa de éxito
-    total_citas = stats[0] or 0
-    citas_completadas = stats[2] or 0
     tasa_exito = (citas_completadas / total_citas * 100) if total_citas > 0 else 0
     
     estadisticas = {
         'resumen': {
             'total_citas': total_citas,
-            'citas_confirmadas': stats[1] or 0,
+            'citas_confirmadas': citas_confirmadas,
             'citas_completadas': citas_completadas,
-            'citas_canceladas': stats[3] or 0,
-            'citas_pendientes': stats[4] or 0,
-            'ingresos_totales': float(stats[5] or 0),
+            'citas_canceladas': citas_canceladas,
+            'citas_pendientes': citas_pendientes,
+            'ingresos_totales': float(ingresos_totales),
             'tasa_exito': round(tasa_exito, 2)
         }
     }
