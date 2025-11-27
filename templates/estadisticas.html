@@ -7,42 +7,63 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .sidebar {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            min-height: 100vh;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        .card-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .stat-card {
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
                 <div class="position-sticky pt-3">
                     <h4 class="text-white text-center mb-4">
                         <i class="fas fa-chart-bar"></i> Estadísticas
                     </h4>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="/">
+                            <a class="nav-link text-white" href="{{ url_for('profesional_dashboard') }}">
                                 <i class="fas fa-calendar-day"></i> Citas Hoy
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white active" href="/estadisticas">
+                            <a class="nav-link text-white active" href="{{ url_for('profesional_estadisticas') }}">
                                 <i class="fas fa-chart-bar"></i> Estadísticas
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="/configuracion">
-                                <i class="fas fa-cog"></i> Configuración
+                            <a class="nav-link text-white" href="{{ url_for('profesional_todas_citas') }}">
+                                <i class="fas fa-list"></i> Todas las Citas
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt"></i> Salir
                             </a>
                         </li>
                     </ul>
                     
                     <!-- Filtros -->
                     <div class="mt-4">
-                        <label class="text-white mb-2">Profesional:</label>
-                        <select id="profesionalSelector" class="form-select">
-                            <option value="">Todos los profesionales</option>
-                        </select>
-                        
-                        <label class="text-white mb-2 mt-3">Mes:</label>
+                        <label class="text-white mb-2">Mes:</label>
                         <select id="mesSelector" class="form-select">
                             <option value="1">Enero</option>
                             <option value="2">Febrero</option>
@@ -59,7 +80,7 @@
                         </select>
                         
                         <label class="text-white mb-2 mt-3">Año:</label>
-                        <input type="number" id="añoSelector" class="form-control" value="2024">
+                        <input type="number" id="añoSelector" class="form-control" min="2020" max="2030">
                         
                         <button id="btnActualizar" class="btn btn-primary mt-3 w-100">
                             <i class="fas fa-sync-alt"></i> Actualizar
@@ -71,53 +92,76 @@
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2" id="tituloEstadisticas">Estadísticas Mensuales</h1>
+                    <h1 class="h2">Estadísticas del Profesional</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <span class="me-2 text-muted">👤 {{ session.get('usuario_nombre', 'Profesional') }}</span>
+                    </div>
                 </div>
 
                 <!-- Resumen General -->
                 <div class="row mb-4">
-                    <div class="col-md-2">
-                        <div class="card text-white bg-primary">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-primary stat-card">
                             <div class="card-body text-center">
                                 <h4 class="card-title" id="totalCitas">0</h4>
                                 <p class="card-text">Total Citas</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="card text-white bg-success">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-success stat-card">
+                            <div class="card-body text-center">
+                                <h4 class="card-title" id="citasCompletadas">0</h4>
+                                <p class="card-text">Completadas</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-warning stat-card">
                             <div class="card-body text-center">
                                 <h4 class="card-title" id="citasConfirmadas">0</h4>
                                 <p class="card-text">Confirmadas</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="card text-white bg-warning">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-info stat-card">
                             <div class="card-body text-center">
                                 <h4 class="card-title" id="ingresosTotales">$0</h4>
-                                <p class="card-text">Ingresos</p>
+                                <p class="card-text">Ingresos Totales</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="card text-white bg-info">
+                </div>
+
+                <!-- Segunda fila de estadísticas -->
+                <div class="row mb-4">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-secondary stat-card">
                             <div class="card-body text-center">
-                                <h4 class="card-title" id="clientesUnicos">0</h4>
-                                <p class="card-text">Clientes Únicos</p>
+                                <h4 class="card-title" id="citasCanceladas">0</h4>
+                                <p class="card-text">Canceladas</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="card text-white bg-secondary">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-dark stat-card">
                             <div class="card-body text-center">
-                                <h4 class="card-title" id="tasaConfirmacion">0%</h4>
-                                <p class="card-text">Tasa Confirmación</p>
+                                <h4 class="card-title" id="citasSemana">0</h4>
+                                <p class="card-text">Esta Semana</p>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="card text-white bg-dark">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-success stat-card">
+                            <div class="card-body text-center">
+                                <h4 class="card-title" id="tasaExito">0%</h4>
+                                <p class="card-text">Tasa de Éxito</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card text-white bg-primary stat-card">
                             <div class="card-body text-center">
                                 <h4 class="card-title" id="promedioIngreso">$0</h4>
                                 <p class="card-text">Promedio/Cita</p>
@@ -132,11 +176,11 @@
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="card-title mb-0">
-                                    <i class="fas fa-chart-line"></i> Ingresos por Día
+                                    <i class="fas fa-chart-pie"></i> Distribución de Citas por Estado
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <canvas id="graficoIngresos" height="100"></canvas>
+                                <canvas id="graficoEstados" height="200"></canvas>
                             </div>
                         </div>
                     </div>
@@ -144,92 +188,36 @@
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="card-title mb-0">
-                                    <i class="fas fa-chart-pie"></i> Servicios Más Populares
+                                    <i class="fas fa-chart-bar"></i> Servicios Más Populares
                                 </h5>
                             </div>
                             <div class="card-body">
-                                <canvas id="graficoServicios" height="100"></canvas>
+                                <canvas id="graficoServicios" height="200"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tablas de Datos -->
+                <!-- Tabla de Servicios Populares -->
                 <div class="row">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="card-title mb-0">
-                                    <i class="fas fa-users"></i> Top Clientes
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Cliente</th>
-                                                <th>Citas</th>
-                                                <th>Total Gastado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaClientes">
-                                            <!-- Se llena con JavaScript -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="card-title mb-0">
-                                    <i class="fas fa-clock"></i> Horarios Más Populares
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-sm">
-                                        <thead>
-                                            <tr>
-                                                <th>Horario</th>
-                                                <th>Citas</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaHorarios">
-                                            <!-- Se llena con JavaScript -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Comparativa entre Profesionales -->
-                <div class="row mt-4">
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header">
                                 <h5 class="card-title mb-0">
-                                    <i class="fas fa-trophy"></i> Comparativa entre Profesionales
+                                    <i class="fas fa-list"></i> Servicios Más Solicitados
                                 </h5>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
-                                    <table class="table table-striped">
+                                    <table class="table table-striped table-sm">
                                         <thead>
                                             <tr>
-                                                <th>Profesional</th>
-                                                <th>Citas</th>
-                                                <th>Confirmadas</th>
-                                                <th>Ingresos</th>
-                                                <th>Clientes Únicos</th>
-                                                <th>Tasa Confirmación</th>
+                                                <th>Servicio</th>
+                                                <th>Cantidad</th>
+                                                <th>Porcentaje</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="tablaComparativa">
+                                        <tbody id="tablaServicios">
                                             <!-- Se llena con JavaScript -->
                                         </tbody>
                                     </table>
@@ -244,13 +232,12 @@
 
     <script>
         // Variables globales para los gráficos
-        let chartIngresos, chartServicios;
+        let chartEstados, chartServicios;
         let mesActual = new Date().getMonth() + 1;
         let añoActual = new Date().getFullYear();
 
         // Cargar al iniciar
         document.addEventListener('DOMContentLoaded', function() {
-            cargarProfesionales();
             configurarSelectores();
             cargarEstadisticas();
         });
@@ -262,150 +249,76 @@
 
             // Event listeners
             document.getElementById('btnActualizar').addEventListener('click', cargarEstadisticas);
-            document.getElementById('profesionalSelector').addEventListener('change', cargarEstadisticas);
             document.getElementById('mesSelector').addEventListener('change', cargarEstadisticas);
             document.getElementById('añoSelector').addEventListener('change', cargarEstadisticas);
         }
 
-        async function cargarProfesionales() {
-            try {
-                const response = await fetch('/api/profesionales');
-                const profesionales = await response.json();
-                
-                const selector = document.getElementById('profesionalSelector');
-                
-                profesionales.forEach(profesional => {
-                    const option = document.createElement('option');
-                    option.value = profesional.id;
-                    option.textContent = profesional.nombre;
-                    selector.appendChild(option);
-                });
-                
-            } catch (error) {
-                console.error('Error cargando profesionales:', error);
-            }
-        }
-
         async function cargarEstadisticas() {
-            const profesionalId = document.getElementById('profesionalSelector').value;
             const mes = document.getElementById('mesSelector').value;
             const año = document.getElementById('añoSelector').value;
 
             try {
-                // Cargar estadísticas mensuales
-                const url = `/api/estadisticas/mensuales?mes=${mes}&año=${año}` + (profesionalId ? `&profesional_id=${profesionalId}` : '');
+                // Cargar estadísticas desde tu API existente
+                const url = `/negocio/api/estadisticas?mes=${mes}&año=${año}&profesional_id={{ estadisticas.profesional_id if estadisticas else session.get('profesional_id', '') }}`;
                 const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('Error al cargar estadísticas');
+                }
+                
                 const stats = await response.json();
-
-                // Cargar ingresos diarios para gráfico
-                const urlIngresos = `/api/estadisticas/ingresos-diarios?mes=${mes}&año=${año}` + (profesionalId ? `&profesional_id=${profesionalId}` : '');
-                const responseIngresos = await fetch(urlIngresos);
-                const ingresosDiarios = await responseIngresos.json();
-
-                // Cargar comparativa entre profesionales
-                const responseComparativa = await fetch(`/api/estadisticas/comparativas?mes=${mes}&año=${año}`);
-                const comparativa = await responseComparativa.json();
-
                 actualizarResumen(stats.resumen);
-                actualizarGraficos(stats, ingresosDiarios);
-                actualizarTablas(stats, comparativa);
+                actualizarGraficos(stats);
+                actualizarTablaServicios(stats.servicios_top);
                 
             } catch (error) {
                 console.error('Error cargando estadísticas:', error);
+                mostrarError('No se pudieron cargar las estadísticas');
             }
         }
 
         function actualizarResumen(resumen) {
-            document.getElementById('totalCitas').textContent = resumen.total_citas;
-            document.getElementById('citasConfirmadas').textContent = resumen.citas_confirmadas;
-            document.getElementById('ingresosTotales').textContent = `$${resumen.ingresos_totales.toLocaleString()}`;
-            document.getElementById('clientesUnicos').textContent = resumen.clientes_unicos;
-            document.getElementById('tasaConfirmacion').textContent = `${resumen.tasa_confirmacion}%`;
-            document.getElementById('promedioIngreso').textContent = `$${Math.round(resumen.promedio_ingreso).toLocaleString()}`;
+            document.getElementById('totalCitas').textContent = resumen.total_citas || 0;
+            document.getElementById('citasCompletadas').textContent = resumen.citas_completadas || 0;
+            document.getElementById('citasConfirmadas').textContent = resumen.citas_confirmadas || 0;
+            document.getElementById('citasCanceladas').textContent = resumen.citas_canceladas || 0;
+            document.getElementById('ingresosTotales').textContent = `$${(resumen.ingresos_totales || 0).toLocaleString()}`;
+            document.getElementById('tasaExito').textContent = `${resumen.tasa_exito || 0}%`;
+            
+            // Calcular promedio por cita
+            const promedio = resumen.total_citas > 0 ? (resumen.ingresos_totales || 0) / resumen.total_citas : 0;
+            document.getElementById('promedioIngreso').textContent = `$${Math.round(promedio).toLocaleString()}`;
+            
+            // Citas de esta semana (usando datos existentes o cálculo simple)
+            document.getElementById('citasSemana').textContent = resumen.citas_semana || Math.round(resumen.total_citas / 4) || 0;
         }
 
-        function actualizarGraficos(stats, ingresosDiarios) {
+        function actualizarGraficos(stats) {
             // Destruir gráficos anteriores si existen
-            if (chartIngresos) chartIngresos.destroy();
+            if (chartEstados) chartEstados.destroy();
             if (chartServicios) chartServicios.destroy();
 
-            // Gráfico de ingresos por día
-            const ctxIngresos = document.getElementById('graficoIngresos').getContext('2d');
-            const dias = ingresosDiarios.map(d => d.dia);
-            const ingresos = ingresosDiarios.map(d => d.ingresos);
-            const citas = ingresosDiarios.map(d => d.citas);
+            // Gráfico de estados de citas
+            const ctxEstados = document.getElementById('graficoEstados').getContext('2d');
+            const estadosData = {
+                completadas: stats.resumen.citas_completadas || 0,
+                confirmadas: stats.resumen.citas_confirmadas || 0,
+                canceladas: stats.resumen.citas_canceladas || 0
+            };
 
-            chartIngresos = new Chart(ctxIngresos, {
-                type: 'line',
-                data: {
-                    labels: dias,
-                    datasets: [
-                        {
-                            label: 'Ingresos',
-                            data: ingresos,
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                            yAxisID: 'y'
-                        },
-                        {
-                            label: 'Citas',
-                            data: citas,
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                            yAxisID: 'y1'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    },
-                    scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Ingresos ($)'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Citas'
-                            },
-                            grid: {
-                                drawOnChartArea: false,
-                            },
-                        }
-                    }
-                }
-            });
-
-            // Gráfico de servicios populares
-            const ctxServicios = document.getElementById('graficoServicios').getContext('2d');
-            const serviciosLabels = stats.top_servicios.map(s => s.nombre);
-            const serviciosData = stats.top_servicios.map(s => s.cantidad);
-
-            chartServicios = new Chart(ctxServicios, {
+            chartEstados = new Chart(ctxEstados, {
                 type: 'doughnut',
                 data: {
-                    labels: serviciosLabels,
+                    labels: ['Completadas', 'Confirmadas', 'Canceladas'],
                     datasets: [{
-                        data: serviciosData,
+                        data: [estadosData.completadas, estadosData.confirmadas, estadosData.canceladas],
                         backgroundColor: [
-                            'rgb(255, 99, 132)',
-                            'rgb(54, 162, 235)',
-                            'rgb(255, 205, 86)',
-                            'rgb(75, 192, 192)',
-                            'rgb(153, 102, 255)'
-                        ]
+                            'rgb(40, 167, 69)',  // Verde para completadas
+                            'rgb(255, 193, 7)',  // Amarillo para confirmadas
+                            'rgb(220, 53, 69)'   // Rojo para canceladas
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
                     }]
                 },
                 options: {
@@ -413,45 +326,120 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = estadosData.completadas + estadosData.confirmadas + estadosData.canceladas;
+                                    const percentage = total > 0 ? Math.round((context.raw / total) * 100) : 0;
+                                    return `${context.label}: ${context.raw} (${percentage}%)`;
+                                }
+                            }
                         }
                     }
                 }
             });
+
+            // Gráfico de servicios populares
+            const ctxServicios = document.getElementById('graficoServicios').getContext('2d');
+            const servicios = stats.servicios_top || [];
+            
+            if (servicios.length > 0) {
+                const serviciosLabels = servicios.map(s => s.nombre);
+                const serviciosData = servicios.map(s => s.total_citas);
+
+                chartServicios = new Chart(ctxServicios, {
+                    type: 'bar',
+                    data: {
+                        labels: serviciosLabels,
+                        datasets: [{
+                            label: 'Citas',
+                            data: serviciosData,
+                            backgroundColor: 'rgb(54, 162, 235)',
+                            borderColor: 'rgb(54, 162, 235)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Cantidad de Citas'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Servicios'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Mostrar mensaje si no hay datos
+                document.getElementById('graficoServicios').innerHTML = 
+                    '<div class="text-center text-muted p-4">No hay datos de servicios</div>';
+            }
         }
 
-        function actualizarTablas(stats, comparativa) {
-            // Tabla de clientes
-            const tablaClientes = document.getElementById('tablaClientes');
-            tablaClientes.innerHTML = stats.top_clientes.map(cliente => `
-                <tr>
-                    <td>${cliente.nombre}</td>
-                    <td>${cliente.citas}</td>
-                    <td>$${cliente.total_gastado.toLocaleString()}</td>
-                </tr>
-            `).join('');
+        function actualizarTablaServicios(servicios) {
+            const tabla = document.getElementById('tablaServicios');
+            const serviciosData = servicios || [];
+            
+            if (serviciosData.length > 0) {
+                const totalCitas = serviciosData.reduce((sum, servicio) => sum + servicio.total_citas, 0);
+                
+                tabla.innerHTML = serviciosData.map(servicio => {
+                    const porcentaje = totalCitas > 0 ? Math.round((servicio.total_citas / totalCitas) * 100) : 0;
+                    return `
+                        <tr>
+                            <td>${servicio.nombre}</td>
+                            <td>${servicio.total_citas}</td>
+                            <td>${porcentaje}%</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tabla.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center text-muted">No hay datos de servicios</td>
+                    </tr>
+                `;
+            }
+        }
 
-            // Tabla de horarios
-            const tablaHorarios = document.getElementById('tablaHorarios');
-            tablaHorarios.innerHTML = stats.horarios_populares.map(horario => `
-                <tr>
-                    <td>${horario.hora}</td>
-                    <td>${horario.cantidad}</td>
-                </tr>
-            `).join('');
-
-            // Tabla comparativa
-            const tablaComparativa = document.getElementById('tablaComparativa');
-            tablaComparativa.innerHTML = comparativa.map(profesional => `
-                <tr>
-                    <td><strong>${profesional.nombre}</strong></td>
-                    <td>${profesional.total_citas}</td>
-                    <td>${profesional.citas_confirmadas}</td>
-                    <td>$${profesional.ingresos.toLocaleString()}</td>
-                    <td>${profesional.clientes_unicos}</td>
-                    <td>${profesional.tasa_confirmacion}%</td>
-                </tr>
-            `).join('');
+        function mostrarError(mensaje) {
+            // Crear alerta de error
+            const alerta = document.createElement('div');
+            alerta.className = 'alert alert-danger alert-dismissible fade show';
+            alerta.innerHTML = `
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Insertar al inicio del main content
+            const main = document.querySelector('main');
+            main.insertBefore(alerta, main.firstChild);
+            
+            // Auto-eliminar después de 5 segundos
+            setTimeout(() => {
+                if (alerta.parentNode) {
+                    alerta.remove();
+                }
+            }, 5000);
         }
     </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
