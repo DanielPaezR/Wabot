@@ -1704,24 +1704,24 @@ def negocio_nuevo_servicio():
 @app.route('/negocio/servicios/<int:servicio_id>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_servicio(servicio_id):
-    """Editar servicio del negocio"""
-    if request.method == 'POST':
-        # Validar CSRF
-        if not validate_csrf_token(request.form.get('csrf_token', '')):
-            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
-            return redirect(url_for('negocio_servicios'))
-    
+    """Editar servicio del negocio - VERSIÓN CORREGIDA"""
     servicio = db.obtener_servicio_por_id(servicio_id, session['negocio_id'])
     if not servicio:
         flash('Servicio no encontrado', 'error')
         return redirect(url_for('negocio_servicios'))
     
     if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_servicios'))
+        
         nombre = request.form['nombre']
         duracion = int(request.form['duracion'])
         precio = float(request.form['precio'])
         descripcion = request.form.get('descripcion', '')
-        activo = 'activo' in request.form
+        # ✅ CORRECCIÓN: Por defecto activo si no se especifica
+        activo = request.form.get('activo', 'off') == 'on'
         
         conn = get_db_connection()
         cursor = conn.cursor()

@@ -165,6 +165,18 @@
             color: #666;
             margin-top: 0.3rem;
         }
+
+        /* Estilos para checkbox */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            transform: scale(1.2);
+        }
     </style>
 </head>
 <body>
@@ -195,7 +207,8 @@
         
         <div class="form-section">
             <form method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
                 <div class="form-group">
                     <label for="nombre">Nombre del Servicio *</label>
                     <input type="text" id="nombre" name="nombre" 
@@ -223,6 +236,16 @@
                     <label for="descripcion">Descripción (Opcional)</label>
                     <textarea id="descripcion" name="descripcion" rows="3" 
                               placeholder="Descripción detallada del servicio...">{{ servicio.descripcion if servicio else '' }}</textarea>
+                </div>
+
+                <!-- ✅ NUEVO: Checkbox para activo/inactivo -->
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="activo" name="activo" 
+                               {% if not servicio or servicio.activo %}checked{% endif %}>
+                        <label for="activo">Servicio activo</label>
+                    </div>
+                    <div class="help-text">Si está desactivado, no aparecerá en las opciones para agendar citas</div>
                 </div>
                 
                 <div class="form-actions">
