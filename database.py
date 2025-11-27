@@ -1076,15 +1076,30 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
-    """Obtener todas las citas de un profesional en un día específico"""
+    """Obtener todas las citas de un profesional en un día específico - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
-    sql = '''
-        SELECT c.hora, s.duracion 
-        FROM citas c 
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ? AND c.estado != 'cancelado'
-        ORDER BY c.hora
-    '''
+    
+    if is_postgresql():
+        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
+        sql = '''
+            SELECT c.hora, s.duracion 
+            FROM citas c 
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = %s AND c.profesional_id = %s 
+            AND c.fecha::DATE = %s::DATE 
+            AND c.estado != 'cancelado'
+            ORDER BY c.hora
+        '''
+    else:
+        sql = '''
+            SELECT c.hora, s.duracion 
+            FROM citas c 
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ? 
+            AND c.estado != 'cancelado'
+            ORDER BY c.hora
+        '''
+    
     citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
     conn.close()
     return citas
@@ -1120,15 +1135,28 @@ def obtener_nombre_cliente(telefono, negocio_id):
 
 
 def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
-    """Obtener citas de un profesional para una fecha específica"""
+    """Obtener citas de un profesional para una fecha específica - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
-    sql = '''
-        SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion
-        FROM citas c
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ?
-        ORDER BY c.hora
-    '''
+    
+    if is_postgresql():
+        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
+        sql = '''
+            SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = %s AND c.profesional_id = %s 
+            AND c.fecha::DATE = %s::DATE
+            ORDER BY c.hora
+        '''
+    else:
+        sql = '''
+            SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ?
+            ORDER BY c.hora
+        '''
+    
     citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
     conn.close()
     return citas
@@ -1568,7 +1596,7 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
 # =============================================================================
 
 def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, año=None):
-    """Obtener estadísticas mensuales"""
+    """Obtener estadísticas mensuales - VERSIÓN CORREGIDA PARA POSTGRESQL"""
     if mes is None:
         mes = datetime.now().month
     if año is None:
@@ -1579,6 +1607,7 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
     
     # Construir consulta base
     if is_postgresql():
+        # ✅ CORRECCIÓN: Usar EXTRACT con CAST para convertir texto a fecha
         query = '''
             SELECT 
                 COUNT(*) as total_citas,
@@ -1589,9 +1618,12 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
                 SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END) as ingresos_totales
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.negocio_id = %s AND EXTRACT(MONTH FROM c.fecha) = %s AND EXTRACT(YEAR FROM c.fecha) = %s
+            WHERE c.negocio_id = %s 
+            AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
+            AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
         '''
     else:
+        # Para SQLite (código original)
         query = '''
             SELECT 
                 COUNT(*) as total_citas,
@@ -1640,7 +1672,7 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
 # =============================================================================
 
 def obtener_citas_proximas_recordatorio():
-    """Obtener citas próximas para recordatorios"""
+    """Obtener citas próximas para recordatorios - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -1648,6 +1680,7 @@ def obtener_citas_proximas_recordatorio():
     fecha_24h = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d')
     
     if is_postgresql():
+        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
         sql = '''
             SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
                    p.nombre as profesional_nombre, s.nombre as servicio_nombre,
@@ -1656,7 +1689,8 @@ def obtener_citas_proximas_recordatorio():
             JOIN negocios n ON c.negocio_id = n.id
             JOIN profesionales p ON c.profesional_id = p.id
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.fecha = %s AND c.estado = 'confirmado' 
+            WHERE c.fecha::DATE = %s::DATE 
+            AND c.estado = 'confirmado' 
             AND c.recordatorio_24h_enviado = FALSE
             ORDER BY c.hora
         '''
@@ -1680,6 +1714,7 @@ def obtener_citas_proximas_recordatorio():
     fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     
     if is_postgresql():
+        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
         sql = '''
             SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
                    p.nombre as profesional_nombre, s.nombre as servicio_nombre,
@@ -1688,7 +1723,8 @@ def obtener_citas_proximas_recordatorio():
             JOIN negocios n ON c.negocio_id = n.id
             JOIN profesionales p ON c.profesional_id = p.id
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.fecha = %s AND c.estado = 'confirmado'
+            WHERE c.fecha::DATE = %s::DATE 
+            AND c.estado = 'confirmado'
             AND c.recordatorio_1h_enviado = FALSE
             AND c.hora::time BETWEEN (NOW() + INTERVAL '55 minutes')::time 
                                AND (NOW() + INTERVAL '65 minutes')::time
