@@ -1190,7 +1190,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico"""
+    """Obtener horarios para un día específico - VERSIÓN CORREGIDA"""
     try:
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
@@ -1209,12 +1209,18 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         conn.close()
         
         if result:
+            # ✅ CORRECCIÓN: Convertir objetos time a strings
+            hora_inicio = result['hora_inicio']
+            hora_fin = result['hora_fin']
+            almuerzo_inicio = result['almuerzo_inicio']
+            almuerzo_fin = result['almuerzo_fin']
+            
             return {
                 'activo': bool(result['activo']),
-                'hora_inicio': result['hora_inicio'],
-                'hora_fin': result['hora_fin'],
-                'almuerzo_inicio': result['almuerzo_inicio'],
-                'almuerzo_fin': result['almuerzo_fin']
+                'hora_inicio': hora_inicio.strftime('%H:%M') if hasattr(hora_inicio, 'strftime') else str(hora_inicio),
+                'hora_fin': hora_fin.strftime('%H:%M') if hasattr(hora_fin, 'strftime') else str(hora_fin),
+                'almuerzo_inicio': almuerzo_inicio.strftime('%H:%M') if almuerzo_inicio and hasattr(almuerzo_inicio, 'strftime') else str(almuerzo_inicio) if almuerzo_inicio else None,
+                'almuerzo_fin': almuerzo_fin.strftime('%H:%M') if almuerzo_fin and hasattr(almuerzo_fin, 'strftime') else str(almuerzo_fin) if almuerzo_fin else None
             }
         else:
             return {
@@ -1234,7 +1240,6 @@ def obtener_horarios_por_dia(negocio_id, fecha):
             'almuerzo_inicio': None,
             'almuerzo_fin': None
         }
-
 
 def obtener_configuracion_horarios(negocio_id):
     """Obtener configuración de horarios por días"""
