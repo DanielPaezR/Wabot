@@ -876,6 +876,29 @@ def admin_editar_usuario(usuario_id):
         return render_template('admin/editar_usuario.html', 
                              usuario=dict(usuario), 
                              negocios=negocios)
+    
+@app.route('/admin/reset-db')
+def admin_reset_db():
+    """Ruta de emergencia para resetear la base de datos (SOLO DESARROLLO)"""
+    if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PYTHONANYWHERE_SITE'):
+        return "❌ No disponible en producción"
+    
+    try:
+        # Reinicializar base de datos
+        db.init_db()
+        
+        # Resetear secuencia si es PostgreSQL
+        if db.is_postgresql():
+            db.resetear_secuencia_negocios()
+        
+        return """
+        <h1>✅ Base de datos reseteada</h1>
+        <p>La base de datos ha sido reinicializada correctamente.</p>
+        <p><a href="/admin/negocios">→ Ir a gestión de negocios</a></p>
+        <p><a href="/admin/negocios/nuevo">→ Crear nuevo negocio</a></p>
+        """
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
 # =============================================================================
 # RUTAS PARA PLANTILLAS DEL ADMINISTRADOR

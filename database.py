@@ -296,17 +296,43 @@ def _crear_tablas(cursor):
 
 
 def _insertar_datos_por_defecto(cursor):
-    """Insertar datos por defecto en las tablas"""
+    """Insertar datos por defecto en las tablas - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()
     
     try:
-        # Negocio por defecto
+        # Verificar si ya existe el negocio por defecto
         if postgres:
             cursor.execute('SELECT id FROM negocios WHERE id = 1')
-            if not cursor.fetchone():
+        else:
+            cursor.execute('SELECT id FROM negocios WHERE id = 1')
+        
+        negocio_existe = cursor.fetchone()
+        
+        if not negocio_existe:
+            # Negocio por defecto - NO especificar ID para PostgreSQL
+            if postgres:
+                cursor.execute('''
+                    INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, configuracion) 
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                ''', (
+                    'Negocio Premium', 
+                    'whatsapp:+14155238886', 
+                    'general', 
+                    json.dumps({
+                        "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
+                        "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
+                        "direccion": "Calle Principal #123",
+                        "telefono_contacto": "+573001234567",
+                        "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
+                    })
+                ))
+                negocio_id = cursor.fetchone()[0]
+                print(f"✅ Negocio por defecto creado con ID: {negocio_id}")
+            else:
                 cursor.execute('''
                     INSERT INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-                    VALUES (1, %s, %s, %s, %s)
+                    VALUES (1, ?, ?, ?, ?)
                 ''', (
                     'Negocio Premium', 
                     'whatsapp:+14155238886', 
@@ -320,26 +346,10 @@ def _insertar_datos_por_defecto(cursor):
                     })
                 ))
         else:
-            cursor.execute('''
-                INSERT OR IGNORE INTO negocios (id, nombre, telefono_whatsapp, tipo_negocio, configuracion) 
-                VALUES (1, ?, ?, ?, ?)
-            ''', (
-                'Negocio Premium', 
-                'whatsapp:+14155238886', 
-                'general', 
-                json.dumps({
-                    "saludo_personalizado": "¡Hola! Soy tu asistente virtual para agendar citas",
-                    "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
-                    "direccion": "Calle Principal #123",
-                    "telefono_contacto": "+573001234567",
-                    "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
-                })
-            ))
+            print("✅ Negocio por defecto ya existe")
         
-        # Usuarios por defecto
+        # Resto del código para usuarios, plantillas, etc. permanece igual
         _insertar_usuarios_por_defecto(cursor)
-        
-        # Plantillas base
         _insertar_plantillas_base(cursor)
         
         # Configuración
@@ -361,6 +371,8 @@ def _insertar_datos_por_defecto(cursor):
         
     except Exception as e:
         print(f"⚠️ Error insertando datos por defecto: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def _insertar_usuarios_por_defecto(cursor):
@@ -804,22 +816,30 @@ def obtener_todos_negocios():
 
 
 def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}'):
-    """Crear un nuevo negocio"""
+    """Crear un nuevo negocio - VERSIÓN CORREGIDA PARA POSTGRESQL"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        sql = '''
-            INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
-            VALUES (?, ?, ?, ?, ?)
-        '''
-        execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
-        
+        # Para PostgreSQL, NO especificar el ID - dejar que la secuencia lo asigne automáticamente
         if is_postgresql():
-            cursor.execute('SELECT LASTVAL()')
+            sql = '''
+                INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            '''
+            cursor.execute(sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
             negocio_id = cursor.fetchone()[0]
         else:
+            # Para SQLite
+            sql = '''
+                INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
+                VALUES (?, ?, ?, ?, ?)
+            '''
+            execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, '👋', configuracion))
             negocio_id = cursor.lastrowid
+        
+        print(f"✅ Negocio creado con ID: {negocio_id}")
         
         # Crear configuración por defecto
         sql = 'INSERT INTO configuracion (negocio_id) VALUES (?)'
@@ -858,9 +878,12 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
         crear_plantillas_personalizadas_para_negocios()
         
         return negocio_id
+        
     except Exception as e:
         conn.rollback()
         print(f"❌ Error al crear negocio: {e}")
+        import traceback
+        traceback.print_exc()
         return None
     finally:
         conn.close()
@@ -1401,6 +1424,33 @@ def obtener_usuarios_todos():
 # =============================================================================
 # FUNCIONES AUXILIARES
 # =============================================================================
+def resetear_secuencia_negocios():
+    """Resetear la secuencia de IDs de negocios para PostgreSQL"""
+    if not is_postgresql():
+        print("ℹ️  Solo necesario para PostgreSQL")
+        return True
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Obtener el máximo ID actual
+        cursor.execute('SELECT COALESCE(MAX(id), 0) FROM negocios')
+        max_id = cursor.fetchone()[0]
+        
+        # Resetear la secuencia al siguiente valor disponible
+        cursor.execute(f'ALTER SEQUENCE negocios_id_seq RESTART WITH {max_id + 1}')
+        
+        conn.commit()
+        print(f"✅ Secuencia resetada. Próximo ID: {max_id + 1}")
+        return True
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error resetando secuencia: {e}")
+        return False
+    finally:
+        conn.close()
 
 def actualizar_esquema_bd():
     """Actualizar esquema de base de datos existente"""
