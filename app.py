@@ -2143,7 +2143,7 @@ def profesional_dashboard():
 @app.route('/profesional/estadisticas')
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_estadisticas():
-    """Estadísticas del profesional"""
+    """Estadísticas del profesional - VERSIÓN CORREGIDA"""
     try:
         negocio_id = session.get('negocio_id', 1)
         profesional_id = request.args.get('profesional_id', session.get('profesional_id'))
@@ -2156,54 +2156,108 @@ def profesional_estadisticas():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Estadísticas básicas
-        cursor.execute('''
-            SELECT COUNT(*) as total_citas,
-                   SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
-                   SUM(CASE WHEN estado = 'confirmada' THEN 1 ELSE 0 END) as confirmadas,
-                   SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END) as canceladas,
-                   COALESCE(SUM(s.precio), 0) as ingresos_totales
-            FROM citas c
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = %s AND c.negocio_id = %s
-        ''', (profesional_id, negocio_id))
+        # Estadísticas básicas - VERSIÓN CORREGIDA
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT COUNT(*) as total_citas,
+                       SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
+                       SUM(CASE WHEN estado = 'confirmada' THEN 1 ELSE 0 END) as confirmadas,
+                       SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END) as canceladas,
+                       COALESCE(SUM(s.precio), 0) as ingresos_totales
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = %s AND c.negocio_id = %s
+            ''', (profesional_id, negocio_id))
+        else:
+            cursor.execute('''
+                SELECT COUNT(*) as total_citas,
+                       SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas,
+                       SUM(CASE WHEN estado = 'confirmada' THEN 1 ELSE 0 END) as confirmadas,
+                       SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END) as canceladas,
+                       COALESCE(SUM(s.precio), 0) as ingresos_totales
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = ? AND c.negocio_id = ?
+            ''', (profesional_id, negocio_id))
         
         stats = cursor.fetchone()
         
-        # Citas de esta semana
-        cursor.execute('''
-            SELECT COUNT(*) 
-            FROM citas 
-            WHERE profesional_id = %s AND negocio_id = %s 
-            AND fecha >= CURRENT_DATE - INTERVAL '7 days'
-        ''', (profesional_id, negocio_id))
+        # Citas de esta semana - VERSIÓN CORREGIDA
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT COUNT(*) 
+                FROM citas 
+                WHERE profesional_id = %s AND negocio_id = %s 
+                AND fecha::DATE >= CURRENT_DATE - INTERVAL '7 days'
+            ''', (profesional_id, negocio_id))
+        else:
+            cursor.execute('''
+                SELECT COUNT(*) 
+                FROM citas 
+                WHERE profesional_id = ? AND negocio_id = ? 
+                AND fecha >= DATE('now', '-7 days')
+            ''', (profesional_id, negocio_id))
         
-        citas_semana = cursor.fetchone()[0]
+        citas_semana_result = cursor.fetchone()
         
-        # Servicios más populares
-        cursor.execute('''
-            SELECT s.nombre, COUNT(*) as cantidad
-            FROM citas c
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = %s AND c.negocio_id = %s
-            GROUP BY s.id, s.nombre
-            ORDER BY cantidad DESC
-            LIMIT 5
-        ''', (profesional_id, negocio_id))
+        # ✅ CORRECCIÓN: Acceder correctamente a los valores
+        if hasattr(citas_semana_result, 'keys'):  # Es un diccionario
+            citas_semana = citas_semana_result['count'] if 'count' in citas_semana_result else citas_semana_result[0]
+        else:  # Es una tupla
+            citas_semana = citas_semana_result[0] if citas_semana_result else 0
+        
+        # Servicios más populares - VERSIÓN CORREGIDA
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT s.nombre, COUNT(*) as cantidad
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = %s AND c.negocio_id = %s
+                GROUP BY s.id, s.nombre
+                ORDER BY cantidad DESC
+                LIMIT 5
+            ''', (profesional_id, negocio_id))
+        else:
+            cursor.execute('''
+                SELECT s.nombre, COUNT(*) as cantidad
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = ? AND c.negocio_id = ?
+                GROUP BY s.id, s.nombre
+                ORDER BY cantidad DESC
+                LIMIT 5
+            ''', (profesional_id, negocio_id))
         
         servicios_populares = cursor.fetchall()
         
         conn.close()
         
+        # ✅ CORRECCIÓN: Acceder correctamente a las estadísticas
+        if hasattr(stats, 'keys'):  # Es un diccionario
+            total_citas = stats['total_citas'] or 0
+            completadas = stats['completadas'] or 0
+            confirmadas = stats['confirmadas'] or 0
+            canceladas = stats['canceladas'] or 0
+            ingresos_totales = stats['ingresos_totales'] or 0
+        else:  # Es una tupla
+            total_citas = stats[0] or 0 if stats else 0
+            completadas = stats[1] or 0 if stats else 0
+            confirmadas = stats[2] or 0 if stats else 0
+            canceladas = stats[3] or 0 if stats else 0
+            ingresos_totales = stats[4] or 0 if stats else 0
+        
+        # Calcular tasa de éxito
+        tasa_exito = round((completadas / total_citas * 100), 2) if total_citas > 0 else 0
+        
         estadisticas = {
-            'total_citas': stats[0] if stats else 0,
-            'completadas': stats[1] if stats else 0,
-            'confirmadas': stats[2] if stats else 0,
-            'canceladas': stats[3] if stats else 0,
-            'ingresos_totales': float(stats[4]) if stats else 0,
+            'total_citas': total_citas,
+            'completadas': completadas,
+            'confirmadas': confirmadas,
+            'canceladas': canceladas,
+            'ingresos_totales': float(ingresos_totales),
             'citas_semana': citas_semana,
             'servicios_populares': [{'nombre': s[0], 'cantidad': s[1]} for s in servicios_populares],
-            'tasa_exito': round((stats[1] / stats[0] * 100), 2) if stats and stats[0] > 0 else 0
+            'tasa_exito': tasa_exito
         }
         
         return render_template('profesional/estadisticas.html',
@@ -2212,6 +2266,8 @@ def profesional_estadisticas():
         
     except Exception as e:
         print(f"❌ Error en profesional_estadisticas: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Error al cargar las estadísticas', 'error')
         return redirect(url_for('profesional_dashboard'))
     
