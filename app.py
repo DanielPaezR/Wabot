@@ -407,6 +407,13 @@ def login():
     
     return render_template('login.html')
 
+@app.route('/logout')
+def logout():
+    """Logout para todos los usuarios"""
+    session.clear()
+    flash('Sesión cerrada correctamente', 'success')
+    return redirect(url_for('login'))
+
 # =============================================================================
 # RUTAS DEL PANEL ADMINISTRADOR
 # =============================================================================
