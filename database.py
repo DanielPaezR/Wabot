@@ -1406,15 +1406,24 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
 
 
 def verificar_usuario(email, password):
-    """Verificar credenciales de usuario"""
+    """Verificar credenciales de usuario - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
     
-    sql = '''
-        SELECT u.*, n.nombre as negocio_nombre 
-        FROM usuarios u 
-        JOIN negocios n ON u.negocio_id = n.id 
-        WHERE u.email = ? AND u.activo = TRUE
-    '''
+    if is_postgresql():
+        sql = '''
+            SELECT u.*, n.nombre as negocio_nombre 
+            FROM usuarios u 
+            JOIN negocios n ON u.negocio_id = n.id 
+            WHERE u.email = %s AND u.activo = TRUE
+        '''
+    else:
+        sql = '''
+            SELECT u.*, n.nombre as negocio_nombre 
+            FROM usuarios u 
+            JOIN negocios n ON u.negocio_id = n.id 
+            WHERE u.email = ? AND u.activo = TRUE
+        '''
+    
     usuario = fetch_one(conn.cursor(), sql, (email,))
     conn.close()
     
@@ -1426,7 +1435,11 @@ def verificar_usuario(email, password):
         if usuario['password_hash'] == password_hash:
             # Actualizar último login
             conn = get_db_connection()
-            sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
+            if is_postgresql():
+                sql = 'UPDATE usuarios SET ultimo_login = %s WHERE id = %s'
+            else:
+                sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
+            
             execute_sql(conn.cursor(), sql, (datetime.now(), usuario['id']))
             conn.commit()
             conn.close()

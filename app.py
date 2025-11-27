@@ -307,7 +307,7 @@ def eliminar_profesional(profesional_id, negocio_id):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login para todos los usuarios"""
+    """Login para todos los usuarios - VERSIÓN CORREGIDA"""
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
@@ -324,39 +324,74 @@ def login():
             
             print(f"🔐 LOGIN: {usuario['nombre']} (Rol: {usuario['rol']})")
             
-            # Manejar profesional
+            # Manejar profesional - VERSIÓN CORREGIDA
             if usuario['rol'] == 'profesional':
                 if 'profesional_id' in session:
                     del session['profesional_id']
                 
-                conn = get_db_connection()
+                conn = db.get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute(
-                    'SELECT id, nombre FROM profesionales WHERE usuario_id = %s AND negocio_id = %s', 
-                    (usuario['id'], usuario['negocio_id'])
-                )
+                
+                if db.is_postgresql():
+                    cursor.execute(
+                        'SELECT id, nombre FROM profesionales WHERE usuario_id = %s AND negocio_id = %s', 
+                        (usuario['id'], usuario['negocio_id'])
+                    )
+                else:
+                    cursor.execute(
+                        'SELECT id, nombre FROM profesionales WHERE usuario_id = ? AND negocio_id = ?', 
+                        (usuario['id'], usuario['negocio_id'])
+                    )
+                
                 profesional = cursor.fetchone()
                 
                 if profesional:
-                    session['profesional_id'] = profesional[0]
-                    print(f"✅ PROFESIONAL ENCONTRADO: {profesional[1]} (ID: {profesional[0]})")
+                    # ✅ CORRECCIÓN: Acceder correctamente a los valores según el tipo de cursor
+                    if hasattr(profesional, 'keys'):  # Es un diccionario (RealDictCursor)
+                        session['profesional_id'] = profesional['id']
+                        print(f"✅ PROFESIONAL ENCONTRADO: {profesional['nombre']} (ID: {profesional['id']})")
+                    else:  # Es una tupla
+                        session['profesional_id'] = profesional[0]
+                        print(f"✅ PROFESIONAL ENCONTRADO: {profesional[1]} (ID: {profesional[0]})")
                 else:
-                    cursor.execute(
-                        'SELECT id, nombre FROM profesionales WHERE nombre = %s AND negocio_id = %s', 
-                        (usuario['nombre'], usuario['negocio_id'])
-                    )
+                    # Buscar por nombre si no se encuentra por usuario_id
+                    if db.is_postgresql():
+                        cursor.execute(
+                            'SELECT id, nombre FROM profesionales WHERE nombre = %s AND negocio_id = %s', 
+                            (usuario['nombre'], usuario['negocio_id'])
+                        )
+                    else:
+                        cursor.execute(
+                            'SELECT id, nombre FROM profesionales WHERE nombre = ? AND negocio_id = ?', 
+                            (usuario['nombre'], usuario['negocio_id'])
+                        )
+                    
                     profesional = cursor.fetchone()
                     
                     if profesional:
-                        session['profesional_id'] = profesional[0]
+                        if hasattr(profesional, 'keys'):  # Es un diccionario
+                            session['profesional_id'] = profesional['id']
+                        else:  # Es una tupla
+                            session['profesional_id'] = profesional[0]
                     else:
-                        cursor.execute(
-                            'SELECT id FROM profesionales WHERE negocio_id = %s AND activo = TRUE LIMIT 1', 
-                            (usuario['negocio_id'],)
-                        )
+                        # Fallback: primer profesional activo del negocio
+                        if db.is_postgresql():
+                            cursor.execute(
+                                'SELECT id FROM profesionales WHERE negocio_id = %s AND activo = TRUE LIMIT 1', 
+                                (usuario['negocio_id'],)
+                            )
+                        else:
+                            cursor.execute(
+                                'SELECT id FROM profesionales WHERE negocio_id = ? AND activo = TRUE LIMIT 1', 
+                                (usuario['negocio_id'],)
+                            )
+                        
                         profesional_fallback = cursor.fetchone()
                         if profesional_fallback:
-                            session['profesional_id'] = profesional_fallback[0]
+                            if hasattr(profesional_fallback, 'keys'):  # Es un diccionario
+                                session['profesional_id'] = profesional_fallback['id']
+                            else:  # Es una tupla
+                                session['profesional_id'] = profesional_fallback[0]
                 
                 conn.close()
             
@@ -371,13 +406,6 @@ def login():
             flash('Credenciales incorrectas', 'error')
     
     return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    """Logout para todos los usuarios"""
-    session.clear()
-    flash('Sesión cerrada correctamente', 'success')
-    return redirect(url_for('login'))
 
 # =============================================================================
 # RUTAS DEL PANEL ADMINISTRADOR
