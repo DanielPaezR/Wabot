@@ -913,24 +913,40 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
 
 
 def _insertar_configuracion_horarios_para_negocio(cursor, negocio_id):
-    """Insertar configuración de horarios para un negocio específico"""
+    """Insertar configuración de horarios para un negocio específico - VERSIÓN CORREGIDA"""
     dias_semana = [
-        (1, '09:00', '19:00', '13:00', '14:00'),
-        (2, '09:00', '19:00', '13:00', '14:00'),
-        (3, '09:00', '19:00', '13:00', '14:00'),
-        (4, '09:00', '19:00', '13:00', '14:00'),
-        (5, '09:00', '19:00', '13:00', '14:00'),
-        (6, '09:00', '19:00', '13:00', '14:00'),
-        (7, '09:00', '13:00', None, None)
+        (1, '09:00', '19:00', '13:00', '14:00'),  # Lunes
+        (2, '09:00', '19:00', '13:00', '14:00'),  # Martes
+        (3, '09:00', '19:00', '13:00', '14:00'),  # Miércoles
+        (4, '09:00', '19:00', '13:00', '14:00'),  # Jueves
+        (5, '09:00', '19:00', '13:00', '14:00'),  # Viernes
+        (6, '09:00', '19:00', '13:00', '14:00'),  # Sábado
+        (7, '09:00', '13:00', None, None)         # Domingo (medio día)
     ]
     
     for dia in dias_semana:
-        sql = '''
-            INSERT INTO configuracion_horarios 
-            (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-            VALUES (?, ?, TRUE, ?, ?, ?, ?)
-        '''
-        execute_sql(cursor, sql, (negocio_id, dia[0], dia[1], dia[2], dia[3], dia[4]))
+        if db.is_postgresql():
+            sql = '''
+                INSERT INTO configuracion_horarios 
+                (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            '''
+        else:
+            sql = '''
+                INSERT INTO configuracion_horarios 
+                (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            '''
+        
+        db.execute_sql(cursor, sql, (
+            negocio_id, 
+            dia[0], 
+            True,  # Activo por defecto
+            dia[1], 
+            dia[2], 
+            dia[3],  # ✅ Almuerzo inicio
+            dia[4]   # ✅ Almuerzo fin
+        ))
 
 
 def _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio):

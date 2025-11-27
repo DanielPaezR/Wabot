@@ -1489,7 +1489,7 @@ def negocio_configuracion():
         except:
             config_actual = {}
     
-    # ✅ CORRECCIÓN: Obtener datos REALES de la base de datos
+    # ✅ CORRECCIÓN MEJORADA: Obtener datos REALES de la base de datos
     dias_semana = []
     nombres_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     
@@ -1498,30 +1498,48 @@ def negocio_configuracion():
             conn = db.get_db_connection()
             cursor = conn.cursor()
             
-            cursor.execute('''
-                SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
-                FROM configuracion_horarios 
-                WHERE negocio_id = %s AND dia_semana = %s
-            ''', (negocio_id, dia_id))
+            if db.is_postgresql():
+                cursor.execute('''
+                    SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                    FROM configuracion_horarios 
+                    WHERE negocio_id = %s AND dia_semana = %s
+                ''', (negocio_id, dia_id))
+            else:
+                cursor.execute('''
+                    SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                    FROM configuracion_horarios 
+                    WHERE negocio_id = ? AND dia_semana = ?
+                ''', (negocio_id, dia_id))
             
             resultado = cursor.fetchone()
             conn.close()
             
             if resultado:
-                dia_config = {
-                    'activo': bool(resultado[0]),
-                    'hora_inicio': resultado[1] or '09:00',
-                    'hora_fin': resultado[2] or '19:00',
-                    'almuerzo_inicio': resultado[3] or '',
-                    'almuerzo_fin': resultado[4] or ''
-                }
+                # ✅ CORRECCIÓN: Acceder correctamente a los valores según el tipo de cursor
+                if hasattr(resultado, 'keys'):  # Es un diccionario (RealDictCursor)
+                    dia_config = {
+                        'activo': bool(resultado['activo']),
+                        'hora_inicio': resultado['hora_inicio'] or '09:00',
+                        'hora_fin': resultado['hora_fin'] or '19:00',
+                        'almuerzo_inicio': resultado['almuerzo_inicio'] or '13:00',  # ✅ Valor por defecto
+                        'almuerzo_fin': resultado['almuerzo_fin'] or '14:00'         # ✅ Valor por defecto
+                    }
+                else:  # Es una tupla
+                    dia_config = {
+                        'activo': bool(resultado[0]),
+                        'hora_inicio': resultado[1] or '09:00',
+                        'hora_fin': resultado[2] or '19:00',
+                        'almuerzo_inicio': resultado[3] or '13:00',  # ✅ Valor por defecto
+                        'almuerzo_fin': resultado[4] or '14:00'      # ✅ Valor por defecto
+                    }
             else:
+                # ✅ CORRECCIÓN: Valores por defecto más realistas
                 dia_config = {
-                    'activo': False,  # ✅ Por defecto INACTIVO
+                    'activo': dia_id <= 6,  # ✅ Lunes a Sábado activos por defecto
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
-                    'almuerzo_inicio': '',
-                    'almuerzo_fin': ''
+                    'almuerzo_inicio': '13:00',  # ✅ Valor por defecto
+                    'almuerzo_fin': '14:00'      # ✅ Valor por defecto
                 }
                 
             dias_semana.append({
@@ -1532,15 +1550,16 @@ def negocio_configuracion():
             
         except Exception as e:
             print(f"⚠️ Error cargando día {dia_id}: {e}")
+            # ✅ CORRECCIÓN: Valores por defecto en caso de error
             dias_semana.append({
                 'id': dia_id,
                 'nombre': nombres_dias[dia_id-1],
                 'config': {
-                    'activo': False,  # ✅ Por defecto INACTIVO
+                    'activo': dia_id <= 6,  # ✅ Lunes a Sábado activos por defecto
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
-                    'almuerzo_inicio': '',
-                    'almuerzo_fin': ''
+                    'almuerzo_inicio': '13:00',  # ✅ Valor por defecto
+                    'almuerzo_fin': '14:00'      # ✅ Valor por defecto
                 }
             })
 
@@ -1575,13 +1594,12 @@ def negocio_configuracion():
             # ===== PROCESAR HORARIOS =====
             horarios_actualizados = []
             for dia_id in range(1, 8):
-                # ✅ CORRECCIÓN CRÍTICA: Los checkboxes solo se envían cuando están CHECKED
-                # Si no está en el request.form, significa que está DESACTIVADO
+                # ✅ CORRECCIÓN: Los checkboxes solo se envían cuando están CHECKED
                 activo = f'dia_{dia_id}_activo' in request.form
                 hora_inicio = request.form.get(f'dia_{dia_id}_inicio', '09:00')
                 hora_fin = request.form.get(f'dia_{dia_id}_fin', '19:00')
-                almuerzo_inicio = request.form.get(f'dia_{dia_id}_descanso_inicio', '')
-                almuerzo_fin = request.form.get(f'dia_{dia_id}_descanso_fin', '')
+                almuerzo_inicio = request.form.get(f'dia_{dia_id}_descanso_inicio', '13:00')  # ✅ Valor por defecto
+                almuerzo_fin = request.form.get(f'dia_{dia_id}_descanso_fin', '14:00')        # ✅ Valor por defecto
                 
                 print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
                 
@@ -1612,7 +1630,7 @@ def negocio_configuracion():
             
             print(f"🔍 DEBUG - Guardando configuración:")
             for h in horarios_actualizados:
-                print(f"  Día {h['dia_id']} ({nombres_dias[h['dia_id']-1]}): {h['activo']} - {h['hora_inicio']} a {h['hora_fin']}")
+                print(f"  Día {h['dia_id']} ({nombres_dias[h['dia_id']-1]}): {h['activo']} - {h['hora_inicio']} a {h['hora_fin']} - Descanso: {h['almuerzo_inicio']} a {h['almuerzo_fin']}")
             
             # Guardar TODO en la base de datos
             if db.actualizar_configuracion_completa(
