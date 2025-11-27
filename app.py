@@ -2382,7 +2382,7 @@ def profesional_agendar():
 @app.route('/profesional/crear-cita', methods=['POST'])
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_crear_cita():
-    """Crear cita desde el panel del profesional"""
+    """Crear cita desde el panel del profesional - VERSIÓN CORREGIDA PARA POSTGRESQL"""
     try:
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
@@ -2398,7 +2398,9 @@ def profesional_crear_cita():
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
-        if not all([cliente_nombre, cliente_telefono, servicio_id, fecha, hora, profesional_id]):
+        print(f"🔍 DEBUG crear-cita: cliente_nombre={cliente_nombre}, telefono={cliente_telefono}, servicio={servicio_id}, fecha={fecha}, hora={hora}, profesional={profesional_id}, negocio={negocio_id}")
+        
+        if not all([cliente_nombre, cliente_telefono, servicio_id, fecha, hora, profesional_id, negocio_id]):
             flash('Todos los campos son requeridos', 'error')
             return redirect(url_for('profesional_agendar'))
         
@@ -2417,7 +2419,7 @@ def profesional_crear_cita():
             conn.close()
             return redirect(url_for('profesional_agendar'))
         
-        # Crear la cita
+        # Crear la cita - VERSIÓN POSTGRESQL
         cursor.execute('''
             INSERT INTO citas (
                 negocio_id, 
@@ -2429,7 +2431,7 @@ def profesional_crear_cita():
                 servicio_id, 
                 estado, 
                 created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmada', CURRENT_TIMESTAMP)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmada', NOW())
             RETURNING id
         ''', (
             negocio_id, 
@@ -2441,7 +2443,20 @@ def profesional_crear_cita():
             servicio_id
         ))
         
-        cita_id = cursor.fetchone()[0]
+        result = cursor.fetchone()
+        if result:
+            # ✅ CORRECCIÓN PARA POSTGRESQL: Acceder correctamente al ID
+            if hasattr(result, 'keys'):  # Es un diccionario (RealDictCursor)
+                cita_id = result['id']
+            else:  # Es una tupla
+                cita_id = result[0]
+            print(f"✅ Cita creada exitosamente. ID: {cita_id}")
+        else:
+            flash('❌ Error al crear la cita en la base de datos', 'error')
+            conn.rollback()
+            conn.close()
+            return redirect(url_for('profesional_agendar'))
+        
         conn.commit()
         conn.close()
         
@@ -2450,6 +2465,8 @@ def profesional_crear_cita():
         
     except Exception as e:
         print(f"❌ Error creando cita: {e}")
+        import traceback
+        traceback.print_exc()
         flash('❌ Error al agendar la cita', 'error')
         return redirect(url_for('profesional_agendar'))
 
