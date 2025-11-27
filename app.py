@@ -2639,7 +2639,7 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CORREGIDA"""
+    """API para obtener horarios disponibles - VERSIÓN CORREGIDA DEFINITIVA"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -2698,9 +2698,18 @@ def api_horarios_disponibles():
             conn.close()
             return jsonify({'error': 'El negocio no trabaja este día'}), 400
         
-        # ✅ CORRECCIÓN: Los horarios ya son objetos datetime.time, convertirlos a strings para trabajar
-        hora_inicio_str = horarios_laborales['hora_inicio'].strftime('%H:%M')
-        hora_fin_str = horarios_laborales['hora_fin'].strftime('%H:%M')
+        # ✅ CORRECCIÓN DEFINITIVA: Manejar tanto strings como objetos datetime.time
+        def obtener_hora_como_string(hora):
+            """Convertir hora a string sin importar si es string o datetime.time"""
+            if hasattr(hora, 'strftime'):
+                # Es un objeto datetime.time
+                return hora.strftime('%H:%M')
+            else:
+                # Ya es un string
+                return str(hora)
+        
+        hora_inicio_str = obtener_hora_como_string(horarios_laborales['hora_inicio'])
+        hora_fin_str = obtener_hora_como_string(horarios_laborales['hora_fin'])
         
         # Convertir a objetos datetime para facilitar el cálculo
         hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
@@ -2709,9 +2718,12 @@ def api_horarios_disponibles():
         # Si hay horario de almuerzo, obtenerlo
         almuerzo_inicio = None
         almuerzo_fin = None
+        almuerzo_inicio_str = None
+        almuerzo_fin_str = None
+        
         if horarios_laborales['almuerzo_inicio'] and horarios_laborales['almuerzo_fin']:
-            almuerzo_inicio_str = horarios_laborales['almuerzo_inicio'].strftime('%H:%M')
-            almuerzo_fin_str = horarios_laborales['almuerzo_fin'].strftime('%H:%M')
+            almuerzo_inicio_str = obtener_hora_como_string(horarios_laborales['almuerzo_inicio'])
+            almuerzo_fin_str = obtener_hora_como_string(horarios_laborales['almuerzo_fin'])
             almuerzo_inicio = datetime.strptime(almuerzo_inicio_str, '%H:%M')
             almuerzo_fin = datetime.strptime(almuerzo_fin_str, '%H:%M')
         
@@ -2750,14 +2762,17 @@ def api_horarios_disponibles():
         
         print(f"🔍 Horarios disponibles encontrados: {len(horarios_disponibles)}: {horarios_disponibles}")
         
+        # Preparar respuesta del horario laboral
+        horario_laboral_info = {
+            'inicio': hora_inicio_str,
+            'fin': hora_fin_str,
+            'almuerzo': f"{almuerzo_inicio_str} - {almuerzo_fin_str}" if almuerzo_inicio_str else None
+        }
+        
         return jsonify({
             'horarios': horarios_disponibles,
             'duracion': duracion,
-            'horario_laboral': {
-                'inicio': hora_inicio_str,
-                'fin': hora_fin_str,
-                'almuerzo': f"{almuerzo_inicio_str} - {almuerzo_fin_str}" if almuerzo_inicio else None
-            }
+            'horario_laboral': horario_laboral_info
         })
         
     except Exception as e:
