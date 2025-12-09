@@ -1266,7 +1266,7 @@ def negocio_estadisticas():
 @app.route('/negocio/api/estadisticas')
 @role_required(['propietario', 'superadmin'])
 def negocio_api_estadisticas():
-    """API para obtener estadísticas del negocio - VERSIÓN CORREGIDA"""
+    """API para obtener estadísticas del negocio - VERSIÓN COMPLETAMENTE CORREGIDA"""
     try:
         profesional_id = request.args.get('profesional_id', '')
         mes = request.args.get('mes', datetime.now().month)
@@ -1285,7 +1285,18 @@ def negocio_api_estadisticas():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Estadísticas básicas del negocio - VERSIÓN CORREGIDA
+        # Función auxiliar para construir WHERE clause con filtro de profesional
+        def add_profesional_filter(query_base, params, profesional_id, is_postgresql):
+            """Agregar filtro de profesional si está seleccionado"""
+            if profesional_id:
+                query_base += ' AND c.profesional_id = %s' if is_postgresql else ' AND c.profesional_id = ?'
+                params.append(profesional_id)
+            return query_base, params
+        
+        # ✅ CORRECCIÓN: Estados correctos según tu base de datos
+        # Verifica con: SELECT DISTINCT estado FROM citas WHERE negocio_id = 1;
+        
+        # 1. Estadísticas básicas del negocio
         if db.is_postgresql():
             query_resumen = '''
                 SELECT 
@@ -1293,12 +1304,12 @@ def negocio_api_estadisticas():
                     SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
                     SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
                     SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
-                    COALESCE(SUM(s.precio), 0) as ingresos_totales
+                    COALESCE(SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos_totales
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 WHERE c.negocio_id = %s 
-                AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
-                AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
+                AND EXTRACT(MONTH FROM c.fecha) = %s 
+                AND EXTRACT(YEAR FROM c.fecha) = %s
             '''
         else:
             query_resumen = '''
@@ -1307,7 +1318,7 @@ def negocio_api_estadisticas():
                     SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
                     SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
                     SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
-                    COALESCE(SUM(s.precio), 0) as ingresos_totales
+                    COALESCE(SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos_totales
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 WHERE c.negocio_id = ? 
@@ -1316,26 +1327,23 @@ def negocio_api_estadisticas():
             '''
         
         params_resumen = [negocio_id, mes, año]
-        
-        if profesional_id:
-            query_resumen += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
-            params_resumen.append(profesional_id)
+        query_resumen, params_resumen = add_profesional_filter(query_resumen, params_resumen, profesional_id, db.is_postgresql())
         
         cursor.execute(query_resumen, params_resumen)
         resumen = cursor.fetchone()
         
-        # ✅ CORRECCIÓN: Acceder correctamente a los valores
+        # Función auxiliar para acceder a valores
         def get_value(row, key_or_index, default=0):
-            """Función auxiliar para acceder a valores de manera segura"""
-            if hasattr(row, 'keys') and isinstance(row, dict):  # Es un diccionario
-                return row.get(key_or_index, default)
-            elif hasattr(row, '__getitem__'):  # Es una tupla o lista
+            if hasattr(row, 'keys') and isinstance(row, dict):
+                value = row.get(key_or_index, default)
+                return value if value is not None else default
+            elif hasattr(row, '__getitem__'):
                 try:
-                    return row[key_or_index] or default
+                    value = row[key_or_index]
+                    return value if value is not None else default
                 except (IndexError, TypeError):
                     return default
-            else:
-                return default
+            return default
         
         total_citas = get_value(resumen, 'total_citas', 0)
         citas_confirmadas = get_value(resumen, 'citas_confirmadas', 0)
@@ -1343,15 +1351,15 @@ def negocio_api_estadisticas():
         citas_canceladas = get_value(resumen, 'citas_canceladas', 0)
         ingresos_totales = get_value(resumen, 'ingresos_totales', 0)
         
-        # Top profesionales
+        # 2. Top profesionales (CON FILTRO DE FECHA Y PROFESIONAL SI APLICA)
         if db.is_postgresql():
             query_profesionales = '''
                 SELECT p.nombre, COUNT(*) as total_citas
                 FROM citas c
                 JOIN profesionales p ON c.profesional_id = p.id
                 WHERE c.negocio_id = %s
-                AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
-                AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
+                AND EXTRACT(MONTH FROM c.fecha) = %s 
+                AND EXTRACT(YEAR FROM c.fecha) = %s
                 AND c.estado != 'cancelado'
             '''
         else:
@@ -1367,49 +1375,41 @@ def negocio_api_estadisticas():
         
         params_profesionales = [negocio_id, mes, año]
         
+        # Si hay filtro por profesional, mostrar solo ese profesional
         if profesional_id:
             query_profesionales += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
             params_profesionales.append(profesional_id)
-        
-        query_profesionales += ' GROUP BY p.id, p.nombre ORDER BY total_citas DESC LIMIT 5'
+            query_profesionales += ' GROUP BY p.id, p.nombre'
+        else:
+            query_profesionales += ' GROUP BY p.id, p.nombre ORDER BY total_citas DESC LIMIT 5'
         
         cursor.execute(query_profesionales, params_profesionales)
         profesionales_top_rows = cursor.fetchall()
         
-        # ✅ CORRECCIÓN: Convertir profesionales_top correctamente
+        # Convertir profesionales_top
         profesionales_top = []
         for row in profesionales_top_rows:
-            if hasattr(row, 'keys') and isinstance(row, dict):  # Es diccionario
+            if hasattr(row, 'keys') and isinstance(row, dict):
                 profesionales_top.append({
                     'nombre': row.get('nombre', ''),
                     'total_citas': row.get('total_citas', 0)
                 })
-            elif hasattr(row, '__len__'):  # Es tupla o lista
+            elif hasattr(row, '__len__'):
                 if len(row) >= 2:
                     profesionales_top.append({
                         'nombre': row[0] if row[0] is not None else '',
                         'total_citas': row[1] if row[1] is not None else 0
                     })
-                elif len(row) == 1:
-                    profesionales_top.append({
-                        'nombre': row[0] if row[0] is not None else '',
-                        'total_citas': 0
-                    })
-                else:
-                    profesionales_top.append({
-                        'nombre': '',
-                        'total_citas': 0
-                    })
         
-        # Top servicios
+        # 3. Top servicios (CON FILTRO DE PROFESIONAL SI APLICA)
         if db.is_postgresql():
             query_servicios = '''
                 SELECT s.nombre, COUNT(*) as total_citas
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 WHERE c.negocio_id = %s 
-                AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
-                AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
+                AND EXTRACT(MONTH FROM c.fecha) = %s 
+                AND EXTRACT(YEAR FROM c.fecha) = %s
                 AND c.estado != 'cancelado'
             '''
         else:
@@ -1424,42 +1424,28 @@ def negocio_api_estadisticas():
             '''
         
         params_servicios = [negocio_id, mes, año]
-        
-        if profesional_id:
-            query_servicios += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
-            params_servicios.append(profesional_id)
-        
+        query_servicios, params_servicios = add_profesional_filter(query_servicios, params_servicios, profesional_id, db.is_postgresql())
         query_servicios += ' GROUP BY s.id, s.nombre ORDER BY total_citas DESC LIMIT 5'
         
         cursor.execute(query_servicios, params_servicios)
         servicios_top_rows = cursor.fetchall()
         
-        # ✅ CORRECCIÓN: Convertir servicios_top correctamente
+        # Convertir servicios_top
         servicios_top = []
         for row in servicios_top_rows:
-            if hasattr(row, 'keys') and isinstance(row, dict):  # Es diccionario
+            if hasattr(row, 'keys') and isinstance(row, dict):
                 servicios_top.append({
                     'nombre': row.get('nombre', ''),
                     'total_citas': row.get('total_citas', 0)
                 })
-            elif hasattr(row, '__len__'):  # Es tupla o lista
+            elif hasattr(row, '__len__'):
                 if len(row) >= 2:
                     servicios_top.append({
                         'nombre': row[0] if row[0] is not None else '',
                         'total_citas': row[1] if row[1] is not None else 0
                     })
-                elif len(row) == 1:
-                    servicios_top.append({
-                        'nombre': row[0] if row[0] is not None else '',
-                        'total_citas': 0
-                    })
-                else:
-                    servicios_top.append({
-                        'nombre': '',
-                        'total_citas': 0
-                    })
         
-        # Tendencia mensual (últimos 6 meses)
+        # ✅ CORRECCIÓN: Tendencia mensual de ingresos (ÚLTIMOS 6 MESES)
         meses_nombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
         tendencia_meses = []
         tendencia_ingresos = []
@@ -1468,41 +1454,41 @@ def negocio_api_estadisticas():
             mes_tendencia = mes - i
             año_tendencia = año
             
+            # Ajustar mes y año si es negativo
             if mes_tendencia <= 0:
                 mes_tendencia += 12
                 año_tendencia -= 1
+            elif mes_tendencia > 12:
+                mes_tendencia -= 12
+                año_tendencia += 1
             
+            # Consulta para ingresos del mes
             if db.is_postgresql():
                 query_tendencia = '''
-                    SELECT COALESCE(SUM(s.precio), 0) as ingresos
+                    SELECT COALESCE(SUM(CASE WHEN c.estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos
                     FROM citas c
                     JOIN servicios s ON c.servicio_id = s.id
                     WHERE c.negocio_id = %s 
-                    AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
-                    AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
-                    AND c.estado != 'cancelado'
+                    AND EXTRACT(MONTH FROM c.fecha) = %s 
+                    AND EXTRACT(YEAR FROM c.fecha) = %s
                 '''
             else:
                 query_tendencia = '''
-                    SELECT COALESCE(SUM(s.precio), 0) as ingresos
+                    SELECT COALESCE(SUM(CASE WHEN c.estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos
                     FROM citas c
                     JOIN servicios s ON c.servicio_id = s.id
                     WHERE c.negocio_id = ? 
                     AND strftime('%m', c.fecha) = ? 
                     AND strftime('%Y', c.fecha) = ?
-                    AND c.estado != 'cancelado'
                 '''
             
             params_tendencia = [negocio_id, mes_tendencia, año_tendencia]
-            
-            if profesional_id:
-                query_tendencia += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
-                params_tendencia.append(profesional_id)
+            query_tendencia, params_tendencia = add_profesional_filter(query_tendencia, params_tendencia, profesional_id, db.is_postgresql())
             
             cursor.execute(query_tendencia, params_tendencia)
             resultado_tendencia = cursor.fetchone()
             
-            # ✅ CORRECCIÓN: Acceder correctamente a los valores de tendencia
+            # Obtener ingresos del mes
             if hasattr(resultado_tendencia, 'keys') and isinstance(resultado_tendencia, dict):
                 ingresos_mes = resultado_tendencia.get('ingresos', 0)
             elif hasattr(resultado_tendencia, '__getitem__'):
@@ -1510,15 +1496,71 @@ def negocio_api_estadisticas():
             else:
                 ingresos_mes = 0
             
+            # Solo agregar si hay datos
             tendencia_meses.append(f"{meses_nombres[mes_tendencia-1]} {año_tendencia}")
             tendencia_ingresos.append(float(ingresos_mes))
         
         conn.close()
         
+        # 4. Distribución por días de la semana (NUEVO - CON FILTRO DE PROFESIONAL)
+        # Esto ayudará a ver qué días son más populares
+        distribucion_dias = []
+        dias_semana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+        
+        for i in range(7):  # Para cada día de la semana (1-7)
+            dia_num = i + 1  # PostgreSQL usa 1=Lunes, 7=Domingo
+            
+            if db.is_postgresql():
+                query_dia = '''
+                    SELECT COUNT(*) as citas_dia
+                    FROM citas c
+                    WHERE c.negocio_id = %s
+                    AND EXTRACT(DOW FROM c.fecha) = %s
+                    AND EXTRACT(MONTH FROM c.fecha) = %s 
+                    AND EXTRACT(YEAR FROM c.fecha) = %s
+                    AND c.estado != 'cancelado'
+                '''
+            else:
+                query_dia = '''
+                    SELECT COUNT(*) as citas_dia
+                    FROM citas c
+                    WHERE c.negocio_id = ?
+                    AND CAST(strftime('%w', c.fecha) AS INTEGER) = ?
+                    AND strftime('%m', c.fecha) = ? 
+                    AND strftime('%Y', c.fecha) = ?
+                    AND c.estado != 'cancelado'
+                '''
+            
+            params_dia = [negocio_id, dia_num, mes, año]
+            if profesional_id:
+                query_dia += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
+                params_dia.append(profesional_id)
+            
+            # Ejecutar consulta
+            temp_conn = get_db_connection()
+            temp_cursor = temp_conn.cursor()
+            temp_cursor.execute(query_dia, params_dia)
+            resultado_dia = temp_cursor.fetchone()
+            temp_conn.close()
+            
+            # Obtener valor
+            if hasattr(resultado_dia, 'keys') and isinstance(resultado_dia, dict):
+                citas_dia = resultado_dia.get('citas_dia', 0)
+            elif hasattr(resultado_dia, '__getitem__'):
+                citas_dia = resultado_dia[0] if resultado_dia and len(resultado_dia) > 0 else 0
+            else:
+                citas_dia = 0
+            
+            distribucion_dias.append({
+                'dia': dias_semana[i],
+                'citas': int(citas_dia)
+            })
+        
         # Calcular tasa de éxito
         citas_exitosas = citas_confirmadas + citas_completadas
         tasa_exito = round((citas_exitosas / total_citas * 100), 2) if total_citas > 0 else 0
         
+        # Preparar respuesta final
         estadisticas = {
             'resumen': {
                 'total_citas': int(total_citas),
@@ -1526,14 +1568,16 @@ def negocio_api_estadisticas():
                 'citas_completadas': int(citas_completadas),
                 'citas_canceladas': int(citas_canceladas),
                 'ingresos_totales': float(ingresos_totales),
-                'tasa_exito': tasa_exito
+                'tasa_exito': tasa_exito,
+                'filtro_profesional': 'Sí' if profesional_id else 'No'
             },
             'profesionales_top': profesionales_top,
             'servicios_top': servicios_top,
             'tendencia_mensual': {
                 'meses': tendencia_meses,
                 'ingresos': tendencia_ingresos
-            }
+            },
+            'distribucion_dias': distribucion_dias  # Nuevo: distribución por días
         }
         
         return jsonify(estadisticas)
