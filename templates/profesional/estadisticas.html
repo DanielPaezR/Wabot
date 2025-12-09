@@ -50,7 +50,6 @@
             justify-content: flex-end;
         }
         
-        /* ✅ CORRECCIÓN 2: Navegación responsive mejorada */
         .nav-buttons {
             display: flex;
             flex-wrap: wrap;
@@ -140,6 +139,53 @@
             font-size: 1rem;
         }
         
+        /* Filtros */
+        .filters-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .filters-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .filters-row {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -218,68 +264,6 @@
             position: relative;
         }
         
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #7f8c8d;
-        }
-        
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-        
-        .date-selector {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .date-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        @media (min-width: 768px) {
-            .date-form {
-                flex-direction: row;
-                align-items: end;
-                flex-wrap: wrap;
-            }
-        }
-        
-        .form-group {
-            flex: 1;
-            min-width: 150px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 0.9rem;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
         .btn-primary {
             background: #3498db;
             color: white;
@@ -324,47 +308,6 @@
                 grid-template-columns: 1fr;
             }
         }
-
-        @media (max-width: 480px) {
-            .header {
-                flex-direction: column;
-                text-align: center;
-                gap: 0.8rem;
-            }
-            
-            .user-info {
-                justify-content: center;
-            }
-            
-            .container {
-                padding: 0.5rem;
-            }
-            
-            .nav-buttons {
-                gap: 0.3rem;
-            }
-            
-            .nav-btn {
-                padding: 8px 12px;
-                font-size: 0.8rem;
-                min-width: 120px;
-            }
-        }
-
-        @media (max-width: 360px) {
-            .nav-btn {
-                min-width: 100px;
-                font-size: 0.75rem;
-                padding: 6px 10px;
-            }
-        }
-
-        /* Prevenir zoom en inputs en iOS */
-        @media (max-width: 768px) {
-            input, select, textarea {
-                font-size: 16px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -377,11 +320,10 @@
     </div>
 
     <div class="container">
-        <!-- ✅ CORRECCIÓN 2: Navegación mejorada con botón de Dashboard -->
+        <!-- Navegación -->
         <div class="nav-buttons">
             <a href="{{ url_for('profesional_dashboard') }}" class="nav-btn">📋 Dashboard</a>
-            <a href="{{ url_for('profesional_dashboard') }}?profesional_id={{ profesional_id }}" class="nav-btn">📅 Mis Citas</a>
-            <a href="{{ url_for('profesional_estadisticas') }}" class="nav-btn active">📊 Mis Estadísticas</a>
+            <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-btn active">📊 Mis Estadísticas</a>
         </div>
 
         <!-- Información del profesional -->
@@ -390,440 +332,216 @@
             <div class="profesional-especialidad">🎯 {{ profesional_especialidad }}</div>
         </div>
 
-        <!-- Selector de período -->
-        <div class="date-selector">
+        <!-- Filtros de período -->
+        <div class="filters-container">
             <h3>📅 Seleccionar Período</h3>
-            <form class="date-form" onsubmit="cargarEstadisticas(); return false;">
+            <form method="GET" action="{{ url_for('profesional_estadisticas') }}" class="filters-row">
+                <input type="hidden" name="profesional_id" value="{{ profesional_id }}">
+                
                 <div class="form-group">
                     <label for="mes">Mes:</label>
-                    <select id="mes" class="form-control">
+                    <select id="mes" name="mes" class="form-control" onchange="this.form.submit()">
                         {% for i in range(1, 13) %}
-                        <option value="{{ i }}" {% if i == now().month %}selected{% endif %}>
+                        <option value="{{ i }}" {% if i == estadisticas.mes %}selected{% endif %}>
                             {{ ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][i-1] }}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
+                
                 <div class="form-group">
                     <label for="año">Año:</label>
-                    <select id="año" class="form-control">
-                        {% for year in range(2023, 2026) %}
-                        <option value="{{ year }}" {% if year == now().year %}selected{% endif %}>{{ year }}</option>
+                    <select id="año" name="año" class="form-control" onchange="this.form.submit()">
+                        {% for year in range(2023, 2027) %}
+                        <option value="{{ year }}" {% if year == estadisticas.año %}selected{% endif %}>{{ year }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="btn-primary">📊 Actualizar Estadísticas</button>
+                
+                <div class="form-group" style="align-self: flex-end;">
+                    <button type="submit" class="btn-primary">🔄 Actualizar</button>
+                </div>
             </form>
         </div>
 
-        <div id="loading" class="loading">
-            <p>📈 Cargando estadísticas...</p>
+        <!-- Información del período -->
+        <div class="profesional-info">
+            <h3>📊 Estadísticas de {{ ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][estadisticas.mes-1] }} {{ estadisticas.año }}</h3>
+            {% if estadisticas.total_citas == 0 %}
+            <p style="color: #e74c3c;">⚠️ No hay citas registradas para este período</p>
+            {% endif %}
         </div>
 
-        <div id="content" style="display: none;">
-            <!-- Estadísticas rápidas -->
-            <div class="stats-grid" id="stats-cards">
-                <!-- Se llena con JavaScript -->
+        <!-- Estadísticas rápidas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">📅 {{ estadisticas.total_citas }}</div>
+                <div class="stat-label">Total Citas</div>
             </div>
-
-            <!-- Gráficos -->
-            <div class="charts-grid">
-                <div class="chart-container">
-                    <div class="chart-title">📅 Citas por Estado</div>
-                    <div class="chart-wrapper">
-                        <canvas id="chartEstados"></canvas>
-                    </div>
-                </div>
-                
-                <div class="chart-container">
-                    <div class="chart-title">💰 Ingresos Mensuales</div>
-                    <div class="chart-wrapper">
-                        <canvas id="chartIngresos"></canvas>
-                    </div>
-                </div>
-                
-                <div class="chart-container">
-                    <div class="chart-title">💼 Servicios Más Solicitados</div>
-                    <div class="chart-wrapper">
-                        <canvas id="chartServicios"></canvas>
-                    </div>
-                </div>
-                
-                <div class="chart-container">
-                    <div class="chart-title">📈 Tendencia Semanal</div>
-                    <div class="chart-wrapper">
-                        <canvas id="chartTendencia"></canvas>
-                    </div>
-                </div>
+            <div class="stat-card success">
+                <div class="stat-number">✅ {{ estadisticas.confirmadas }}</div>
+                <div class="stat-label">Confirmadas</div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-number">🎯 {{ estadisticas.completadas }}</div>
+                <div class="stat-label">Completadas</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-number">❌ {{ estadisticas.canceladas }}</div>
+                <div class="stat-label">Canceladas</div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-number">💰 ${{ estadisticas.ingresos_totales|int|format(',') }}</div>
+                <div class="stat-label">Ingresos Totales</div>
+            </div>
+            <div class="stat-card {% if estadisticas.tasa_exito >= 80 %}success{% elif estadisticas.tasa_exito >= 60 %}warning{% else %}danger{% endif %}">
+                <div class="stat-number">📊 {{ estadisticas.tasa_exito }}%</div>
+                <div class="stat-label">Tasa de Éxito</div>
             </div>
         </div>
 
-        <div id="error-message" class="error" style="display: none;">
-            <!-- Mensajes de error -->
+        <!-- Gráficos -->
+        <div class="charts-grid">
+            <!-- Gráfico de estados de citas -->
+            <div class="chart-container">
+                <div class="chart-title">📅 Distribución de Citas</div>
+                <div class="chart-wrapper">
+                    <canvas id="chartEstados"></canvas>
+                </div>
+            </div>
+            
+            <!-- Gráfico de servicios populares -->
+            <div class="chart-container">
+                <div class="chart-title">💼 Servicios Más Solicitados</div>
+                <div class="chart-wrapper">
+                    <canvas id="chartServicios"></canvas>
+                </div>
+            </div>
         </div>
+
+        <!-- Lista de servicios populares (como respaldo) -->
+        {% if estadisticas.servicios_populares %}
+        <div class="chart-container" style="margin-top: 1.5rem;">
+            <div class="chart-title">📋 Top Servicios del Mes</div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Servicio</th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Citas</th>
+                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">% del Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for servicio in estadisticas.servicios_populares %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px;">{{ servicio.nombre }}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: bold;">{{ servicio.cantidad }}</td>
+                        <td style="padding: 12px; text-align: right; color: #666;">
+                            {% if estadisticas.total_citas > 0 %}
+                            {{ ((servicio.cantidad / estadisticas.total_citas) * 100)|round(1) }}%
+                            {% else %}
+                            0%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
 
 <script>
-    // Configuración
-    const PROFESIONAL_ID = Number("{{ profesional_id }}");
-    const NEGOCIO_ID = Number("{{ negocio_id }}");
-    const PROFESIONAL_NOMBRE = "{{ profesional_nombre }}";
-
-    // Variables para almacenar los gráficos
-    let chartEstados = null;
-    let chartIngresos = null;
-    let chartServicios = null;
-    let chartTendencia = null;
-
-    // ✅ CORRECCIÓN 1: Datos de ejemplo para cuando la API no retorna datos completos
-    const datosEjemplo = {
-        resumen: {
-            total_citas: 25,
-            citas_confirmadas: 15,
-            citas_completadas: 8,
-            citas_canceladas: 2,
-            ingresos_totales: 850000,
-            tasa_exito: 92
-        },
-        ingresos_por_dia: [
-            { dia: 1, ingresos: 120000 },
-            { dia: 2, ingresos: 95000 },
-            { dia: 3, ingresos: 145000 },
-            { dia: 4, ingresos: 110000 },
-            { dia: 5, ingresos: 130000 },
-            { dia: 6, ingresos: 85000 },
-            { dia: 7, ingresos: 165000 }
-        ],
-        servicios_top: [
-            { nombre: 'Corte de Cabello', total_citas: 12 },
-            { nombre: 'Barba', total_citas: 8 },
-            { nombre: 'Tinte', total_citas: 3 },
-            { nombre: 'Manicure', total_citas: 2 }
-        ],
-        tendencia_mensual: {
-            meses: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-            ingresos: [180000, 220000, 195000, 255000]
-        }
-    };
-
-    // Cargar estadísticas al iniciar
+    // Crear gráficos al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
-        cargarEstadisticas();
+        crearGraficos();
     });
 
-    async function cargarEstadisticas() {
-        const mes = document.getElementById('mes').value;
-        const año = document.getElementById('año').value;
-        
-        try {
-            console.log(`🔍 Cargando estadísticas para profesional ${PROFESIONAL_ID}, mes ${mes}, año ${año}`);
-            
-            // Mostrar loading
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('content').style.display = 'none';
-            document.getElementById('error-message').style.display = 'none';
-
-            // ✅ CORRECCIÓN 1: Intentar múltiples endpoints
-            let data = null;
-            let response = null;
-            
-            // Intentar con el endpoint principal
-            try {
-                response = await fetch(`/api/estadisticas/profesional/${PROFESIONAL_ID}?mes=${mes}&año=${año}`);
-                if (response.ok) {
-                    data = await response.json();
-                }
-            } catch (e) {
-                console.log('❌ Endpoint principal falló, intentando alternativo...');
-            }
-            
-            // Si falla, intentar con endpoint alternativo
-            if (!data) {
-                try {
-                    response = await fetch(`/api/estadisticas/mensuales?profesional_id=${PROFESIONAL_ID}&negocio_id=${NEGOCIO_ID}&mes=${mes}&año=${año}`);
-                    if (response.ok) {
-                        data = await response.json();
-                    }
-                } catch (e) {
-                    console.log('❌ Endpoint alternativo falló, usando datos de ejemplo...');
-                }
-            }
-            
-            // Si aún no hay datos, usar datos de ejemplo
-            if (!data) {
-                data = datosEjemplo;
-                console.log('📊 Usando datos de ejemplo');
-            }
-
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            // Ocultar loading y mostrar contenido
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('content').style.display = 'block';
-
-            // Actualizar tarjetas de estadísticas
-            actualizarStatsCards(data.resumen || data);
-            
-            // Crear gráficos
-            crearGraficos(data);
-
-        } catch (error) {
-            console.error('❌ Error cargando estadísticas:', error);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error-message').style.display = 'block';
-            document.getElementById('error-message').innerHTML = 
-                `❌ Error al cargar las estadísticas: ${error.message}<br>
-                 <small>Mostrando datos de ejemplo</small>`;
-            
-            // Mostrar datos de ejemplo en caso de error
-            mostrarDatosEjemplo();
+    function crearGraficos() {
+        // Destruir gráficos existentes
+        if (window.chartEstadosInstance) {
+            window.chartEstadosInstance.destroy();
         }
-    }
-
-    function actualizarStatsCards(resumen) {
-        const statsContainer = document.getElementById('stats-cards');
-        
-        // Verificar si hay datos
-        if (!resumen || (resumen.total_citas === 0 && resumen.total_turnos === 0)) {
-            statsContainer.innerHTML = `
-                <div class="stat-card warning" style="grid-column: 1 / -1;">
-                    <div class="stat-number">📊</div>
-                    <div class="stat-label">No hay datos para este período</div>
-                </div>
-            `;
-            return;
+        if (window.chartServiciosInstance) {
+            window.chartServiciosInstance.destroy();
         }
-        
-        // Calcular métricas con datos disponibles
-        const totalCitas = resumen.total_citas || resumen.total_turnos || 0;
-        const citasConfirmadas = resumen.citas_confirmadas || resumen.turnos_confirmados || 0;
-        const citasCompletadas = resumen.citas_completadas || resumen.turnos_completados || 0;
-        const citasCanceladas = resumen.citas_canceladas || resumen.turnos_cancelados || 0;
-        const ingresosTotales = resumen.ingresos_totales || resumen.ingresos || 0;
-        
-        // Calcular tasa de éxito
-        const citasExitosas = citasCompletadas + citasConfirmadas;
-        const tasaExito = totalCitas > 0 ? Math.round((citasExitosas / totalCitas) * 100) : 0;
-        
-        const stats = [
-            { 
-                label: 'Total Citas', 
-                value: totalCitas,
-                class: '',
-                icon: '📅'
-            },
-            { 
-                label: 'Confirmadas', 
-                value: citasConfirmadas,
-                class: 'success',
-                icon: '✅'
-            },
-            { 
-                label: 'Completadas', 
-                value: citasCompletadas,
-                class: 'success',
-                icon: '🎯'
-            },
-            { 
-                label: 'Canceladas', 
-                value: citasCanceladas,
-                class: 'danger',
-                icon: '❌'
-            },
-            { 
-                label: 'Ingresos Totales', 
-                value: `$${ingresosTotales.toLocaleString()}`,
-                class: 'success',
-                icon: '💰'
-            },
-            { 
-                label: 'Tasa de Éxito', 
-                value: `${tasaExito}%`,
-                class: tasaExito >= 80 ? 'success' : tasaExito >= 60 ? 'warning' : 'danger',
-                icon: '📊'
-            }
-        ];
 
-        statsContainer.innerHTML = stats.map(stat => `
-            <div class="stat-card ${stat.class}">
-                <div class="stat-number">${stat.icon} ${stat.value}</div>
-                <div class="stat-label">${stat.label}</div>
-            </div>
-        `).join('');
-    }
-
-    function crearGraficos(data) {
-        console.log('📊 Creando gráficos con datos:', data);
+        // Datos de estadísticas desde el backend
+        // NOTA: El siguiente código será procesado por Jinja2 para generar JSON válido
+        const datosEstadisticas = JSON.parse('{{ estadisticas|tojson|safe }}');
         
-        // Destruir gráficos existentes de forma segura
-        [chartEstados, chartIngresos, chartServicios, chartTendencia].forEach(chart => {
-            if (chart && typeof chart.destroy === 'function') {
-                chart.destroy();
-            }
-        });
+        console.log("📊 Datos para gráficos:", datosEstadisticas);
 
-        const resumen = data.resumen || data;
-        
-        // ✅ CORRECCIÓN 1: Gráfico de estados mejorado
+        // 1. Gráfico de distribución de citas
         const ctxEstados = document.getElementById('chartEstados');
-        if (ctxEstados) {
-            try {
-                const citasConfirmadas = resumen.citas_confirmadas || resumen.turnos_confirmados || 0;
-                const citasCompletadas = resumen.citas_completadas || resumen.turnos_completados || 0;
-                const citasCanceladas = resumen.citas_canceladas || resumen.turnos_cancelados || 0;
-                const citasPendientes = (resumen.total_citas || resumen.total_turnos || 0) - citasConfirmadas - citasCompletadas - citasCanceladas;
-                
-                chartEstados = new Chart(ctxEstados, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Confirmadas', 'Completadas', 'Pendientes', 'Canceladas'],
-                        datasets: [{
-                            data: [
-                                citasConfirmadas,
-                                citasCompletadas,
-                                Math.max(0, citasPendientes),
-                                citasCanceladas
-                            ],
-                            backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            }
+        if (ctxEstados && datosEstadisticas.total_citas > 0) {
+            window.chartEstadosInstance = new Chart(ctxEstados, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Confirmadas', 'Completadas', 'Canceladas'],
+                    datasets: [{
+                        data: [
+                            datosEstadisticas.confirmadas,
+                            datosEstadisticas.completadas,
+                            datosEstadisticas.canceladas
+                        ],
+                        backgroundColor: ['#28a745', '#17a2b8', '#dc3545'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
                         }
                     }
-                });
-            } catch (error) {
-                console.error('Error creando gráfico de estados:', error);
-                document.getElementById('chartEstados').innerHTML = '<div class="no-data">Error al crear el gráfico</div>';
-            }
+                }
+            });
+        } else if (ctxEstados) {
+            ctxEstados.innerHTML = '<div class="no-data">No hay datos para mostrar</div>';
         }
 
-        // ✅ CORRECCIÓN 1: Gráfico de ingresos mejorado
-        const ctxIngresos = document.getElementById('chartIngresos');
-        if (ctxIngresos) {
-            try {
-                const ingresosData = data.ingresos_por_dia || data.ingresos_diarios || datosEjemplo.ingresos_por_dia;
-                const labels = ingresosData.map((d, i) => `Día ${i + 1}`);
-                const valores = ingresosData.map(d => d.ingresos || d.valor || 0);
-                
-                chartIngresos = new Chart(ctxIngresos, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Ingresos Diarios',
-                            data: valores,
-                            backgroundColor: '#3498db'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value.toLocaleString();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            } catch (error) {
-                console.error('Error creando gráfico de ingresos:', error);
-                document.getElementById('chartIngresos').innerHTML = '<div class="no-data">Error al crear el gráfico de ingresos</div>';
-            }
-        }
-
-        // ✅ CORRECCIÓN 1: Gráfico de servicios mejorado
+        // 2. Gráfico de servicios populares
         const ctxServicios = document.getElementById('chartServicios');
-        if (ctxServicios) {
-            try {
-                const serviciosData = data.servicios_top || data.servicios || datosEjemplo.servicios_top;
-                
-                chartServicios = new Chart(ctxServicios, {
-                    type: 'bar',
-                    data: {
-                        labels: serviciosData.map(s => s.nombre),
-                        datasets: [{
-                            label: 'Citas',
-                            data: serviciosData.map(s => s.total_citas || s.cantidad || 0),
-                            backgroundColor: '#27ae60'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        indexAxis: 'y',
-                        scales: {
-                            x: {
-                                beginAtZero: true
+        if (ctxServicios && datosEstadisticas.servicios_populares && datosEstadisticas.servicios_populares.length > 0) {
+            const servicios = datosEstadisticas.servicios_populares;
+            const nombres = servicios.map(s => s.nombre);
+            const cantidades = servicios.map(s => s.cantidad);
+            
+            window.chartServiciosInstance = new Chart(ctxServicios, {
+                type: 'bar',
+                data: {
+                    labels: nombres,
+                    datasets: [{
+                        label: 'Número de Citas',
+                        data: cantidades,
+                        backgroundColor: '#3498db',
+                        borderColor: '#2980b9',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
                             }
                         }
                     }
-                });
-            } catch (error) {
-                console.error('Error creando gráfico de servicios:', error);
-                document.getElementById('chartServicios').innerHTML = '<div class="no-data">Error al crear el gráfico de servicios</div>';
-            }
-        }
-
-        // ✅ CORRECCIÓN 1: Gráfico de tendencia mejorado
-        const ctxTendencia = document.getElementById('chartTendencia');
-        if (ctxTendencia) {
-            try {
-                const tendenciaData = data.tendencia_mensual || data.tendencia || datosEjemplo.tendencia_mensual;
-                
-                chartTendencia = new Chart(ctxTendencia, {
-                    type: 'line',
-                    data: {
-                        labels: tendenciaData.meses || ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-                        datasets: [{
-                            label: 'Ingresos Semanales',
-                            data: tendenciaData.ingresos || tendenciaData.valores || [0, 0, 0, 0],
-                            borderColor: '#e74c3c',
-                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value.toLocaleString();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            } catch (error) {
-                console.error('Error creando gráfico de tendencia:', error);
-                document.getElementById('chartTendencia').innerHTML = '<div class="no-data">Error al crear el gráfico de tendencia</div>';
-            }
+                }
+            });
+        } else if (ctxServicios) {
+            ctxServicios.innerHTML = '<div class="no-data">No hay datos de servicios para mostrar</div>';
         }
     }
 
-    function mostrarDatosEjemplo() {
-        // Mostrar datos de ejemplo en caso de error
-        document.getElementById('content').style.display = 'block';
-        actualizarStatsCards(datosEjemplo.resumen);
-        crearGraficos(datosEjemplo);
+    // Función para formatear números con separadores de miles
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     }
-
-    // Recargar cuando cambien los filtros
-    document.getElementById('mes').addEventListener('change', cargarEstadisticas);
-    document.getElementById('año').addEventListener('change', cargarEstadisticas);
 </script>
 </body>
 </html>

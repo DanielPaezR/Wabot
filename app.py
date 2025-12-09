@@ -2257,153 +2257,40 @@ def profesional_dashboard():
 @app.route('/profesional/estadisticas')
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_estadisticas():
-    """Estadísticas del profesional - VERSIÓN COMPLETAMENTE CORREGIDA"""
+    """Estadísticas del profesional - CON FILTRO DE MES/AÑO"""
     try:
         negocio_id = session.get('negocio_id', 1)
         profesional_id = request.args.get('profesional_id', session.get('profesional_id'))
+        
+        # Obtener mes y año de los parámetros o usar actual
+        mes = request.args.get('mes', datetime.now().month, type=int)
+        año = request.args.get('año', datetime.now().year, type=int)
         
         if not profesional_id:
             flash('No se pudo identificar al profesional', 'error')
             return redirect(url_for('profesional_dashboard'))
         
-        # Obtener estadísticas del profesional
+        # Obtener información del profesional
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Estadísticas básicas - VERSIÓN CORREGIDA
-        if db.is_postgresql():
-            cursor.execute('''
-                SELECT COUNT(*) as total_citas,
-                       SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as completadas,
-                       SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as confirmadas,
-                       SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as canceladas,
-                       COALESCE(SUM(s.precio), 0) as ingresos_totales
-                FROM citas c
-                JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.profesional_id = %s AND c.negocio_id = %s
-            ''', (profesional_id, negocio_id))
-        else:
-            cursor.execute('''
-                SELECT COUNT(*) as total_citas,
-                       SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as completadas,
-                       SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as confirmadas,
-                       SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as canceladas,
-                       COALESCE(SUM(s.precio), 0) as ingresos_totales
-                FROM citas c
-                JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.profesional_id = ? AND c.negocio_id = ?
-            ''', (profesional_id, negocio_id))
-        
-        stats = cursor.fetchone()
-        
-        # Citas de esta semana - VERSIÓN CORREGIDA
-        if db.is_postgresql():
-            cursor.execute('''
-                SELECT COUNT(*) as count
-                FROM citas 
-                WHERE profesional_id = %s AND negocio_id = %s 
-                AND fecha::DATE >= CURRENT_DATE - INTERVAL '7 days'
-            ''', (profesional_id, negocio_id))
-        else:
-            cursor.execute('''
-                SELECT COUNT(*) as count
-                FROM citas 
-                WHERE profesional_id = ? AND negocio_id = ? 
-                AND fecha >= DATE('now', '-7 days')
-            ''', (profesional_id, negocio_id))
-        
-        citas_semana_result = cursor.fetchone()
-        
-        # Servicios más populares - VERSIÓN CORREGIDA
-        if db.is_postgresql():
-            cursor.execute('''
-                SELECT s.nombre, COUNT(*) as cantidad
-                FROM citas c
-                JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.profesional_id = %s AND c.negocio_id = %s
-                GROUP BY s.id, s.nombre
-                ORDER BY cantidad DESC
-                LIMIT 5
-            ''', (profesional_id, negocio_id))
-        else:
-            cursor.execute('''
-                SELECT s.nombre, COUNT(*) as cantidad
-                FROM citas c
-                JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.profesional_id = ? AND c.negocio_id = ?
-                GROUP BY s.id, s.nombre
-                ORDER BY cantidad DESC
-                LIMIT 5
-            ''', (profesional_id, negocio_id))
-        
-        servicios_populares_rows = cursor.fetchall()
-        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT nombre, especialidad FROM profesionales WHERE id = %s', (profesional_id,))
+        profesional_info = cursor.fetchone()
         conn.close()
         
-        # ✅ CORRECCIÓN: Función auxiliar para acceder a valores
-        def get_value(row, key_or_index, default=0):
-            """Acceder a valores de manera segura"""
-            if not row:
-                return default
-            
-            if hasattr(row, 'keys') and isinstance(row, dict):
-                return row.get(key_or_index, default) or default
-            elif hasattr(row, '__getitem__'):
-                try:
-                    value = row[key_or_index]
-                    return value if value is not None else default
-                except (IndexError, TypeError):
-                    return default
-            return default
+        if not profesional_info:
+            flash('Profesional no encontrado', 'error')
+            return redirect(url_for('profesional_dashboard'))
         
-        # Acceder a valores de estadísticas
-        total_citas = get_value(stats, 'total_citas', 0)
-        completadas = get_value(stats, 'completadas', 0)
-        confirmadas = get_value(stats, 'confirmadas', 0)
-        canceladas = get_value(stats, 'canceladas', 0)
-        ingresos_totales = get_value(stats, 'ingresos_totales', 0)
-        citas_semana = get_value(citas_semana_result, 'count', 0)
-        
-        # ✅ CORRECCIÓN: Procesar servicios populares correctamente
-        servicios_populares = []
-        for row in servicios_populares_rows:
-            if hasattr(row, 'keys') and isinstance(row, dict):
-                servicios_populares.append({
-                    'nombre': row.get('nombre', ''),
-                    'cantidad': row.get('cantidad', 0)
-                })
-            elif hasattr(row, '__len__'):
-                if len(row) >= 2:
-                    servicios_populares.append({
-                        'nombre': row[0] if row[0] is not None else '',
-                        'cantidad': row[1] if row[1] is not None else 0
-                    })
-                elif len(row) == 1:
-                    servicios_populares.append({
-                        'nombre': row[0] if row[0] is not None else '',
-                        'cantidad': 0
-                    })
-        
-        # Calcular tasa de éxito
-        tasa_exito = round(((completadas + confirmadas) / total_citas * 100), 2) if total_citas > 0 else 0
-        
-        # Preparar estadísticas
-        estadisticas = {
-            'total_citas': int(total_citas),
-            'completadas': int(completadas),
-            'confirmadas': int(confirmadas),
-            'canceladas': int(canceladas),
-            'ingresos_totales': float(ingresos_totales),
-            'citas_semana': int(citas_semana),
-            'servicios_populares': servicios_populares,  # ✅ YA ESTÁ CORREGIDO
-            'tasa_exito': tasa_exito
-        }
-        
-        print(f"📊 Estadísticas del profesional {profesional_id}: {estadisticas}")
+        # Obtener estadísticas del profesional (con filtro mes/año)
+        estadisticas = obtener_estadisticas_profesional(negocio_id, profesional_id, mes, año)
         
         return render_template('profesional/estadisticas.html',
                             estadisticas=estadisticas,
-                            profesional_id=profesional_id)
+                            profesional_id=profesional_id,
+                            profesional_nombre=profesional_info['nombre'],
+                            profesional_especialidad=profesional_info['especialidad'],
+                            mes_seleccionado=mes,
+                            año_seleccionado=año)
         
     except Exception as e:
         print(f"❌ Error en profesional_estadisticas: {e}")
@@ -2411,6 +2298,138 @@ def profesional_estadisticas():
         traceback.print_exc()
         flash('Error al cargar las estadísticas', 'error')
         return redirect(url_for('profesional_dashboard'))
+
+def obtener_estadisticas_profesional(negocio_id, profesional_id, mes, año):
+    """Obtener estadísticas de un profesional para un mes y año específicos"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Construir fecha pattern para LIKE
+        mes_str = f"{mes:02d}"
+        fecha_pattern = f"{año}-{mes_str}-%"
+        
+        # 1. Estadísticas básicas del mes
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total_citas,
+                    SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                    SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                    SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
+                    COALESCE(SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos_totales
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.negocio_id = %s 
+                AND c.profesional_id = %s
+                AND c.fecha LIKE %s
+            ''', (negocio_id, profesional_id, fecha_pattern))
+        else:
+            cursor.execute('''
+                SELECT 
+                    COUNT(*) as total_citas,
+                    SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                    SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                    SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
+                    COALESCE(SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos_totales
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.negocio_id = ? 
+                AND c.profesional_id = ?
+                AND substr(c.fecha, 1, 7) = ?
+            ''', (negocio_id, profesional_id, f"{año}-{mes_str}"))
+        
+        stats = cursor.fetchone()
+        
+        # 2. Servicios más populares del mes
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT s.nombre, COUNT(*) as cantidad
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.negocio_id = %s 
+                AND c.profesional_id = %s
+                AND c.fecha LIKE %s
+                AND c.estado != 'cancelado'
+                GROUP BY s.id, s.nombre
+                ORDER BY cantidad DESC
+                LIMIT 5
+            ''', (negocio_id, profesional_id, fecha_pattern))
+        else:
+            cursor.execute('''
+                SELECT s.nombre, COUNT(*) as cantidad
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.negocio_id = ? 
+                AND c.profesional_id = ?
+                AND substr(c.fecha, 1, 7) = ?
+                AND c.estado != 'cancelado'
+                GROUP BY s.id, s.nombre
+                ORDER BY cantidad DESC
+                LIMIT 5
+            ''', (negocio_id, profesional_id, f"{año}-{mes_str}"))
+        
+        servicios_populares_rows = cursor.fetchall()
+        
+        conn.close()
+        
+        # Función para acceder a valores
+        def get_value(row, key, default=0):
+            if row and key in row:
+                return row[key] or default
+            return default
+        
+        # Procesar estadísticas
+        total_citas = get_value(stats, 'total_citas', 0)
+        citas_confirmadas = get_value(stats, 'citas_confirmadas', 0)
+        citas_completadas = get_value(stats, 'citas_completadas', 0)
+        citas_canceladas = get_value(stats, 'citas_canceladas', 0)
+        ingresos_totales = get_value(stats, 'ingresos_totales', 0)
+        
+        # Procesar servicios populares
+        servicios_populares = []
+        for row in servicios_populares_rows:
+            if hasattr(row, 'keys'):
+                servicios_populares.append({
+                    'nombre': row.get('nombre', ''),
+                    'cantidad': row.get('cantidad', 0)
+                })
+            elif hasattr(row, '__len__') and len(row) >= 2:
+                servicios_populares.append({
+                    'nombre': row[0] if row[0] is not None else '',
+                    'cantidad': row[1] if row[1] is not None else 0
+                })
+        
+        # Calcular tasa de éxito
+        citas_exitosas = citas_completadas + citas_confirmadas
+        tasa_exito = round((citas_exitosas / total_citas * 100), 2) if total_citas > 0 else 0
+        
+        return {
+            'total_citas': int(total_citas),
+            'confirmadas': int(citas_confirmadas),
+            'completadas': int(citas_completadas),
+            'canceladas': int(citas_canceladas),
+            'ingresos_totales': float(ingresos_totales),
+            'servicios_populares': servicios_populares,
+            'tasa_exito': tasa_exito,
+            'mes': mes,
+            'año': año
+        }
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo estadísticas del profesional: {e}")
+        # Retornar estadísticas vacías en caso de error
+        return {
+            'total_citas': 0,
+            'confirmadas': 0,
+            'completadas': 0,
+            'canceladas': 0,
+            'ingresos_totales': 0,
+            'servicios_populares': [],
+            'tasa_exito': 0,
+            'mes': mes,
+            'año': año
+        }
     
 @app.route('/profesional/todas-citas')
 @role_required(['profesional', 'propietario', 'superadmin'])
