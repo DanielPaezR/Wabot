@@ -705,48 +705,6 @@
                 }
             }
 
-            // ✅ CORRECCIÓN: Gráfico de ingresos mejorado
-            const ctxIngresos = document.getElementById('chartIngresos');
-            if (ctxIngresos) {
-                try {
-                    const tendencia = data.tendencia_mensual || data.ingresos_mensuales || data.resumen || data;
-                    
-                    // Si no hay datos de tendencia, crear uno simple con el mes actual
-                    let meses = ['Mes Actual'];
-                    let ingresos = [tendencia.ingresos_totales || tendencia.ingresos || 0];
-
-                    window.chartIngresos = new Chart(ctxIngresos, {
-                        type: 'line',
-                        data: {
-                            labels: meses,
-                            datasets: [{
-                                label: 'Ingresos Mensuales',
-                                data: ingresos,
-                                borderColor: '#3498db',
-                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return '$' + value.toLocaleString();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error creando gráfico de ingresos:', error);
-                    ctxIngresos.innerHTML = '<div class="no-data">Error al crear gráfico de ingresos</div>';
-                }
-            }
 
             // ✅ CORRECCIÓN: Gráfico de profesionales con datos reales
             const ctxProfesionales = document.getElementById('chartProfesionales');
