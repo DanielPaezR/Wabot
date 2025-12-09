@@ -1266,7 +1266,7 @@ def negocio_estadisticas():
 @app.route('/negocio/api/estadisticas')
 @role_required(['propietario', 'superadmin'])
 def negocio_api_estadisticas():
-    """API para obtener estadísticas del negocio - VERSIÓN COMPLETA CON LIKE"""
+    """API para obtener estadísticas del negocio - VERSIÓN SIMPLIFICADA SIN TENDENCIA"""
     try:
         profesional_id = request.args.get('profesional_id', '')
         mes = request.args.get('mes', datetime.now().month)
@@ -1277,7 +1277,7 @@ def negocio_api_estadisticas():
         try:
             mes = int(mes)
             año = int(año)
-            mes_str = f"{mes:02d}"  # "12" en lugar de 12
+            mes_str = f"{mes:02d}"
             año_str = str(año)
             
             if profesional_id:
@@ -1288,9 +1288,7 @@ def negocio_api_estadisticas():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        print(f"🔍 DEBUG: Parámetros - mes={mes_str}, año={año_str}, profesional_id={profesional_id}")
-        
-        # 1. Estadísticas básicas del negocio - USANDO LIKE
+        # 1. Estadísticas básicas del negocio
         if db.is_postgresql():
             query_resumen = '''
                 SELECT 
@@ -1304,7 +1302,6 @@ def negocio_api_estadisticas():
                 WHERE c.negocio_id = %s 
                 AND c.fecha LIKE %s
             '''
-            # Para diciembre 2025: fecha LIKE '2025-12-%'
             fecha_pattern = f"{año_str}-{mes_str}-%"
         else:
             query_resumen = '''
@@ -1327,13 +1324,8 @@ def negocio_api_estadisticas():
             query_resumen += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
             params_resumen.append(profesional_id)
         
-        print(f"🔍 DEBUG Query resumen: {query_resumen}")
-        print(f"🔍 DEBUG Params resumen: {params_resumen}")
-        
         cursor.execute(query_resumen, params_resumen)
         resumen = cursor.fetchone()
-        
-        print(f"🔍 DEBUG Resultado resumen: {resumen}")
         
         # Función auxiliar para acceder a valores
         def get_value(row, key_or_index, default=0):
@@ -1354,9 +1346,7 @@ def negocio_api_estadisticas():
         citas_canceladas = get_value(resumen, 'citas_canceladas', 0)
         ingresos_totales = get_value(resumen, 'ingresos_totales', 0)
         
-        print(f"📊 Resumen obtenido: total={total_citas}, confirmadas={citas_confirmadas}, ingresos={ingresos_totales}")
-        
-        # 2. Top profesionales - USANDO LIKE
+        # 2. Top profesionales
         if db.is_postgresql():
             query_profesionales = '''
                 SELECT p.nombre, COUNT(*) as total_citas
@@ -1403,7 +1393,7 @@ def negocio_api_estadisticas():
                         'total_citas': row[1] if row[1] is not None else 0
                     })
         
-        # 3. Top servicios - USANDO LIKE
+        # 3. Top servicios
         if db.is_postgresql():
             query_servicios = '''
                 SELECT s.nombre, COUNT(*) as total_citas
@@ -1449,132 +1439,13 @@ def negocio_api_estadisticas():
                         'total_citas': row[1] if row[1] is not None else 0
                     })
         
-        # 4. Tendencia mensual (últimos 6 meses) - USANDO LIKE
-        meses_nombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-        tendencia_meses = []
-        tendencia_ingresos = []
-        
-        for i in range(5, -1, -1):  # Últimos 6 meses
-            mes_tendencia = mes - i
-            año_tendencia = año
-            
-            if mes_tendencia <= 0:
-                mes_tendencia += 12
-                año_tendencia -= 1
-            elif mes_tendencia > 12:
-                mes_tendencia -= 12
-                año_tendencia += 1
-            
-            # Construir patrón LIKE
-            mes_str_tendencia = f"{mes_tendencia:02d}"
-            
-            if db.is_postgresql():
-                query_tendencia = '''
-                    SELECT COALESCE(SUM(CASE WHEN c.estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos
-                    FROM citas c
-                    JOIN servicios s ON c.servicio_id = s.id
-                    WHERE c.negocio_id = %s 
-                    AND c.fecha LIKE %s
-                '''
-                fecha_pattern_tendencia = f"{año_tendencia}-{mes_str_tendencia}-%"
-            else:
-                query_tendencia = '''
-                    SELECT COALESCE(SUM(CASE WHEN c.estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos
-                    FROM citas c
-                    JOIN servicios s ON c.servicio_id = s.id
-                    WHERE c.negocio_id = ? 
-                    AND substr(c.fecha, 1, 7) = ?
-                '''
-                fecha_pattern_tendencia = f"{año_tendencia}-{mes_str_tendencia}"
-            
-            params_tendencia = [negocio_id, fecha_pattern_tendencia]
-            
-            if profesional_id:
-                query_tendencia += ' AND c.profesional_id = %s' if db.is_postgresql() else ' AND c.profesional_id = ?'
-                params_tendencia.append(profesional_id)
-            
-            cursor.execute(query_tendencia, params_tendencia)
-            resultado_tendencia = cursor.fetchone()
-            
-            # Obtener ingresos del mes
-            if hasattr(resultado_tendencia, 'keys') and isinstance(resultado_tendencia, dict):
-                ingresos_mes = resultado_tendencia.get('ingresos', 0)
-            elif hasattr(resultado_tendencia, '__getitem__'):
-                ingresos_mes = resultado_tendencia[0] if resultado_tendencia and len(resultado_tendencia) > 0 else 0
-            else:
-                ingresos_mes = 0
-            
-            tendencia_meses.append(f"{meses_nombres[mes_tendencia-1]} {año_tendencia}")
-            tendencia_ingresos.append(float(ingresos_mes))
-            
-            print(f"📊 Tendencia: {mes_tendencia}/{año_tendencia} = {ingresos_mes}")
-        
-        # 5. Distribución por días de la semana (para el mes actual)
-        distribucion_dias = []
-        dias_semana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-        
-        # Para PostgreSQL: usar EXTRACT con CAST, o parsear manualmente
-        if db.is_postgresql():
-            # Si fecha es texto 'YYYY-MM-DD', extraer el día de la semana manualmente
-            for dia_num in range(1, 8):  # 1-7 para días de la semana
-                query_dia = '''
-                    SELECT COUNT(*) as citas_dia
-                    FROM citas c
-                    WHERE c.negocio_id = %s
-                    AND c.fecha LIKE %s
-                    AND c.estado != 'cancelado'
-                '''
-                
-                # Filtro adicional por profesional si aplica
-                params_dia = [negocio_id, fecha_pattern]
-                if profesional_id:
-                    query_dia += ' AND c.profesional_id = %s'
-                    params_dia.append(profesional_id)
-                
-                cursor.execute(query_dia, params_dia)
-                resultado_dia = cursor.fetchone()
-                
-                citas_dia = get_value(resultado_dia, 'citas_dia', 0)
-                
-                # Para simplificar, distribuimos las citas del mes entre los días
-                # En una versión más avanzada, podrías usar TO_DATE para convertir
-                distribucion_dias.append({
-                    'dia': dias_semana[dia_num-1],
-                    'citas': int(citas_dia) // 7  # Distribución aproximada
-                })
-        else:
-            # SQLite puede usar strftime con texto
-            for dia_num in range(0, 7):  # SQLite: 0-6, domingo=0
-                query_dia = '''
-                    SELECT COUNT(*) as citas_dia
-                    FROM citas c
-                    WHERE c.negocio_id = ?
-                    AND substr(c.fecha, 1, 7) = ?
-                    AND strftime('%w', c.fecha) = ?
-                    AND c.estado != 'cancelado'
-                '''
-                
-                params_dia = [negocio_id, fecha_pattern, str(dia_num)]
-                if profesional_id:
-                    query_dia += ' AND c.profesional_id = ?'
-                    params_dia.append(profesional_id)
-                
-                cursor.execute(query_dia, params_dia)
-                resultado_dia = cursor.fetchone()
-                
-                citas_dia = get_value(resultado_dia, 'citas_dia', 0)
-                distribucion_dias.append({
-                    'dia': dias_semana[dia_num],
-                    'citas': int(citas_dia)
-                })
-        
         conn.close()
         
         # Calcular tasa de éxito
         citas_exitosas = citas_confirmadas + citas_completadas
         tasa_exito = round((citas_exitosas / total_citas * 100), 2) if total_citas > 0 else 0
         
-        # Preparar respuesta final
+        # Preparar respuesta final SIN tendencia mensual
         estadisticas = {
             'resumen': {
                 'total_citas': int(total_citas),
@@ -1586,15 +1457,11 @@ def negocio_api_estadisticas():
                 'filtro_profesional': 'Sí' if profesional_id else 'No'
             },
             'profesionales_top': profesionales_top,
-            'servicios_top': servicios_top,
-            'tendencia_mensual': {
-                'meses': tendencia_meses,
-                'ingresos': tendencia_ingresos
-            },
-            'distribucion_dias': distribucion_dias
+            'servicios_top': servicios_top
+            # ❌ REMOVIDO: 'tendencia_mensual' y 'distribucion_dias'
         }
         
-        print(f"✅ Estadísticas generadas: {estadisticas['resumen']}")
+        print(f"✅ Estadísticas simplificadas generadas: {estadisticas['resumen']}")
         
         return jsonify(estadisticas)
         
@@ -1607,7 +1474,7 @@ def negocio_api_estadisticas():
 @app.route('/negocio/api/citas/recientes')
 @role_required(['propietario', 'superadmin'])
 def negocio_api_citas_recientes():
-    """API para obtener citas recientes del negocio"""
+    """API para obtener citas recientes del negocio - VERSIÓN CORREGIDA"""
     try:
         limit = request.args.get('limit', 10)
         profesional_id = request.args.get('profesional_id', '')
@@ -1630,7 +1497,7 @@ def negocio_api_citas_recientes():
         
         if profesional_id:
             query += ' AND c.profesional_id = %s'
-            params.append(profesional_id)
+            params.append(int(profesional_id))
         
         query += ' ORDER BY c.fecha DESC, c.hora DESC LIMIT %s'
         params.append(int(limit))
@@ -1639,19 +1506,46 @@ def negocio_api_citas_recientes():
         citas = cursor.fetchall()
         conn.close()
         
-        return jsonify([
-            {
+        # ✅ CORRECCIÓN: Manejar fecha como string
+        citas_procesadas = []
+        for c in citas:
+            # Formatear fecha (ya es string en formato 'YYYY-MM-DD')
+            fecha_str = c['fecha']
+            
+            # Si fecha es None o vacía
+            if not fecha_str:
+                fecha_formateada = ''
+            else:
+                # Intentar convertir a formato más amigable
+                try:
+                    # Si es un objeto datetime
+                    if hasattr(fecha_str, 'strftime'):
+                        fecha_formateada = fecha_str.strftime('%d/%m/%Y')
+                    # Si es un string en formato 'YYYY-MM-DD'
+                    elif '-' in fecha_str:
+                        fecha_dt = datetime.strptime(str(fecha_str), '%Y-%m-%d')
+                        fecha_formateada = fecha_dt.strftime('%d/%m/%Y')
+                    # Si es otro formato
+                    else:
+                        fecha_formateada = str(fecha_str)[:10]  # Tomar primeros 10 caracteres
+                except:
+                    fecha_formateada = str(fecha_str)[:10]  # Fallback
+            
+            citas_procesadas.append({
                 'cliente_nombre': c['cliente_nombre'],
                 'servicio_nombre': c['servicio_nombre'],
                 'profesional_nombre': c['profesional_nombre'],
-                'fecha': c['fecha'].strftime('%Y-%m-%d') if c['fecha'] else '',
-                'hora': c['hora'],
+                'fecha': fecha_formateada,
+                'hora': str(c['hora'])[:5] if c['hora'] else '',  # Formatear hora a HH:MM
                 'estado': c['estado']
-            } for c in citas
-        ])
+            })
+        
+        return jsonify(citas_procesadas)
         
     except Exception as e:
         print(f"❌ Error en negocio_api_citas_recientes: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 
