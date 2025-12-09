@@ -1074,13 +1074,13 @@ def obtener_duracion_servicio(negocio_id, servicio_id):
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
     """Agregar nueva cita a la base de datos"""
     print(f"🔍 [DEBUG agregar_cita] Iniciando inserción:")
-    print(f"   - negocio_id: {negocio_id} (tipo: {type(negocio_id)})")
-    print(f"   - profesional_id: {profesional_id} (tipo: {type(profesional_id)})")
+    print(f"   - negocio_id: {negocio_id}")
+    print(f"   - profesional_id: {profesional_id}")
     print(f"   - cliente_telefono: {cliente_telefono}")
     print(f"   - cliente_nombre: {cliente_nombre}")
-    print(f"   - fecha: {fecha} (tipo: {type(fecha)})")
-    print(f"   - hora: {hora} (tipo: {type(hora)})")
-    print(f"   - servicio_id: {servicio_id} (tipo: {type(servicio_id)})")
+    print(f"   - fecha: {fecha}")
+    print(f"   - hora: {hora}")
+    print(f"   - servicio_id: {servicio_id}")
     
     conn = get_db_connection()
     if not conn:
@@ -1090,57 +1090,28 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
     cursor = conn.cursor()
     
     try:
-        # Primero, verifiquemos que las tablas existen
-        print("🔍 [DEBUG] Verificando esquema...")
-        
-        # Verificar si la tabla 'citas' existe
-        if is_postgresql():
-            cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'citas')")
-        else:
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='citas'")
-        
-        tabla_existe = cursor.fetchone()
-        print(f"📊 [DEBUG] ¿Tabla 'citas' existe? {bool(tabla_existe)}")
-        
-        if not tabla_existe:
-            print("❌ [DEBUG] ¡La tabla 'citas' no existe!")
-            return 0
-        
-        # Verificar las columnas de la tabla
-        print("🔍 [DEBUG] Verificando columnas de la tabla 'citas'...")
-        if is_postgresql():
-            cursor.execute("""
-                SELECT column_name, data_type 
-                FROM information_schema.columns 
-                WHERE table_name = 'citas'
-                ORDER BY ordinal_position
-            """)
-        else:
-            cursor.execute("PRAGMA table_info(citas)")
-        
-        columnas = cursor.fetchall()
-        print("📊 [DEBUG] Columnas de la tabla 'citas':")
-        for col in columnas:
-            print(f"   - {col}")
-        
-        # Ahora intentar la inserción
         print("🔍 [DEBUG] Intentando INSERT...")
         
-        if is_postgresql():
-            sql = '''
-                INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id, estado)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmado')
-                RETURNING id
-            '''
-            cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id))
-            cita_id = cursor.fetchone()[0]
+        # Para PostgreSQL con RealDictCursor
+        sql = '''
+            INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
+                             fecha, hora, servicio_id, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmado')
+            RETURNING id
+        '''
+        
+        cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
+                           fecha, hora, servicio_id))
+        
+        # ✅ CORRECCIÓN: Acceder correctamente al resultado
+        result = cursor.fetchone()
+        
+        # Si usas RealDictRow, accede por nombre de columna
+        if hasattr(result, '__getitem__') and isinstance(result, dict):
+            cita_id = result['id']
         else:
-            sql = '''
-                INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id, estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmado')
-            '''
-            cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora, servicio_id))
-            cita_id = cursor.lastrowid
+            # Si es una tupla normal
+            cita_id = result[0] if result else 0
         
         conn.commit()
         
@@ -1151,16 +1122,6 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         print(f"❌ [DEBUG] Error CRÍTICO al agregar cita: {e}")
         import traceback
         traceback.print_exc()
-        
-        # También verificar errores específicos de PostgreSQL
-        if is_postgresql():
-            try:
-                cursor.execute("SHOW server_version;")
-                version = cursor.fetchone()[0]
-                print(f"📊 [DEBUG] PostgreSQL version: {version}")
-            except:
-                pass
-        
         return 0
     finally:
         if conn:
