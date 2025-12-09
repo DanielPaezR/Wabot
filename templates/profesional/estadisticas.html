@@ -391,7 +391,7 @@
                 <div class="stat-label">Canceladas</div>
             </div>
             <div class="stat-card success">
-                <div class="stat-number">💰 ${{ estadisticas.ingresos_totales|int|format(',') }}</div>
+                <div class="stat-number">💰 ${{ "{:,.0f}".format(estadisticas.ingresos_totales|int) }}</div>
                 <div class="stat-label">Ingresos Totales</div>
             </div>
             <div class="stat-card {% if estadisticas.tasa_exito >= 80 %}success{% elif estadisticas.tasa_exito >= 60 %}warning{% else %}danger{% endif %}">
