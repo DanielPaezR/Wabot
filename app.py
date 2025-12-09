@@ -1290,9 +1290,9 @@ def negocio_api_estadisticas():
             query_resumen = '''
                 SELECT 
                     COUNT(*) as total_citas,
-                    SUM(CASE WHEN estado = 'confirmada' THEN 1 ELSE 0 END) as citas_confirmadas,
-                    SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as citas_completadas,
-                    SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END) as citas_canceladas,
+                    SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                    SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                    SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
                     COALESCE(SUM(s.precio), 0) as ingresos_totales
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
@@ -1304,9 +1304,9 @@ def negocio_api_estadisticas():
             query_resumen = '''
                 SELECT 
                     COUNT(*) as total_citas,
-                    SUM(CASE WHEN estado = 'confirmada' THEN 1 ELSE 0 END) as citas_confirmadas,
-                    SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as citas_completadas,
-                    SUM(CASE WHEN estado = 'cancelada' THEN 1 ELSE 0 END) as citas_canceladas,
+                    SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                    SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                    SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
                     COALESCE(SUM(s.precio), 0) as ingresos_totales
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
@@ -1325,18 +1325,23 @@ def negocio_api_estadisticas():
         resumen = cursor.fetchone()
         
         # ✅ CORRECCIÓN: Acceder correctamente a los valores
-        if hasattr(resumen, 'keys'):  # Es un diccionario
-            total_citas = resumen['total_citas'] or 0
-            citas_confirmadas = resumen['citas_confirmadas'] or 0
-            citas_completadas = resumen['citas_completadas'] or 0
-            citas_canceladas = resumen['citas_canceladas'] or 0
-            ingresos_totales = resumen['ingresos_totales'] or 0
-        else:  # Es una tupla
-            total_citas = resumen[0] or 0 if resumen else 0
-            citas_confirmadas = resumen[1] or 0 if resumen else 0
-            citas_completadas = resumen[2] or 0 if resumen else 0
-            citas_canceladas = resumen[3] or 0 if resumen else 0
-            ingresos_totales = resumen[4] or 0 if resumen else 0
+        def get_value(row, key_or_index, default=0):
+            """Función auxiliar para acceder a valores de manera segura"""
+            if hasattr(row, 'keys') and isinstance(row, dict):  # Es un diccionario
+                return row.get(key_or_index, default)
+            elif hasattr(row, '__getitem__'):  # Es una tupla o lista
+                try:
+                    return row[key_or_index] or default
+                except (IndexError, TypeError):
+                    return default
+            else:
+                return default
+        
+        total_citas = get_value(resumen, 'total_citas', 0)
+        citas_confirmadas = get_value(resumen, 'citas_confirmadas', 0)
+        citas_completadas = get_value(resumen, 'citas_completadas', 0)
+        citas_canceladas = get_value(resumen, 'citas_canceladas', 0)
+        ingresos_totales = get_value(resumen, 'ingresos_totales', 0)
         
         # Top profesionales
         if db.is_postgresql():
@@ -1347,6 +1352,7 @@ def negocio_api_estadisticas():
                 WHERE c.negocio_id = %s
                 AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
                 AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
+                AND c.estado != 'cancelado'
             '''
         else:
             query_profesionales = '''
@@ -1356,6 +1362,7 @@ def negocio_api_estadisticas():
                 WHERE c.negocio_id = ?
                 AND strftime('%m', c.fecha) = ? 
                 AND strftime('%Y', c.fecha) = ?
+                AND c.estado != 'cancelado'
             '''
         
         params_profesionales = [negocio_id, mes, año]
@@ -1367,7 +1374,32 @@ def negocio_api_estadisticas():
         query_profesionales += ' GROUP BY p.id, p.nombre ORDER BY total_citas DESC LIMIT 5'
         
         cursor.execute(query_profesionales, params_profesionales)
-        profesionales_top = cursor.fetchall()
+        profesionales_top_rows = cursor.fetchall()
+        
+        # ✅ CORRECCIÓN: Convertir profesionales_top correctamente
+        profesionales_top = []
+        for row in profesionales_top_rows:
+            if hasattr(row, 'keys') and isinstance(row, dict):  # Es diccionario
+                profesionales_top.append({
+                    'nombre': row.get('nombre', ''),
+                    'total_citas': row.get('total_citas', 0)
+                })
+            elif hasattr(row, '__len__'):  # Es tupla o lista
+                if len(row) >= 2:
+                    profesionales_top.append({
+                        'nombre': row[0] if row[0] is not None else '',
+                        'total_citas': row[1] if row[1] is not None else 0
+                    })
+                elif len(row) == 1:
+                    profesionales_top.append({
+                        'nombre': row[0] if row[0] is not None else '',
+                        'total_citas': 0
+                    })
+                else:
+                    profesionales_top.append({
+                        'nombre': '',
+                        'total_citas': 0
+                    })
         
         # Top servicios
         if db.is_postgresql():
@@ -1378,6 +1410,7 @@ def negocio_api_estadisticas():
                 WHERE c.negocio_id = %s 
                 AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
                 AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
+                AND c.estado != 'cancelado'
             '''
         else:
             query_servicios = '''
@@ -1387,6 +1420,7 @@ def negocio_api_estadisticas():
                 WHERE c.negocio_id = ? 
                 AND strftime('%m', c.fecha) = ? 
                 AND strftime('%Y', c.fecha) = ?
+                AND c.estado != 'cancelado'
             '''
         
         params_servicios = [negocio_id, mes, año]
@@ -1398,7 +1432,32 @@ def negocio_api_estadisticas():
         query_servicios += ' GROUP BY s.id, s.nombre ORDER BY total_citas DESC LIMIT 5'
         
         cursor.execute(query_servicios, params_servicios)
-        servicios_top = cursor.fetchall()
+        servicios_top_rows = cursor.fetchall()
+        
+        # ✅ CORRECCIÓN: Convertir servicios_top correctamente
+        servicios_top = []
+        for row in servicios_top_rows:
+            if hasattr(row, 'keys') and isinstance(row, dict):  # Es diccionario
+                servicios_top.append({
+                    'nombre': row.get('nombre', ''),
+                    'total_citas': row.get('total_citas', 0)
+                })
+            elif hasattr(row, '__len__'):  # Es tupla o lista
+                if len(row) >= 2:
+                    servicios_top.append({
+                        'nombre': row[0] if row[0] is not None else '',
+                        'total_citas': row[1] if row[1] is not None else 0
+                    })
+                elif len(row) == 1:
+                    servicios_top.append({
+                        'nombre': row[0] if row[0] is not None else '',
+                        'total_citas': 0
+                    })
+                else:
+                    servicios_top.append({
+                        'nombre': '',
+                        'total_citas': 0
+                    })
         
         # Tendencia mensual (últimos 6 meses)
         meses_nombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -1421,7 +1480,7 @@ def negocio_api_estadisticas():
                     WHERE c.negocio_id = %s 
                     AND EXTRACT(MONTH FROM c.fecha::DATE) = %s 
                     AND EXTRACT(YEAR FROM c.fecha::DATE) = %s
-                    AND c.estado != 'cancelada'
+                    AND c.estado != 'cancelado'
                 '''
             else:
                 query_tendencia = '''
@@ -1431,7 +1490,7 @@ def negocio_api_estadisticas():
                     WHERE c.negocio_id = ? 
                     AND strftime('%m', c.fecha) = ? 
                     AND strftime('%Y', c.fecha) = ?
-                    AND c.estado != 'cancelada'
+                    AND c.estado != 'cancelado'
                 '''
             
             params_tendencia = [negocio_id, mes_tendencia, año_tendencia]
@@ -1444,10 +1503,12 @@ def negocio_api_estadisticas():
             resultado_tendencia = cursor.fetchone()
             
             # ✅ CORRECCIÓN: Acceder correctamente a los valores de tendencia
-            if hasattr(resultado_tendencia, 'keys'):  # Es un diccionario
-                ingresos_mes = resultado_tendencia['ingresos'] or 0
-            else:  # Es una tupla
-                ingresos_mes = resultado_tendencia[0] or 0 if resultado_tendencia else 0
+            if hasattr(resultado_tendencia, 'keys') and isinstance(resultado_tendencia, dict):
+                ingresos_mes = resultado_tendencia.get('ingresos', 0)
+            elif hasattr(resultado_tendencia, '__getitem__'):
+                ingresos_mes = resultado_tendencia[0] if resultado_tendencia and len(resultado_tendencia) > 0 else 0
+            else:
+                ingresos_mes = 0
             
             tendencia_meses.append(f"{meses_nombres[mes_tendencia-1]} {año_tendencia}")
             tendencia_ingresos.append(float(ingresos_mes))
@@ -1460,19 +1521,15 @@ def negocio_api_estadisticas():
         
         estadisticas = {
             'resumen': {
-                'total_citas': total_citas,
-                'citas_confirmadas': citas_confirmadas,
-                'citas_completadas': citas_completadas,
-                'citas_canceladas': citas_canceladas,
+                'total_citas': int(total_citas),
+                'citas_confirmadas': int(citas_confirmadas),
+                'citas_completadas': int(citas_completadas),
+                'citas_canceladas': int(citas_canceladas),
                 'ingresos_totales': float(ingresos_totales),
                 'tasa_exito': tasa_exito
             },
-            'profesionales_top': [
-                {'nombre': p[0], 'total_citas': p[1]} for p in profesionales_top
-            ],
-            'servicios_top': [
-                {'nombre': s[0], 'total_citas': s[1]} for s in servicios_top
-            ],
+            'profesionales_top': profesionales_top,
+            'servicios_top': servicios_top,
             'tendencia_mensual': {
                 'meses': tendencia_meses,
                 'ingresos': tendencia_ingresos
