@@ -1130,35 +1130,106 @@ def admin_limpiar_plantillas():
 @app.route('/negocio')
 @role_required(['propietario', 'superadmin'])
 def negocio_dashboard():
-    """Panel principal del negocio"""
+    """Panel principal del negocio - VERSIÓN CORREGIDA"""
     if session.get('usuario_rol') == 'superadmin':
         return redirect(url_for('negocio_estadisticas'))
     
     negocio_id = session.get('negocio_id', 1)
-    fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     
-    stats = db.obtener_estadisticas_mensuales(negocio_id, mes=datetime.now().month, año=datetime.now().year)
+    # Formatear fecha para mostrar
+    fecha_hoy_str = datetime.now().strftime('%d/%m/%Y')
+    fecha_hoy_db = datetime.now().strftime('%Y-%m-%d')
     
+    # Obtener estadísticas del mes actual
+    stats = db.obtener_estadisticas_mensuales(
+        negocio_id, 
+        mes=datetime.now().month, 
+        año=datetime.now().year
+    )
+    
+    # Obtener citas de hoy
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
-    cursor.execute('''
-        SELECT c.id, c.cliente_nombre, c.hora, s.nombre as servicio, p.nombre as profesional, c.estado
-        FROM citas c
-        JOIN servicios s ON c.servicio_id = s.id
-        JOIN profesionales p ON c.profesional_id = p.id
-        WHERE c.negocio_id = %s AND c.fecha = %s AND c.estado != 'cancelado'
-        ORDER BY c.hora
-        LIMIT 10
-    ''', (negocio_id, fecha_hoy))
+    try:
+        cursor.execute('''
+            SELECT 
+                c.id, 
+                c.cliente_nombre, 
+                c.hora, 
+                s.nombre as servicio, 
+                p.nombre as profesional, 
+                c.estado,
+                c.cliente_telefono,
+                s.precio
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            WHERE c.negocio_id = %s 
+            AND c.fecha = %s 
+            AND c.estado != 'cancelado'
+            ORDER BY c.hora
+            LIMIT 10
+        ''', (negocio_id, fecha_hoy_db))
+        
+        citas_hoy = cursor.fetchall()
+        
+        # Obtener número de profesionales activos
+        cursor.execute('''
+            SELECT COUNT(*) as total_profesionales 
+            FROM profesionales 
+            WHERE negocio_id = %s AND activo = true
+        ''', (negocio_id,))
+        
+        profesionales_result = cursor.fetchone()
+        total_profesionales = profesionales_result['total_profesionales'] if profesionales_result else 0
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo datos del dashboard: {e}")
+        stats = {'resumen': {}}
+        citas_hoy = []
+        total_profesionales = 0
+    finally:
+        conn.close()
     
-    citas_hoy = cursor.fetchall()
-    conn.close()
+    # Procesar estadísticas para la plantilla
+    resumen = stats.get('resumen', {}) if stats else {}
+    
+    stats_formateadas = {
+        'total_turnos': resumen.get('total_citas', 0),
+        'turnos_confirmados': resumen.get('citas_confirmadas', 0),
+        'ingresos_totales': f"{resumen.get('ingresos_totales', 0):,.0f}".replace(',', '.'),
+        'total_profesionales': total_profesionales,
+        'nuevos_profesionales': 0,  # Puedes calcular esto si tienes fecha de creación
+        'tasa_exito': resumen.get('tasa_exito', 0)
+    }
+    
+    # Procesar citas de hoy para la plantilla
+    citas_procesadas = []
+    for cita in citas_hoy:
+        # Formatear hora (de 'HH:MM:SS' a 'HH:MM')
+        hora_str = str(cita['hora'])
+        if ':' in hora_str:
+            hora_formateada = hora_str[:5]
+        else:
+            hora_formateada = hora_str
+        
+        citas_procesadas.append({
+            'id': cita['id'],
+            'cliente_nombre': cita['cliente_nombre'] or 'Cliente',
+            'hora': hora_formateada,
+            'servicio': cita['servicio'] or 'Servicio',
+            'profesional': cita['profesional'] or 'Profesional',
+            'estado': cita['estado'] or 'confirmado',
+            'cliente_telefono': cita.get('cliente_telefono', ''),
+            'precio': float(cita.get('precio', 0))
+        })
     
     return render_template('negocio/dashboard.html',
-                         stats=stats['resumen'],
-                         citas_hoy=citas_hoy,
-                         fecha_hoy=fecha_hoy)
+                         stats=stats_formateadas,
+                         citas_hoy=citas_procesadas,
+                         fecha_hoy=fecha_hoy_str,
+                         mes_actual=datetime.now().strftime('%B %Y'))
 
 @app.route('/negocio/citas')
 @role_required(['propietario', 'superadmin'])
