@@ -308,14 +308,38 @@
             }
             
             // Agregar mensaje del bot
-            function addBotMessage(message) {
-                const messageHtml = `
+            function addBotMessage(message, options = null) {
+                let messageHtml = `
                     <div class="message bot-message">
-                        <strong><i class="fas fa-robot"></i> {{ negocio.nombre }}:</strong><br>
+                        <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
                         ${message}
                     </div>
                 `;
+                
                 chatMessages.append(messageHtml);
+                
+                // Si hay opciones de horarios, agregar botones
+                if (options && options.horarios) {
+                    let optionsHtml = '<div class="horarios-options mt-2">';
+                    options.horarios.forEach((hora, index) => {
+                        optionsHtml += `
+                            <button class="btn btn-sm btn-outline-primary hora-btn m-1" 
+                                    data-hora="${hora}">
+                                ${index + 1}. ${hora}
+                            </button>
+                        `;
+                    });
+                    optionsHtml += '</div>';
+                    chatMessages.append(optionsHtml);
+                    
+                    // Agregar event listeners a los botones de hora
+                    $('.hora-btn').off('click').on('click', function() {
+                        const hora = $(this).data('hora');
+                        userInput.val($(this).text().split('. ')[0]); // Enviar solo el número
+                        sendMessage();
+                    });
+                }
+                
                 scrollToBottom();
             }
             
