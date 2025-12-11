@@ -594,12 +594,12 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - VERSIÓN DEFINITIVAMENTE CORREGIDA"""
+    """Mostrar citas del cliente - SOLO mostrar citas CONFIRMADAS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
     
-    # Verificar si ya tenemos teléfono en esta conversación
+    # Verificar si ya tenemos teléfono
     telefono_real = None
     if clave_conversacion in conversaciones_activas:
         telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
@@ -616,16 +616,15 @@ def mostrar_mis_citas(numero, negocio_id):
         return "📱 **Para ver tus citas, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
     
     # Si SÍ tenemos teléfono, buscar citas
-    print(f"🔧 [DEBUG] Buscando citas con teléfono: {telefono_real}")
+    print(f"🔧 [DEBUG] Buscando citas CONFIRMADAS con teléfono: {telefono_real}")
     
     try:
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ PRIMERO: Debug avanzado para ver QUÉ está devolviendo
-        print(f"🔍 [DEBUG] Ejecutando consulta para teléfono: {telefono_real}")
-        
+        # ✅ DEBUG: Ver TODAS las citas (solo para diagnóstico)
+        print(f"🔍 [DEBUG] Buscando TODAS las citas (diagnóstico)...")
         cursor.execute('''
             SELECT id, fecha, hora, estado, cliente_nombre 
             FROM citas 
@@ -635,67 +634,47 @@ def mostrar_mis_citas(numero, negocio_id):
         
         todas_citas = cursor.fetchall()
         
-        # ✅ DIAGNÓSTICO: Ver qué tipo de datos se reciben
-        print(f"🔍 [DEBUG] Tipo de todas_citas: {type(todas_citas)}")
-        print(f"🔍 [DEBUG] Longitud de todas_citas: {len(todas_citas) if todas_citas else 0}")
-        
-        if todas_citas and len(todas_citas) > 0:
-            print(f"🔍 [DEBUG] Primer elemento: {todas_citas[0]}")
-            print(f"🔍 [DEBUG] Tipo del primer elemento: {type(todas_citas[0])}")
-            
-            # Intentar diferentes formas de acceso
-            primer_elemento = todas_citas[0]
-            try:
-                # Probando si es tupla
-                if isinstance(primer_elemento, tuple):
-                    print(f"✅ [DEBUG] Es una tupla. Índices: 0={primer_elemento[0]}, 1={primer_elemento[1]}")
-                    for i, cita in enumerate(todas_citas):
-                        print(f"   [{i}] ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}")
-                elif isinstance(primer_elemento, dict):
-                    print(f"✅ [DEBUG] Es un diccionario. Keys: {primer_elemento.keys()}")
-                    for i, cita in enumerate(todas_citas):
-                        print(f"   [{i}] ID: {cita.get('id')}, Fecha: {cita.get('fecha')}, Hora: {cita.get('hora')}")
+        if todas_citas:
+            print(f"🔍 [DEBUG] TOTAL citas en BD: {len(todas_citas)}")
+            for cita in todas_citas:
+                if isinstance(cita, dict):
+                    print(f"   - ID: {cita.get('id')}, Fecha: {cita.get('fecha')}, Estado: {cita.get('estado')}")
                 else:
-                    print(f"⚠️ [DEBUG] Tipo desconocido: {type(primer_elemento)}")
-            except Exception as e:
-                print(f"❌ [DEBUG] Error en diagnóstico: {e}")
-        else:
-            print(f"⚠️ [DEBUG] No hay citas en la BD")
+                    print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Estado: {cita[3]}")
         
-        # ✅ Ahora buscar citas futuras para mostrar
+        # ✅ CORRECCIÓN CRÍTICA: Solo buscar citas CONFIRMADAS
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.cliente_telefono = %s AND c.negocio_id = %s 
+            WHERE c.cliente_telefono = %s 
+            AND c.negocio_id = %s 
             AND (c.fecha)::date >= CURRENT_DATE
+            AND c.estado = 'confirmado'  -- ⚠️ ¡SOLO CONFIRMADAS!
             ORDER BY (c.fecha)::date, c.hora
         ''', (telefono_real, negocio_id))
         
-        citas_futuras = cursor.fetchall()
+        citas_confirmadas = cursor.fetchall()
         conn.close()
         
-        print(f"🔧 [DEBUG] Citas futuras encontradas: {len(citas_futuras) if citas_futuras else 0}")
+        print(f"🔧 [DEBUG] Citas CONFIRMADAS encontradas: {len(citas_confirmadas) if citas_confirmadas else 0}")
         
         # ✅ Obtener nombre del cliente
         nombre_cliente = 'Cliente'
         if clave_conversacion in conversaciones_activas:
             nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
         
-        # ✅ Verificar si hay citas futuras
-        if not citas_futuras or len(citas_futuras) == 0:
-            return f"📋 **No tienes citas programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*"
+        # ✅ Verificar si hay citas confirmadas
+        if not citas_confirmadas or len(citas_confirmadas) == 0:
+            return f"📋 **No tienes citas CONFIRMADAS programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*"
         
-        # ✅ Construir respuesta SEGURA (manejar cualquier tipo de dato)
-        respuesta = f"📋 **Tus citas programadas - {nombre_cliente}:**\n\n"
+        # ✅ Construir respuesta
+        respuesta = f"📋 **Tus citas CONFIRMADAS - {nombre_cliente}:**\n\n"
         
-        for cita in citas_futuras:
+        for cita in citas_confirmadas:
             try:
-                # Intentar diferentes formas de acceso
-                if isinstance(cita, tuple):
-                    id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
-                elif isinstance(cita, dict):
+                if isinstance(cita, dict):
                     id_cita = cita.get('id')
                     fecha = cita.get('fecha')
                     hora = cita.get('hora')
@@ -703,11 +682,9 @@ def mostrar_mis_citas(numero, negocio_id):
                     estado = cita.get('estado')
                     profesional_nombre = cita.get('profesional_nombre')
                 else:
-                    print(f"⚠️ [DEBUG] Tipo de cita desconocido: {type(cita)}")
-                    continue
+                    id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
                 
                 # Formatear fecha
-                fecha_str = str(fecha)
                 try:
                     if isinstance(fecha, str):
                         fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
@@ -716,13 +693,12 @@ def mostrar_mis_citas(numero, negocio_id):
                 except:
                     fecha_str = str(fecha)
                 
-                emoji = "✅" if estado == 'confirmado' else "❌"
-                respuesta += f"{emoji} *{fecha_str}* - **{hora}**\n"
+                respuesta += f"✅ *{fecha_str}* - **{hora}**\n"
                 respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio}\n"
                 respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
                 
             except Exception as e:
-                print(f"⚠️ [DEBUG] Error procesando cita {cita}: {e}")
+                print(f"⚠️ [DEBUG] Error procesando cita: {e}")
                 continue
         
         respuesta += "Para cancelar una cita, selecciona: *3*"
