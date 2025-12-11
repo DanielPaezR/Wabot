@@ -256,6 +256,9 @@
             color: #6c757d;
             text-align: center;
             margin-top: 8px;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 4px;
         }
         
         /* Confirmación */
@@ -315,6 +318,10 @@
                 min-width: 70px;
                 padding: 6px 8px;
                 font-size: 0.9rem;
+            }
+            
+            .confirmacion-opciones {
+                flex-direction: column;
             }
         }
     </style>
@@ -423,198 +430,87 @@
                 scrollToBottom();
             }
             
-            // Extraer opciones numeradas del texto
-            function extraerOpcionesNumeradas(texto) {
-                // Buscar patrones como "1. Texto" o "*1.* Texto"
-                const regex = /(?:\*)?(\d+)\.(?:\*)?\s*(.+?)(?=(?:\n\s*(?:\*)?\d+\.|$))/g;
-                const matches = [...texto.matchAll(regex)];
-                
-                const opciones = [];
-                matches.forEach(match => {
-                    if (match[1] && match[2]) {
-                        opciones.push({
-                            numero: match[1].trim(),
-                            texto: match[2].trim().replace(/\*/g, '') // Limpiar asteriscos
-                        });
-                    }
-                });
-                
-                return opciones;
-            }
-            
-            // Extraer horarios del texto
-            function extraerHorarios(texto) {
-                // Buscar patrones como "1. 09:00" o "*1.* 09:00"
-                const regex = /(?:\*)?(\d+)\.(?:\*)?\s*(\d{1,2}:\d{2})/g;
-                const matches = [...texto.matchAll(regex)];
-                
-                const horarios = [];
-                matches.forEach(match => {
-                    if (match[1] && match[2]) {
-                        horarios.push({
-                            numero: match[1].trim(),
-                            hora: match[2].trim()
-                        });
-                    }
-                });
-                
-                return horarios;
-            }
-            
-            // Detectar opciones de navegación (7, 8, 9)
-            function detectarOpcionesNavegacion(texto) {
-                const tieneOpciones = texto.includes('*7*') || texto.includes('*8*') || 
-                                     texto.includes('*9*');
-                
-                if (!tieneOpciones) return null;
-                
-                const opciones = {
-                    tieneCambiarFecha: texto.includes('*7*'),
-                    tienePaginaAnterior: texto.includes('*8*'),
-                    tienePaginaSiguiente: texto.includes('*9*'),
-                    paginaInfo: texto.match(/📄 Página (\d+) de (\d+)/)
-                };
-                
-                return opciones;
-            }
-            
-            // Detectar opciones de confirmación (1, 2)
-            function detectarOpcionesConfirmacion(texto) {
-                const tieneConfirmacion = texto.includes('*1* - ✅') || texto.includes('*2* - ❌');
-                
-                if (!tieneConfirmacion) return null;
-                
-                return {
-                    tieneConfirmar: texto.includes('*1* - ✅'),
-                    tieneCancelar: texto.includes('*2* - ❌')
-                };
-            }
-            
-            // Agregar mensaje del bot con botones automáticos
-            function addBotMessage(message) {
-                // Limpiar formato WhatsApp
-                let mensajeLimpio = message.replace(/\*/g, '');
-                
+            // Agregar mensaje del bot con opciones del backend
+            function addBotMessage(message, options = null) {
                 let messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
-                        ${mensajeLimpio}
+                        ${message}
                     </div>
                 `;
                 
                 chatMessages.append(messageHtml);
                 
-                // Detectar y agregar opciones numeradas (profesionales, servicios, fechas)
-                const opcionesNumeradas = extraerOpcionesNumeradas(message);
-                if (opcionesNumeradas.length > 0) {
-                    let optionsHtml = '<div class="opciones-numeradas">';
-                    opcionesNumeradas.forEach(opcion => {
-                        optionsHtml += `
-                            <button class="opcion-btn" data-opcion="${opcion.numero}">
-                                <strong>${opcion.numero}.</strong> ${opcion.texto}
-                            </button>
-                        `;
-                    });
-                    optionsHtml += '</div>';
-                    chatMessages.append(optionsHtml);
-                    
-                    $('.opcion-btn').off('click').on('click', function() {
-                        const opcionNumero = $(this).data('opcion');
-                        userInput.val(opcionNumero);
-                        sendMessage();
-                    });
-                }
-                
-                // Detectar y agregar horarios
-                const horarios = extraerHorarios(message);
-                if (horarios.length > 0) {
-                    let optionsHtml = '<div class="horarios-options">';
-                    horarios.forEach(horaInfo => {
-                        optionsHtml += `
-                            <button class="hora-btn" data-opcion="${horaInfo.numero}">
-                                ${horaInfo.numero}. ${horaInfo.hora}
-                            </button>
-                        `;
-                    });
-                    optionsHtml += '</div>';
-                    chatMessages.append(optionsHtml);
-                    
-                    $('.hora-btn').off('click').on('click', function() {
-                        const opcionNumero = $(this).data('opcion');
-                        userInput.val(opcionNumero);
-                        sendMessage();
-                    });
-                }
-                
-                // Detectar y agregar navegación (7, 8, 9)
-                const navOpciones = detectarOpcionesNavegacion(message);
-                if (navOpciones) {
-                    let navHtml = '<div class="opciones-navegacion">';
-                    
-                    if (navOpciones.tieneCambiarFecha) {
-                        navHtml += `<button class="nav-btn nav-change" data-opcion="7">
-                            <i class="fas fa-calendar-alt"></i> Cambiar fecha
-                        </button>`;
-                    }
-                    
-                    if (navOpciones.tienePaginaAnterior) {
-                        navHtml += `<button class="nav-btn nav-prev" data-opcion="8">
-                            <i class="fas fa-arrow-left"></i> Anterior
-                        </button>`;
-                    }
-                    
-                    if (navOpciones.tienePaginaSiguiente) {
-                        navHtml += `<button class="nav-btn nav-next" data-opcion="9">
-                            <i class="fas fa-arrow-right"></i> Siguiente
-                        </button>`;
-                    }
-                    
-                    navHtml += '</div>';
-                    
-                    // Agregar info de paginación si existe
-                    if (navOpciones.paginaInfo) {
-                        navHtml += `<div class="pagination-info">
-                            Página ${navOpciones.paginaInfo[1]} de ${navOpciones.paginaInfo[2]}
-                        </div>`;
-                    }
-                    
-                    chatMessages.append(navHtml);
-                    
-                    $('.nav-btn').off('click').on('click', function() {
-                        const opcionNumero = $(this).data('opcion');
-                        userInput.val(opcionNumero);
-                        sendMessage();
-                    });
-                }
-                
-                // Detectar y agregar confirmación (1, 2)
-                const confirmOpciones = detectarOpcionesConfirmacion(message);
-                if (confirmOpciones) {
-                    let confirmHtml = '<div class="confirmacion-opciones">';
-                    
-                    if (confirmOpciones.tieneConfirmar) {
-                        confirmHtml += `<button class="confirm-btn confirm-yes" data-opcion="1">
-                            <i class="fas fa-check"></i> Confirmar cita
-                        </button>`;
-                    }
-                    
-                    if (confirmOpciones.tieneCancelar) {
-                        confirmHtml += `<button class="confirm-btn confirm-no" data-opcion="2">
-                            <i class="fas fa-times"></i> Cancelar
-                        </button>`;
-                    }
-                    
-                    confirmHtml += '</div>';
-                    chatMessages.append(confirmHtml);
-                    
-                    $('.confirm-btn').off('click').on('click', function() {
-                        const opcionNumero = $(this).data('opcion');
-                        userInput.val(opcionNumero);
-                        sendMessage();
-                    });
+                // Si el backend envió opciones, mostrarlas como botones
+                if (options && options.length > 0) {
+                    mostrarOpciones(options);
                 }
                 
                 scrollToBottom();
+            }
+            
+            // Mostrar opciones como botones
+            function mostrarOpciones(options) {
+                // Determinar el tipo de opciones por el contexto
+                const mensajeAnterior = $('.bot-message').last().text();
+                const pasoActual = $('#chatMessages').data('current-step') || 'menu';
+                
+                let containerClass = 'opciones-numeradas';
+                let buttonClass = 'opcion-btn';
+                
+                // Detectar si son horarios (contienen formato de hora)
+                if (options.some(opt => opt.text && (opt.text.includes(':') || opt.text.includes('horario')))) {
+                    containerClass = 'horarios-options';
+                    buttonClass = 'hora-btn';
+                }
+                // Detectar si son opciones de navegación
+                else if (options.some(opt => opt.text && (opt.text.includes('Siguiente') || opt.text.includes('Anterior') || opt.text.includes('Cambiar')))) {
+                    containerClass = 'opciones-navegacion';
+                    buttonClass = 'nav-btn';
+                }
+                // Detectar si son opciones de confirmación
+                else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('Cancelar')))) {
+                    containerClass = 'confirmacion-opciones';
+                    buttonClass = 'confirm-btn';
+                }
+                
+                let optionsHtml = `<div class="${containerClass}">`;
+                options.forEach(option => {
+                    let btnClass = buttonClass;
+                    
+                    // Estilos específicos para navegación
+                    if (option.value === '7') {
+                        btnClass += ' nav-change';
+                    } else if (option.value === '8') {
+                        btnClass += ' nav-prev';
+                    } else if (option.value === '9') {
+                        btnClass += ' nav-next';
+                    } else if (option.value === '0') {
+                        btnClass += ' nav-home';
+                    }
+                    
+                    // Estilos específicos para confirmación
+                    if (option.value === '1' && option.text.includes('Confirmar')) {
+                        btnClass += ' confirm-yes';
+                    } else if (option.value === '2' && option.text.includes('Cancelar')) {
+                        btnClass += ' confirm-no';
+                    }
+                    
+                    optionsHtml += `
+                        <button class="${btnClass}" data-opcion="${option.value}">
+                            ${option.text}
+                        </button>
+                    `;
+                });
+                optionsHtml += '</div>';
+                
+                chatMessages.append(optionsHtml);
+                
+                $('button[data-opcion]').off('click').on('click', function() {
+                    const opcionNumero = $(this).data('opcion');
+                    userInput.val(opcionNumero);
+                    sendMessage();
+                });
             }
             
             // Enviar mensaje al servidor
@@ -648,13 +544,11 @@
                             return;
                         }
                         
-                        // Mostrar respuesta del bot
-                        addBotMessage(response.message);
+                        // Guardar paso actual para referencia
+                        $('#chatMessages').data('current-step', response.step);
                         
-                        // Si el backend envió opciones explícitas, procesarlas
-                        if (response.options && response.options.length > 0) {
-                            mostrarOpcionesDesdeBackend(response.options);
-                        }
+                        // Mostrar respuesta del bot con opciones si las hay
+                        addBotMessage(response.message, response.options);
                     },
                     error: function(xhr, status, error) {
                         hideTypingIndicator();
@@ -662,28 +556,6 @@
                         console.error('Error:', error);
                     }
                 });
-            }
-            
-            // Mostrar opciones enviadas desde el backend
-            function mostrarOpcionesDesdeBackend(options) {
-                let optionsHtml = '<div class="opciones-numeradas">';
-                options.forEach(option => {
-                    optionsHtml += `
-                        <button class="opcion-btn" data-opcion="${option.value}">
-                            <strong>${option.value}.</strong> ${option.text}
-                        </button>
-                    `;
-                });
-                optionsHtml += '</div>';
-                chatMessages.append(optionsHtml);
-                
-                $('.opcion-btn').off('click').on('click', function() {
-                    const opcionNumero = $(this).data('opcion');
-                    userInput.val(opcionNumero);
-                    sendMessage();
-                });
-                
-                scrollToBottom();
             }
             
             // Event listeners

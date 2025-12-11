@@ -128,7 +128,7 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
         return f"❌ Error al procesar plantilla '{nombre_plantilla}'"
 
 # =============================================================================
-# FUNCIÓN PRINCIPAL PARA PROCESAR MENSAJES DEL CHAT WEB
+# FUNCIÓN PRINCIPAL PARA PROCESAR MENSAJES DEL CHAT WEB - MODIFICADA
 # =============================================================================
 
 def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
@@ -167,6 +167,12 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         if clave_conversacion in conversaciones_activas:
             paso_actual = conversaciones_activas[clave_conversacion].get('estado', 'inicio')
         
+        # Inicializar respuesta
+        respuesta = {
+            'message': limpiar_formato_whatsapp(respuesta_texto),
+            'step': paso_actual
+        }
+        
         # Si estamos en un paso de selección, devolver opciones adicionales
         opciones_extra = None
         if paso_actual == 'seleccionando_profesional':
@@ -175,17 +181,18 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
             opciones_extra = generar_opciones_servicios(numero, negocio_id)
         elif paso_actual == 'seleccionando_fecha':
             opciones_extra = generar_opciones_fechas(numero, negocio_id)
-        
-        respuesta = {
-            'message': respuesta_texto,
-            'step': paso_actual
-        }
+        elif paso_actual == 'agendando_hora':
+            opciones_extra = generar_opciones_horarios(numero, negocio_id)
+        elif paso_actual == 'confirmando_cita':
+            opciones_extra = generar_opciones_confirmacion()
+        elif paso_actual == 'menu_principal':
+            opciones_extra = generar_opciones_menu_principal()
         
         if opciones_extra:
             respuesta['options'] = opciones_extra
         
-        print(f"🔧 [CHAT WEB] Respuesta generada - Paso: {paso_actual}")
-        respuesta_texto = limpiar_formato_whatsapp(respuesta_texto)
+        print(f"🔧 [CHAT WEB] Respuesta generada - Paso: {paso_actual}, Opciones: {opciones_extra}")
+        
         return respuesta
         
     except Exception as e:
@@ -199,11 +206,11 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         }
 
 # =============================================================================
-# LÓGICA PRINCIPAL DE MENSAJES (SIN CAMBIOS - REUTILIZADA)
+# LÓGICA PRINCIPAL DE MENSAJES (MODIFICADA PARA SEPARAR TEXTO Y OPCIONES)
 # =============================================================================
 
 def procesar_mensaje(mensaje, numero, negocio_id):
-    """Procesar mensajes usando el sistema de plantillas - REUTILIZADA SIN CAMBIOS"""
+    """Procesar mensajes usando el sistema de plantillas - MODIFICADA"""
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
     
@@ -251,11 +258,21 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         return renderizar_plantilla('menu_principal', negocio_id)
 
 # =============================================================================
-# FUNCIONES AUXILIARES PARA GENERAR OPCIONES EN EL CHAT WEB
+# FUNCIONES PARA GENERAR OPCIONES EN EL CHAT WEB - MODIFICADAS
 # =============================================================================
 
+def generar_opciones_menu_principal():
+    """Generar opciones del menú principal para botones del chat web"""
+    opciones = [
+        {'value': '1', 'text': 'Agendar cita'},
+        {'value': '2', 'text': 'Ver mis citas'},
+        {'value': '3', 'text': 'Cancelar cita'},
+        {'value': '4', 'text': 'Ayuda'}
+    ]
+    return opciones
+
 def generar_opciones_profesionales(numero, negocio_id):
-    """Generar opciones de profesionales para botones del chat web"""
+    """Generar opciones de profesionales para botones del chat web - SIN texto de opciones"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'profesionales' not in conversaciones_activas[clave_conversacion]:
@@ -267,13 +284,13 @@ def generar_opciones_profesionales(numero, negocio_id):
     for i, prof in enumerate(profesionales, 1):
         opciones.append({
             'value': str(i),
-            'text': f"{i}. {prof['nombre']} - {prof['especialidad']}"
+            'text': f"{prof['nombre']} - {prof['especialidad']}"
         })
     
     return opciones
 
 def generar_opciones_servicios(numero, negocio_id):
-    """Generar opciones de servicios para botones del chat web"""
+    """Generar opciones de servicios para botones del chat web - SIN texto de opciones"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'servicios' not in conversaciones_activas[clave_conversacion]:
@@ -286,13 +303,13 @@ def generar_opciones_servicios(numero, negocio_id):
         precio_formateado = f"${servicio['precio']:,.0f}".replace(',', '.')
         opciones.append({
             'value': str(i),
-            'text': f"{i}. {servicio['nombre']} - {precio_formateado}"
+            'text': f"{servicio['nombre']} - {precio_formateado} ({servicio['duracion']} min)"
         })
     
     return opciones
 
 def generar_opciones_fechas(numero, negocio_id):
-    """Generar opciones de fechas para botones del chat web"""
+    """Generar opciones de fechas para botones del chat web - SIN texto de opciones"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'fechas_disponibles' not in conversaciones_activas[clave_conversacion]:
@@ -304,20 +321,77 @@ def generar_opciones_fechas(numero, negocio_id):
     for i, fecha_info in enumerate(fechas, 1):
         opciones.append({
             'value': str(i),
-            'text': f"{i}. {fecha_info['mostrar']}"
+            'text': fecha_info['mostrar']
         })
     
     return opciones
 
-# =============================================================================
-# EL RESTO DE LAS FUNCIONES SE MANTIENEN EXACTAMENTE IGUAL
-# =============================================================================
+def generar_opciones_horarios(numero, negocio_id):
+    """Generar opciones de horarios para botones del chat web"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if clave_conversacion not in conversaciones_activas or 'todos_horarios' not in conversaciones_activas[clave_conversacion]:
+        return None
+    
+    horarios_disponibles = conversaciones_activas[clave_conversacion]['todos_horarios']
+    pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
+    
+    # Paginación
+    horarios_por_pagina = 6
+    inicio = pagina * horarios_por_pagina
+    fin = inicio + horarios_por_pagina
+    horarios_pagina = horarios_disponibles[inicio:fin]
+    
+    opciones = []
+    for i, hora in enumerate(horarios_pagina, 1):
+        opciones.append({
+            'value': str(i),
+            'text': hora
+        })
+    
+    # Agregar opciones de navegación
+    total_paginas = (len(horarios_disponibles) + horarios_por_pagina - 1) // horarios_por_pagina
+    pagina_actual = pagina + 1
+    
+    opciones_navegacion = []
+    
+    if pagina_actual < total_paginas:
+        opciones_navegacion.append({
+            'value': '9',
+            'text': '➡️ Siguiente página'
+        })
+    
+    if pagina > 0:
+        opciones_navegacion.append({
+            'value': '8',
+            'text': '⬅️ Página anterior'
+        })
+    
+    opciones_navegacion.append({
+        'value': '7',
+        'text': '📅 Cambiar fecha'
+    })
+    
+    return {
+        'horarios': opciones,
+        'navegacion': opciones_navegacion,
+        'paginacion': f'Página {pagina_actual} de {total_paginas}'
+    }
 
-# Desde aquí hacia abajo, TODAS las funciones son IDÉNTICAS a las que ya tenías
-# Solo copia TODO desde la función "saludo_inicial" hasta el final del archivo
+def generar_opciones_confirmacion():
+    """Generar opciones de confirmación para botones del chat web"""
+    opciones = [
+        {'value': '1', 'text': '✅ Confirmar cita'},
+        {'value': '2', 'text': '❌ Cancelar agendamiento'}
+    ]
+    return opciones
+
+# =============================================================================
+# FUNCIONES DE MENSAJES MODIFICADAS (SOLO TEXTO, SIN OPCIONES)
+# =============================================================================
 
 def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - Cliente nuevo o existente - VERSIÓN MEJORADA"""
+    """Saludo inicial - Cliente nuevo o existente - SOLO TEXTO"""
     try:
         # Verificar si es cliente existente con nombre válido
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
@@ -327,9 +401,7 @@ def saludo_inicial(numero, negocio_id):
         if nombre_cliente:
             print(f"🔧 DEBUG: Mostrando saludo para cliente EXISTENTE: {nombre_cliente}")
             # Cliente existente - mostrar menú personalizado
-            return renderizar_plantilla('saludo_inicial_existente', negocio_id, {
-                'cliente_nombre': nombre_cliente
-            })
+            return f"¡Hola {nombre_cliente}! 👋\n\n¿En qué puedo ayudarte hoy?"
         else:
             print(f"🔧 DEBUG: Mostrando saludo para cliente NUEVO")
             # Cliente nuevo - pedir nombre
@@ -338,18 +410,18 @@ def saludo_inicial(numero, negocio_id):
                 'estado': 'solicitando_nombre',
                 'timestamp': datetime.now()
             }
-            return renderizar_plantilla('saludo_inicial_nuevo', negocio_id)
+            return "¡Hola! 👋 Soy tu asistente virtual para agendar citas.\n\n¿Cuál es tu nombre?"
             
     except Exception as e:
         print(f"❌ Error en saludo_inicial: {e}")
         import traceback
         traceback.print_exc()
         
-        # En caso de error, mostrar menú genérico
-        return renderizar_plantilla('menu_principal', negocio_id)
+        # En caso de error, mostrar mensaje genérico
+        return "¡Bienvenido! ¿En qué puedo ayudarte?"
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - FORMATO LIMPIO"""
+    """Mostrar lista de profesionales disponibles - SOLO TEXTO"""
     try:
         profesionales = db.obtener_profesionales(negocio_id)
         
@@ -364,11 +436,6 @@ def mostrar_profesionales(numero, negocio_id):
         if not profesionales:
             return "❌ No hay profesionales disponibles en este momento."
         
-        # Construir lista de profesionales
-        lista_profesionales = ""
-        for i, prof in enumerate(profesionales, 1):
-            lista_profesionales += f"{i}. {prof['nombre']} - {prof['especialidad']}\n"
-        
         # Guardar en conversación activa
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion] = {
@@ -377,18 +444,14 @@ def mostrar_profesionales(numero, negocio_id):
             'timestamp': datetime.now()
         }
         
-        respuesta = f'''👨‍💼 **Selecciona un profesional:**
-        
-{lista_profesionales}'''
-        
-        return respuesta
+        return "👨‍💼 **Selecciona un profesional:**"
         
     except Exception as e:
         print(f"❌ Error en mostrar_profesionales: {e}")
         return "❌ Error al cargar profesionales."
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - FORMATO LIMPIO"""
+    """Mostrar servicios disponibles - SOLO TEXTO"""
     try:
         servicios = db.obtener_servicios(negocio_id)
         
@@ -403,28 +466,20 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         if not servicios:
             return "❌ No hay servicios disponibles en este momento."
         
-        # Construir lista de servicios
-        lista_servicios = ""
-        for i, servicio in enumerate(servicios, 1):
-            precio_formateado = f"${servicio['precio']:,.0f}".replace(',', '.')
-            lista_servicios += f"{i}. {servicio['nombre']} - {precio_formateado} ({servicio['duracion']} min)\n"
-        
         # Guardar en conversación activa
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion]['servicios'] = servicios
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
         
-        return f'''📋 **Servicios con {profesional_nombre}:**
-        
-{lista_servicios}'''
+        return f"📋 **Servicios con {profesional_nombre}:**"
         
     except Exception as e:
         print(f"❌ Error en mostrar_servicios: {e}")
         return "❌ Error al cargar servicios."
 
 def mostrar_fechas_disponibles(numero, negocio_id):
-    """Mostrar fechas disponibles para agendar - FORMATO LIMPIO"""
+    """Mostrar fechas disponibles para agendar - SOLO TEXTO"""
     try:
         # Obtener próximas fechas donde el negocio está activo
         fechas_disponibles = obtener_proximas_fechas_disponibles(negocio_id)
@@ -432,27 +487,20 @@ def mostrar_fechas_disponibles(numero, negocio_id):
         if not fechas_disponibles:
             return "❌ No hay fechas disponibles en los próximos días."
         
-        # Construir lista de fechas
-        lista_fechas = ""
-        for i, fecha_info in enumerate(fechas_disponibles, 1):
-            lista_fechas += f"{i}. {fecha_info['mostrar']}\n"
-        
         # Guardar en conversación activa
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion]['fechas_disponibles'] = fechas_disponibles
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
         
-        return f'''📅 **Selecciona una fecha:**
-        
-{lista_fechas}'''
+        return "📅 **Selecciona una fecha:**"
         
     except Exception as e:
         print(f"❌ Error en mostrar_fechas_disponibles: {e}")
         return "❌ Error al cargar fechas."
 
 def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
-    """Mostrar horarios disponibles - FORMATO LIMPIO"""
+    """Mostrar horarios disponibles - SOLO TEXTO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if not fecha_seleccionada:
@@ -482,226 +530,16 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
     
-    # Paginación
-    horarios_por_pagina = 6
-    inicio = pagina * horarios_por_pagina
-    fin = inicio + horarios_por_pagina
-    horarios_pagina = horarios_disponibles[inicio:fin]
-    
-    # Construir lista de horarios
-    lista_horarios = ""
-    for i, hora in enumerate(horarios_pagina, 1):
-        lista_horarios += f"{i}. {hora}\n"
-    
-    total_paginas = (len(horarios_disponibles) + horarios_por_pagina - 1) // horarios_por_pagina
-    pagina_actual = pagina + 1
-    
     # Guardar datos para paginación
     conversaciones_activas[clave_conversacion]['todos_horarios'] = horarios_disponibles
     conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
+    conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
     
-    respuesta = f'''📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**
-💼 Servicio: {servicio_nombre} - {precio_formateado}
-
-{lista_horarios}'''
-    
-    # Agregar navegación si hay múltiples páginas
-    if total_paginas > 1:
-        respuesta += f"\n📄 Página {pagina_actual} de {total_paginas}"
-        
-        # Opciones de navegación
-        if pagina_actual < total_paginas:
-            respuesta += "\n\n*9* - Siguiente página"
-        if pagina > 0:
-            respuesta += "\n*8* - Página anterior"
-    
-    respuesta += "\n*7* - Cambiar fecha"
-    
-    return respuesta
-    
-def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CORREGIDO PARA POSTGRESQL"""
-    try:
-        # ✅ CORRECCIÓN: Usar la función que existe y filtrar activos
-        print(f"🔧 [DEBUG] Llamando a db.obtener_servicios...")
-        servicios = db.obtener_servicios(negocio_id)
-        
-        # Filtrar servicios activos manualmente
-        servicios_activos = []
-        for servicio in servicios:
-            if servicio.get('activo', True):
-                servicios_activos.append(servicio)
-        
-        servicios = servicios_activos
-        print(f"🔧 [DEBUG] Servicios activos: {len(servicios)}")
-        
-        if not servicios:
-            return "❌ No hay servicios disponibles en este momento."
-        
-        # Construir lista de servicios
-        lista_servicios = ""
-        for i, servicio in enumerate(servicios, 1):
-            precio_formateado = f"${servicio['precio']:,.0f}".replace(',', '.')
-            lista_servicios += f"*{i}.* {servicio['nombre']} - {precio_formateado}\n"
-            if servicio.get('descripcion'):
-                lista_servicios += f"   📝 {servicio['descripcion']}\n"
-            lista_servicios += f"   ⏰ {servicio['duracion']} minutos\n\n"
-        
-        # Guardar en conversación activa
-        clave_conversacion = f"{numero}_{negocio_id}"
-        conversaciones_activas[clave_conversacion]['servicios'] = servicios
-        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
-        
-        return f'''📋 *Servicios con {profesional_nombre}*
-
-{lista_servicios}
-Responde con el *número* del servicio que deseas:
-
-💡 *O vuelve al menú principal con* *0*'''
-        
-    except Exception as e:
-        print(f"❌ [DEBUG] Error en mostrar_servicios: {e}")
-        return renderizar_plantilla('error_generico', negocio_id)
-
-def mostrar_fechas_disponibles(numero, negocio_id):
-    """Mostrar fechas disponibles para agendar - POSTGRESQL"""
-    try:
-        # Obtener próximas fechas donde el negocio está activo
-        fechas_disponibles = obtener_proximas_fechas_disponibles(negocio_id)
-        
-        if not fechas_disponibles:
-            return "❌ No hay fechas disponibles en los próximos días. Por favor, intenta más tarde."
-        
-        # Construir lista de fechas
-        lista_fechas = ""
-        for i, fecha_info in enumerate(fechas_disponibles, 1):
-            lista_fechas += f"*{i}.* {fecha_info['mostrar']}\n"
-        
-        # Guardar en conversación activa
-        clave_conversacion = f"{numero}_{negocio_id}"
-        conversaciones_activas[clave_conversacion]['fechas_disponibles'] = fechas_disponibles
-        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
-        
-        return f'''📅 *Selecciona una fecha*
-
-{lista_fechas}
-Responde con el *número* de la fecha que prefieres:
-
-💡 *O vuelve al menú principal con* *0*'''
-        
-    except Exception as e:
-        print(f"❌ Error en mostrar_fechas_disponibles: {e}")
-        return renderizar_plantilla('error_generico', negocio_id)
-
-def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
-    """Mostrar horarios disponibles para una fecha específica - VERSIÓN MEJORADA PARA POSTGRESQL"""
-    clave_conversacion = f"{numero}_{negocio_id}"
-    
-    if not fecha_seleccionada:
-        fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', datetime.now().strftime('%Y-%m-%d'))
-    
-    # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO (con la nueva función mejorada)
-    if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
-        # Obtener información del negocio para el mensaje
-        negocio = db.obtener_negocio_por_id(negocio_id)
-        config_negocio = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
-        
-        fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-        
-        # Determinar el mensaje específico
-        fecha_actual = datetime.now()
-        fecha_cita = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
-        
-        if fecha_cita.date() == fecha_actual.date():
-            mensaje = f"❌ *{negocio['nombre']}* no tiene horarios disponibles para hoy con al menos 1 hora de anticipación.\n\n"
-            mensaje += "💡 *Sugerencia:* Agenda para mañana o selecciona otro día.\n\n"
-        else:
-            mensaje = f"❌ *{negocio['nombre']}* no atiende el {fecha_formateada}.\n\n"
-        
-        mensaje += f"📅 *Horarios de atención:*\n"
-        mensaje += f"{config_negocio.get('horario_atencion', 'Lunes a Sábado 9:00 AM - 7:00 PM')}\n\n"
-        mensaje += "Por favor, selecciona otra fecha.\n\n"
-        mensaje += "💡 *Vuelve al menú principal con* *0*"
-        
-        # Volver a mostrar fechas disponibles
-        return mostrar_fechas_disponibles(numero, negocio_id)
-    
-    # Obtener datos de la conversación
-    profesional_id = conversaciones_activas[clave_conversacion]['profesional_id']
-    servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
-    pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
-    
-    # ✅ CORRECCIÓN: Generar horarios disponibles con datos ACTUALIZADOS
-    horarios_disponibles = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha_seleccionada, servicio_id)
-    
-    if not horarios_disponibles:
-        fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-        
-        # Mensaje específico según si es hoy o no
-        fecha_actual = datetime.now()
-        fecha_cita = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
-        
-        if fecha_cita.date() == fecha_actual.date():
-            mensaje = f"❌ No hay horarios disponibles para hoy con al menos 1 hora de anticipación.\n\n"
-            mensaje += "💡 *Sugerencia:* Agenda para mañana o selecciona otro día.\n\n"
-        else:
-            mensaje = f"❌ No hay horarios disponibles para el {fecha_formateada}.\n\n"
-        
-        mensaje += "Por favor, selecciona otra fecha.\n\n💡 *Vuelve al menú principal con* *0*"
-        return mensaje
-    
-    # Datos para el mensaje
-    profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
-    servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
-    servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
-    precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
-    fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-    
-    # ✅ CORRECCIÓN: Paginación reducida a 6 horarios por página
-    horarios_por_pagina = 6  # Cambiado de 8 a 6 para evitar conflicto con opciones 7,8,9
-    inicio = pagina * horarios_por_pagina
-    fin = inicio + horarios_por_pagina
-    horarios_pagina = horarios_disponibles[inicio:fin]
-    
-    # Construir lista de horarios
-    lista_horarios = ""
-    for i, hora in enumerate(horarios_pagina, 1):
-        lista_horarios += f"*{i}.* {hora}\n"
-    
-    # ✅ CORRECCIÓN: Opciones de navegación mejoradas
-    opciones_navegacion = "\n💡 *Opciones de navegación:*\n"
-    opciones_navegacion += f"*1-{len(horarios_pagina)}* - Seleccionar horario\n"
-    
-    total_paginas = (len(horarios_disponibles) + horarios_por_pagina - 1) // horarios_por_pagina
-    pagina_actual = pagina + 1
-    
-    if pagina_actual < total_paginas:
-        horarios_restantes = len(horarios_disponibles) - fin
-        opciones_navegacion += f"*9* - ➡️ Siguiente página ({horarios_restantes} horarios más)\n"
-    
-    if pagina > 0:
-        opciones_navegacion += f"*8* - ⬅️ Página anterior\n"
-        
-    opciones_navegacion += "*7* - 📅 Cambiar fecha\n"
-    opciones_navegacion += f"*0* - ↩️ Volver al menú principal\n"
-    opciones_navegacion += f"\n📄 Página {pagina_actual} de {total_paginas}"
-    
-    # Guardar datos para paginación
-    conversaciones_activas[clave_conversacion]['todos_horarios'] = horarios_disponibles
-    conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
-    
-    return f'''📅 *Horarios disponibles con {profesional_nombre}* ({fecha_formateada})
-💼 *Servicio:* {servicio_nombre} - {precio_formateado}
-
-{lista_horarios}
-{opciones_navegacion}'''
+    return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - USANDO PLANTILLAS Y POSTGRESQL"""
+    """Mostrar citas del cliente - SOLO TEXTO"""
     try:
         from database import get_db_connection
         conn = get_db_connection()
@@ -721,11 +559,11 @@ def mostrar_mis_citas(numero, negocio_id):
         conn.close()
         
         if not citas:
-            return renderizar_plantilla('sin_citas', negocio_id)
+            return "📋 *No tienes citas programadas.*\n\nPara agendar una nueva cita, responde: *1*"
         
         # Construir lista de citas
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-        respuesta = f"📋 *Tus citas programadas* - {nombre_cliente}:\n\n"
+        respuesta = f"📋 **Tus citas programadas - {nombre_cliente}:**\n\n"
         
         for cita in citas:
             id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
@@ -735,17 +573,16 @@ def mostrar_mis_citas(numero, negocio_id):
             respuesta += f"   👨‍💼 {profesional_nombre} - {servicio}\n"
             respuesta += f"   🎫 ID: #{id_cita}\n\n"
         
-        respuesta += "Para cancelar responde: *3*"
-        respuesta += "\n\n💡 *O vuelve al menú principal con* *0*"
+        respuesta += "Para cancelar una cita, responde: *3*"
         
         return respuesta
         
     except Exception as e:
         print(f"❌ Error mostrando citas: {e}")
-        return renderizar_plantilla('error_generico', negocio_id)
+        return "❌ Error al cargar tus citas."
 
 def mostrar_citas_para_cancelar(numero, negocio_id):
-    """Mostrar citas que pueden ser canceladas - MEJORADO PARA POSTGRESQL"""
+    """Mostrar citas que pueden ser canceladas - SOLO TEXTO"""
     try:
         from database import get_db_connection
         conn = get_db_connection()
@@ -768,7 +605,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
             clave_conversacion = f"{numero}_{negocio_id}"
             if clave_conversacion in conversaciones_activas:
                 del conversaciones_activas[clave_conversacion]
-            return "❌ No tienes citas para cancelar.\n\n💡 *Vuelve al menú principal con* *0*"
+            return "❌ No tienes citas para cancelar."
         
         if len(citas) == 1:
             # Solo una cita, cancelar directamente
@@ -777,7 +614,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         
         # Construir lista de citas para cancelar
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-        respuesta = f"❌ *Citas para cancelar* - {nombre_cliente}:\n\n"
+        respuesta = f"❌ **Citas para cancelar - {nombre_cliente}:**\n\n"
         
         for cita in citas:
             id_cita, fecha, hora, profesional_nombre, servicio_nombre = cita
@@ -786,8 +623,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
             respuesta += f"   👨‍💼 {profesional_nombre} - {servicio_nombre}\n"
             respuesta += f"   🎫 ID: #{id_cita}\n\n"
         
-        respuesta += "\nResponde con el *ID* de la cita que quieres cancelar.\nEjemplo: *123*"
-        respuesta += "\n\n💡 *O vuelve al menú principal con* *0*"
+        respuesta += "\n**Selecciona el ID de la cita que quieres cancelar.**"
         
         # Guardar citas disponibles para cancelación
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -800,11 +636,141 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         clave_conversacion = f"{numero}_{negocio_id}"
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return renderizar_plantilla('error_generico', negocio_id)
+        return "❌ Error al cargar tus citas."
 
 def mostrar_ayuda(negocio_id):
     """Mostrar mensaje de ayuda"""
-    return renderizar_plantilla('ayuda_general', negocio_id)
+    return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
+
+def procesar_confirmacion_cita(numero, mensaje, negocio_id):
+    """Procesar confirmación de la cita - MODIFICADO PARA SOLO TEXTO"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if mensaje == '0':
+        if clave_conversacion in conversaciones_activas:
+            del conversaciones_activas[clave_conversacion]
+        return saludo_inicial(numero, negocio_id)
+    
+    if mensaje == '1':
+        try:
+            conversacion = conversaciones_activas[clave_conversacion]
+            
+            # Verificar que tenemos los datos necesarios
+            if 'hora_seleccionada' not in conversacion:
+                del conversaciones_activas[clave_conversacion]
+                return "❌ Error: No se seleccionó hora. Comienza de nuevo."
+            
+            # Si no tenemos teléfono, pedirlo
+            if 'telefono_cliente' not in conversacion:
+                conversacion['estado'] = 'solicitando_telefono'
+                return "📱 **Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (ej: 3101234567):"
+            
+            # Si llegamos aquí, ya tenemos teléfono
+            telefono_cliente = conversacion['telefono_cliente']
+            hora = conversacion['hora_seleccionada']
+            fecha = conversacion['fecha_seleccionada']
+            profesional_id = conversacion['profesional_id']
+            servicio_id = conversacion['servicio_id']
+            profesional_nombre = conversacion['profesional_nombre']
+            servicio_nombre = conversacion['servicio_nombre']
+            servicio_precio = conversacion['servicio_precio']
+            
+            # Obtener nombre del cliente
+            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
+            if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
+                nombre_cliente = 'Cliente'
+            else:
+                nombre_cliente = str(nombre_cliente).strip()
+            
+            print(f"🔧 DEBUG: Agendando cita para: {nombre_cliente}, Teléfono: {telefono_cliente}")
+            
+            # Agendar cita CON TELÉFONO
+            cita_id = db.agregar_cita_con_telefono(
+                negocio_id, profesional_id, telefono_cliente, fecha, hora, 
+                servicio_id, nombre_cliente
+            )
+            
+            if cita_id:
+                del conversaciones_activas[clave_conversacion]
+                
+                precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
+                fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
+                
+                return f'''✅ **Cita confirmada**
+
+Hola *{nombre_cliente}*, tu cita ha sido agendada:
+
+👨‍💼 **Profesional:** {profesional_nombre}
+💼 **Servicio:** {servicio_nombre}
+💰 **Precio:** {precio_formateado}
+📅 **Fecha:** {fecha_formateada}
+⏰ **Hora:** {hora}
+🎫 **ID:** #{cita_id}
+
+Recibirás recordatorios por mensaje. ¡Te esperamos!'''
+            else:
+                del conversaciones_activas[clave_conversacion]
+                return "❌ Error al crear la cita. Intenta nuevamente."
+                
+        except KeyError as e:
+            print(f"❌ KeyError: {e}")
+            if clave_conversacion in conversaciones_activas:
+                del conversaciones_activas[clave_conversacion]
+            return "❌ Error: Datos incompletos. Comienza de nuevo."
+            
+        except Exception as e:
+            print(f"❌ Error general: {e}")
+            if clave_conversacion in conversaciones_activas:
+                del conversaciones_activas[clave_conversacion]
+            return "❌ Error. Por favor, intenta nuevamente."
+    
+    elif mensaje == '2':
+        if clave_conversacion in conversaciones_activas:
+            del conversaciones_activas[clave_conversacion]
+        return "❌ Agendamiento cancelado."
+    
+    else:
+        # Si estamos solicitando teléfono
+        if (clave_conversacion in conversaciones_activas and 
+            conversaciones_activas[clave_conversacion].get('estado') == 'solicitando_telefono'):
+            
+            # Validar teléfono
+            telefono = mensaje.strip()
+            if not telefono.isdigit() or len(telefono) != 10:
+                return "❌ Número inválido. Por favor ingresa 10 dígitos (ej: 3101234567):"
+            
+            # Guardar teléfono y mostrar confirmación
+            conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
+            conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
+            
+            # Mostrar confirmación con teléfono
+            conversacion = conversaciones_activas[clave_conversacion]
+            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
+            profesional_nombre = conversacion['profesional_nombre']
+            servicio_nombre = conversacion['servicio_nombre']
+            servicio_precio = conversacion['servicio_precio']
+            precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
+            fecha_formateada = datetime.strptime(conversacion['fecha_seleccionada'], '%Y-%m-%d').strftime('%d/%m/%Y')
+            hora = conversacion['hora_seleccionada']
+            
+            return f'''✅ **Confirmar cita**
+
+Hola *{nombre_cliente}*, ¿confirmas tu cita?
+
+👨‍💼 **Profesional:** {profesional_nombre}
+💼 **Servicio:** {servicio_nombre}
+💰 **Precio:** {precio_formateado}
+📅 **Fecha:** {fecha_formateada}
+⏰ **Hora:** {hora}
+📱 **Teléfono para notificaciones:** {telefono}
+
+**Selecciona una opción:**'''
+        
+        return "❌ Opción no válida."
+
+# =============================================================================
+# EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUAL
+# =============================================================================
 
 def continuar_conversacion(numero, mensaje, negocio_id):
     """Continuar conversación basada en el estado actual - MEJORADO"""
@@ -843,7 +809,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         print(f"❌ Error en continuar_conversacion: {e}")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return renderizar_plantilla('error_generico', negocio_id)
+        return "❌ Error al procesar tu solicitud."
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
     """Procesar nombre del cliente nuevo - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
@@ -856,7 +822,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     
     nombre = mensaje.strip()
     if len(nombre) < 2:
-        return "Por favor, ingresa un nombre válido:\n\n💡 *O vuelve al menú principal con* *0*"
+        return "Por favor, ingresa un nombre válido:"
     
     print(f"🔧 DEBUG: Procesando nombre '{nombre}' para {numero}")
     
@@ -900,45 +866,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     if clave_conversacion in conversaciones_activas:
         del conversaciones_activas[clave_conversacion]
     
-    # ✅ Mostrar menú principal personalizado
-    return renderizar_plantilla('menu_principal', negocio_id, {
-        'cliente_nombre': nombre
-    })
-
-def verificar_cliente_existente(numero, negocio_id):
-    """Verificar si el cliente existe y tiene nombre registrado"""
-    try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Buscar el nombre más reciente del cliente
-        cursor.execute('''
-            SELECT cliente_nombre, MAX(created_at) as ultima_fecha
-            FROM citas
-            WHERE cliente_telefono = %s 
-            AND negocio_id = %s
-            AND cliente_nombre IS NOT NULL 
-            AND TRIM(cliente_nombre) != ''
-            GROUP BY cliente_nombre
-            ORDER BY ultima_fecha DESC
-            LIMIT 1
-        ''', (numero, negocio_id))
-        
-        resultado = cursor.fetchone()
-        conn.close()
-        
-        if resultado:
-            nombre = resultado[0]
-            # Verificar que el nombre sea válido (al menos 2 caracteres)
-            if nombre and len(nombre.strip()) >= 2:
-                return nombre.strip()
-        
-        return None
-        
-    except Exception as e:
-        print(f"❌ Error en verificar_cliente_existente: {e}")
-        return None
+    return f"¡Hola {nombre}! 👋\n\n¿En qué puedo ayudarte?"
 
 def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     """Procesar selección de profesional"""
@@ -957,7 +885,7 @@ def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     profesionales = conversaciones_activas[clave_conversacion]['profesionales']
     
     if not mensaje.isdigit() or int(mensaje) < 1 or int(mensaje) > len(profesionales):
-        return f"❌ Número inválido. Por favor, elige entre 1 y {len(profesionales)}\n\n💡 *O vuelve al menú principal con* *0*"
+        return f"❌ Número inválido. Por favor, elige entre 1 y {len(profesionales)}"
     
     # Guardar profesional seleccionado
     profesional_index = int(mensaje) - 1
@@ -987,7 +915,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     servicios = conversaciones_activas[clave_conversacion]['servicios']
     
     if not mensaje.isdigit() or int(mensaje) < 1 or int(mensaje) > len(servicios):
-        return f"❌ Número inválido. Por favor, elige entre 1 y {len(servicios)}\n\n💡 *O vuelve al menú principal con* *0*"
+        return f"❌ Número inválido. Por favor, elige entre 1 y {len(servicios)}"
     
     # Guardar servicio seleccionado
     servicio_index = int(mensaje) - 1
@@ -1019,7 +947,7 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     fechas_disponibles = conversaciones_activas[clave_conversacion]['fechas_disponibles']
     
     if not mensaje.isdigit() or int(mensaje) < 1 or int(mensaje) > len(fechas_disponibles):
-        return f"❌ Número inválido. Por favor, elige entre 1 y {len(fechas_disponibles)}\n\n💡 *O vuelve al menú principal con* *0*"
+        return f"❌ Número inválido. Por favor, elige entre 1 y {len(fechas_disponibles)}"
     
     # Guardar fecha seleccionada
     fecha_index = int(mensaje) - 1
@@ -1063,7 +991,7 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
             conversaciones_activas[clave_conversacion]['pagina_horarios'] = pagina_actual + 1
         else:
             # Ya estamos en la última página, mostrar mensaje
-            return "ℹ️ Ya estás en la última página de horarios.\n\n💡 *Selecciona un horario o usa otra opción*"
+            return "ℹ️ Ya estás en la última página de horarios.\n\nSelecciona un horario o usa otra opción"
         
         return mostrar_disponibilidad(numero, negocio_id)
     
@@ -1077,13 +1005,13 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     
     # ✅ CORRECCIÓN: Verificar que el mensaje es un número válido para horarios
     if not mensaje.isdigit():
-        return f"❌ Por favor, ingresa un número válido.\n\n💡 *O vuelve al menú principal con* *0*"
+        return f"❌ Por favor, ingresa un número válido."
     
     mensaje_num = int(mensaje)
     
     # ✅ CORRECCIÓN: Solo procesar números 1-6 como horarios (evitar conflicto con 7,8,9)
     if mensaje_num < 1 or mensaje_num > len(horarios_pagina):
-        return f"❌ Número inválido. Por favor, elige entre 1 y {len(horarios_pagina)}\n\n💡 *O vuelve al menú principal con* *0*"
+        return f"❌ Número inválido. Por favor, elige entre 1 y {len(horarios_pagina)}"
     
     # Guardar horario seleccionado y pedir confirmación
     hora_index = mensaje_num - 1
@@ -1111,148 +1039,17 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     fecha_seleccionada = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
     
-    return f'''✅ *Confirmar cita*
+    return f'''✅ **Confirmar cita**
 
 Hola *{nombre_cliente}*, ¿confirmas tu cita?
 
-👨‍💼 *Profesional:* {profesional_nombre}
-💼 *Servicio:* {servicio_nombre}
-💰 *Precio:* {precio_formateado}
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {hora_seleccionada}
+👨‍💼 **Profesional:** {profesional_nombre}
+💼 **Servicio:** {servicio_nombre}
+💰 **Precio:** {precio_formateado}
+📅 **Fecha:** {fecha_formateada}
+⏰ **Hora:** {hora_seleccionada}
 
-Responde:
-*1* - ✅ Confirmar cita
-*2* - ❌ Cancelar agendamiento
-*0* - ↩️ Volver al menú principal'''
-
-def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - CON SOLICITUD DE TELÉFONO"""
-    clave_conversacion = f"{numero}_{negocio_id}"
-    
-    if mensaje == '0':
-        if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return saludo_inicial(numero, negocio_id)
-    
-    if mensaje == '1':
-        try:
-            conversacion = conversaciones_activas[clave_conversacion]
-            
-            # Verificar que tenemos los datos necesarios
-            if 'hora_seleccionada' not in conversacion:
-                del conversaciones_activas[clave_conversacion]
-                return "❌ Error: No se seleccionó hora. Comienza de nuevo."
-            
-            # Si no tenemos teléfono, pedirlo
-            if 'telefono_cliente' not in conversacion:
-                conversacion['estado'] = 'solicitando_telefono'
-                return "📱 *Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.*\n\nPor favor, ingresa tu número de 10 dígitos (ej: 3101234567):"
-            
-            # Si llegamos aquí, ya tenemos teléfono
-            telefono_cliente = conversacion['telefono_cliente']
-            hora = conversacion['hora_seleccionada']
-            fecha = conversacion['fecha_seleccionada']
-            profesional_id = conversacion['profesional_id']
-            servicio_id = conversacion['servicio_id']
-            profesional_nombre = conversacion['profesional_nombre']
-            servicio_nombre = conversacion['servicio_nombre']
-            servicio_precio = conversacion['servicio_precio']
-            
-            # Obtener nombre del cliente
-            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
-            if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
-                nombre_cliente = 'Cliente'
-            else:
-                nombre_cliente = str(nombre_cliente).strip()
-            
-            print(f"🔧 DEBUG: Agendando cita para: {nombre_cliente}, Teléfono: {telefono_cliente}")
-            
-            # Agendar cita CON TELÉFONO
-            cita_id = db.agregar_cita_con_telefono(
-                negocio_id, profesional_id, telefono_cliente, fecha, hora, 
-                servicio_id, nombre_cliente
-            )
-            
-            if cita_id:
-                del conversaciones_activas[clave_conversacion]
-                
-                precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
-                fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
-                
-                return f'''✅ *Cita confirmada*
-
-Hola *{nombre_cliente}*, tu cita ha sido agendada:
-
-👨‍💼 *Profesional:* {profesional_nombre}
-💼 *Servicio:* {servicio_nombre}
-💰 *Precio:* {precio_formateado}
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {hora}
-🎫 *ID:* #{cita_id}
-
-Recibirás recordatorios por mensaje. ¡Te esperamos!'''
-            else:
-                del conversaciones_activas[clave_conversacion]
-                return "❌ Error al crear la cita. Intenta nuevamente."
-                
-        except KeyError as e:
-            print(f"❌ KeyError: {e}")
-            if clave_conversacion in conversaciones_activas:
-                del conversaciones_activas[clave_conversacion]
-            return "❌ Error: Datos incompletos. Comienza de nuevo."
-            
-        except Exception as e:
-            print(f"❌ Error general: {e}")
-            if clave_conversacion in conversaciones_activas:
-                del conversaciones_activas[clave_conversacion]
-            return "❌ Error. Por favor, intenta nuevamente."
-    
-    elif mensaje == '2':
-        if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return "❌ Agendamiento cancelado."
-    
-    else:
-        # Si estamos solicitando teléfono
-        if (clave_conversacion in conversaciones_activas and 
-            conversaciones_activas[clave_conversacion].get('estado') == 'solicitando_telefono'):
-            
-            # Validar teléfono
-            telefono = mensaje.strip()
-            if not telefono.isdigit() or len(telefono) != 10:
-                return "❌ Número inválido. Por favor ingresa 10 dígitos (ej: 3101234567):"
-            
-            # Guardar teléfono y volver a pedir confirmación
-            conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
-            conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
-            
-            # Mostrar confirmación nuevamente
-            conversacion = conversaciones_activas[clave_conversacion]
-            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-            profesional_nombre = conversacion['profesional_nombre']
-            servicio_nombre = conversacion['servicio_nombre']
-            servicio_precio = conversacion['servicio_precio']
-            precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
-            fecha_formateada = datetime.strptime(conversacion['fecha_seleccionada'], '%Y-%m-%d').strftime('%d/%m/%Y')
-            hora = conversacion['hora_seleccionada']
-            
-            return f'''✅ *Confirmar cita*
-
-Hola *{nombre_cliente}*, ¿confirmas tu cita?
-
-👨‍💼 *Profesional:* {profesional_nombre}
-💼 *Servicio:* {servicio_nombre}
-💰 *Precio:* {precio_formateado}
-📅 *Fecha:* {fecha_formateada}
-⏰ *Hora:* {hora}
-📱 *Teléfono para notificaciones:* {telefono}
-
-Responde:
-*1* - ✅ Confirmar cita
-*2* - ❌ Cancelar agendamiento'''
-        
-        return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
+**Selecciona una opción:**'''
 
 def procesar_cancelacion_cita(numero, mensaje, negocio_id):
     """Procesar cancelación de cita - MEJORADO PARA POSTGRESQL"""
@@ -1267,12 +1064,12 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         # ✅ CORRECCIÓN 4: Si la sesión expiró durante cancelación, mostrar menú principal
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión de cancelación expirada.\n\n" + saludo_inicial(numero, negocio_id)
+        return "❌ Sesión de cancelación expirada."
     
     citas_disponibles = conversaciones_activas[clave_conversacion]['citas_disponibles']
     
     if mensaje not in citas_disponibles:
-        return "❌ ID de cita inválido. Por favor, ingresa un ID de la lista anterior.\n\n💡 *O vuelve al menú principal con* *0*"
+        return "❌ ID de cita inválido. Por favor, ingresa un ID de la lista anterior."
     
     # Cancelar cita
     try:
@@ -1298,17 +1095,17 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
         fecha_str = datetime.strptime(str(cita_info[1]), '%Y-%m-%d').strftime('%d/%m')
         
-        return renderizar_plantilla('cita_cancelada', negocio_id, {
-            'cliente_nombre': nombre_cliente,
-            'fecha': fecha_str,
-            'hora': cita_info[2]
-        })
+        return f'''❌ **Cita cancelada**
+
+Hola {nombre_cliente}, has cancelado tu cita del {fecha_str} a las {cita_info[2]}.
+
+Esperamos verte pronto en otra ocasión.'''
         
     except Exception as e:
         print(f"❌ Error cancelando cita: {e}")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return renderizar_plantilla('error_generico', negocio_id)
+        return "❌ Error al cancelar la cita."
 
 def procesar_cancelacion_directa(numero, cita_id, negocio_id):
     """Procesar cancelación cuando solo hay una cita - GENÉRICO PARA POSTGRESQL"""
@@ -1331,7 +1128,7 @@ def procesar_cancelacion_directa(numero, cita_id, negocio_id):
     
     nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
     
-    return f'''❌ *Cita cancelada*
+    return f'''❌ **Cita cancelada**
 
 Hola {nombre_cliente}, has cancelado tu cita (ID: #{cita_id}).
 

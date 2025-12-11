@@ -925,7 +925,7 @@ def _insertar_configuracion_horarios_para_negocio(cursor, negocio_id):
     ]
     
     for dia in dias_semana:
-        if db.is_postgresql():
+        if is_postgresql():
             sql = '''
                 INSERT INTO configuracion_horarios 
                 (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
@@ -938,7 +938,7 @@ def _insertar_configuracion_horarios_para_negocio(cursor, negocio_id):
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             '''
         
-        db.execute_sql(cursor, sql, (
+        execute_sql(cursor, sql, (
             negocio_id, 
             dia[0], 
             True,  # Activo por defecto
@@ -1175,7 +1175,7 @@ def es_cliente_nuevo(telefono, negocio_id):
 def obtener_nombre_cliente(numero, negocio_id):
     """Obtener nombre del cliente desde la base de datos - VERSIÓN ROBUSTA"""
     try:
-        conn = db.get_db_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Primero buscar en la tabla de clientes si existe
