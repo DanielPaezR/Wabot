@@ -1347,95 +1347,132 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # =============================================================================
 
 def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario - VERSIÓN CORREGIDA"""
+    """Crear usuario - VERSIÓN CORREGIDA con acceso a columnas correcto"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Verificar si el email ya existe
-        sql = 'SELECT id FROM usuarios WHERE email = %s'
-        if fetch_one(cursor, sql, (email,)):
+        # 1. VERIFICAR EMAIL - Revisa este fetch_one
+        sql = 'SELECT id FROM usuarios WHERE email = ?'
+        
+        # ¿Cómo está implementado fetch_one?
+        # Si devuelve una tupla: resultado[0]
+        # Si devuelve un diccionario: resultado['id']
+        resultado = fetch_one(cursor, sql, (email,))
+        
+        if resultado:
             print(f"❌ Email ya existe: {email}")
             conn.close()
             return None
         
-        # Validar que el negocio_id sea válido (no vacío o None)
-        if not negocio_id or negocio_id == '':
-            if rol == 'superadmin':
-                # Para superadmin, usar negocio_id 1 por defecto
-                negocio_id = 1
-            else:
-                print(f"❌ Negocio_id requerido para rol: {rol}")
+        # 2. VALIDACIÓN DE NEGOCIO_ID - Aquí podría estar el error "0"
+        print(f"DEBUG: negocio_id recibido: {negocio_id}, tipo: {type(negocio_id)}")
+        
+        # Si negocio_id es string vacío o None para no-superadmin
+        if rol != 'superadmin':
+            if negocio_id is None or negocio_id == '' or negocio_id == '0':
+                print(f"❌ Error: negocio_id inválido para rol {rol}: {negocio_id}")
                 conn.close()
                 return None
         
-        # Convertir negocio_id a entero si es string
-        try:
-            negocio_id = int(negocio_id)
-        except (ValueError, TypeError):
-            print(f"❌ Negocio_id inválido: {negocio_id}")
-            conn.close()
-            return None
+        # Convertir a entero seguro
+        if negocio_id and negocio_id != '':
+            try:
+                negocio_id_int = int(negocio_id)
+            except:
+                print(f"❌ Error: negocio_id no es número: {negocio_id}")
+                conn.close()
+                return None
+        else:
+            negocio_id_int = None if rol == 'superadmin' else 0
         
-        # Usar SHA256
+        # 3. HASH PASSWORD
         import hashlib
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         
-        print(f"🔧 Creando usuario: {email}, negocio_id: {negocio_id}, rol: {rol}")
+        print(f"DEBUG: Insertando - negocio_id: {negocio_id_int}, nombre: {nombre}, email: {email}, rol: {rol}")
         
-        # Insertar usuario y obtener el ID
+        # 4. INSERT USUARIO - CUIDADO con el orden de columnas
         if is_postgresql():
             sql = '''
-                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo) 
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
             '''
-            cursor.execute(sql, (negocio_id, nombre, email, hashed_password, rol))
+            cursor.execute(sql, (negocio_id_int, nombre, email, hashed_password, rol, True))
             result = cursor.fetchone()
-            nuevo_usuario_id = result['id'] if result else None
+            # ACCESO CORRECTO:
+            if result:
+                nuevo_usuario_id = result[0]  # Si es tupla
+                # O si es diccionario: result['id']
+            else:
+                nuevo_usuario_id = None
         else:
             sql = '''
-                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol) 
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo) 
+                VALUES (?, ?, ?, ?, ?, ?)
             '''
-            execute_sql(cursor, sql, (negocio_id, nombre, email, hashed_password, rol))
+            cursor.execute(sql, (negocio_id_int, nombre, email, hashed_password, rol, True))
             nuevo_usuario_id = cursor.lastrowid
         
         if not nuevo_usuario_id:
-            print(f"❌ No se pudo obtener el ID del nuevo usuario")
+            print(f"❌ No se pudo obtener ID del usuario")
             conn.rollback()
             conn.close()
             return None
         
-        print(f"✅ Usuario creado con ID: {nuevo_usuario_id}")
+        print(f"✅ Usuario creado ID: {nuevo_usuario_id}")
         
-        # Si es profesional, crear automáticamente en tabla profesionales
+        # 5. CREAR PROFESIONAL SI CORRESPONDE
         if rol == 'profesional':
-            sql = 'SELECT id FROM profesionales WHERE nombre = %s AND negocio_id = %s'
-            if not fetch_one(cursor, sql, (nombre, negocio_id)):
+            # VERIFICA que la tabla se llama 'profesionales' y no 'barberos'
+            print(f"DEBUG: Creando profesional para usuario {nuevo_usuario_id}")
+            
+            # PRIMERO: Verifica que el profesional no exista
+            check_sql = 'SELECT id FROM profesionales WHERE usuario_id = ?'
+            cursor.execute(check_sql, (nuevo_usuario_id,))
+            if cursor.fetchone():
+                print(f"⚠️ Profesional ya existe para usuario {nuevo_usuario_id}")
+            else:
+                # INSERCIÓN - Revisa el ORDEN de columnas
                 if is_postgresql():
                     sql = '''
-                        INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
+                        INSERT INTO profesionales 
+                        (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
                         VALUES (%s, %s, %s, %s, %s, %s)
                         RETURNING id
                     '''
-                    cursor.execute(sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
+                    cursor.execute(sql, (negocio_id_int, nombre, 'General', '0000', nuevo_usuario_id, True))
                 else:
                     sql = '''
-                        INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
+                        INSERT INTO profesionales 
+                        (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
                         VALUES (?, ?, ?, ?, ?, ?)
                     '''
-                    execute_sql(cursor, sql, (negocio_id, nombre, 'General', '0000', nuevo_usuario_id, True))
-                print(f"✅ Profesional creado para usuario: {nuevo_usuario_id}")
+                    cursor.execute(sql, (negocio_id_int, nombre, 'General', '0000', nuevo_usuario_id, True))
+                
+                print(f"✅ Profesional creado para usuario {nuevo_usuario_id}")
         
         conn.commit()
         return nuevo_usuario_id
         
     except Exception as e:
         conn.rollback()
-        print(f"❌ Error en crear_usuario: {str(e)}")
+        print(f"❌ ERROR en crear_usuario: {str(e)}")
         import traceback
         traceback.print_exc()
+        
+        # DEBUG EXTRA: Verifica estructura de tablas
+        try:
+            print("\n=== DEBUG ESTRUCTURA TABLAS ===")
+            cursor.execute("PRAGMA table_info(usuarios)")
+            print("Usuarios columns:", cursor.fetchall())
+            
+            cursor.execute("PRAGMA table_info(profesionales)")
+            print("Profesionales columns:", cursor.fetchall())
+        except:
+            pass
+            
         return None
     finally:
         conn.close()
