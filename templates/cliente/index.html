@@ -1,0 +1,427 @@
+<!-- templates/cliente/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendar Cita - {{ negocio.nombre }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+            --user-msg-bg: #007bff;
+            --bot-msg-bg: #e9ecef;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .chat-container {
+            max-width: 500px;
+            margin: 20px auto;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            background-color: white;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .chat-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        .chat-header small {
+            opacity: 0.9;
+            font-size: 0.85rem;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #fafafa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            background-color: var(--user-msg-bg);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .bot-message {
+            background-color: var(--bot-msg-bg);
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .bot-message strong {
+            color: var(--primary-color);
+        }
+        
+        .option-button {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 15px;
+            background-color: white;
+            border: 2px solid var(--primary-color);
+            border-radius: 20px;
+            color: var(--primary-color);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .option-button:hover {
+            background-color: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .chat-input {
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #ddd;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            padding: 10px;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: #bbb;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typing 1s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 5px;
+        }
+        
+        .badge-confirmado { background-color: #d4edda; color: #155724; }
+        .badge-pendiente { background-color: #fff3cd; color: #856404; }
+        .badge-cancelado { background-color: #f8d7da; color: #721c24; }
+        
+        .menu-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        
+        .menu-option {
+            flex: 0 0 calc(50% - 10px);
+            margin: 5px;
+            padding: 12px;
+            text-align: center;
+            border-radius: 10px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
+        }
+        
+        .menu-option:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0,123,255,0.2);
+        }
+        
+        .scroll-indicator {
+            text-align: center;
+            color: #999;
+            font-size: 0.8rem;
+            padding: 5px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 576px) {
+            .chat-container {
+                margin: 0;
+                height: 100vh;
+                border-radius: 0;
+                max-width: 100%;
+            }
+            
+            .menu-option {
+                flex: 0 0 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
+            <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <!-- Mensajes se cargarán aquí con JavaScript -->
+            <div class="message bot-message">
+                <i class="fas fa-robot"></i> <strong>¡Bienvenido a {{ negocio.nombre }}!</strong><br>
+                {{ negocio.config_general.saludo_personalizado if negocio.config_general.saludo_personalizado else 'Para agendar una cita, por favor sigue las instrucciones.' }}
+            </div>
+            
+            <!-- Menú inicial -->
+            <div class="message bot-message" id="initialMenu">
+                <strong><i class="fas fa-bars"></i> Menú Principal:</strong><br><br>
+                <div class="menu-options">
+                    <div class="menu-option" data-option="1">
+                        <i class="fas fa-calendar-plus"></i> Agendar cita
+                    </div>
+                    <div class="menu-option" data-option="2">
+                        <i class="fas fa-list-alt"></i> Ver mis reservas
+                    </div>
+                    <div class="menu-option" data-option="3">
+                        <i class="fas fa-times-circle"></i> Cancelar reserva
+                    </div>
+                    <div class="menu-option" data-option="4">
+                        <i class="fas fa-question-circle"></i> Ayuda
+                    </div>
+                </div>
+                <br>
+                <small><i class="fas fa-info-circle"></i> Escribe "0" para volver al menú principal en cualquier momento.</small>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <div class="input-group">
+                <input type="text" class="form-control" id="userInput" 
+                       placeholder="Escribe tu opción o mensaje..." autocomplete="off"
+                       aria-label="Mensaje">
+                <button class="btn btn-primary" id="sendButton">
+                    <i class="fas fa-paper-plane"></i> Enviar
+                </button>
+            </div>
+            <div class="mt-2 d-flex justify-content-between">
+                <button class="btn btn-sm btn-outline-secondary" id="resetButton">
+                    <i class="fas fa-redo"></i> Reiniciar
+                </button>
+                <button class="btn btn-sm btn-outline-info" id="helpButton">
+                    <i class="fas fa-question"></i> Ayuda
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden inputs para datos de sesión -->
+    <input type="hidden" id="sessionId" value="{{ session_id }}">
+    <input type="hidden" id="negocioId" value="{{ negocio.id }}">
+    <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const chatMessages = $('#chatMessages');
+            const userInput = $('#userInput');
+            const sendButton = $('#sendButton');
+            const sessionId = $('#sessionId').val();
+            const negocioId = $('#negocioId').val();
+            const negocioNombre = $('#negocioNombre').val();
+            
+            // Hacer scroll al final
+            function scrollToBottom() {
+                chatMessages.scrollTop(chatMessages[0].scrollHeight);
+            }
+            
+            // Mostrar indicador de "escribiendo"
+            function showTypingIndicator() {
+                const typingHtml = `
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                `;
+                chatMessages.append(typingHtml);
+                scrollToBottom();
+            }
+            
+            // Ocultar indicador de "escribiendo"
+            function hideTypingIndicator() {
+                $('.typing-indicator').remove();
+            }
+            
+            // Agregar mensaje del usuario
+            function addUserMessage(message) {
+                if (!message.trim()) return;
+                
+                const messageHtml = `
+                    <div class="message user-message">
+                        <strong><i class="fas fa-user"></i> Tú:</strong><br>
+                        ${message}
+                    </div>
+                `;
+                chatMessages.append(messageHtml);
+                scrollToBottom();
+            }
+            
+            // Agregar mensaje del bot
+            function addBotMessage(message) {
+                const messageHtml = `
+                    <div class="message bot-message">
+                        <strong><i class="fas fa-robot"></i> {{ negocio.nombre }}:</strong><br>
+                        ${message}
+                    </div>
+                `;
+                chatMessages.append(messageHtml);
+                scrollToBottom();
+            }
+            
+            // Enviar mensaje al servidor
+            function sendMessage() {
+                const message = userInput.val().trim();
+                if (!message) return;
+                
+                // Mostrar mensaje del usuario
+                addUserMessage(message);
+                userInput.val('');
+                
+                // Mostrar indicador de "escribiendo"
+                showTypingIndicator();
+                
+                // Enviar al servidor
+                $.ajax({
+                    url: '/chat/send',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        message: message,
+                        session_id: sessionId,
+                        negocio_id: negocioId
+                    }),
+                    success: function(response) {
+                        // Ocultar indicador
+                        hideTypingIndicator();
+                        
+                        if (response.error) {
+                            addBotMessage(`❌ ${response.error}`);
+                            return;
+                        }
+                        
+                        // Mostrar respuesta del bot
+                        addBotMessage(response.message);
+                        
+                        // Si hay opciones adicionales, mostrarlas
+                        if (response.options) {
+                            let optionsHtml = '<div class="menu-options">';
+                            response.options.forEach(option => {
+                                optionsHtml += `
+                                    <div class="menu-option" data-option="${option.value}">
+                                        ${option.text}
+                                    </div>
+                                `;
+                            });
+                            optionsHtml += '</div>';
+                            addBotMessage(optionsHtml);
+                            
+                            // Agregar event listeners a las nuevas opciones
+                            $('.menu-option').off('click').on('click', function() {
+                                const optionValue = $(this).data('option');
+                                userInput.val(optionValue);
+                                sendMessage();
+                            });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        hideTypingIndicator();
+                        addBotMessage(`❌ Error al procesar tu mensaje. Intenta de nuevo.`);
+                        console.error('Error:', error);
+                    }
+                });
+            }
+            
+            // Event listeners
+            sendButton.click(sendMessage);
+            
+            userInput.keypress(function(e) {
+                if (e.which === 13) { // Enter key
+                    sendMessage();
+                }
+            });
+            
+            // Event listener para opciones del menú
+            $('.menu-option').click(function() {
+                const optionValue = $(this).data('option');
+                userInput.val(optionValue);
+                sendMessage();
+            });
+            
+            // Botón reiniciar
+            $('#resetButton').click(function() {
+                if (confirm('¿Estás seguro de que quieres reiniciar la conversación?')) {
+                    $.post('/chat/reset', function() {
+                        location.reload();
+                    });
+                }
+            });
+            
+            // Botón ayuda
+            $('#helpButton').click(function() {
+                userInput.val('4');
+                sendMessage();
+            });
+            
+            // Scroll inicial
+            scrollToBottom();
+            
+            // Auto-focus en el input
+            userInput.focus();
+            
+            // Asegurar scroll cuando se añaden elementos
+            chatMessages.on('DOMNodeInserted', scrollToBottom);
+        });
+    </script>
+</body>
+</html>

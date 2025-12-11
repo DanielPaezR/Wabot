@@ -1,6 +1,9 @@
-from flask import Blueprint, request
-from twilio.twiml.messaging_response import MessagingResponse
-from twilio.rest import Client
+"""
+Manejador de chat web para agendamiento de citas
+Versión convertida desde whatsapp_handler.py sin Twilio
+"""
+
+from flask import Blueprint
 from datetime import datetime, timedelta
 import database as db
 import json
@@ -9,13 +12,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-whatsapp_bp = Blueprint('whatsapp', __name__)
+web_chat_bp = Blueprint('web_chat', __name__)
 
-# Estados de conversación
+# Estados de conversación para sesiones web
 conversaciones_activas = {}
 
 # =============================================================================
-# MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL)
+# MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL) - SIN CAMBIOS
 # =============================================================================
 
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
@@ -95,73 +98,81 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
         return f"❌ Error al procesar plantilla '{nombre_plantilla}'"
 
 # =============================================================================
-# WEBHOOK PRINCIPAL (CORREGIDO PARA POSTGRESQL)
+# FUNCIÓN PRINCIPAL PARA PROCESAR MENSAJES DEL CHAT WEB
 # =============================================================================
 
-@whatsapp_bp.route('/webhook', methods=['POST'])
-def webhook_whatsapp():
-    """Webhook principal para WhatsApp - CON DEBUGGING Y POSTGRESQL"""
+def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
+    """
+    Función principal que procesa mensajes del chat web
+    Reemplaza la función webhook_whatsapp
+    """
     try:
-        # Obtener datos del mensaje
-        incoming_msg = request.values.get('Body', '').strip()
-        from_number = request.values.get('From', '').replace('whatsapp:', '')
-        to_number = request.values.get('To', '')  # Número del negocio
+        user_message = user_message.strip()
         
-        print(f"🔧 [DEBUG] WEBHOOK - Mensaje de {from_number} a {to_number}: '{incoming_msg}'")
+        print(f"🔧 [CHAT WEB] Mensaje recibido: '{user_message}'")
         
-        # Identificar negocio por el número que recibió el mensaje
-        print(f"🔧 [DEBUG] Buscando negocio para número: {to_number}")
-        negocio = db.obtener_negocio_por_telefono(to_number)
+        # Verificar que el negocio existe y está activo
+        negocio = db.obtener_negocio_por_id(negocio_id)
         if not negocio:
-            print(f"❌ [DEBUG] Negocio NO encontrado para: {to_number}")
-            resp = MessagingResponse()
-            resp.message("❌ Este número no está configurado en el sistema.")
-            return str(resp)
-        
-        print(f"✅ [DEBUG] Negocio identificado: {negocio['nombre']} (ID: {negocio['id']})")
+            return {
+                'message': '❌ Este negocio no está configurado en el sistema.',
+                'step': 'error'
+            }
         
         if not negocio['activo']:
-            print(f"❌ [DEBUG] Negocio INACTIVO: {negocio['nombre']}")
-            resp = MessagingResponse()
-            resp.message("❌ Este negocio no está activo actualmente.")
-            return str(resp)
+            return {
+                'message': '❌ Este negocio no está activo actualmente.',
+                'step': 'error'
+            }
         
-        # ✅ CORRECCIÓN: Verificar si es un mensaje duplicado o automático
-        if not incoming_msg or incoming_msg.isspace():
-            print(f"⚠️ [DEBUG] Mensaje vacío o automático, ignorando...")
-            resp = MessagingResponse()
-            return str(resp)
+        # Usar session_id como identificador único (similar al número de teléfono)
+        numero = session_id  # Para mantener compatibilidad con funciones existentes
         
-        # Procesar mensaje
-        print(f"🔧 [DEBUG] Llamando a procesar_mensaje...")
-        respuesta = procesar_mensaje(incoming_msg, from_number, negocio['id'])
+        # Procesar mensaje usando la lógica existente
+        respuesta_texto = procesar_mensaje(user_message, numero, negocio_id)
         
-        # Enviar respuesta solo si hay contenido
-        if respuesta:
-            print(f"🔧 [DEBUG] Enviando respuesta: {respuesta}")
-            resp = MessagingResponse()
-            resp.message(respuesta)
-            return str(resp)
-        else:
-            print(f"⚠️ [DEBUG] No hay respuesta para enviar")
-            resp = MessagingResponse()
-            return str(resp)
+        # Obtener el paso actual para la respuesta
+        clave_conversacion = f"{numero}_{negocio_id}"
+        paso_actual = 'inicio'
+        if clave_conversacion in conversaciones_activas:
+            paso_actual = conversaciones_activas[clave_conversacion].get('estado', 'inicio')
+        
+        # Si estamos en un paso de selección, devolver opciones adicionales
+        opciones_extra = None
+        if paso_actual == 'seleccionando_profesional':
+            opciones_extra = generar_opciones_profesionales(numero, negocio_id)
+        elif paso_actual == 'seleccionando_servicio':
+            opciones_extra = generar_opciones_servicios(numero, negocio_id)
+        elif paso_actual == 'seleccionando_fecha':
+            opciones_extra = generar_opciones_fechas(numero, negocio_id)
+        
+        respuesta = {
+            'message': respuesta_texto,
+            'step': paso_actual
+        }
+        
+        if opciones_extra:
+            respuesta['options'] = opciones_extra
+        
+        print(f"🔧 [CHAT WEB] Respuesta generada - Paso: {paso_actual}")
+        return respuesta
         
     except Exception as e:
-        print(f"❌ [DEBUG] Error CRÍTICO en webhook: {e}")
+        print(f"❌ [CHAT WEB] Error procesando mensaje: {e}")
         import traceback
         traceback.print_exc()
         
-        resp = MessagingResponse()
-        resp.message("❌ Ocurrió un error. Por favor, intenta nuevamente.")
-        return str(resp)
+        return {
+            'message': '❌ Ocurrió un error al procesar tu mensaje. Por favor, intenta nuevamente.',
+            'step': 'error'
+        }
 
 # =============================================================================
-# LÓGICA PRINCIPAL DE MENSAJES (MEJORADA PARA POSTGRESQL)
+# LÓGICA PRINCIPAL DE MENSAJES (SIN CAMBIOS - REUTILIZADA)
 # =============================================================================
 
 def procesar_mensaje(mensaje, numero, negocio_id):
-    """Procesar mensajes usando el sistema de plantillas - CON DEBUGGING"""
+    """Procesar mensajes usando el sistema de plantillas - REUTILIZADA SIN CAMBIOS"""
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
     
@@ -207,6 +218,72 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         # Mensaje no reconocido - mostrar menú principal
         print(f"🔧 [DEBUG] Mensaje no reconocido - Mostrando menú principal")
         return renderizar_plantilla('menu_principal', negocio_id)
+
+# =============================================================================
+# FUNCIONES AUXILIARES PARA GENERAR OPCIONES EN EL CHAT WEB
+# =============================================================================
+
+def generar_opciones_profesionales(numero, negocio_id):
+    """Generar opciones de profesionales para botones del chat web"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if clave_conversacion not in conversaciones_activas or 'profesionales' not in conversaciones_activas[clave_conversacion]:
+        return None
+    
+    profesionales = conversaciones_activas[clave_conversacion]['profesionales']
+    opciones = []
+    
+    for i, prof in enumerate(profesionales, 1):
+        opciones.append({
+            'value': str(i),
+            'text': f"{i}. {prof['nombre']} - {prof['especialidad']}"
+        })
+    
+    return opciones
+
+def generar_opciones_servicios(numero, negocio_id):
+    """Generar opciones de servicios para botones del chat web"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if clave_conversacion not in conversaciones_activas or 'servicios' not in conversaciones_activas[clave_conversacion]:
+        return None
+    
+    servicios = conversaciones_activas[clave_conversacion]['servicios']
+    opciones = []
+    
+    for i, servicio in enumerate(servicios, 1):
+        precio_formateado = f"${servicio['precio']:,.0f}".replace(',', '.')
+        opciones.append({
+            'value': str(i),
+            'text': f"{i}. {servicio['nombre']} - {precio_formateado}"
+        })
+    
+    return opciones
+
+def generar_opciones_fechas(numero, negocio_id):
+    """Generar opciones de fechas para botones del chat web"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if clave_conversacion not in conversaciones_activas or 'fechas_disponibles' not in conversaciones_activas[clave_conversacion]:
+        return None
+    
+    fechas = conversaciones_activas[clave_conversacion]['fechas_disponibles']
+    opciones = []
+    
+    for i, fecha_info in enumerate(fechas, 1):
+        opciones.append({
+            'value': str(i),
+            'text': f"{i}. {fecha_info['mostrar']}"
+        })
+    
+    return opciones
+
+# =============================================================================
+# EL RESTO DE LAS FUNCIONES SE MANTIENEN EXACTAMENTE IGUAL
+# =============================================================================
+
+# Desde aquí hacia abajo, TODAS las funciones son IDÉNTICAS a las que ya tenías
+# Solo copia TODO desde la función "saludo_inicial" hasta el final del archivo
 
 def saludo_inicial(numero, negocio_id):
     """Saludo inicial - Cliente nuevo o existente - VERSIÓN MEJORADA"""
@@ -493,7 +570,8 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
 def mostrar_mis_citas(numero, negocio_id):
     """Mostrar citas del cliente - USANDO PLANTILLAS Y POSTGRESQL"""
     try:
-        conn = db.get_db_connection()
+        from database import get_db_connection
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # ✅ CORRECCIÓN: Consulta PostgreSQL
@@ -536,7 +614,8 @@ def mostrar_mis_citas(numero, negocio_id):
 def mostrar_citas_para_cancelar(numero, negocio_id):
     """Mostrar citas que pueden ser canceladas - MEJORADO PARA POSTGRESQL"""
     try:
-        conn = db.get_db_connection()
+        from database import get_db_connection
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # ✅ CORRECCIÓN: Consulta PostgreSQL
@@ -594,10 +673,6 @@ def mostrar_ayuda(negocio_id):
     """Mostrar mensaje de ayuda"""
     return renderizar_plantilla('ayuda_general', negocio_id)
 
-# =============================================================================
-# LÓGICA DE CONVERSACIÓN CONTINUA (MEJORADA PARA POSTGRESQL)
-# =============================================================================
-
 def continuar_conversacion(numero, mensaje, negocio_id):
     """Continuar conversación basada en el estado actual - MEJORADO"""
     clave_conversacion = f"{numero}_{negocio_id}"
@@ -654,7 +729,8 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     
     try:
         # Intentar guardar el cliente en la tabla de clientes
-        conn = db.get_db_connection()
+        from database import get_db_connection
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Verificar si ya existe
@@ -699,7 +775,8 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
 def verificar_cliente_existente(numero, negocio_id):
     """Verificar si el cliente existe y tiene nombre registrado"""
     try:
-        conn = db.get_db_connection()
+        from database import get_db_connection
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Buscar el nombre más reciente del cliente
@@ -1024,7 +1101,8 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         cita_info = citas_disponibles[cita_id]
         
         # Actualizar estado en base de datos
-        conn = db.get_db_connection()
+        from database import get_db_connection
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('UPDATE citas SET estado = %s WHERE id = %s AND negocio_id = %s', 
@@ -1062,7 +1140,8 @@ def procesar_cancelacion_directa(numero, cita_id, negocio_id):
         return saludo_inicial(numero, negocio_id)
     
     # Cancelar cita directamente
-    conn = db.get_db_connection()
+    from database import get_db_connection
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('UPDATE citas SET estado = %s WHERE id = %s AND negocio_id = %s', 
@@ -1078,10 +1157,6 @@ def procesar_cancelacion_directa(numero, cita_id, negocio_id):
 Hola {nombre_cliente}, has cancelado tu cita (ID: #{cita_id}).
 
 Esperamos verte pronto en otra ocasión.'''
-
-# =============================================================================
-# FUNCIONES AUXILIARES (CONVERTIDAS A POSTGRESQL)
-# =============================================================================
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     """Obtener las próximas fechas donde el negocio está activo - VERSIÓN MEJORADA PARA POSTGRESQL"""
@@ -1314,220 +1389,58 @@ def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
             if tiempo_transcurrido.total_seconds() > 600:  # 10 minutos
                 del conversaciones_activas[clave_conversacion]
 
-def enviar_mensaje_whatsapp(destino, mensaje):
-    """Enviar mensaje de WhatsApp usando Twilio"""
-    # Configuración Twilio
-    TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
-    TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
-    TWILIO_WHATSAPP_NUMBER = os.getenv('TWILIO_WHATSAPP_NUMBER')
-    
-    client = None
-    if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    
-    if not client:
-        print(f"⚠️ Twilio no configurado. Mensaje simulado para {destino}: {mensaje}")
-        return True
-    
-    try:
-        message = client.messages.create(
-            body=mensaje,
-            from_=TWILIO_WHATSAPP_NUMBER,
-            to=f'whatsapp:{destino}'
-        )
-        print(f"✅ Mensaje enviado a {destino}: {message.sid}")
-        return True
-    
-    except Exception as e:
-        print(f"❌ Error enviando mensaje a {destino}: {e}")
-        return False
-
 # =============================================================================
-# FUNCIONES PARA RECORDATORIOS AUTOMÁTICOS (POSTGRESQL)
+# FUNCIONES PARA ENVÍO DE CORREO/SMS (REEMPLAZAN TWILIO)
 # =============================================================================
 
-def enviar_recordatorio_24h(cita):
-    """Enviar recordatorio 24 horas antes de la cita"""
+def enviar_correo_confirmacion(cita, cliente_email):
+    """Enviar confirmación de cita por correo electrónico"""
+    # TODO: Implementar lógica de envío de correo
+    # Usar smtplib o servicio como SendGrid
+    print(f"📧 [SIMULADO] Correo enviado a {cliente_email} para cita #{cita.get('id')}")
+    return True
+
+def enviar_sms_confirmacion(numero_telefono, mensaje):
+    """Enviar SMS de confirmación"""
+    # TODO: Implementar lógica de envío de SMS
+    # Usar Twilio SMS (más barato que WhatsApp) u otro servicio
+    print(f"📱 [SIMULADO] SMS enviado a {numero_telefono}: {mensaje[:50]}...")
+    return True
+
+def notificar_cita_agendada(cita, cliente_info):
+    """Notificar al cliente que su cita fue agendada"""
     try:
-        negocio_id = cita['negocio_id']
-        cliente_telefono = cita['cliente_telefono']
+        # Obtener información del negocio
+        negocio = db.obtener_negocio_por_id(cita['negocio_id'])
         
-        # Obtener plantilla de recordatorio
-        plantilla_data = db.obtener_plantilla(negocio_id, 'recordatorio_24h')
-        if not plantilla_data:
-            # Plantilla por defecto si no existe
-            plantilla_texto = '''
-⏰ *RECORDATORIO - {nombre_negocio}*
-
-¡Hola {cliente_nombre}! 
-
-Te recordamos que tienes una cita programada para mañana:
-
-📅 *Fecha:* {fecha}
-⏰ *Hora:* {hora}
-💼 *Servicio:* {servicio_nombre}
-👨‍💼 *Profesional:* {profesional_nombre}
-
-📍 *Dirección:* {direccion}
-📞 *Contacto:* {telefono_contacto}
-
-*Importante:* 
-- Puedes cancelar hasta 2 horas antes
-- Llega 5 minutos antes de tu horario
-
-¡Te esperamos!
-            '''
-        else:
-            plantilla_texto = plantilla_data.get('plantilla', '')
+        # Preparar mensaje
+        fecha_formateada = datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m/%Y')
+        precio_formateado = f"${cita.get('precio', 0):,.0f}".replace(',', '.')
         
-        # Obtener configuración del negocio
-        negocio = db.obtener_negocio_por_id(negocio_id)
-        config = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
+        mensaje = f'''✅ Cita confirmada en {negocio['nombre']}
+
+👤 Cliente: {cita['cliente_nombre']}
+👨‍💼 Profesional: {cita['profesional_nombre']}
+💼 Servicio: {cita['servicio_nombre']}
+💰 Precio: {precio_formateado}
+📅 Fecha: {fecha_formateada}
+⏰ Hora: {cita['hora']}
+🎫 ID: #{cita['id']}
+
+📍 {negocio.get('direccion', 'Dirección no especificada')}
+
+Recibirás recordatorios por correo electrónico.'''
         
-        # Preparar variables para la plantilla
-        variables = {
-            'nombre_negocio': negocio['nombre'],
-            'cliente_nombre': cita['cliente_nombre'] or 'Cliente',
-            'fecha': cita['fecha'],
-            'hora': cita['hora'],
-            'servicio_nombre': cita['servicio_nombre'],
-            'profesional_nombre': cita['profesional_nombre'],
-            'direccion': config.get('direccion', 'Calle Principal #123'),
-            'telefono_contacto': config.get('telefono_contacto', 'No especificado')
-        }
+        # Intentar enviar correo si hay email
+        if cliente_info and cliente_info.get('email'):
+            enviar_correo_confirmacion(cita, cliente_info['email'])
         
-        # Formatear mensaje
-        mensaje_final = plantilla_texto
-        for key, value in variables.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in mensaje_final:
-                mensaje_final = mensaje_final.replace(placeholder, str(value))
+        # Enviar SMS si hay número de teléfono
+        if cita.get('cliente_telefono'):
+            enviar_sms_confirmacion(cita['cliente_telefono'], mensaje)
         
-        # Enviar mensaje
-        enviar_mensaje_whatsapp(cliente_telefono, mensaje_final)
-        
-        print(f"✅ Recordatorio 24h enviado a {cliente_telefono}")
         return True
         
     except Exception as e:
-        print(f"❌ Error enviando recordatorio 24h: {e}")
-        return False
-
-def enviar_recordatorio_1h(cita):
-    """Enviar recordatorio 1 hora antes de la cita"""
-    try:
-        negocio_id = cita['negocio_id']
-        cliente_telefono = cita['cliente_telefono']
-        
-        # Obtener plantilla de recordatorio
-        plantilla_data = db.obtener_plantilla(negocio_id, 'recordatorio_1h')
-        if not plantilla_data:
-            # Plantilla por defecto si no existe
-            plantilla_texto = '''
-🔔 *RECORDATORIO INMEDIATO - {nombre_negocio}*
-
-¡Hola {cliente_nombre}! 
-
-Tu cita es en aproximadamente 1 hora:
-
-⏰ *Hora:* {hora} (hoy)
-💼 *Servicio:* {servicio_nombre}
-👨‍💼 *Profesional:* {profesional_nombre}
-
-📍 *Dirección:* {direccion}
-
-*Recuerda:* 
-- Llega 5 minutos antes
-- Trae todo lo necesario para tu servicio
-
-¡Nos vemos pronto!
-            '''
-        else:
-            plantilla_texto = plantilla_data.get('plantilla', '')
-        
-        # Obtener configuración del negocio
-        negocio = db.obtener_negocio_por_id(negocio_id)
-        config = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
-        
-        # Preparar variables para la plantilla
-        variables = {
-            'nombre_negocio': negocio['nombre'],
-            'cliente_nombre': cita['cliente_nombre'] or 'Cliente',
-            'hora': cita['hora'],
-            'servicio_nombre': cita['servicio_nombre'],
-            'profesional_nombre': cita['profesional_nombre'],
-            'direccion': config.get('direccion', 'Calle Principal #123')
-        }
-        
-        # Formatear mensaje
-        mensaje_final = plantilla_texto
-        for key, value in variables.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in mensaje_final:
-                mensaje_final = mensaje_final.replace(placeholder, str(value))
-        
-        # Enviar mensaje
-        enviar_mensaje_whatsapp(cliente_telefono, mensaje_final)
-        
-        print(f"✅ Recordatorio 1h enviado a {cliente_telefono}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error enviando recordatorio 1h: {e}")
-        return False
-
-def notificar_profesional_nueva_cita(cita):
-    """Notificar al profesional sobre una nueva cita"""
-    try:
-        negocio_id = cita['negocio_id']
-        profesional_id = cita['profesional_id']
-        
-        # Obtener información del profesional
-        profesional = db.obtener_profesional_por_id(profesional_id, negocio_id)
-        if not profesional or not profesional.get('telefono'):
-            return False
-        
-        telefono_profesional = profesional['telefono']
-        
-        # Plantilla de notificación para profesionales
-        plantilla_texto = '''
-📋 *NUEVA CITA AGENDADA*
-
-Tienes una nueva cita programada:
-
-👤 *Cliente:* {cliente_nombre}
-📞 *Teléfono:* {cliente_telefono}
-💼 *Servicio:* {servicio_nombre}
-💰 *Precio:* {precio}
-📅 *Fecha:* {fecha}
-⏰ *Hora:* {hora}
-
-¡Prepárate para atender a tu cliente!
-        '''
-        
-        # Preparar variables
-        variables = {
-            'cliente_nombre': cita['cliente_nombre'] or 'Cliente',
-            'cliente_telefono': cita['cliente_telefono'],
-            'servicio_nombre': cita['servicio_nombre'],
-            'precio': f"${cita['precio']:,.0f}" if cita.get('precio') else 'No especificado',
-            'fecha': cita['fecha'],
-            'hora': cita['hora']
-        }
-        
-        # Formatear mensaje
-        mensaje_final = plantilla_texto
-        for key, value in variables.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in mensaje_final:
-                mensaje_final = mensaje_final.replace(placeholder, str(value))
-        
-        # Enviar mensaje al profesional
-        enviar_mensaje_whatsapp(telefono_profesional, mensaje_final)
-        
-        print(f"✅ Notificación enviada al profesional {profesional['nombre']}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error notificando al profesional: {e}")
+        print(f"❌ Error notificando cita: {e}")
         return False

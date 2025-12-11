@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import secrets
 from datetime import datetime, timedelta
 import database as db
-from whatsapp_handler import whatsapp_bp
+from web_chat_handler import web_chat_bp
 import os
 from dotenv import load_dotenv
 import threading
@@ -16,6 +16,7 @@ from functools import wraps
 from database import get_db_connection
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import uuid 
 
 # Cargar variables de entorno
 load_dotenv()
@@ -84,6 +85,60 @@ def get_redirect_url_by_role(rol):
         return 'profesional_dashboard'
     else:
         return 'login'
+    
+# =============================================================================
+# FUNCIÓN PARA CHAT WEB - AGREGAR ESTO
+# =============================================================================
+
+def obtener_negocio_por_id(negocio_id):
+    """Obtener información del negocio para el chat"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('''
+        SELECT n.*, 
+               COALESCE(c.configuracion, '{}') as config_json
+        FROM negocios n
+        LEFT JOIN (
+            SELECT negocio_id, json_agg(json_build_object(
+                'dia_semana', dia_semana,
+                'activo', activo,
+                'hora_inicio', hora_inicio,
+                'hora_fin', hora_fin,
+                'almuerzo_inicio', almuerzo_inicio,
+                'almuerzo_fin', almuerzo_fin
+            )) as configuracion
+            FROM configuracion_horarios
+            GROUP BY negocio_id
+        ) c ON n.id = c.negocio_id
+        WHERE n.id = %s
+    ''', (negocio_id,))
+    
+    negocio = cursor.fetchone()
+    conn.close()
+    
+    if negocio:
+        # Parsear configuración JSON
+        if negocio.get('config_json'):
+            try:
+                config_parsed = json.loads(negocio['config_json'])
+                negocio['configuracion_horarios'] = config_parsed
+            except:
+                negocio['configuracion_horarios'] = []
+        else:
+            negocio['configuracion_horarios'] = []
+        
+        # Parsear configuración general
+        if negocio.get('configuracion'):
+            try:
+                config_general = json.loads(negocio['configuracion'])
+                negocio['config_general'] = config_general
+            except:
+                negocio['config_general'] = {}
+        else:
+            negocio['config_general'] = {}
+    
+    return negocio
 
 # =============================================================================
 # FILTROS PERSONALIZADOS PARA JINJA2
@@ -114,7 +169,7 @@ def utility_processor():
     return dict(now=now)
 
 # Registrar blueprint de WhatsApp
-app.register_blueprint(whatsapp_bp, url_prefix='/whatsapp')
+app.register_blueprint(web_chat_bp, url_prefix='/web_chat')
 
 # =============================================================================
 # RUTAS BÁSICAS - AGREGAR AL PRINCIPIO
@@ -134,6 +189,67 @@ def health_check():
 def test_simple():
     """Ruta simple sin dependencias"""
     return "✅ Ruta básica OK"
+
+# =============================================================================
+# RUTAS DEL CHAT WEB
+# =============================================================================
+
+@app.route('/cliente/<int:negocio_id>')
+def chat_index(negocio_id):
+    """Página principal del chat web para un negocio."""
+    # Verificar que el negocio exista y esté activo
+    negocio = obtener_negocio_por_id(negocio_id)
+    if not negocio or not negocio['activo']:
+        return "Negocio no disponible", 404
+    
+    # Inicializar sesión de chat si no existe
+    if 'chat_session_id' not in session:
+        session['chat_session_id'] = str(uuid.uuid4())
+        session['negocio_id'] = negocio_id
+        session['chat_step'] = 'inicio'
+        session['datos_agendamiento'] = {}
+    
+    return render_template('cliente/index.html', 
+                          negocio=negocio,
+                          session_id=session['chat_session_id'])
+
+@app.route('/cliente/send', methods=['POST'])
+def chat_send():
+    """Recibir mensaje del usuario en el chat web."""
+    try:
+        data = request.json
+        user_message = data.get('message', '').strip()
+        session_id = data.get('session_id')
+        negocio_id = data.get('negocio_id')
+        
+        if not user_message:
+            return jsonify({'error': 'Mensaje vacío'}), 400
+        
+        # Importar aquí para evitar dependencia circular
+        from web_chat_handler import procesar_mensaje_chat
+        response = procesar_mensaje_chat(
+            user_message=user_message,
+            session_id=session_id,
+            negocio_id=negocio_id,
+            session=session
+        )
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"❌ Error en chat_send: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'message': '❌ Ocurrió un error al procesar tu mensaje. Por favor, intenta de nuevo.',
+            'step': 'error'
+        })
+
+@app.route('/cliente/reset', methods=['POST'])
+def chat_reset():
+    """Reiniciar la sesión del chat."""
+    session.clear()
+    return jsonify({'status': 'sesion_reiniciada'})
 
 # =============================================================================
 # FUNCIONES PARA GESTIÓN DE PROFESIONALES
@@ -3028,216 +3144,6 @@ def debug_session():
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
-
-@app.route('/debug/passwords')
-def debug_passwords():
-    """Ruta simple para ver estado de contraseñas"""
-    try:
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id, email, password_hash, nombre FROM usuarios")
-        usuarios = cursor.fetchall()
-        conn.close()
-        
-        resultados = []
-        
-        for usuario in usuarios:
-            # Acceder correctamente a los valores según el tipo de cursor
-            if hasattr(usuario, 'keys'):  # Es un diccionario (RealDictCursor)
-                usuario_id = usuario['id']
-                email = usuario['email']
-                password_hash = usuario['password_hash']
-                nombre = usuario['nombre']
-            else:  # Es una tupla
-                usuario_id = usuario[0]
-                email = usuario[1]
-                password_hash = usuario[2]
-                nombre = usuario[3]
-            
-            if not password_hash:
-                estado = "❌ VACÍA"
-            elif password_hash.startswith('pbkdf2:sha256:'):
-                estado = "✅ WERKZEUG"
-            elif len(password_hash) == 64:  # SHA256 tiene 64 caracteres
-                estado = "🔐 SHA256"
-            elif len(password_hash) < 60:
-                estado = "🔓 TEXTO PLANO"
-            else:
-                estado = "❓ DESCONOCIDO"
-            
-            resultados.append(f"{estado} - {email}: {password_hash[:30]}...")
-        
-        return f"""
-        <h1>🔧 Estado de Contraseñas</h1>
-        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
-        <hr>
-        <pre>{chr(10).join(resultados)}</pre>
-        <hr>
-        <p><strong>Para resetear contraseñas:</strong></p>
-        <p><code>/debug/reset-all-passwords?key=reset2024</code></p>
-        """
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-@app.route('/debug/reset-all-passwords')
-def debug_reset_all_passwords():
-    """Resetear todas las contraseñas a '123456' usando SHA256"""
-    try:
-        # Clave simple de seguridad
-        auth_key = request.args.get('key', '')
-        if auth_key != 'reset2024':
-            return "❌ No autorizado. Usa: /debug/reset-all-passwords?key=reset2024"
-        
-        import hashlib
-        
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id, email, password_hash, nombre FROM usuarios")
-        usuarios = cursor.fetchall()
-        
-        resultados = []
-        actualizados = 0
-        
-        for usuario in usuarios:
-            # Acceder correctamente a los valores
-            if hasattr(usuario, 'keys'):  # Es un diccionario
-                usuario_id = usuario['id']
-                email = usuario['email']
-                nombre = usuario['nombre']
-            else:  # Es una tupla
-                usuario_id = usuario[0]
-                email = usuario[1]
-                nombre = usuario[3]
-            
-            # Generar hash SHA256 de '123456'
-            nueva_password = "123456"
-            nuevo_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
-            
-            # Actualizar contraseña - usar parámetros correctamente
-            cursor.execute(
-                "UPDATE usuarios SET password_hash = %s WHERE id = %s",
-                (nuevo_hash, usuario_id)
-            )
-            
-            actualizados += 1
-            resultados.append(f"✅ {email}: Reset a '123456'")
-        
-        conn.commit()
-        conn.close()
-        
-        return f"""
-        <h1>✅ Contraseñas Reseteadas</h1>
-        <p><strong>Total usuarios:</strong> {len(usuarios)}</p>
-        <p><strong>Contraseñas actualizadas:</strong> {actualizados}</p>
-        <hr>
-        <h3>Resultados:</h3>
-        <pre>{chr(10).join(resultados)}</pre>
-        <hr>
-        <p><strong>Todas las contraseñas ahora son: 123456</strong></p>
-        <p><a href="/login">→ Ir al login</a></p>
-        """
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-@app.route('/debug/reset-user-password/<int:usuario_id>')
-def debug_reset_user_password(usuario_id):
-    """Resetear contraseña de un usuario específico"""
-    try:
-        # Clave simple de seguridad
-        auth_key = request.args.get('key', '')
-        if auth_key != 'reset2024':
-            return "❌ No autorizado. Usa: /debug/reset-user-password/USUARIO_ID?key=reset2024"
-        
-        import hashlib
-        
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        # Verificar que el usuario existe
-        cursor.execute("SELECT email, nombre, password_hash FROM usuarios WHERE id = %s", (usuario_id,))
-        usuario = cursor.fetchone()
-        
-        if not usuario:
-            conn.close()
-            return f"❌ Usuario {usuario_id} no encontrado"
-        
-        # Acceder correctamente a los valores
-        if hasattr(usuario, 'keys'):  # Es un diccionario
-            email = usuario['email']
-            nombre = usuario['nombre']
-            password_hash_anterior = usuario['password_hash']
-        else:  # Es una tupla
-            email = usuario[0]
-            nombre = usuario[1]
-            password_hash_anterior = usuario[2]
-        
-        # Generar hash SHA256 de '123456'
-        nueva_password = "123456"
-        nuevo_hash = hashlib.sha256(nueva_password.encode()).hexdigest()
-        
-        # Actualizar contraseña
-        cursor.execute(
-            "UPDATE usuarios SET password_hash = %s WHERE id = %s",
-            (nuevo_hash, usuario_id)
-        )
-        
-        conn.commit()
-        conn.close()
-        
-        return f"""
-        <h1>✅ Contraseña Reseteada</h1>
-        <p><strong>Usuario:</strong> {nombre} ({email})</p>
-        <p><strong>Nueva contraseña:</strong> 123456</p>
-        <p><strong>Hash anterior:</strong> {password_hash_anterior[:30]}...</p>
-        <p><strong>Hash nuevo:</strong> {nuevo_hash}</p>
-        <hr>
-        <p><a href="/debug/passwords">← Volver al estado</a></p>
-        """
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-@app.route('/debug/test-login')
-def debug_test_login():
-    """Probar login con un usuario específico"""
-    try:
-        email = request.args.get('email', 'admin@negociobot.com')
-        password = request.args.get('password', 'admin123')
-        
-        # Usar la función de verificación de la base de datos
-        usuario = db.verificar_usuario(email, password)
-        
-        if usuario:
-            return f"""
-            <h1>✅ Login Exitoso</h1>
-            <p><strong>Usuario:</strong> {usuario['nombre']}</p>
-            <p><strong>Email:</strong> {usuario['email']}</p>
-            <p><strong>Rol:</strong> {usuario['rol']}</p>
-            <p><strong>Negocio:</strong> {usuario['negocio_nombre']}</p>
-            <hr>
-            <p><a href="/login">→ Ir al login normal</a></p>
-            """
-        else:
-            return f"""
-            <h1>❌ Login Fallido</h1>
-            <p><strong>Email:</strong> {email}</p>
-            <p><strong>Contraseña:</strong> {password}</p>
-            <hr>
-            <p>Posibles problemas:</p>
-            <ul>
-                <li>Usuario no existe</li>
-                <li>Contraseña incorrecta</li>
-                <li>Usuario inactivo</li>
-            </ul>
-            <p><a href="/debug/passwords">← Ver estado de contraseñas</a></p>
-            """
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
 # =============================================================================
 # INICIALIZACIÓN - EJECUTAR SIEMPRE
