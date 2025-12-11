@@ -1221,7 +1221,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico - VERSIÓN ORIGINAL SIMPLE"""
+    """Obtener horarios para un día específico - VERSIÓN CORREGIDA"""
     try:
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
@@ -1240,18 +1240,26 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         conn.close()
         
         if result:
+            # ✅ CONVERTIR datetime.time a strings
+            def time_to_str(time_obj):
+                if not time_obj:
+                    return None
+                if hasattr(time_obj, 'strftime'):  # Es datetime.time
+                    return time_obj.strftime('%H:%M')
+                return str(time_obj)
+            
             return {
                 'activo': bool(result['activo']),
-                'hora_inicio': result['hora_inicio'],
-                'hora_fin': result['hora_fin'],
-                'almuerzo_inicio': result['almuerzo_inicio'],
-                'almuerzo_fin': result['almuerzo_fin']
+                'hora_inicio': time_to_str(result['hora_inicio']) or '09:00',
+                'hora_fin': time_to_str(result['hora_fin']) or '19:00',
+                'almuerzo_inicio': time_to_str(result['almuerzo_inicio']),
+                'almuerzo_fin': time_to_str(result['almuerzo_fin'])
             }
         else:
             return {
                 'activo': False,
                 'hora_inicio': '09:00',
-                'hora_fin': '18:00',
+                'hora_fin': '19:00',
                 'almuerzo_inicio': None,
                 'almuerzo_fin': None
             }
@@ -1261,11 +1269,10 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         return {
             'activo': False,
             'hora_inicio': '09:00',
-            'hora_fin': '18:00',
+            'hora_fin': '19:00',
             'almuerzo_inicio': None,
             'almuerzo_fin': None
         }
-
 
 
 def obtener_configuracion_horarios(negocio_id):
