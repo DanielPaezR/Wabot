@@ -465,7 +465,7 @@ def saludo_inicial(numero, negocio_id):
         return "¡Hola! 👋 Para comenzar, ¿cuál es tu nombre?"
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - SOLO TEXTO"""
+    """Mostrar lista de profesionales disponibles - VERSIÓN SIMPLE CORREGIDA"""
     try:
         profesionales = db.obtener_profesionales(negocio_id)
         
@@ -480,13 +480,23 @@ def mostrar_profesionales(numero, negocio_id):
         if not profesionales:
             return "❌ No hay profesionales disponibles en este momento."
         
-        # Guardar en conversación activa
         clave_conversacion = f"{numero}_{negocio_id}"
-        conversaciones_activas[clave_conversacion] = {
+        
+        # ✅ CORRECCIÓN: NO sobreescribir toda la conversación
+        if clave_conversacion not in conversaciones_activas:
+            conversaciones_activas[clave_conversacion] = {}
+        
+        # ✅ Actualizar solo lo necesario
+        conversaciones_activas[clave_conversacion].update({
             'estado': 'seleccionando_profesional',
             'profesionales': profesionales,
             'timestamp': datetime.now()
-        }
+        })
+        
+        print(f"✅ [DEBUG] Datos preservados en mostrar_profesionales:")
+        for key, value in conversaciones_activas[clave_conversacion].items():
+            if key not in ['estado', 'profesionales', 'timestamp']:
+                print(f"   - {key}: {value}")
         
         return "👨‍💼 **Selecciona un profesional:**"
         
