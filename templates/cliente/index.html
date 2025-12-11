@@ -431,7 +431,7 @@
             }
             
             // Agregar mensaje del bot con opciones del backend
-            function addBotMessage(message, options = null) {
+            function addBotMessage(message, options = null, pagination = null) {
                 let messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
@@ -444,6 +444,12 @@
                 // Si el backend envió opciones, mostrarlas como botones
                 if (options && options.length > 0) {
                     mostrarOpciones(options);
+                }
+                
+                // Mostrar información de paginación si existe
+                if (pagination) {
+                    const paginationHtml = `<div class="pagination-info">${pagination}</div>`;
+                    chatMessages.append(paginationHtml);
                 }
                 
                 scrollToBottom();
@@ -548,7 +554,7 @@
                         $('#chatMessages').data('current-step', response.step);
                         
                         // Mostrar respuesta del bot con opciones si las hay
-                        addBotMessage(response.message, response.options);
+                        addBotMessage(response.message, response.options, response.pagination);
                     },
                     error: function(xhr, status, error) {
                         hideTypingIndicator();

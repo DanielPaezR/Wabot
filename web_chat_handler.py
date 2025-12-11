@@ -183,6 +183,9 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
             opciones_extra = generar_opciones_fechas(numero, negocio_id)
         elif paso_actual == 'agendando_hora':
             opciones_extra = generar_opciones_horarios(numero, negocio_id)
+            # Agregar información de paginación al mensaje si existe
+            if clave_conversacion in conversaciones_activas and 'info_paginacion' in conversaciones_activas[clave_conversacion]:
+                respuesta['pagination'] = conversaciones_activas[clave_conversacion]['info_paginacion']
         elif paso_actual == 'confirmando_cita':
             opciones_extra = generar_opciones_confirmacion()
         elif paso_actual == 'menu_principal':
@@ -327,7 +330,7 @@ def generar_opciones_fechas(numero, negocio_id):
     return opciones
 
 def generar_opciones_horarios(numero, negocio_id):
-    """Generar opciones de horarios para botones del chat web"""
+    """Generar opciones de horarios para botones del chat web - CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'todos_horarios' not in conversaciones_activas[clave_conversacion]:
@@ -343,40 +346,42 @@ def generar_opciones_horarios(numero, negocio_id):
     horarios_pagina = horarios_disponibles[inicio:fin]
     
     opciones = []
+    
+    # Agregar opciones de horarios
     for i, hora in enumerate(horarios_pagina, 1):
         opciones.append({
             'value': str(i),
-            'text': hora
+            'text': f"{hora}"
         })
     
-    # Agregar opciones de navegación
+    # Agregar opciones de navegación como elementos adicionales del array
     total_paginas = (len(horarios_disponibles) + horarios_por_pagina - 1) // horarios_por_pagina
     pagina_actual = pagina + 1
     
-    opciones_navegacion = []
+    # Solo agregar navegación si hay múltiples páginas
+    if total_paginas > 1:
+        if pagina_actual < total_paginas:
+            opciones.append({
+                'value': '9',
+                'text': '➡️ Siguiente página'
+            })
+        
+        if pagina > 0:
+            opciones.append({
+                'value': '8',
+                'text': '⬅️ Página anterior'
+            })
     
-    if pagina_actual < total_paginas:
-        opciones_navegacion.append({
-            'value': '9',
-            'text': '➡️ Siguiente página'
-        })
-    
-    if pagina > 0:
-        opciones_navegacion.append({
-            'value': '8',
-            'text': '⬅️ Página anterior'
-        })
-    
-    opciones_navegacion.append({
+    # Siempre agregar opción para cambiar fecha
+    opciones.append({
         'value': '7',
         'text': '📅 Cambiar fecha'
     })
     
-    return {
-        'horarios': opciones,
-        'navegacion': opciones_navegacion,
-        'paginacion': f'Página {pagina_actual} de {total_paginas}'
-    }
+    # Guardar información de paginación en la conversación para referencia
+    conversaciones_activas[clave_conversacion]['info_paginacion'] = f'Página {pagina_actual} de {total_paginas}'
+    
+    return opciones  # Devuelve un array simple, no un objeto
 
 def generar_opciones_confirmacion():
     """Generar opciones de confirmación para botones del chat web"""
