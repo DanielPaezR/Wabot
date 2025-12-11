@@ -2861,7 +2861,7 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CORRECTA"""
+    """API para obtener horarios disponibles - VERSIÓN CORREGIDA"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -2874,16 +2874,17 @@ def api_horarios_disponibles():
         
         # Obtener negocio_id del profesional
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Obtener negocio_id del profesional
+        # ✅ CORRECCIÓN: Acceder correctamente cuando se usa RealDictCursor
         cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
         profesional = cursor.fetchone()
         if not profesional:
             conn.close()
             return jsonify({'error': 'Profesional no encontrado'}), 404
         
-        negocio_id = profesional[0]
+        # Acceder al valor usando clave de diccionario, no índice
+        negocio_id = profesional['negocio_id']
         
         # Obtener duración del servicio
         cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
@@ -2893,7 +2894,7 @@ def api_horarios_disponibles():
             conn.close()
             return jsonify({'error': 'Servicio no encontrado'}), 404
         
-        duracion_minutos = servicio[0]
+        duracion_minutos = servicio['duracion']
         print(f"🔍 Duración del servicio: {duracion_minutos} minutos, Negocio ID: {negocio_id}")
         
         # ✅ CORRECCIÓN: Usar la función obtener_horarios_por_dia para obtener la configuración REAL
@@ -2935,7 +2936,8 @@ def api_horarios_disponibles():
             ORDER BY hora
         ''', (profesional_id, fecha))
         
-        citas_ocupadas = [cita[0] for cita in cursor.fetchall()]
+        citas_ocupadas_result = cursor.fetchall()
+        citas_ocupadas = [cita['hora'] for cita in citas_ocupadas_result]
         print(f"🔍 Citas ocupadas: {citas_ocupadas}")
         
         conn.close()
