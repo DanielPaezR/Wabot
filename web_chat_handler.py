@@ -1444,3 +1444,38 @@ Recibirás recordatorios por correo electrónico.'''
     except Exception as e:
         print(f"❌ Error notificando cita: {e}")
         return False
+
+# =============================================================================
+# FUNCIONES PARA RECORDATORIOS (MIGRADAS DESDE WHATSAPP_HANDLER)
+# =============================================================================
+
+def enviar_recordatorio_24h(cita):
+    """Enviar recordatorio 24 horas antes de la cita - VERSIÓN PARA WEB CHAT"""
+    try:
+        # Esta función ahora debe enviar correo o SMS, no WhatsApp
+        print(f"🔔 [WEB CHAT] Recordatorio 24h para cita #{cita.get('id')}")
+        print(f"   Cliente: {cita.get('cliente_nombre')}")
+        print(f"   Fecha: {cita.get('fecha')} {cita.get('hora')}")
+        
+        # TODO: Implementar envío de correo/SMS aquí
+        # Por ahora solo registramos en consola
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error enviando recordatorio 24h: {e}")
+        return False
+
+def enviar_recordatorio_1h(cita):
+    """Enviar recordatorio 1 hora antes de la cita - VERSIÓN PARA WEB CHAT"""
+    try:
+        print(f"🔔 [WEB CHAT] Recordatorio 1h para cita #{cita.get('id')}")
+        print(f"   Cliente: {cita.get('cliente_nombre')}")
+        print(f"   Hora: {cita.get('hora')} (hoy)")
+        
+        # TODO: Implementar envío de correo/SMS aquí
+        # Por ahora solo registramos en consola
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error enviando recordatorio 1h: {e}")
+        return False

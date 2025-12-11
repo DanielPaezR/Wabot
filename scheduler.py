@@ -3,7 +3,7 @@ import schedule
 import time
 import threading
 from datetime import datetime
-from whatsapp_handler import enviar_recordatorio_24h, enviar_recordatorio_1h
+from web_chat_handler import enviar_recordatorio_24h, enviar_recordatorio_1h
 import database as db
 
 def verificar_recordatorios():
