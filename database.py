@@ -1221,7 +1221,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico - VERSIÓN CORREGIDA"""
+    """Obtener horarios para un día específico - VERSIÓN CORREGIDA PARA POSTGRESQL"""
     try:
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
@@ -1231,12 +1231,14 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         dia_semana_bd = dia_semana_real + 1  # 0→1, 1→2, ..., 6→7
         
         conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)  # ✅ Usar RealDictCursor
         sql = '''
             SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
             FROM configuracion_horarios
-            WHERE negocio_id = ? AND dia_semana = ?
+            WHERE negocio_id = %s AND dia_semana = %s
         '''
-        result = fetch_one(conn.cursor(), sql, (negocio_id, dia_semana_bd))
+        cursor.execute(sql, (negocio_id, dia_semana_bd))  # ✅ Usar execute directo
+        result = cursor.fetchone()
         conn.close()
         
         if result:
