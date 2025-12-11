@@ -251,6 +251,38 @@ def chat_reset():
     session.clear()
     return jsonify({'status': 'sesion_reiniciada'})
 
+@app.route('/cliente/guardar-telefono', methods=['POST'])
+def guardar_telefono_cliente():
+    """Guardar teléfono del cliente para notificaciones"""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        negocio_id = data.get('negocio_id')
+        telefono = data.get('telefono')
+        
+        if not all([session_id, negocio_id, telefono]):
+            return jsonify({'error': 'Datos incompletos'}), 400
+        
+        # Guardar en la base de datos
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO cliente_telefonos (session_id, negocio_id, telefono, created_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (session_id, negocio_id) 
+            DO UPDATE SET telefono = %s, updated_at = NOW()
+        ''', (session_id, negocio_id, telefono, telefono))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"❌ Error guardando teléfono: {e}")
+        return jsonify({'error': 'Error interno'}), 500
+
 # =============================================================================
 # FUNCIONES PARA GESTIÓN DE PROFESIONALES
 # =============================================================================
