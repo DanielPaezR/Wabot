@@ -3016,6 +3016,16 @@ def test_horarios():
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
+@app.route('/corregir-horarios-almuerzo')
+def corregir_horarios_route():
+    """Ruta para corregir horarios de almuerzo mal configurados"""
+    try:
+        from database import corregir_horarios_almuerzo_mal_configurados
+        corregir_horarios_almuerzo_mal_configurados()
+        return "✅ Horarios de almuerzo corregidos exitosamente"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 @app.route('/debug-session')
 def debug_session():
     """Debug de la sesión actual"""
