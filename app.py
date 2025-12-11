@@ -3092,10 +3092,7 @@ def api_horarios_disponibles():
             return jsonify({'error': 'Parámetros incompletos'}), 400
         
         # ✅ CORRECCIÓN: Configurar zona horaria de Colombia
-        # Definir la zona horaria de Colombia
         tz_colombia = pytz.timezone('America/Bogota')
-        
-        # Obtener fecha y hora ACTUAL en Colombia
         fecha_actual_colombia = datetime.now(tz_colombia)
         
         print(f"🔍 Hora UTC del servidor: {datetime.utcnow()}")
@@ -3113,7 +3110,6 @@ def api_horarios_disponibles():
         
         negocio_id = profesional['negocio_id']
         
-        # Obtener duración del servicio
         cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
         servicio = cursor.fetchone()
         
@@ -3124,7 +3120,6 @@ def api_horarios_disponibles():
         duracion_minutos = servicio['duracion']
         print(f"🔍 Duración del servicio: {duracion_minutos} minutos, Negocio ID: {negocio_id}")
         
-        # Obtener configuración de horarios
         horarios_config = db.obtener_horarios_por_dia(negocio_id, fecha)
         print(f"🔍 Configuración de horarios obtenida: {horarios_config}")
         
@@ -3132,7 +3127,6 @@ def api_horarios_disponibles():
             conn.close()
             return jsonify({'error': 'El negocio no trabaja este día'}), 400
         
-        # Obtener horarios de la configuración
         hora_inicio_str = horarios_config['hora_inicio']
         hora_fin_str = horarios_config['hora_fin']
         almuerzo_inicio_str = horarios_config.get('almuerzo_inicio')
@@ -3140,7 +3134,6 @@ def api_horarios_disponibles():
         
         print(f"🔍 Horario configurado: {hora_inicio_str} a {hora_fin_str}, Almuerzo: {almuerzo_inicio_str} a {almuerzo_fin_str}")
         
-        # ✅ CORRECCIÓN: Usar fecha/hora de Colombia
         fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d').date()
         es_hoy = fecha_solicitada == fecha_actual_colombia.date()
         
@@ -3149,15 +3142,13 @@ def api_horarios_disponibles():
         print(f"🔍 ¿Es hoy en Colombia?: {es_hoy}")
         print(f"🔍 Hora actual en Colombia: {fecha_actual_colombia.strftime('%H:%M')}")
         
-        # ✅ CORRECCIÓN: Si es HOY, verificar si ya pasó la hora de cierre EN COLOMBIA
+        # ✅ CORRECCIÓN: Si es HOY, verificar si ya pasó la hora de cierre
         if es_hoy:
-            # Crear datetime para la hora de cierre de HOY en Colombia
             hora_fin_hoy_colombia = tz_colombia.localize(
                 datetime.combine(fecha_solicitada, datetime.strptime(hora_fin_str, '%H:%M').time())
             )
             print(f"🔍 Hora de cierre hoy en Colombia: {hora_fin_hoy_colombia.strftime('%Y-%m-%d %H:%M')}")
             
-            # Si ya pasó la hora de cierre en Colombia, NO hay horarios
             if fecha_actual_colombia >= hora_fin_hoy_colombia:
                 print(f"⏰ EL NEGOCIO YA CERRÓ HOY EN COLOMBIA ({hora_fin_str}). No hay horarios disponibles.")
                 conn.close()
@@ -3166,11 +3157,10 @@ def api_horarios_disponibles():
                     'mensaje': f'El negocio ya cerró hoy a las {hora_fin_str}. No hay horarios disponibles para hoy.'
                 })
         
-        # Convertir strings a datetime para cálculos (sin zona horaria para cálculos internos)
+        # Convertir strings a datetime para cálculos
         hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
         hora_fin = datetime.strptime(hora_fin_str, '%H:%M')
         
-        # Convertir horario de almuerzo si existe
         almuerzo_inicio = None
         almuerzo_fin = None
         if almuerzo_inicio_str and almuerzo_fin_str:
@@ -3195,9 +3185,9 @@ def api_horarios_disponibles():
         
         conn.close()
         
-        # ✅ CORRECCIÓN: Si es HOY, usar hora de Colombia
+        # ✅ CORRECCIÓN: Si es HOY, empezar desde la hora actual + margen
         if es_hoy:
-            # Calcular la hora mínima para agendar (hora actual Colombia + 30 minutos)
+            # Calcular la hora mínima para agendar (hora actual + 30 minutos)
             hora_minima_colombia = fecha_actual_colombia + timedelta(minutes=30)
             hora_minima_time = hora_minima_colombia.time()
             
@@ -3212,15 +3202,32 @@ def api_horarios_disponibles():
                     'mensaje': 'No hay horarios disponibles para hoy en el horario laboral restante.'
                 })
             
-            # Ajustar hora_actual para que empiece desde la hora mínima en Colombia
+            # ✅ CORRECCIÓN: Redondear correctamente a intervalos de 30 minutos
             hora_minima_dt = datetime.combine(fecha_solicitada, hora_minima_time)
             hora_inicio_dt = datetime.combine(fecha_solicitada, hora_inicio.time())
             
             hora_actual = max(hora_minima_dt, hora_inicio_dt)
-            # Redondear a intervalos de 30 minutos
+            
+            # ✅ CORRECCIÓN DEL ERROR: Redondear minutos correctamente
             minutos = hora_actual.minute
             if minutos % 30 != 0:
-                hora_actual = hora_actual.replace(minute=((minutos // 30) + 1) * 30, second=0, microsecond=0)
+                # Calcular los minutos redondeados
+                minutos_redondeados = ((minutos // 30) + 1) * 30
+                
+                # ✅ CORRECCIÓN: Si minutos_redondeados es 60, ajustar a 0 y sumar 1 hora
+                if minutos_redondeados == 60:
+                    hora_actual = hora_actual.replace(
+                        hour=hora_actual.hour + 1,
+                        minute=0,
+                        second=0,
+                        microsecond=0
+                    )
+                else:
+                    hora_actual = hora_actual.replace(
+                        minute=minutos_redondeados,
+                        second=0,
+                        microsecond=0
+                    )
             
             print(f"🔍 Hora actual ajustada para hoy (Colombia): {hora_actual.strftime('%H:%M')}")
         else:
@@ -3269,13 +3276,8 @@ def api_horarios_disponibles():
                 if not ocupado:
                     # ✅ CORRECCIÓN: Si es HOY, verificar margen con hora de Colombia
                     if es_hoy:
-                        # Crear datetime del horario en Colombia
                         horario_colombia = tz_colombia.localize(hora_actual)
-                        
-                        # Calcular tiempo hasta el horario
                         tiempo_hasta_horario = horario_colombia - fecha_actual_colombia
-                        
-                        # MARGEN MÍNIMO: 30 minutos
                         margen_minimo = 30 * 60  # segundos
                         
                         if tiempo_hasta_horario.total_seconds() < margen_minimo:
@@ -3284,7 +3286,6 @@ def api_horarios_disponibles():
                             intervalos_disponibles.append(hora_str)
                             print(f"✅ Horario {hora_str} DISPONIBLE (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
                     else:
-                        # Para días futuros, todos los horarios son válidos
                         intervalos_disponibles.append(hora_str)
                         print(f"✅ Horario {hora_str} DISPONIBLE (día futuro)")
             
