@@ -403,10 +403,13 @@
             function addUserMessage(message) {
                 if (!message.trim()) return;
                 
+                // Convertir saltos de línea en <br> para HTML
+                const messageWithLineBreaks = message.replace(/\n/g, '<br>');
+                
                 const messageHtml = `
                     <div class="message user-message">
                         <strong><i class="fas fa-user"></i> Tú:</strong><br>
-                        ${message}
+                        ${messageWithLineBreaks}
                     </div>
                 `;
                 chatMessages.append(messageHtml);
@@ -415,10 +418,13 @@
             
             // Agregar mensaje del bot con opciones del backend
             function addBotMessage(message, options = null, pagination = null) {
+                // Convertir saltos de línea en <br> para HTML
+                const messageWithLineBreaks = message.replace(/\n/g, '<br>');
+                
                 let messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
-                        ${message}
+                        ${messageWithLineBreaks}
                     </div>
                 `;
                 

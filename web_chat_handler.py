@@ -829,19 +829,25 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
                 fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 
-                mensaje_confirmacion = f'''✅ **Cita confirmada**
+                nombre_cliente_formateado = nombre_cliente.title()
 
-Hola *{nombre_cliente}*, tu cita ha sido agendada:
+                mensaje_confirmacion = f'''✅ **Cita Confirmada**
 
-👨‍💼 **Profesional:** {profesional_nombre}
-💼 **Servicio:** {servicio_nombre}
-💰 **Precio:** {precio_formateado}
-📅 **Fecha:** {fecha_formateada}
-⏰ **Hora:** {hora}
-🎫 **ID:** #{cita_id}
-📱 **Teléfono registrado:** {telefono}
+Hola *{nombre_cliente_formateado}*, 
 
-Recibirás recordatorios por mensaje. ¡Te esperamos!'''
+Tu cita ha sido agendada exitosamente:
+
+• **Profesional:** {profesional_nombre}
+• **Servicio:** {servicio_nombre}  
+• **Precio:** {precio_formateado}
+• **Fecha:** {fecha_formateada}
+• **Hora:** {hora}
+• **ID de cita:** #{cita_id}
+• **Teléfono:** {telefono}
+
+Recibirás recordatorios por mensaje antes de tu cita.
+
+¡Te esperamos!'''
                 
                 return mensaje_confirmacion
             else:
