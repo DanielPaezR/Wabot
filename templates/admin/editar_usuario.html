@@ -27,6 +27,50 @@
         .strength-medium { background-color: #ffc107; width: 50%; }
         .strength-strong { background-color: #198754; width: 75%; }
         .strength-very-strong { background-color: #198754; width: 100%; }
+        
+        /* Estilos personalizados para compatibilidad */
+        .role-info {
+            background: #e3f2fd;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .role-info h3 {
+            color: #1976d2;
+            margin-bottom: 0.5rem;
+        }
+        
+        .role-desc {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .conditional-field {
+            display: none;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            border-left: 4px solid #6c757d;
+        }
+        
+        .optional-field {
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+        
+        .password-requirements {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: #856404;
+        }
     </style>
 </head>
 <body>
@@ -92,6 +136,15 @@
 
                 <div class="card">
                     <div class="card-body">
+                        <div class="role-info">
+                            <h3><i class="fas fa-info-circle"></i> Información de Roles</h3>
+                            <div class="role-desc">
+                                <strong>👑 Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema.<br>
+                                <strong>💼 Propietario:</strong> Gestiona su propio negocio, citas, estadísticas y configuración.<br>
+                                <strong>👨‍💼 Profesional:</strong> Acceso limitado a sus citas del día y funciones básicas.
+                            </div>
+                        </div>
+
                         <form method="POST" id="userForm">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             
@@ -99,19 +152,20 @@
                             <h5 class="mb-3 text-primary">
                                 <i class="fas fa-user-circle"></i> Información Básica
                             </h5>
+                            
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="nombre" class="form-label">Nombre</label>
+                                        <label for="nombre" class="form-label">Nombre Completo *</label>
                                         <input type="text" class="form-control" id="nombre" name="nombre" 
-                                               value="{{ usuario.nombre }}" required>
+                                               value="{{ usuario.nombre }}" required placeholder="Ej: Juan Pérez">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="email" class="form-label">Email</label>
+                                        <label for="email" class="form-label">Email *</label>
                                         <input type="email" class="form-control" id="email" name="email" 
-                                               value="{{ usuario.email }}" required>
+                                               value="{{ usuario.email }}" required placeholder="Ej: juan@ejemplo.com">
                                     </div>
                                 </div>
                             </div>
@@ -119,24 +173,26 @@
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="mb-3">
-                                        <label for="rol" class="form-label">Rol</label>
-                                        <select class="form-select" id="rol" name="rol" required>
-                                            <option value="propietario" {% if usuario.rol == 'propietario' %}selected{% endif %}>Propietario</option>
-                                            <option value="profesional" {% if usuario.rol == 'profesional' %}selected{% endif %}>Profesional</option>
-                                            <option value="superadmin" {% if usuario.rol == 'superadmin' %}selected{% endif %}>Super Admin</option>
+                                        <label for="rol" class="form-label">Rol *</label>
+                                        <select class="form-select" id="rol" name="rol" required onchange="toggleNegocioField()">
+                                            <option value="propietario" {% if usuario.rol == 'propietario' %}selected{% endif %}>💼 Propietario</option>
+                                            <option value="profesional" {% if usuario.rol == 'profesional' %}selected{% endif %}>👨‍💼 Profesional</option>
+                                            <option value="superadmin" {% if usuario.rol == 'superadmin' %}selected{% endif %}>👑 Super Admin</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="negocio_id" class="form-label">Negocio</label>
-                                        <select class="form-select" id="negocio_id" name="negocio_id" required>
+                                        <select class="form-select" id="negocio_id" name="negocio_id">
+                                            <option value="">Selecciona un negocio</option>
                                             {% for negocio in negocios %}
-                                                <option value="{{ negocio[0] }}" {% if usuario.negocio_id == negocio[0] %}selected{% endif %}>
-                                                    {{ negocio[1] }}
+                                                <option value="{{ negocio.id }}" {% if usuario.negocio_id == negocio.id %}selected{% endif %}>
+                                                    {{ negocio.nombre }}
                                                 </option>
                                             {% endfor %}
                                         </select>
+                                        <div class="optional-field">Opcional para Super Admin</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -153,6 +209,35 @@
                                 </div>
                             </div>
 
+                            <!-- Campos específicos para Profesional -->
+                            <div id="profesionalFields" class="conditional-field">
+                                <h4 style="margin-bottom: 1rem; color: #2c3e50;">👨‍💼 Información del Profesional</h4>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="especialidad" class="form-label">Especialidad</label>
+                                            <input type="text" class="form-control" id="especialidad" name="especialidad" 
+                                                   value="{{ usuario.especialidad or '' }}" placeholder="Ej: Corte de Cabello, Manicure, Masajes">
+                                            <div class="optional-field">Opcional - Describe la especialidad del profesional</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="telefono" class="form-label">Teléfono de Contacto</label>
+                                            <input type="text" class="form-control" id="telefono" name="telefono" 
+                                                   value="{{ usuario.telefono or '' }}" placeholder="Ej: +57 300 123 4567">
+                                            <div class="optional-field">Opcional - Para contacto interno</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="profesionalInfo" class="conditional-field">
+                                <strong>💡 Información para Profesional:</strong><br>
+                                El profesional podrá acceder al sistema con su email y contraseña.
+                            </div>
+
                             <!-- Cambio de Contraseña -->
                             <div class="mt-4 p-3 password-section">
                                 <h5 class="mb-3 text-primary">
@@ -166,7 +251,16 @@
                                     </small>
                                 </div>
 
-                                <div class="row">
+                                <div class="password-requirements">
+                                    <strong>Requisitos de contraseña:</strong>
+                                    <ul class="mb-0">
+                                        <li>Mínimo 6 caracteres</li>
+                                        <li>Se recomienda usar letras y números</li>
+                                        <li>Evita contraseñas muy simples</li>
+                                    </ul>
+                                </div>
+
+                                <div class="row mt-3">
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label for="nueva_password" class="form-label">Nueva Contraseña</label>
@@ -235,6 +329,32 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Función para mostrar/ocultar campos según el rol
+        function toggleNegocioField() {
+            const rol = document.getElementById('rol').value;
+            const negocioField = document.getElementById('negocio_id');
+            const profesionalFields = document.getElementById('profesionalFields');
+            const profesionalInfo = document.getElementById('profesionalInfo');
+            
+            if (rol === 'superadmin') {
+                negocioField.required = false;
+                negocioField.disabled = true;
+                negocioField.value = '';
+            } else {
+                negocioField.required = true;
+                negocioField.disabled = false;
+            }
+            
+            // Mostrar/ocultar campos específicos para profesionales
+            if (rol === 'profesional') {
+                profesionalFields.style.display = 'block';
+                profesionalInfo.style.display = 'block';
+            } else {
+                profesionalFields.style.display = 'none';
+                profesionalInfo.style.display = 'none';
+            }
+        }
+
         // Toggle para mostrar/ocultar contraseña
         document.querySelectorAll('.toggle-password').forEach(button => {
             button.addEventListener('click', function() {
@@ -396,6 +516,15 @@
         document.getElementById('userForm').addEventListener('submit', function(e) {
             const nuevaPassword = document.getElementById('nueva_password').value;
             const confirmarPassword = document.getElementById('confirmar_password').value;
+            const negocioField = document.getElementById('negocio_id');
+            const rol = document.getElementById('rol').value;
+
+            // Validar negocio para roles que lo requieren
+            if (rol !== 'superadmin' && !negocioField.value) {
+                e.preventDefault();
+                alert('❌ Debes seleccionar un negocio para este rol.');
+                return;
+            }
             
             if (nuevaPassword && nuevaPassword.length < 6) {
                 e.preventDefault();
@@ -408,6 +537,11 @@
                 alert('❌ Las contraseñas no coinciden');
                 return;
             }
+        });
+
+        // Ejecutar al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleNegocioField();
         });
     </script>
 </body>
