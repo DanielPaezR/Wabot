@@ -651,6 +651,90 @@ def admin_usuarios():
         traceback.print_exc()
         flash('Error al cargar la página de usuarios', 'error')
         return redirect(url_for('admin_dashboard'))
+    
+@app.route('/admin/usuarios/nuevo', methods=['GET', 'POST'])
+@role_required(['superadmin'])
+def admin_nuevo_usuario():
+    """Crear nuevo usuario - VERSIÓN CORREGIDA"""
+    if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        
+        negocio_id = request.form.get('negocio_id')
+        nombre = request.form.get('nombre')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        rol = request.form.get('rol', 'propietario')
+        especialidad = request.form.get('especialidad', '')
+        
+        print(f"🔧 Datos del formulario: negocio_id={negocio_id}, nombre={nombre}, email={email}, rol={rol}")
+        
+        # Validaciones
+        if not all([nombre, email, password]):
+            flash('Todos los campos son requeridos', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        
+        if len(password) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        
+        # Si es superadmin y no se seleccionó negocio, usar negocio por defecto
+        if rol == 'superadmin' and (not negocio_id or negocio_id == ''):
+            negocio_id = 1
+        
+        # Validar que se haya seleccionado negocio para roles que lo requieren
+        if rol != 'superadmin' and (not negocio_id or negocio_id == ''):
+            flash('Debes seleccionar un negocio para este rol', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        
+        try:
+            # Convertir negocio_id a entero
+            if negocio_id:
+                negocio_id = int(negocio_id)
+            
+            usuario_id = db.crear_usuario(negocio_id, nombre, email, password, rol)
+            
+            if usuario_id:
+                if rol == 'profesional':
+                    # Si es profesional y se proporcionó especialidad, actualizarla
+                    if especialidad:
+                        conn = db.get_db_connection()
+                        cursor = conn.cursor()
+                        if db.is_postgresql():
+                            cursor.execute('''
+                                UPDATE profesionales 
+                                SET especialidad = %s 
+                                WHERE usuario_id = %s
+                            ''', (especialidad, usuario_id))
+                        else:
+                            cursor.execute('''
+                                UPDATE profesionales 
+                                SET especialidad = ? 
+                                WHERE usuario_id = ?
+                            ''', (especialidad, usuario_id))
+                        conn.commit()
+                        conn.close()
+                    
+                    flash(f'Usuario profesional "{nombre}" creado exitosamente', 'success')
+                else:
+                    flash('Usuario creado exitosamente', 'success')
+                return redirect(url_for('admin_usuarios'))
+            else:
+                flash('Error al crear usuario. El email puede estar en uso o hay un problema con los datos.', 'error')
+                return redirect(url_for('admin_nuevo_usuario'))
+                
+        except ValueError:
+            flash('ID de negocio inválido', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+        except Exception as e:
+            print(f"❌ Error creando usuario: {e}")
+            flash('Error interno al crear el usuario', 'error')
+            return redirect(url_for('admin_nuevo_usuario'))
+    
+    negocios = db.obtener_todos_negocios()
+    return render_template('admin/nuevo_usuario.html', negocios=negocios)
 
 @app.route('/admin/usuarios/nuevo', methods=['GET', 'POST'])
 @role_required(['superadmin'])
@@ -2143,49 +2227,74 @@ def negocio_nuevo_profesional():
                          servicios=servicios,
                          negocio_id=negocio_id)
 
-@app.route('/negocio/profesionales/editar/<int:profesional_id>', methods=['GET', 'POST'])
+@app.route('/negocio/profesionales/nuevo', methods=['GET', 'POST'])
 @login_required
-def negocio_editar_profesional(profesional_id):
-    """Editar profesional existente"""
+def negocio_nuevo_profesional():
+    """Crear nuevo profesional con usuario - VERSIÓN CORREGIDA"""
     if session['usuario_rol'] != 'propietario':
+        flash('No tienes permisos para acceder a esta página', 'error')
         return redirect(url_for('login'))
     
-    profesional = obtener_profesional_por_id(profesional_id, session['negocio_id'])
-    servicios = obtener_servicios_por_negocio(session['negocio_id'])
-    
-    if not profesional:
-        flash('Profesional no encontrado', 'error')
-        return redirect(url_for('negocio_profesionales'))
+    negocio_id = session.get('negocio_id', 1)
+    servicios = obtener_servicios_por_negocio(negocio_id)
     
     if request.method == 'POST':
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
-            return redirect(url_for('negocio_editar_profesional', profesional_id=profesional_id))
+            return redirect(url_for('negocio_nuevo_profesional'))
         
-        nombre = request.form['nombre']
-        especialidad = request.form.get('especialidad', '')
-        pin = request.form['pin']
+        print(f"🔍 DEBUG FORM DATA:")
+        for key, value in request.form.items():
+            print(f"  {key}: {value}")
+        
+        nombre = request.form.get('nombre', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        especialidad = request.form.get('especialidad', '').strip()
         servicios_seleccionados = request.form.getlist('servicios')
         activo = 'activo' in request.form
         
-        # Actualizar profesional
-        if actualizar_profesional(
-            profesional_id=profesional_id,
+        # Validaciones
+        if not nombre:
+            flash('El nombre es requerido', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        if not email:
+            flash('El email es requerido', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        if not password or len(password) < 6:
+            flash('La contraseña es requerida y debe tener al menos 6 caracteres', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        print(f"🔍 DEBUG - Datos procesados:")
+        print(f"  - negocio_id: {negocio_id}")
+        print(f"  - nombre: {nombre}")
+        print(f"  - email: {email}")
+        print(f"  - especialidad: {especialidad}")
+        print(f"  - servicios_seleccionados: {servicios_seleccionados}")
+        print(f"  - activo: {activo}")
+        
+        # ✅ USAR LA FUNCIÓN NUEVA para crear profesional con usuario
+        resultado = db.crear_profesional_con_usuario(
+            negocio_id=negocio_id,
             nombre=nombre,
+            email=email,
+            password=password,
             especialidad=especialidad,
-            pin=pin,
-            servicios_ids=servicios_seleccionados,
-            activo=activo
-        ):
-            flash('Profesional actualizado exitosamente', 'success')
+            servicios_ids=servicios_seleccionados
+        )
+        
+        if resultado:
+            flash('✅ Profesional creado exitosamente con acceso al sistema', 'success')
             return redirect(url_for('negocio_profesionales'))
         else:
-            flash('Error al actualizar el profesional', 'error')
+            flash('❌ Error al crear el profesional. El email puede estar en uso.', 'error')
     
-    return render_template('negocio/editar_profesional.html', 
-                         profesional=profesional, 
-                         servicios=servicios)
+    return render_template('negocio/nuevo_profesional.html', 
+                         servicios=servicios,
+                         negocio_id=negocio_id)
 
 @app.route('/negocio/profesionales/eliminar/<int:profesional_id>', methods=['POST'])
 @login_required

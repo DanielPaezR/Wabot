@@ -1346,31 +1346,25 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
-def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True):
-    """Crear profesional - VERSIÓN MEJORADA pero manteniendo firma original"""
+def crear_profesional(negocio_id, nombre, especialidad='', servicios_ids=None, activo=True):
+    """Crear profesional - VERSIÓN SIMPLIFICADA SIN PIN"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        print(f"🔍 DEBUG crear_profesional:")
+        print(f"🔧 DEBUG crear_profesional:")
         print(f"  - negocio_id: {negocio_id}")
         print(f"  - nombre: {nombre}")
         print(f"  - especialidad: {especialidad}")
-        print(f"  - pin: {pin}")
         print(f"  - servicios_ids: {servicios_ids}")
         print(f"  - activo: {activo}")
         
-        # Verificar que el pin no sea vacío
-        if not pin or pin.strip() == '':
-            print(f"⚠️  PIN vacío, usando '0000' por defecto")
-            pin = '0000'
-        
-        # Insertar profesional
+        # Insertar profesional sin PIN
         cursor.execute('''
-            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO profesionales (negocio_id, nombre, especialidad, activo)
+            VALUES (%s, %s, %s, %s)
             RETURNING id
-        ''', (negocio_id, nombre, especialidad, pin, activo))
+        ''', (negocio_id, nombre, especialidad, activo))
         
         result = cursor.fetchone()
         
@@ -1409,6 +1403,176 @@ def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, acti
     except Exception as e:
         conn.rollback()
         print(f"❌ ERROR en crear_profesional: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
+    finally:
+        conn.close()
+
+def crear_usuario(negocio_id, nombre, email, password, rol='propietario'):
+    """Crear usuario simple - VERSIÓN SIMPLIFICADA"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar si el email ya existe
+        if is_postgresql():
+            cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
+        else:
+            cursor.execute('SELECT id FROM usuarios WHERE email = ?', (email,))
+        
+        if cursor.fetchone():
+            print(f"❌ Email {email} ya está en uso")
+            return None
+        
+        # Generar hash de la contraseña
+        import hashlib
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # Crear usuario
+        if is_postgresql():
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (negocio_id, nombre, email, password_hash, rol))
+            
+            result = cursor.fetchone()
+            if hasattr(result, 'keys'):
+                usuario_id = result['id']
+            else:
+                usuario_id = result[0] if result else None
+        else:
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (negocio_id, nombre, email, password_hash, rol))
+            usuario_id = cursor.lastrowid
+        
+        # Si es profesional, crear también en la tabla profesionales
+        if rol == 'profesional' and usuario_id:
+            if is_postgresql():
+                cursor.execute('''
+                    INSERT INTO profesionales (negocio_id, nombre, especialidad, usuario_id, activo)
+                    VALUES (%s, %s, %s, %s, TRUE)
+                ''', (negocio_id, nombre, 'General', usuario_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO profesionales (negocio_id, nombre, especialidad, usuario_id, activo)
+                    VALUES (?, ?, ?, ?, 1)
+                ''', (negocio_id, nombre, 'General', usuario_id))
+        
+        conn.commit()
+        print(f"✅ Usuario creado exitosamente: {email} (ID: {usuario_id}, Rol: {rol})")
+        return usuario_id
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error creando usuario: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+    finally:
+        conn.close()
+
+def crear_profesional_con_usuario(negocio_id, nombre, email, password, especialidad='', 
+                                  servicios_ids=None, telefono=None):
+    """Crear profesional completo con usuario asociado - SIN PIN"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        print(f"🔧 [DEBUG] Creando profesional con usuario:")
+        print(f"  - negocio_id: {negocio_id}")
+        print(f"  - nombre: {nombre}")
+        print(f"  - email: {email}")
+        print(f"  - especialidad: {especialidad}")
+        print(f"  - servicios_ids: {servicios_ids}")
+        
+        # 1. Verificar si el email ya existe
+        if is_postgresql():
+            cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
+        else:
+            cursor.execute('SELECT id FROM usuarios WHERE email = ?', (email,))
+        
+        if cursor.fetchone():
+            print(f"❌ Email {email} ya está en uso")
+            conn.close()
+            return None
+        
+        # 2. Generar hash de la contraseña
+        import hashlib
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # 3. Crear usuario
+        if is_postgresql():
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (negocio_id, nombre, email, password_hash, 'profesional'))
+            
+            result = cursor.fetchone()
+            if hasattr(result, 'keys'):
+                usuario_id = result['id']
+            else:
+                usuario_id = result[0] if result else None
+        else:
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (negocio_id, nombre, email, password_hash, 'profesional'))
+            usuario_id = cursor.lastrowid
+        
+        if not usuario_id:
+            print("❌ Error al crear usuario")
+            conn.rollback()
+            conn.close()
+            return None
+        
+        print(f"✅ Usuario creado con ID: {usuario_id}")
+        
+        # 4. Crear profesional vinculado al usuario (sin PIN)
+        if is_postgresql():
+            cursor.execute('''
+                INSERT INTO profesionales (negocio_id, nombre, especialidad, usuario_id, telefono, activo)
+                VALUES (%s, %s, %s, %s, %s, TRUE)
+                RETURNING id
+            ''', (negocio_id, nombre, especialidad, usuario_id, telefono))
+            
+            result = cursor.fetchone()
+            if hasattr(result, 'keys'):
+                profesional_id = result['id']
+            else:
+                profesional_id = result[0] if result else None
+        else:
+            cursor.execute('''
+                INSERT INTO profesionales (negocio_id, nombre, especialidad, usuario_id, telefono, activo)
+                VALUES (?, ?, ?, ?, ?, 1)
+            ''', (negocio_id, nombre, especialidad, usuario_id, telefono))
+            profesional_id = cursor.lastrowid
+        
+        print(f"✅ Profesional creado con ID: {profesional_id}")
+        
+        # 5. Asignar servicios si se proporcionaron
+        if servicios_ids:
+            for servicio_id in servicios_ids:
+                try:
+                    servicio_id_int = int(servicio_id)
+                    cursor.execute('''
+                        INSERT INTO profesional_servicios (profesional_id, servicio_id)
+                        VALUES (%s, %s)
+                    ''', (profesional_id, servicio_id_int))
+                    print(f"  - Servicio {servicio_id_int} asignado")
+                except ValueError:
+                    print(f"⚠️  ID de servicio inválido: {servicio_id}")
+        
+        conn.commit()
+        return {'usuario_id': usuario_id, 'profesional_id': profesional_id}
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error creando profesional con usuario: {e}")
         import traceback
         traceback.print_exc()
         return None

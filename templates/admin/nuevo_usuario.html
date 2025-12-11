@@ -315,12 +315,6 @@
                         <input type="text" id="telefono" name="telefono" placeholder="Ej: +57 300 123 4567">
                         <div class="optional-field">Opcional - Para contacto interno</div>
                     </div>
-
-                    <div class="form-group">
-                        <label for="profesional_pin">PIN de Acceso Rápido</label>
-                        <input type="text" id="profesional_pin" name="profesional_pin" placeholder="Ej: 1234" maxlength="4" pattern="[0-9]{4}">
-                        <div class="optional-field">Opcional - 4 dígitos para acceso rápido del profesional (solo números)</div>
-                    </div>
                 </div>
 
                 <div id="profesionalInfo" class="conditional-field">
@@ -380,13 +374,6 @@
             // Validar que se seleccione negocio para roles que lo requieren
             if (rol !== 'superadmin' && !negocioField.value) {
                 alert('❌ Debes seleccionar un negocio para este rol.');
-                return false;
-            }
-
-            // Validar PIN del profesional si se proporciona
-            const profesionalPin = document.getElementById('profesional_pin').value;
-            if (profesionalPin && !/^\d{4}$/.test(profesionalPin)) {
-                alert('❌ El PIN debe contener exactamente 4 dígitos numéricos.');
                 return false;
             }
 
