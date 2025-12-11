@@ -594,7 +594,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - CORREGIDA para manejar resultados vacíos"""
+    """Mostrar citas del cliente - VERSIÓN DEFINITIVAMENTE CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
@@ -623,8 +623,9 @@ def mostrar_mis_citas(numero, negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ DEBUG: Primero ver TODAS las citas sin filtro - CORREGIDO
-        print(f"🔍 [DEBUG] Buscando TODAS las citas para teléfono: {telefono_real}")
+        # ✅ PRIMERO: Debug avanzado para ver QUÉ está devolviendo
+        print(f"🔍 [DEBUG] Ejecutando consulta para teléfono: {telefono_real}")
+        
         cursor.execute('''
             SELECT id, fecha, hora, estado, cliente_nombre 
             FROM citas 
@@ -633,16 +634,35 @@ def mostrar_mis_citas(numero, negocio_id):
         ''', (telefono_real, negocio_id))
         
         todas_citas = cursor.fetchall()
-        print(f"🔍 [DEBUG] TOTAL citas en BD para {telefono_real}: {len(todas_citas)}")
         
-        # ✅ CORRECCIÓN: Verificar si hay resultados antes de iterar
+        # ✅ DIAGNÓSTICO: Ver qué tipo de datos se reciben
+        print(f"🔍 [DEBUG] Tipo de todas_citas: {type(todas_citas)}")
+        print(f"🔍 [DEBUG] Longitud de todas_citas: {len(todas_citas) if todas_citas else 0}")
+        
         if todas_citas and len(todas_citas) > 0:
-            for cita in todas_citas:
-                print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}, Estado: {cita[3]}, Nombre: {cita[4]}")
+            print(f"🔍 [DEBUG] Primer elemento: {todas_citas[0]}")
+            print(f"🔍 [DEBUG] Tipo del primer elemento: {type(todas_citas[0])}")
+            
+            # Intentar diferentes formas de acceso
+            primer_elemento = todas_citas[0]
+            try:
+                # Probando si es tupla
+                if isinstance(primer_elemento, tuple):
+                    print(f"✅ [DEBUG] Es una tupla. Índices: 0={primer_elemento[0]}, 1={primer_elemento[1]}")
+                    for i, cita in enumerate(todas_citas):
+                        print(f"   [{i}] ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}")
+                elif isinstance(primer_elemento, dict):
+                    print(f"✅ [DEBUG] Es un diccionario. Keys: {primer_elemento.keys()}")
+                    for i, cita in enumerate(todas_citas):
+                        print(f"   [{i}] ID: {cita.get('id')}, Fecha: {cita.get('fecha')}, Hora: {cita.get('hora')}")
+                else:
+                    print(f"⚠️ [DEBUG] Tipo desconocido: {type(primer_elemento)}")
+            except Exception as e:
+                print(f"❌ [DEBUG] Error en diagnóstico: {e}")
         else:
-            print(f"⚠️ [DEBUG] No se encontraron citas en la BD")
+            print(f"⚠️ [DEBUG] No hay citas en la BD")
         
-        # Ahora buscar con JOINs para mostrar al usuario
+        # ✅ Ahora buscar citas futuras para mostrar
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
             FROM citas c
@@ -653,65 +673,57 @@ def mostrar_mis_citas(numero, negocio_id):
             ORDER BY (c.fecha)::date, c.hora
         ''', (telefono_real, negocio_id))
         
-        citas = cursor.fetchall()
+        citas_futuras = cursor.fetchall()
         conn.close()
         
-        print(f"🔧 [DEBUG] Citas futuras encontradas: {len(citas)}")
+        print(f"🔧 [DEBUG] Citas futuras encontradas: {len(citas_futuras) if citas_futuras else 0}")
         
-        # ✅ CORRECCIÓN: Verificar si hay citas antes de procesarlas
-        if not citas or len(citas) == 0:
-            # Obtener nombre del cliente
-            nombre_cliente = 'Cliente'
-            if clave_conversacion in conversaciones_activas:
-                nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
-            
+        # ✅ Obtener nombre del cliente
+        nombre_cliente = 'Cliente'
+        if clave_conversacion in conversaciones_activas:
+            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+        
+        # ✅ Verificar si hay citas futuras
+        if not citas_futuras or len(citas_futuras) == 0:
             return f"📋 **No tienes citas programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*"
         
-        # Obtener nombre del cliente
-        nombre_cliente = None
-        
-        # 1. De la conversación
-        if clave_conversacion in conversaciones_activas:
-            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre')
-            print(f"🔧 [DEBUG] Nombre de conversación: {nombre_cliente}")
-        
-        # 2. Si no hay, intentar de BD
-        if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
-            try:
-                nombre_cliente = db.obtener_nombre_cliente(telefono_real, negocio_id)
-                print(f"🔧 [DEBUG] Nombre de BD: {nombre_cliente}")
-            except Exception as e:
-                print(f"⚠️ [DEBUG] Error obteniendo nombre de BD: {e}")
-                nombre_cliente = 'Cliente'
-        
-        # Formatear nombre
-        if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
-            nombre_cliente = str(nombre_cliente).strip()
-        else:
-            nombre_cliente = 'Cliente'
-        
-        # Construir lista de citas
+        # ✅ Construir respuesta SEGURA (manejar cualquier tipo de dato)
         respuesta = f"📋 **Tus citas programadas - {nombre_cliente}:**\n\n"
         
-        for cita in citas:
-            id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
-            
-            print(f"🔧 [DEBUG] Procesando cita: ID={id_cita}, Fecha={fecha}, Hora={hora}")
-            
-            # Formatear fecha
+        for cita in citas_futuras:
             try:
-                if isinstance(fecha, str):
-                    fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+                # Intentar diferentes formas de acceso
+                if isinstance(cita, tuple):
+                    id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
+                elif isinstance(cita, dict):
+                    id_cita = cita.get('id')
+                    fecha = cita.get('fecha')
+                    hora = cita.get('hora')
+                    servicio = cita.get('servicio')
+                    estado = cita.get('estado')
+                    profesional_nombre = cita.get('profesional_nombre')
                 else:
-                    fecha_str = fecha.strftime('%d/%m')
-            except Exception as e:
+                    print(f"⚠️ [DEBUG] Tipo de cita desconocido: {type(cita)}")
+                    continue
+                
+                # Formatear fecha
                 fecha_str = str(fecha)
-                print(f"⚠️ [DEBUG] Error formateando fecha {fecha}: {e}")
-            
-            emoji = "✅" if estado == 'confirmado' else "❌"
-            respuesta += f"{emoji} *{fecha_str}* - **{hora}**\n"
-            respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio}\n"
-            respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
+                try:
+                    if isinstance(fecha, str):
+                        fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+                    else:
+                        fecha_str = fecha.strftime('%d/%m')
+                except:
+                    fecha_str = str(fecha)
+                
+                emoji = "✅" if estado == 'confirmado' else "❌"
+                respuesta += f"{emoji} *{fecha_str}* - **{hora}**\n"
+                respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio}\n"
+                respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
+                
+            except Exception as e:
+                print(f"⚠️ [DEBUG] Error procesando cita {cita}: {e}")
+                continue
         
         respuesta += "Para cancelar una cita, selecciona: *3*"
         
@@ -732,7 +744,7 @@ def mostrar_mis_citas(numero, negocio_id):
         return "❌ Error al cargar tus citas. Por favor, intenta más tarde."
 
 def mostrar_citas_para_cancelar(numero, negocio_id):
-    """Mostrar citas que pueden ser canceladas - CORREGIDA para manejar resultados vacíos"""
+    """Mostrar citas que pueden ser canceladas - VERSIÓN DEFINITIVAMENTE CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_citas_para_cancelar - Clave: {clave_conversacion}")
@@ -761,7 +773,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ Buscar citas confirmadas
+        # ✅ Buscar citas confirmadas con diagnóstico
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, p.nombre as profesional_nombre, 
                    s.nombre as servicio_nombre, c.cliente_nombre
@@ -780,20 +792,15 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         
         print(f"🔧 [DEBUG] Citas encontradas para cancelar: {len(citas) if citas else 0}")
         
-        # ✅ CORRECCIÓN: Verificar si hay resultados antes de iterar
+        # ✅ DIAGNÓSTICO
         if citas and len(citas) > 0:
-            for cita in citas:
-                print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}")
-        else:
-            print(f"⚠️ [DEBUG] No se encontraron citas para cancelar")
+            print(f"🔍 [DEBUG] Primer elemento tipo: {type(citas[0])}")
         
-        # ✅ CORRECCIÓN: Verificar si no hay citas
+        # ✅ Verificar si no hay citas
         if not citas or len(citas) == 0:
-            # Limpiar conversación
             if clave_conversacion in conversaciones_activas:
                 conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
             
-            # Obtener nombre
             nombre_cliente = 'Cliente'
             if clave_conversacion in conversaciones_activas:
                 nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
@@ -802,36 +809,57 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         
         if len(citas) == 1:
             # Solo una cita, cancelar directamente
-            cita_id = citas[0][0]
+            cita_id = citas[0][0] if isinstance(citas[0], tuple) else citas[0].get('id')
             return procesar_cancelacion_directa(numero, str(cita_id), negocio_id)
         
-        # ✅ Construir lista de citas para cancelar
+        # ✅ Construir lista de citas para cancelar (manejo seguro de tipos)
         nombre_cliente = 'Cliente'
         if clave_conversacion in conversaciones_activas:
             nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
         
         respuesta = f"❌ **Citas para cancelar - {nombre_cliente}:**\n\n"
         
+        citas_disponibles = {}
+        
         for cita in citas:
-            id_cita, fecha, hora, profesional_nombre, servicio_nombre, nombre_cita = cita
-            
-            # Formatear fecha
             try:
-                if isinstance(fecha, str):
-                    fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+                # Manejar diferentes tipos de datos
+                if isinstance(cita, tuple):
+                    id_cita, fecha, hora, profesional_nombre, servicio_nombre, nombre_cita = cita
+                elif isinstance(cita, dict):
+                    id_cita = cita.get('id')
+                    fecha = cita.get('fecha')
+                    hora = cita.get('hora')
+                    profesional_nombre = cita.get('profesional_nombre')
+                    servicio_nombre = cita.get('servicio_nombre')
+                    nombre_cita = cita.get('cliente_nombre')
                 else:
-                    fecha_str = fecha.strftime('%d/%m')
-            except:
-                fecha_str = str(fecha)
-            
-            respuesta += f"📅 **{fecha_str}** - **{hora}**\n"
-            respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio_nombre}\n"
-            respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
+                    continue
+                
+                # Formatear fecha
+                try:
+                    if isinstance(fecha, str):
+                        fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+                    else:
+                        fecha_str = fecha.strftime('%d/%m')
+                except:
+                    fecha_str = str(fecha)
+                
+                respuesta += f"📅 **{fecha_str}** - **{hora}**\n"
+                respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio_nombre}\n"
+                respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
+                
+                # Guardar para referencia
+                citas_disponibles[str(id_cita)] = (id_cita, fecha, hora, profesional_nombre, servicio_nombre)
+                
+            except Exception as e:
+                print(f"⚠️ [DEBUG] Error procesando cita {cita}: {e}")
+                continue
         
         respuesta += "**Selecciona el ID de la cita que quieres cancelar.**"
         
-        # ✅ Guardar citas disponibles para cancelación
-        conversaciones_activas[clave_conversacion]['citas_disponibles'] = {str(t[0]): t for t in citas}
+        # ✅ Guardar citas disponibles
+        conversaciones_activas[clave_conversacion]['citas_disponibles'] = citas_disponibles
         conversaciones_activas[clave_conversacion]['estado'] = 'cancelando'
         conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono_real
         
@@ -1139,7 +1167,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         return "❌ Error al procesar tu solicitud."
     
 def procesar_telefono_para_ver_citas(numero, mensaje, negocio_id):
-    """Procesar teléfono ingresado para ver citas"""
+    """Procesar teléfono ingresado para ver citas - VERSIÓN CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -1155,24 +1183,26 @@ def procesar_telefono_para_ver_citas(numero, mensaje, negocio_id):
     
     print(f"🔧 [DEBUG] Teléfono válido para ver citas: {telefono}")
     
-    # Guardar teléfono en conversación
+    # Crear/actualizar conversación
     if clave_conversacion not in conversaciones_activas:
         conversaciones_activas[clave_conversacion] = {}
     
     conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
     
-    # También intentar obtener nombre del cliente de BD
-    try:
-        nombre_cliente = db.obtener_nombre_cliente(telefono, negocio_id)
-        if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
-            conversaciones_activas[clave_conversacion]['cliente_nombre'] = str(nombre_cliente).strip()
-            print(f"🔧 [DEBUG] Nombre obtenido de BD: {nombre_cliente}")
-    except Exception as e:
-        print(f"⚠️ [DEBUG] Error obteniendo nombre de BD: {e}")
+    # También intentar obtener nombre del cliente de BD si no lo tenemos
+    if 'cliente_nombre' not in conversaciones_activas[clave_conversacion]:
+        try:
+            nombre_cliente = db.obtener_nombre_cliente(telefono, negocio_id)
+            if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
+                conversaciones_activas[clave_conversacion]['cliente_nombre'] = str(nombre_cliente).strip()
+                print(f"🔧 [DEBUG] Nombre obtenido de BD: {nombre_cliente}")
+        except Exception as e:
+            print(f"⚠️ [DEBUG] Error obteniendo nombre de BD: {e}")
     
     # Cambiar estado y mostrar citas
     conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
     
+    # Llamar a mostrar_mis_citas que ahora manejará el teléfono
     return mostrar_mis_citas(numero, negocio_id)
 
 def procesar_telefono_para_cancelar_citas(numero, mensaje, negocio_id):
