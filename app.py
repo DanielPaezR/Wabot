@@ -2183,6 +2183,69 @@ def negocio_nuevo_profesional():
                          servicios=servicios,
                          negocio_id=negocio_id)
 
+@app.route('/negocio/profesionales/editar/<int:profesional_id>', methods=['GET', 'POST'])
+@login_required
+def negocio_editar_profesional(profesional_id):
+    """Editar profesional existente"""
+    if session['usuario_rol'] != 'propietario':
+        return redirect(url_for('login'))
+    
+    negocio_id = session.get('negocio_id', 1)
+    profesional = obtener_profesional_por_id(profesional_id, negocio_id)
+    servicios = obtener_servicios_por_negocio(negocio_id)
+    
+    if not profesional:
+        flash('Profesional no encontrado', 'error')
+        return redirect(url_for('negocio_profesionales'))
+    
+    if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_editar_profesional', profesional_id=profesional_id))
+        
+        nombre = request.form['nombre']
+        especialidad = request.form.get('especialidad', '')
+        servicios_seleccionados = request.form.getlist('servicios')
+        activo = 'activo' in request.form
+        
+        # Actualizar profesional
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Actualizar datos básicos
+            cursor.execute('''
+                UPDATE profesionales 
+                SET nombre = %s, especialidad = %s, activo = %s
+                WHERE id = %s AND negocio_id = %s
+            ''', (nombre, especialidad, activo, profesional_id, negocio_id))
+            
+            # Eliminar servicios anteriores
+            cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = %s', (profesional_id,))
+            
+            # Agregar nuevos servicios
+            for servicio_id in servicios_seleccionados:
+                cursor.execute('''
+                    INSERT INTO profesional_servicios (profesional_id, servicio_id)
+                    VALUES (%s, %s)
+                ''', (profesional_id, servicio_id))
+            
+            conn.commit()
+            flash('✅ Profesional actualizado exitosamente', 'success')
+            return redirect(url_for('negocio_profesionales'))
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Error actualizando profesional: {e}")
+            flash('❌ Error al actualizar el profesional', 'error')
+        finally:
+            conn.close()
+    
+    return render_template('negocio/editar_profesional.html', 
+                         profesional=profesional, 
+                         servicios=servicios)
+
 @app.route('/negocio/profesionales/eliminar/<int:profesional_id>', methods=['POST'])
 @login_required
 def negocio_eliminar_profesional(profesional_id):
