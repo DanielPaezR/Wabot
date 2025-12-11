@@ -2898,7 +2898,7 @@ def api_horarios_disponibles():
         print(f"🔍 Duración del servicio: {duracion_minutos} minutos, Negocio ID: {negocio_id}")
         
         # ✅ CORRECCIÓN: Usar la función obtener_horarios_por_dia para obtener la configuración REAL
-        horarios_config = obtener_horarios_por_dia(negocio_id, fecha)
+        horarios_config = db.obtener_horarios_por_dia(negocio_id, fecha)
         print(f"🔍 Configuración de horarios obtenida: {horarios_config}")
         
         if not horarios_config or not horarios_config['activo']:
