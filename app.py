@@ -2124,7 +2124,7 @@ def negocio_nuevo_profesional():
         print(f"  - servicios_seleccionados: {servicios_seleccionados}")
         print(f"  - activo: {activo}")
         
-        # Crear profesional (SIN PIN)
+        # ✅ LLAMADA CORRECTA - SIN PARÁMETRO pin
         profesional_id = crear_profesional(
             negocio_id=negocio_id,
             nombre=nombre,
