@@ -350,8 +350,6 @@
                         <i class="fas fa-question-circle"></i> Ayuda
                     </div>
                 </div>
-                <br>
-                <small><i class="fas fa-info-circle"></i> Escribe "0" para volver al menú principal en cualquier momento.</small>
             </div>
         </div>
         
@@ -463,10 +461,10 @@
                 return horarios;
             }
             
-            // Detectar opciones de navegación (7, 8, 9, 0)
+            // Detectar opciones de navegación (7, 8, 9)
             function detectarOpcionesNavegacion(texto) {
                 const tieneOpciones = texto.includes('*7*') || texto.includes('*8*') || 
-                                     texto.includes('*9*') || texto.includes('*0*');
+                                     texto.includes('*9*');
                 
                 if (!tieneOpciones) return null;
                 
@@ -474,24 +472,21 @@
                     tieneCambiarFecha: texto.includes('*7*'),
                     tienePaginaAnterior: texto.includes('*8*'),
                     tienePaginaSiguiente: texto.includes('*9*'),
-                    tieneVolverMenu: texto.includes('*0*'),
                     paginaInfo: texto.match(/📄 Página (\d+) de (\d+)/)
                 };
                 
                 return opciones;
             }
             
-            // Detectar opciones de confirmación (1, 2, 0)
+            // Detectar opciones de confirmación (1, 2)
             function detectarOpcionesConfirmacion(texto) {
-                const tieneConfirmacion = texto.includes('*1* - ✅') || texto.includes('*2* - ❌') || 
-                                         texto.includes('*0* - ↩️');
+                const tieneConfirmacion = texto.includes('*1* - ✅') || texto.includes('*2* - ❌');
                 
                 if (!tieneConfirmacion) return null;
                 
                 return {
                     tieneConfirmar: texto.includes('*1* - ✅'),
-                    tieneCancelar: texto.includes('*2* - ❌'),
-                    tieneVolver: texto.includes('*0* - ↩️')
+                    tieneCancelar: texto.includes('*2* - ❌')
                 };
             }
             
@@ -551,7 +546,7 @@
                     });
                 }
                 
-                // Detectar y agregar navegación (7, 8, 9, 0)
+                // Detectar y agregar navegación (7, 8, 9)
                 const navOpciones = detectarOpcionesNavegacion(message);
                 if (navOpciones) {
                     let navHtml = '<div class="opciones-navegacion">';
@@ -574,12 +569,6 @@
                         </button>`;
                     }
                     
-                    if (navOpciones.tieneVolverMenu) {
-                        navHtml += `<button class="nav-btn nav-home" data-opcion="0">
-                            <i class="fas fa-home"></i> Menú principal
-                        </button>`;
-                    }
-                    
                     navHtml += '</div>';
                     
                     // Agregar info de paginación si existe
@@ -598,7 +587,7 @@
                     });
                 }
                 
-                // Detectar y agregar confirmación (1, 2, 0)
+                // Detectar y agregar confirmación (1, 2)
                 const confirmOpciones = detectarOpcionesConfirmacion(message);
                 if (confirmOpciones) {
                     let confirmHtml = '<div class="confirmacion-opciones">';
@@ -612,12 +601,6 @@
                     if (confirmOpciones.tieneCancelar) {
                         confirmHtml += `<button class="confirm-btn confirm-no" data-opcion="2">
                             <i class="fas fa-times"></i> Cancelar
-                        </button>`;
-                    }
-                    
-                    if (confirmOpciones.tieneVolver) {
-                        confirmHtml += `<button class="confirm-btn confirm-back" data-opcion="0">
-                            <i class="fas fa-arrow-left"></i> Volver
                         </button>`;
                     }
                     
@@ -667,6 +650,11 @@
                         
                         // Mostrar respuesta del bot
                         addBotMessage(response.message);
+                        
+                        // Si el backend envió opciones explícitas, procesarlas
+                        if (response.options && response.options.length > 0) {
+                            mostrarOpcionesDesdeBackend(response.options);
+                        }
                     },
                     error: function(xhr, status, error) {
                         hideTypingIndicator();
@@ -674,6 +662,28 @@
                         console.error('Error:', error);
                     }
                 });
+            }
+            
+            // Mostrar opciones enviadas desde el backend
+            function mostrarOpcionesDesdeBackend(options) {
+                let optionsHtml = '<div class="opciones-numeradas">';
+                options.forEach(option => {
+                    optionsHtml += `
+                        <button class="opcion-btn" data-opcion="${option.value}">
+                            <strong>${option.value}.</strong> ${option.text}
+                        </button>
+                    `;
+                });
+                optionsHtml += '</div>';
+                chatMessages.append(optionsHtml);
+                
+                $('.opcion-btn').off('click').on('click', function() {
+                    const opcionNumero = $(this).data('opcion');
+                    userInput.val(opcionNumero);
+                    sendMessage();
+                });
+                
+                scrollToBottom();
             }
             
             // Event listeners
