@@ -1221,8 +1221,12 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
 # =============================================================================
 
 def obtener_horarios_por_dia(negocio_id, fecha):
-    """Obtener horarios para un día específico - VERSIÓN CORREGIDA"""
+    """Obtener horarios para un día específico - VERSIÓN MEJORADA"""
     try:
+        print(f"🔍 [DEBUG obtener_horarios_por_dia]")
+        print(f"  negocio_id: {negocio_id}")
+        print(f"  fecha: {fecha}")
+        
         # Convertir fecha a día de la semana (0=lunes, 6=domingo)
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
         dia_semana_real = fecha_obj.weekday()  # 0=lunes, 1=martes, ..., 6=domingo
@@ -1230,40 +1234,69 @@ def obtener_horarios_por_dia(negocio_id, fecha):
         # Convertir de 0-6 a 1-7 para buscar en la BD
         dia_semana_bd = dia_semana_real + 1  # 0→1, 1→2, ..., 6→7
         
+        print(f"🔍 Día de la semana calculado: {dia_semana_bd} (original: {dia_semana_real})")
+        
         conn = get_db_connection()
-        sql = '''
-            SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
-            FROM configuracion_horarios
-            WHERE negocio_id = ? AND dia_semana = ?
-        '''
+        
+        if is_postgresql():
+            sql = '''
+                SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                FROM configuracion_horarios
+                WHERE negocio_id = %s AND dia_semana = %s
+            '''
+        else:
+            sql = '''
+                SELECT activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                FROM configuracion_horarios
+                WHERE negocio_id = ? AND dia_semana = ?
+            '''
+        
         result = fetch_one(conn.cursor(), sql, (negocio_id, dia_semana_bd))
         conn.close()
         
+        print(f"🔍 Resultado de la BD: {result}")
+        
         if result:
-            # ✅ CORRECCIÓN: Convertir objetos time a strings
-            hora_inicio = result['hora_inicio']
-            hora_fin = result['hora_fin']
-            almuerzo_inicio = result['almuerzo_inicio']
-            almuerzo_fin = result['almuerzo_fin']
+            # Convertir objetos time a strings
+            def format_time(time_value):
+                if not time_value:
+                    return None
+                if hasattr(time_value, 'strftime'):
+                    return time_value.strftime('%H:%M')
+                elif isinstance(time_value, str):
+                    return time_value
+                else:
+                    return str(time_value)
+            
+            hora_inicio = format_time(result['hora_inicio'])
+            hora_fin = format_time(result['hora_fin'])
+            almuerzo_inicio = format_time(result['almuerzo_inicio'])
+            almuerzo_fin = format_time(result['almuerzo_fin'])
+            
+            print(f"🔍 Horarios procesados: inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
             
             return {
                 'activo': bool(result['activo']),
-                'hora_inicio': hora_inicio.strftime('%H:%M') if hasattr(hora_inicio, 'strftime') else str(hora_inicio),
-                'hora_fin': hora_fin.strftime('%H:%M') if hasattr(hora_fin, 'strftime') else str(hora_fin),
-                'almuerzo_inicio': almuerzo_inicio.strftime('%H:%M') if almuerzo_inicio and hasattr(almuerzo_inicio, 'strftime') else str(almuerzo_inicio) if almuerzo_inicio else None,
-                'almuerzo_fin': almuerzo_fin.strftime('%H:%M') if almuerzo_fin and hasattr(almuerzo_fin, 'strftime') else str(almuerzo_fin) if almuerzo_fin else None
+                'hora_inicio': hora_inicio,
+                'hora_fin': hora_fin,
+                'almuerzo_inicio': almuerzo_inicio,
+                'almuerzo_fin': almuerzo_fin
             }
         else:
+            # Valores por defecto si no hay configuración
+            print(f"⚠️ No se encontró configuración para el día {dia_semana_bd}, usando valores por defecto")
             return {
-                'activo': False,
+                'activo': dia_semana_bd <= 6,  # Lunes a Sábado activos por defecto
                 'hora_inicio': '09:00',
-                'hora_fin': '18:00',
-                'almuerzo_inicio': None,
-                'almuerzo_fin': None
+                'hora_fin': '19:00',
+                'almuerzo_inicio': '13:00',
+                'almuerzo_fin': '14:00'
             }
             
     except Exception as e:
         print(f"❌ Error en obtener_horarios_por_dia: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             'activo': False,
             'hora_inicio': '09:00',
@@ -1272,29 +1305,234 @@ def obtener_horarios_por_dia(negocio_id, fecha):
             'almuerzo_fin': None
         }
 
+def obtener_horarios_disponibles(negocio_id, profesional_id, fecha, servicio_id):
+    """Obtener horarios disponibles para un profesional en una fecha específica"""
+    try:
+        print(f"🔍 [DEBUG obtener_horarios_disponibles]")
+        print(f"  negocio_id: {negocio_id}")
+        print(f"  profesional_id: {profesional_id}")
+        print(f"  fecha: {fecha}")
+        print(f"  servicio_id: {servicio_id}")
+        
+        # 1. Obtener horarios laborales del día
+        horarios_laborales = obtener_horarios_por_dia(negocio_id, fecha)
+        
+        if not horarios_laborales or not horarios_laborales['activo']:
+            print(f"❌ Negocio no trabaja este día: {fecha}")
+            return []
+        
+        print(f"🔍 Horarios laborales: {horarios_laborales}")
+        
+        # 2. Obtener duración del servicio
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if is_postgresql():
+            cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
+        else:
+            cursor.execute('SELECT duracion FROM servicios WHERE id = ?', (servicio_id,))
+        
+        servicio = cursor.fetchone()
+        if not servicio:
+            conn.close()
+            print(f"❌ Servicio no encontrado: {servicio_id}")
+            return []
+        
+        # Acceder correctamente a la duración
+        if hasattr(servicio, 'keys'):
+            duracion = servicio['duracion']
+        else:
+            duracion = servicio[0]
+        
+        print(f"🔍 Duración del servicio: {duracion} minutos")
+        
+        # 3. Obtener citas ya agendadas para ese profesional en esa fecha
+        if is_postgresql():
+            cursor.execute('''
+                SELECT hora FROM citas 
+                WHERE negocio_id = %s AND profesional_id = %s 
+                AND fecha = %s AND estado != 'cancelado'
+                ORDER BY hora
+            ''', (negocio_id, profesional_id, fecha))
+        else:
+            cursor.execute('''
+                SELECT hora FROM citas 
+                WHERE negocio_id = ? AND profesional_id = ? 
+                AND fecha = ? AND estado != 'cancelado'
+                ORDER BY hora
+            ''', (negocio_id, profesional_id, fecha))
+        
+        citas_ocupadas = [row['hora'] for row in cursor.fetchall()]
+        print(f"🔍 Citas ocupadas: {citas_ocupadas}")
+        
+        conn.close()
+        
+        # 4. Generar horarios disponibles
+        hora_inicio_str = horarios_laborales['hora_inicio']
+        hora_fin_str = horarios_laborales['hora_fin']
+        
+        # Convertir a objetos datetime para facilitar cálculos
+        hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
+        hora_fin = datetime.strptime(hora_fin_str, '%H:%M')
+        
+        # Si hay horario de almuerzo
+        almuerzo_inicio = None
+        almuerzo_fin = None
+        if horarios_laborales['almuerzo_inicio'] and horarios_laborales['almuerzo_fin']:
+            almuerzo_inicio = datetime.strptime(horarios_laborales['almuerzo_inicio'], '%H:%M')
+            almuerzo_fin = datetime.strptime(horarios_laborales['almuerzo_fin'], '%H:%M')
+        
+        # Generar horarios cada 30 minutos (ajustable)
+        horarios_disponibles = []
+        hora_actual = hora_inicio
+        
+        while hora_actual < hora_fin:
+            # Verificar si está dentro del horario de almuerzo
+            en_almuerzo = False
+            if almuerzo_inicio and almuerzo_fin:
+                en_almuerzo = almuerzo_inicio <= hora_actual < almuerzo_fin
+            
+            if not en_almuerzo:
+                hora_str = hora_actual.strftime('%H:%M')
+                
+                # Verificar si hay conflicto con citas existentes
+                conflicto = False
+                for hora_ocupada in citas_ocupadas:
+                    hora_ocupada_obj = datetime.strptime(str(hora_ocupada), '%H:%M:%S').replace(second=0, microsecond=0)
+                    if abs((hora_actual - hora_ocupada_obj).total_seconds()) < 3600:  # 1 hora de diferencia
+                        conflicto = True
+                        break
+                
+                if not conflicto:
+                    horarios_disponibles.append(hora_str)
+            
+            # Avanzar 30 minutos
+            hora_actual += timedelta(minutes=30)
+        
+        print(f"🔍 Horarios disponibles encontrados: {len(horarios_disponibles)}")
+        return horarios_disponibles
+        
+    except Exception as e:
+        print(f"❌ Error en obtener_horarios_disponibles: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
 def obtener_configuracion_horarios(negocio_id):
-    """Obtener configuración de horarios por días"""
-    conn = get_db_connection()
-    sql = '''
-        SELECT dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
-        FROM configuracion_horarios 
-        WHERE negocio_id = ?
-        ORDER BY dia_semana
-    '''
-    resultados = fetch_all(conn.cursor(), sql, (negocio_id,))
-    conn.close()
-    
-    dias_config = {}
-    for row in resultados:
-        dias_config[row['dia_semana']] = {
-            'activo': bool(row['activo']),
-            'hora_inicio': row['hora_inicio'],
-            'hora_fin': row['hora_fin'],
-            'almuerzo_inicio': row['almuerzo_inicio'],
-            'almuerzo_fin': row['almuerzo_fin']
-        }
-    
-    return dias_config
+    """Obtener configuración de horarios por días - VERSIÓN MEJORADA"""
+    try:
+        conn = get_db_connection()
+        
+        if is_postgresql():
+            sql = '''
+                SELECT dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                FROM configuracion_horarios 
+                WHERE negocio_id = %s
+                ORDER BY dia_semana
+            '''
+        else:
+            sql = '''
+                SELECT dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin
+                FROM configuracion_horarios 
+                WHERE negocio_id = ?
+                ORDER BY dia_semana
+            '''
+        
+        resultados = fetch_all(conn.cursor(), sql, (negocio_id,))
+        conn.close()
+        
+        # Si no hay resultados, crear configuración por defecto
+        if not resultados:
+            print(f"⚠️ No hay configuración de horarios para negocio {negocio_id}, creando valores por defecto")
+            return crear_configuracion_horarios_por_defecto(negocio_id)
+        
+        dias_config = {}
+        for row in resultados:
+            # Función para formatear tiempo
+            def format_time(value):
+                if not value:
+                    return None
+                if hasattr(value, 'strftime'):
+                    return value.strftime('%H:%M')
+                elif isinstance(value, str):
+                    return value
+                else:
+                    return str(value)
+            
+            dia_semana = row['dia_semana']
+            dias_config[dia_semana] = {
+                'activo': bool(row['activo']),
+                'hora_inicio': format_time(row['hora_inicio']),
+                'hora_fin': format_time(row['hora_fin']),
+                'almuerzo_inicio': format_time(row['almuerzo_inicio']),
+                'almuerzo_fin': format_time(row['almuerzo_fin'])
+            }
+        
+        return dias_config
+        
+    except Exception as e:
+        print(f"❌ Error en obtener_configuracion_horarios: {e}")
+        return crear_configuracion_horarios_por_defecto(negocio_id)
+
+def crear_configuracion_horarios_por_defecto(negocio_id):
+    """Crear configuración de horarios por defecto"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        dias_semana = [
+            (1, '09:00', '19:00', '13:00', '14:00'),  # Lunes
+            (2, '09:00', '19:00', '13:00', '14:00'),  # Martes
+            (3, '09:00', '19:00', '13:00', '14:00'),  # Miércoles
+            (4, '09:00', '19:00', '13:00', '14:00'),  # Jueves
+            (5, '09:00', '19:00', '13:00', '14:00'),  # Viernes
+            (6, '09:00', '19:00', '13:00', '14:00'),  # Sábado
+            (7, '09:00', '13:00', None, None)         # Domingo (medio día)
+        ]
+        
+        for dia in dias_semana:
+            if is_postgresql():
+                sql = '''
+                    INSERT INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                '''
+            else:
+                sql = '''
+                    INSERT INTO configuracion_horarios 
+                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                '''
+            
+            execute_sql(cursor, sql, (
+                negocio_id, 
+                dia[0], 
+                True,  # Activo por defecto
+                dia[1], 
+                dia[2], 
+                dia[3], 
+                dia[4]
+            ))
+        
+        conn.commit()
+        conn.close()
+        
+        # Retornar la configuración creada
+        dias_config = {}
+        for dia in dias_semana:
+            dias_config[dia[0]] = {
+                'activo': True,
+                'hora_inicio': dia[1],
+                'hora_fin': dia[2],
+                'almuerzo_inicio': dia[3],
+                'almuerzo_fin': dia[4]
+            }
+        
+        return dias_config
+        
+    except Exception as e:
+        print(f"❌ Error creando configuración por defecto: {e}")
+        return {}
 
 
 def actualizar_configuracion_horarios(negocio_id, configuraciones):
@@ -1999,3 +2237,32 @@ def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
         return False
     finally:
         conn.close()
+
+def test_horarios_disponibles():
+    """Función de prueba para horarios disponibles"""
+    print("🧪 TEST: Probando horarios disponibles")
+    
+    # Usar valores de prueba
+    negocio_id = 1
+    profesional_id = 1
+    fecha = datetime.now().strftime('%Y-%m-%d')
+    servicio_id = 1
+    
+    print(f"🧪 Datos de prueba:")
+    print(f"  - negocio_id: {negocio_id}")
+    print(f"  - profesional_id: {profesional_id}")
+    print(f"  - fecha: {fecha}")
+    print(f"  - servicio_id: {servicio_id}")
+    
+    # 1. Obtener horarios por día
+    horarios = obtener_horarios_por_dia(negocio_id, fecha)
+    print(f"🧪 Horarios del día: {horarios}")
+    
+    # 2. Obtener horarios disponibles
+    disponibles = obtener_horarios_disponibles(negocio_id, profesional_id, fecha, servicio_id)
+    print(f"🧪 Horarios disponibles: {disponibles}")
+    
+    return {
+        'horarios_dia': horarios,
+        'horarios_disponibles': disponibles
+    }

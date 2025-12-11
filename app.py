@@ -3007,6 +3007,15 @@ def api_horarios_disponibles():
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
 
+@app.route('/test-horarios')
+def test_horarios():
+    """Ruta para probar horarios disponibles"""
+    try:
+        resultado = db.test_horarios_disponibles()
+        return jsonify(resultado)
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 @app.route('/debug-session')
 def debug_session():
     """Debug de la sesión actual"""
