@@ -1172,9 +1172,14 @@ def es_cliente_nuevo(telefono, negocio_id):
     return count == 0
 
 
-def obtener_nombre_cliente(numero, negocio_id):
-    """Obtener nombre del cliente desde la base de datos - VERSIÓN MÁS ROBUSTA"""
+def obtener_nombre_cliente(telefono, negocio_id):
+    """Obtener nombre del cliente desde la base de datos - VERSIÓN CORREGIDA"""
     try:
+        # Si el "teléfono" es un UUID (session_id), no buscar en BD
+        if len(str(telefono)) > 15 or '-' in str(telefono):
+            print(f"⚠️ [DB] Se recibió UUID/session_id como teléfono: {telefono}")
+            return None
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -1189,7 +1194,7 @@ def obtener_nombre_cliente(numero, negocio_id):
                 AND negocio_id = %s 
                 ORDER BY updated_at DESC, created_at DESC
                 LIMIT 1
-            ''', (numero, negocio_id))
+            ''', (telefono, negocio_id))
             
             resultado = cursor.fetchone()
             
@@ -1200,8 +1205,8 @@ def obtener_nombre_cliente(numero, negocio_id):
                     print(f"✅ [DB] Nombre encontrado en tabla clientes: {nombre_cliente}")
             
         except Exception as e:
-            print(f"⚠️ [DB] Error buscando en tabla clientes (puede no existir): {e}")
-            # Continuamos con la búsqueda en citas
+            print(f"⚠️ [DB] Error buscando en tabla clientes: {e}")
+            # Continuamos
         
         # Si no encontramos en clientes, buscar en citas
         if not nombre_cliente:
@@ -1215,7 +1220,7 @@ def obtener_nombre_cliente(numero, negocio_id):
                     AND TRIM(cliente_nombre) != ''
                     ORDER BY created_at DESC
                     LIMIT 1
-                ''', (numero, negocio_id))
+                ''', (telefono, negocio_id))
                 
                 resultado = cursor.fetchone()
                 
