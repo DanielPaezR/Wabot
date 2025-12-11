@@ -1934,105 +1934,83 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
 # =============================================================================
 
 def obtener_citas_proximas_recordatorio():
-    """Obtener citas próximas para recordatorios - VERSIÓN CORREGIDA"""
+    """Obtener citas próximas para recordatorios - VERSIÓN POSTGRESQL"""
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     # Citas en 24 horas
     fecha_24h = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d')
     
-    if is_postgresql():
-        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
-        sql = '''
-            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
-                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-                   s.duracion, s.precio
-            FROM citas c
-            JOIN negocios n ON c.negocio_id = n.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.fecha::DATE = %s::DATE 
-            AND c.estado = 'confirmado' 
-            AND c.recordatorio_24h_enviado = FALSE
-            ORDER BY c.hora
-        '''
-    else:
-        sql = '''
-            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
-                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-                   s.duracion, s.precio
-            FROM citas c
-            JOIN negocios n ON c.negocio_id = n.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.fecha = ? AND c.estado = 'confirmado' 
-            AND c.recordatorio_24h_enviado = FALSE
-            ORDER BY c.hora
-        '''
+    # ✅ CORRECCIÓN: Sintaxis PostgreSQL
+    sql_24h = '''
+        SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
+               p.nombre as profesional_nombre, s.nombre as servicio_nombre,
+               s.duracion, s.precio
+        FROM citas c
+        JOIN negocios n ON c.negocio_id = n.id
+        JOIN profesionales p ON c.profesional_id = p.id
+        JOIN servicios s ON c.servicio_id = s.id
+        WHERE c.fecha = %s 
+        AND c.estado = 'confirmado' 
+        AND c.recordatorio_24h_enviado = FALSE
+        ORDER BY c.hora
+    '''
     
-    citas_24h = fetch_all(cursor, sql, (fecha_24h,))
+    cursor.execute(sql_24h, (fecha_24h,))
+    citas_24h = cursor.fetchall()
     
     # Citas en 1 hora (mismo día)
     fecha_hoy = datetime.now().strftime('%Y-%m-%d')
     
-    if is_postgresql():
-        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
-        sql = '''
-            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
-                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-                   s.duracion, s.precio
-            FROM citas c
-            JOIN negocios n ON c.negocio_id = n.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.fecha::DATE = %s::DATE 
-            AND c.estado = 'confirmado'
-            AND c.recordatorio_1h_enviado = FALSE
-            AND c.hora::time BETWEEN (NOW() + INTERVAL '55 minutes')::time 
-                               AND (NOW() + INTERVAL '65 minutes')::time
-            ORDER BY c.hora
-        '''
-    else:
-        sql = '''
-            SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
-                   p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-                   s.duracion, s.precio
-            FROM citas c
-            JOIN negocios n ON c.negocio_id = n.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.fecha = ? AND c.estado = 'confirmado'
-            AND c.recordatorio_1h_enviado = FALSE
-            AND TIME(c.hora) BETWEEN TIME('now', '+55 minutes') AND TIME('now', '+65 minutes')
-            ORDER BY c.hora
-        '''
+    # ✅ CORRECCIÓN: Sintaxis PostgreSQL
+    sql_1h = '''
+        SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
+               p.nombre as profesional_nombre, s.nombre as servicio_nombre,
+               s.duracion, s.precio
+        FROM citas c
+        JOIN negocios n ON c.negocio_id = n.id
+        JOIN profesionales p ON c.profesional_id = p.id
+        JOIN servicios s ON c.servicio_id = s.id
+        WHERE c.fecha = %s 
+        AND c.estado = 'confirmado'
+        AND c.recordatorio_1h_enviado = FALSE
+        AND c.hora::time BETWEEN (NOW() + INTERVAL '55 minutes')::time 
+                           AND (NOW() + INTERVAL '65 minutes')::time
+        ORDER BY c.hora
+    '''
     
-    citas_1h = fetch_all(cursor, sql, (fecha_hoy,))
+    cursor.execute(sql_1h, (fecha_hoy,))
+    citas_1h = cursor.fetchall()
     
     conn.close()
     
+    # Convertir a lista de diccionarios
     return {
-        'citas_24h': citas_24h,
-        'citas_1h': citas_1h
+        'citas_24h': [dict(cita) for cita in citas_24h],
+        'citas_1h': [dict(cita) for cita in citas_1h]
     }
 
 
 def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
-    """Marcar recordatorio como enviado"""
+    """Marcar recordatorio como enviado - VERSIÓN POSTGRESQL"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         if tipo_recordatorio == '24h':
-            sql = 'UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = ?'
+            sql = 'UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = %s'
         elif tipo_recordatorio == '1h':
-            sql = 'UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = ?'
+            sql = 'UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = %s'
+        else:
+            return False
         
-        execute_sql(cursor, sql, (cita_id,))
+        cursor.execute(sql, (cita_id,))
         conn.commit()
         return True
     except Exception as e:
         print(f"❌ Error marcando recordatorio: {e}")
+        conn.rollback()
         return False
     finally:
         conn.close()
+
