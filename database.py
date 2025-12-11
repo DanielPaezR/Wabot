@@ -1346,140 +1346,120 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
-def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario - VERSIÓN CORREGIDA"""
+def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True, email=None):
+    """Crear profesional - VERSIÓN MEJORADA con opción de crear usuario automático"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # 1. VERIFICAR EMAIL EXISTENTE
-        sql = 'SELECT id FROM usuarios WHERE email = %s' if is_postgresql() else 'SELECT id FROM usuarios WHERE email = ?'
-        cursor.execute(sql, (email,))
-        if cursor.fetchone():
-            print(f"❌ Email ya existe: {email}")
-            conn.close()
-            return None
+        print(f"🔍 DEBUG crear_profesional MEJORADA:")
+        print(f"  - negocio_id: {negocio_id}")
+        print(f"  - nombre: {nombre}")
+        print(f"  - email: {email}")
+        print(f"  - especialidad: {especialidad}")
+        print(f"  - pin: {pin}")
+        print(f"  - servicios_ids: {servicios_ids}")
+        print(f"  - activo: {activo}")
         
-        # 2. VALIDACIÓN DE NEGOCIO_ID
-        print(f"DEBUG: negocio_id recibido: {negocio_id}, tipo: {type(negocio_id)}")
+        usuario_id = None
         
-        if rol != 'superadmin':
-            if negocio_id is None or negocio_id == '' or negocio_id == '0':
-                print(f"❌ Error: negocio_id inválido para rol {rol}: {negocio_id}")
+        # Si se proporciona email, crear usuario automáticamente
+        if email:
+            # Verificar si el email ya existe como usuario
+            cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
+            if cursor.fetchone():
+                print(f"❌ Error: El email {email} ya está registrado")
                 conn.close()
-                return None
-        
-        # Convertir a entero seguro
-        if negocio_id and negocio_id != '':
-            try:
-                negocio_id_int = int(negocio_id)
-            except:
-                print(f"❌ Error: negocio_id no es número: {negocio_id}")
-                conn.close()
-                return None
-        else:
-            negocio_id_int = None if rol == 'superadmin' else 0
-        
-        # 3. HASH PASSWORD
-        import hashlib
-        hashed_password = hashlib.sha256(password.encode()).hexdigest()
-        
-        print(f"DEBUG: Insertando - negocio_id: {negocio_id_int}, nombre: {nombre}, email: {email}, rol: {rol}")
-        
-        # 4. INSERT USUARIO - CORREGIDO para manejar diccionarios/tuplas
-        if is_postgresql():
-            sql = '''
-                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo) 
+                return None, "El email ya está registrado como usuario"
+            
+            # Crear usuario con contraseña temporal 123456
+            import hashlib
+            password_temp = "123456"
+            hashed_password = hashlib.sha256(password_temp.encode()).hexdigest()
+            
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
-            '''
-            cursor.execute(sql, (negocio_id_int, nombre, email, hashed_password, rol, True))
-            result = cursor.fetchone()
+            ''', (negocio_id, nombre, email, hashed_password, 'profesional', True))
             
-            # **CORRECCIÓN: Manejar tanto diccionarios como tuplas**
-            if result:
-                if isinstance(result, dict):  # Es diccionario
-                    nuevo_usuario_id = result['id']
-                elif hasattr(result, '_asdict'):  # Es NamedTuple
-                    nuevo_usuario_id = result.id
-                else:  # Es tupla o lista
-                    nuevo_usuario_id = result[0]
-            else:
-                nuevo_usuario_id = None
-        else:
-            # SQLite
-            sql = '''
-                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            '''
-            cursor.execute(sql, (negocio_id_int, nombre, email, hashed_password, rol, True))
-            nuevo_usuario_id = cursor.lastrowid
+            user_result = cursor.fetchone()
+            if not user_result:
+                print(f"❌ Error: No se pudo crear el usuario")
+                conn.rollback()
+                conn.close()
+                return None, "Error al crear el usuario"
+            
+            if hasattr(user_result, 'keys'):  # Es un diccionario
+                usuario_id = user_result['id']
+            else:  # Es una tupla
+                usuario_id = user_result[0]
+            
+            print(f"✅ Usuario creado con ID: {usuario_id}")
         
-        if not nuevo_usuario_id:
-            print(f"❌ No se pudo obtener ID del usuario")
+        # Insertar profesional (con usuario_id si se creó usuario)
+        if usuario_id:
+            cursor.execute('''
+                INSERT INTO profesionales (negocio_id, nombre, especialidad, usuario_id, activo)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (negocio_id, nombre, especialidad, usuario_id, activo))
+        else:
+            # Mantener compatibilidad con PIN para métodos antiguos
+            if not pin or pin.strip() == '':
+                pin = '0000'  # PIN por defecto
+            
+            cursor.execute('''
+                INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (negocio_id, nombre, especialidad, pin, activo))
+        
+        result = cursor.fetchone()
+        
+        if not result:
+            print(f"❌ Error: No se obtuvo ID del profesional insertado")
             conn.rollback()
             conn.close()
-            return None
+            return None, "Error al crear el profesional en la base de datos"
         
-        print(f"✅ Usuario creado ID: {nuevo_usuario_id}")
+        # ✅ CORRECCIÓN: Acceder correctamente al ID
+        if hasattr(result, 'keys'):  # Es un diccionario
+            profesional_id = result['id']
+        else:  # Es una tupla
+            profesional_id = result[0]
         
-        # 5. CREAR PROFESIONAL SI CORRESPONDE
-        if rol == 'profesional':
-            print(f"DEBUG: Creando profesional para usuario {nuevo_usuario_id}")
-            
-            # Verificar que el profesional no exista
-            check_sql = 'SELECT id FROM profesionales WHERE usuario_id = ?' if not is_postgresql() else 'SELECT id FROM profesionales WHERE usuario_id = %s'
-            cursor.execute(check_sql, (nuevo_usuario_id,))
-            if cursor.fetchone():
-                print(f"⚠️ Profesional ya existe para usuario {nuevo_usuario_id}")
-            else:
-                # Crear profesional automáticamente
-                if is_postgresql():
-                    sql = '''
-                        INSERT INTO profesionales 
-                        (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                    '''
-                    cursor.execute(sql, (negocio_id_int, nombre, 'General', '0000', nuevo_usuario_id, True))
-                else:
-                    sql = '''
-                        INSERT INTO profesionales 
-                        (negocio_id, nombre, especialidad, pin, usuario_id, activo) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    '''
-                    cursor.execute(sql, (negocio_id_int, nombre, 'General', '0000', nuevo_usuario_id, True))
-                
-                print(f"✅ Profesional creado para usuario {nuevo_usuario_id}")
+        print(f"✅ Profesional creado con ID: {profesional_id}")
+        
+        # Asignar servicios solo si hay servicios seleccionados
+        if servicios_ids:
+            for servicio_id in servicios_ids:
+                try:
+                    servicio_id_int = int(servicio_id)
+                    cursor.execute('''
+                        INSERT INTO profesional_servicios (profesional_id, servicio_id)
+                        VALUES (%s, %s)
+                    ''', (profesional_id, servicio_id_int))
+                    print(f"  - Servicio {servicio_id_int} asignado")
+                except ValueError:
+                    print(f"⚠️  ID de servicio inválido: {servicio_id}")
+        else:
+            print("ℹ️  No se seleccionaron servicios")
         
         conn.commit()
-        return nuevo_usuario_id
+        
+        # Mensaje de éxito personalizado
+        if email:
+            return profesional_id, f"Usuario creado con email: {email}, contraseña: 123456"
+        else:
+            return profesional_id, "Profesional creado exitosamente"
         
     except Exception as e:
         conn.rollback()
-        print(f"❌ ERROR en crear_usuario: {str(e)}")
+        print(f"❌ ERROR en crear_profesional: {str(e)}")
         import traceback
         traceback.print_exc()
-        
-        # DEBUG EXTRA: Verifica estructura de tablas
-        try:
-            print("\n=== DEBUG ESTRUCTURA TABLAS ===")
-            if is_postgresql():
-                cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'usuarios' ORDER BY ordinal_position")
-                print("Usuarios columns:", cursor.fetchall())
-                
-                cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'profesionales' ORDER BY ordinal_position")
-                print("Profesionales columns:", cursor.fetchall())
-            else:
-                cursor.execute("PRAGMA table_info(usuarios)")
-                print("Usuarios columns:", cursor.fetchall())
-                
-                cursor.execute("PRAGMA table_info(profesionales)")
-                print("Profesionales columns:", cursor.fetchall())
-        except Exception as debug_e:
-            print(f"Error en debug: {debug_e}")
-            
-        return None
+        return None, f"Error interno: {str(e)}"
     finally:
         conn.close()
 
