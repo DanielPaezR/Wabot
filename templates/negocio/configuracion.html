@@ -419,7 +419,7 @@
             <button type="button" class="tab" data-tab="informacion">🏢 Información del Negocio</button>
         </div>
 
-        <!-- FORMULARIO DE HORARIOS (tu contenido actual) -->
+        <!-- FORMULARIO DE HORARIOS (VERSIÓN CORREGIDA) -->
         <form method="POST" action="{{ url_for('negocio_configuracion') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
@@ -448,44 +448,51 @@
                                 </label>
                             </div>
 
+                            <!-- ✅ CORRECCIÓN: Horario laboral PRINCIPAL -->
                             <div class="horarios-grid">
                                 <div class="horario-group">
-                                    <label>🕐 Hora Inicio:</label>
+                                    <label>🕐 Hora Inicio Jornada:</label>
                                     <input type="time" 
-                                        name="dia_{{ dia.id }}_descanso_inicio" 
-                                        value="{{ dia.config.almuerzo_inicio or '13:00' }}"
-                                        class="horario-input"
-                                        {% if not dia.config.activo %}disabled{% endif %}>
+                                        name="dia_{{ dia.id }}_inicio" 
+                                        value="{{ dia.config.hora_inicio or '09:00' }}"
+                                        class="horario-input horario-principal"
+                                        {% if not dia.config.activo %}disabled{% endif %}
+                                        required>
                                 </div>
 
                                 <div class="horario-group">
-                                    <label>🕔 Hora Fin:</label>
+                                    <label>🕔 Hora Fin Jornada:</label>
                                     <input type="time" 
-                                        name="dia_{{ dia.id }}_descanso_fin" 
-                                        value="{{ dia.config.almuerzo_fin or '14:00' }}"
-                                        class="horario-input"
-                                        {% if not dia.config.activo %}disabled{% endif %}>
+                                        name="dia_{{ dia.id }}_fin" 
+                                        value="{{ dia.config.hora_fin or '19:00' }}"
+                                        class="horario-input horario-principal"
+                                        {% if not dia.config.activo %}disabled{% endif %}
+                                        required>
                                 </div>
                             </div>
 
+                            <!-- ✅ CORRECCIÓN: Horario de almuerzo/descanso -->
                             <div class="descanso-section">
-                                <div class="descanso-title">⏸️ Horario de Descanso (Opcional)</div>
+                                <div class="descanso-title">⏸️ Horario de Descanso (Almuerzo - Opcional)</div>
+                                <p style="font-size: 0.8rem; color: #666; margin-bottom: 0.5rem;">
+                                    Horario durante el cual NO se atiende (ej: almuerzo 13:00-14:00)
+                                </p>
                                 <div class="horarios-grid">
                                     <div class="horario-group">
                                         <label>Inicio Descanso:</label>
                                         <input type="time" 
-                                            name="dia_{{ dia.id }}_descanso_inicio" 
+                                            name="dia_{{ dia.id }}_almuerzo_inicio" 
                                             value="{{ dia.config.almuerzo_inicio or '' }}"
-                                            class="horario-input"
+                                            class="horario-input horario-descanso"
                                             {% if not dia.config.activo %}disabled{% endif %}>
                                     </div>
 
                                     <div class="horario-group">
                                         <label>Fin Descanso:</label>
                                         <input type="time" 
-                                            name="dia_{{ dia.id }}_descanso_fin" 
+                                            name="dia_{{ dia.id }}_almuerzo_fin" 
                                             value="{{ dia.config.almuerzo_fin or '' }}"
-                                            class="horario-input"
+                                            class="horario-input horario-descanso"
                                             {% if not dia.config.activo %}disabled{% endif %}>
                                     </div>
                                 </div>
@@ -496,7 +503,7 @@
                 </div>
             </div>
 
-            <!-- Pestaña Información del Negocio (NUEVA) -->
+            <!-- Pestaña Información del Negocio -->
             <div class="tab-content" id="informacion-tab">
                 <div class="config-section">
                     <h2 class="section-title">🏢 Información del Negocio</h2>
@@ -518,6 +525,7 @@
                                 <option value="barberia" {% if negocio.tipo_negocio == 'barberia' %}selected{% endif %}>Barbería</option>
                                 <option value="peluqueria" {% if negocio.tipo_negocio == 'peluqueria' %}selected{% endif %}>Peluquería</option>
                                 <option value="estetica" {% if negocio.tipo_negocio == 'estetica' %}selected{% endif %}>Centro de Estética</option>
+                                <option value="general" {% if not negocio.tipo_negocio or negocio.tipo_negocio == 'general' %}selected{% endif %}>General</option>
                             </select>
                             <div class="help-text">Esto afecta los textos automáticos (estilista/profesional)</div>
                         </div>
@@ -594,17 +602,22 @@
             event.target.classList.add('active');
         }
 
-        // Función para habilitar/deshabilitar inputs de horarios
+        // ✅ CORRECCIÓN: Función para habilitar/deshabilitar inputs de horarios
         function toggleDia(diaId, activo) {
             const diaCard = document.getElementById(`dia-${diaId}`);
-            const inputs = diaCard.querySelectorAll('input[type="time"]');
+            const inputs = diaCard.querySelectorAll('.horario-input');
             
             if (activo) {
                 diaCard.classList.remove('inactivo');
                 diaCard.classList.add('activo');
                 inputs.forEach(input => {
                     input.disabled = false;
-                    input.required = true;
+                    // Solo hacer required los horarios principales, no el descanso
+                    if (input.classList.contains('horario-principal')) {
+                        input.required = true;
+                    } else {
+                        input.required = false;
+                    }
                 });
             } else {
                 diaCard.classList.remove('activo');
@@ -612,6 +625,10 @@
                 inputs.forEach(input => {
                     input.disabled = true;
                     input.required = false;
+                    // Limpiar valores de descanso solo si no están activos
+                    if (input.classList.contains('horario-descanso')) {
+                        input.value = '';
+                    }
                 });
             }
         }
@@ -625,7 +642,7 @@
                 });
             });
 
-            // Inicializar días - ✅ CORRECCIÓN: Usar los datos reales de la base de datos
+            // ✅ CORRECCIÓN: Inicializar días correctamente
             document.querySelectorAll('input[type="checkbox"][name*="_activo"]').forEach(checkbox => {
                 const diaId = checkbox.getAttribute('data-dia-id');
                 const estaActivo = checkbox.checked;
@@ -636,11 +653,14 @@
                 // Agregar event listener para cambios
                 checkbox.addEventListener('change', function() {
                     const diaId = this.getAttribute('data-dia-id');
-                    toggleDia(parseInt(diaId), this.checked);
+                    const nuevoEstado = this.checked;
+                    
+                    console.log(`🔄 Cambiando día ${diaId} a ${nuevoEstado ? 'ACTIVO' : 'INACTIVO'}`);
+                    toggleDia(parseInt(diaId), nuevoEstado);
                 });
             });
 
-            // ✅ CORRECCIÓN: Validación antes de enviar el formulario
+            // ✅ CORRECCIÓN: Validación mejorada antes de enviar
             document.querySelector('form').addEventListener('submit', function(e) {
                 let formularioValido = true;
                 let mensajesError = [];
@@ -657,7 +677,10 @@
                     const diaId = checkbox.getAttribute('data-dia-id');
                     const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`).value;
                     const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`).value;
+                    const almuerzoInicio = document.querySelector(`input[name="dia_${diaId}_almuerzo_inicio"]`).value;
+                    const almuerzoFin = document.querySelector(`input[name="dia_${diaId}_almuerzo_fin"]`).value;
 
+                    // Validar horarios principales
                     if (!horaInicio || !horaFin) {
                         formularioValido = false;
                         mensajesError.push(`El día ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent} necesita horario de inicio y fin`);
@@ -667,15 +690,51 @@
                         formularioValido = false;
                         mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, la hora de inicio debe ser anterior a la hora de fin`);
                     }
+
+                    // Validar horario de almuerzo si está parcialmente completado
+                    if ((almuerzoInicio && !almuerzoFin) || (!almuerzoInicio && almuerzoFin)) {
+                        formularioValido = false;
+                        mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, si especificas horario de almuerzo, debes completar inicio y fin`);
+                    }
+
+                    // Validar que el almuerzo esté dentro del horario laboral
+                    if (almuerzoInicio && almuerzoFin) {
+                        if (almuerzoInicio < horaInicio || almuerzoFin > horaFin) {
+                            formularioValido = false;
+                            mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, el horario de almuerzo debe estar dentro del horario laboral (${horaInicio} - ${horaFin})`);
+                        }
+
+                        if (almuerzoInicio >= almuerzoFin) {
+                            formularioValido = false;
+                            mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, el inicio del almuerzo debe ser anterior al fin`);
+                        }
+                    }
                 });
 
                 if (!formularioValido) {
                     e.preventDefault();
                     alert('❌ Errores en el formulario:\n\n' + mensajesError.join('\n'));
                 } else {
-                    // Mostrar mensaje de confirmación
-                    if (confirm('¿Estás seguro de que quieres guardar los cambios en la configuración?')) {
-                        // El formulario se enviará normalmente
+                    // Mostrar confirmación con resumen
+                    let mensajeConfirmacion = '¿Estás seguro de que quieres guardar los cambios?\n\n';
+                    mensajeConfirmacion += '📅 Días activos configurados:\n';
+                    
+                    diasActivos.forEach(checkbox => {
+                        const diaId = checkbox.getAttribute('data-dia-id');
+                        const diaNombre = document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent;
+                        const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`).value;
+                        const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`).value;
+                        const almuerzoInicio = document.querySelector(`input[name="dia_${diaId}_almuerzo_inicio"]`).value;
+                        const almuerzoFin = document.querySelector(`input[name="dia_${diaId}_almuerzo_fin"]`).value;
+                        
+                        mensajeConfirmacion += `• ${diaNombre}: ${horaInicio} a ${horaFin}`;
+                        if (almuerzoInicio && almuerzoFin) {
+                            mensajeConfirmacion += ` (Almuerzo: ${almuerzoInicio} a ${almuerzoFin})`;
+                        }
+                        mensajeConfirmacion += '\n';
+                    });
+
+                    if (confirm(mensajeConfirmacion)) {
                         console.log('✅ Enviando formulario de configuración...');
                     } else {
                         e.preventDefault();
@@ -685,10 +744,17 @@
 
             // ✅ CORRECCIÓN: Debug para verificar estado de los días
             console.log('🔍 Estado inicial de los días:');
-            document.querySelectorAll('input[type="checkbox"][name*="_activo"]').forEach(checkbox => {
-                const diaId = checkbox.getAttribute('data-dia-id');
-                const estaActivo = checkbox.checked;
-                console.log(`Día ${diaId}: ${estaActivo ? 'ACTIVO' : 'INACTIVO'}`);
+            document.querySelectorAll('.dia-card').forEach(card => {
+                const diaId = card.id.replace('dia-', '');
+                const activo = card.classList.contains('activo');
+                const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`)?.value || 'N/A';
+                const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`)?.value || 'N/A';
+                const almuerzoInicio = document.querySelector(`input[name="dia_${diaId}_almuerzo_inicio"]`)?.value || 'N/A';
+                const almuerzoFin = document.querySelector(`input[name="dia_${diaId}_almuerzo_fin"]`)?.value || 'N/A';
+                
+                console.log(`Día ${diaId}: ${activo ? 'ACTIVO' : 'INACTIVO'}`);
+                console.log(`  Horario: ${horaInicio} - ${horaFin}`);
+                console.log(`  Almuerzo: ${almuerzoInicio} - ${almuerzoFin}`);
             });
         });
     </script>
