@@ -2861,7 +2861,7 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CORREGIDA DEFINITIVA"""
+    """API para obtener horarios disponibles - VERSIÓN CORRECTA"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -2876,125 +2876,135 @@ def api_horarios_disponibles():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        if db.is_postgresql():
-            cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
-        else:
-            cursor.execute('SELECT negocio_id FROM profesionales WHERE id = ?', (profesional_id,))
-        
+        # Obtener negocio_id del profesional
+        cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
         profesional = cursor.fetchone()
         if not profesional:
             conn.close()
             return jsonify({'error': 'Profesional no encontrado'}), 404
         
-        # ✅ CORRECCIÓN: Acceder correctamente al negocio_id
-        if hasattr(profesional, 'keys'):  # Es un diccionario
-            negocio_id = profesional['negocio_id']
-        else:  # Es una tupla
-            negocio_id = profesional[0]
+        negocio_id = profesional[0]
         
         # Obtener duración del servicio
-        if db.is_postgresql():
-            cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
-        else:
-            cursor.execute('SELECT duracion FROM servicios WHERE id = ?', (servicio_id,))
-        
+        cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
         servicio = cursor.fetchone()
         
         if not servicio:
             conn.close()
             return jsonify({'error': 'Servicio no encontrado'}), 404
         
-        # ✅ CORRECCIÓN: Acceder correctamente a la duración
-        if hasattr(servicio, 'keys'):  # Es un diccionario
-            duracion = servicio['duracion']
-        else:  # Es una tupla
-            duracion = servicio[0]
+        duracion_minutos = servicio[0]
+        print(f"🔍 Duración del servicio: {duracion_minutos} minutos, Negocio ID: {negocio_id}")
         
-        print(f"🔍 Duración del servicio: {duracion} minutos, Negocio ID: {negocio_id}")
+        # ✅ CORRECCIÓN: Usar la función obtener_horarios_por_dia para obtener la configuración REAL
+        horarios_config = obtener_horarios_por_dia(negocio_id, fecha)
+        print(f"🔍 Configuración de horarios obtenida: {horarios_config}")
         
-        # Obtener horarios laborales del negocio para esta fecha
-        horarios_laborales = db.obtener_horarios_por_dia(negocio_id, fecha)
-        print(f"🔍 Horarios laborales: {horarios_laborales}")
-        
-        if not horarios_laborales or not horarios_laborales['activo']:
+        if not horarios_config or not horarios_config['activo']:
             conn.close()
             return jsonify({'error': 'El negocio no trabaja este día'}), 400
         
-        # ✅ CORRECCIÓN DEFINITIVA: Manejar tanto strings como objetos datetime.time
-        def obtener_hora_como_string(hora):
-            """Convertir hora a string sin importar si es string o datetime.time"""
-            if hasattr(hora, 'strftime'):
-                # Es un objeto datetime.time
-                return hora.strftime('%H:%M')
-            else:
-                # Ya es un string
-                return str(hora)
+        # ✅ Obtener horarios REALES de la configuración
+        hora_inicio_str = horarios_config['hora_inicio']
+        hora_fin_str = horarios_config['hora_fin']
+        almuerzo_inicio_str = horarios_config.get('almuerzo_inicio')
+        almuerzo_fin_str = horarios_config.get('almuerzo_fin')
         
-        hora_inicio_str = obtener_hora_como_string(horarios_laborales['hora_inicio'])
-        hora_fin_str = obtener_hora_como_string(horarios_laborales['hora_fin'])
+        print(f"🔍 Horario configurado: {hora_inicio_str} a {hora_fin_str}, Almuerzo: {almuerzo_inicio_str} a {almuerzo_fin_str}")
         
-        # Convertir a objetos datetime para facilitar el cálculo
+        # Convertir strings a datetime para cálculos
         hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
         hora_fin = datetime.strptime(hora_fin_str, '%H:%M')
         
-        # Si hay horario de almuerzo, obtenerlo
+        # Convertir horario de almuerzo si existe
         almuerzo_inicio = None
         almuerzo_fin = None
-        almuerzo_inicio_str = None
-        almuerzo_fin_str = None
+        if almuerzo_inicio_str and almuerzo_fin_str:
+            try:
+                almuerzo_inicio = datetime.strptime(almuerzo_inicio_str, '%H:%M')
+                almuerzo_fin = datetime.strptime(almuerzo_fin_str, '%H:%M')
+            except ValueError:
+                print("⚠️ Error parseando horario de almuerzo, ignorando...")
         
-        if horarios_laborales['almuerzo_inicio'] and horarios_laborales['almuerzo_fin']:
-            almuerzo_inicio_str = obtener_hora_como_string(horarios_laborales['almuerzo_inicio'])
-            almuerzo_fin_str = obtener_hora_como_string(horarios_laborales['almuerzo_fin'])
-            almuerzo_inicio = datetime.strptime(almuerzo_inicio_str, '%H:%M')
-            almuerzo_fin = datetime.strptime(almuerzo_fin_str, '%H:%M')
+        # ✅ Obtener citas ya agendadas para este profesional y fecha
+        cursor.execute('''
+            SELECT hora FROM citas 
+            WHERE profesional_id = %s 
+            AND fecha = %s 
+            AND estado NOT IN ('cancelada', 'cancelado')
+            ORDER BY hora
+        ''', (profesional_id, fecha))
         
-        # Generar horarios cada hora dentro del horario laboral
-        horarios_disponibles = []
-        hora_actual = hora_inicio
-        
-        while hora_actual < hora_fin:
-            # Verificar si está dentro del horario de almuerzo
-            es_almuerzo = False
-            if almuerzo_inicio and almuerzo_fin:
-                es_almuerzo = almuerzo_inicio <= hora_actual < almuerzo_fin
-            
-            if not es_almuerzo:
-                hora_str = hora_actual.strftime('%H:%M')
-                
-                # Verificar disponibilidad
-                if db.is_postgresql():
-                    cursor.execute('''
-                        SELECT id FROM citas 
-                        WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
-                    ''', (profesional_id, fecha, hora_str))
-                else:
-                    cursor.execute('''
-                        SELECT id FROM citas 
-                        WHERE profesional_id = ? AND fecha = ? AND hora = ? AND estado != 'cancelada'
-                    ''', (profesional_id, fecha, hora_str))
-                
-                if not cursor.fetchone():
-                    horarios_disponibles.append(hora_str)
-            
-            # Avanzar 1 hora
-            hora_actual += timedelta(hours=1)
+        citas_ocupadas = [cita[0] for cita in cursor.fetchall()]
+        print(f"🔍 Citas ocupadas: {citas_ocupadas}")
         
         conn.close()
         
-        print(f"🔍 Horarios disponibles encontrados: {len(horarios_disponibles)}: {horarios_disponibles}")
+        # ✅ Generar slots basados en la duración del servicio
+        intervalos_disponibles = []
+        hora_actual = hora_inicio
         
-        # Preparar respuesta del horario laboral
-        horario_laboral_info = {
-            'inicio': hora_inicio_str,
-            'fin': hora_fin_str,
-            'almuerzo': f"{almuerzo_inicio_str} - {almuerzo_fin_str}" if almuerzo_inicio_str else None
-        }
+        # Generar slots hasta el horario de fin
+        while hora_actual < hora_fin:
+            hora_fin_slot = hora_actual + timedelta(minutes=duracion_minutos)
+            
+            # Si el slot se pasa del horario de fin, no es válido
+            if hora_fin_slot > hora_fin:
+                break
+            
+            # Verificar si está dentro del horario de almuerzo
+            dentro_almuerzo = False
+            if almuerzo_inicio and almuerzo_fin:
+                # Verificar si el slot se cruza con el horario de almuerzo
+                # Caso 1: El slot empieza durante el almuerzo
+                if almuerzo_inicio <= hora_actual < almuerzo_fin:
+                    dentro_almuerzo = True
+                # Caso 2: El slot termina durante el almuerzo  
+                elif almuerzo_inicio < hora_fin_slot <= almuerzo_fin:
+                    dentro_almuerzo = True
+                # Caso 3: El slot cubre completamente el almuerzo
+                elif hora_actual <= almuerzo_inicio and hora_fin_slot >= almuerzo_fin:
+                    dentro_almuerzo = True
+            
+            if not dentro_almuerzo:
+                # Verificar si el slot está ocupado
+                hora_str = hora_actual.strftime('%H:%M')
+                ocupado = False
+                
+                for cita_hora in citas_ocupadas:
+                    # Convertir hora de cita a string si es necesario
+                    cita_hora_str = str(cita_hora)
+                    if ':' in cita_hora_str:
+                        # Extraer solo la parte de hora:minutos
+                        cita_hora_str = cita_hora_str[:5]
+                    
+                    if cita_hora_str == hora_str:
+                        ocupado = True
+                        break
+                
+                if not ocupado:
+                    intervalos_disponibles.append(hora_str)
+            
+            # Avanzar al siguiente slot (puedes ajustar el intervalo aquí)
+            # Por defecto avanzamos en intervalos de 30 minutos para mostrar más opciones
+            hora_actual += timedelta(minutes=30)
+        
+        print(f"🔍 Horarios disponibles encontrados: {len(intervalos_disponibles)}: {intervalos_disponibles}")
+        
+        if not intervalos_disponibles:
+            return jsonify({
+                'horarios': [],
+                'mensaje': 'No hay horarios disponibles para esta fecha'
+            })
         
         return jsonify({
-            'horarios': horarios_disponibles,
-            'duracion': duracion,
-            'horario_laboral': horario_laboral_info
+            'horarios': intervalos_disponibles,
+            'duracion': duracion_minutos,
+            'horario_laboral': {
+                'inicio': hora_inicio_str,
+                'fin': hora_fin_str,
+                'almuerzo': f"{almuerzo_inicio_str} - {almuerzo_fin_str}" if almuerzo_inicio_str and almuerzo_fin_str else None
+            }
         })
         
     except Exception as e:
@@ -3007,24 +3017,6 @@ def api_horarios_disponibles():
 # RUTAS DE DEBUG Y TEST
 # =============================================================================
 
-@app.route('/test-horarios')
-def test_horarios():
-    """Ruta para probar horarios disponibles"""
-    try:
-        resultado = db.test_horarios_disponibles()
-        return jsonify(resultado)
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-
-@app.route('/corregir-horarios-almuerzo')
-def corregir_horarios_route():
-    """Ruta para corregir horarios de almuerzo mal configurados"""
-    try:
-        from database import corregir_horarios_almuerzo_mal_configurados
-        corregir_horarios_almuerzo_mal_configurados()
-        return "✅ Horarios de almuerzo corregidos exitosamente"
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
 @app.route('/debug-session')
 def debug_session():
