@@ -212,12 +212,12 @@ def saludo_inicial(numero, negocio_id):
     """Saludo inicial - Cliente nuevo o existente - VERSIÓN MEJORADA"""
     try:
         # Verificar si es cliente existente con nombre válido
-        nombre_cliente = verificar_cliente_existente(numero, negocio_id)
+        nombre_cliente = obtener_nombre_cliente(numero, negocio_id)
         
         print(f"🔧 DEBUG saludo_inicial: numero={numero}, nombre_cliente='{nombre_cliente}'")
         
         if nombre_cliente:
-            print(f"🔧 DEBUG: Mostrando saludo para cliente EXISTENTE")
+            print(f"🔧 DEBUG: Mostrando saludo para cliente EXISTENTE: {nombre_cliente}")
             # Cliente existente - mostrar menú personalizado
             return renderizar_plantilla('saludo_inicial_existente', negocio_id, {
                 'cliente_nombre': nombre_cliente
@@ -638,7 +638,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
-    """Procesar nombre del cliente nuevo - VERSIÓN MEJORADA"""
+    """Procesar nombre del cliente nuevo - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -652,46 +652,46 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     
     print(f"🔧 DEBUG: Procesando nombre '{nombre}' para {numero}")
     
-    # ✅ VERSIÓN MEJORADA: Crear una cita de prueba REAL que será eliminada después
     try:
-        # Obtener fecha de ayer
-        fecha_pasado = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        # Obtener un profesional y servicio por defecto
+        # Intentar guardar el cliente en la tabla de clientes
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id FROM profesionales WHERE negocio_id = %s AND activo = true LIMIT 1', (negocio_id,))
-        profesional = cursor.fetchone()
-        profesional_id = profesional[0] if profesional else 1
-        
-        cursor.execute('SELECT id FROM servicios WHERE negocio_id = %s AND activo = true LIMIT 1', (negocio_id,))
-        servicio = cursor.fetchone()
-        servicio_id = servicio[0] if servicio else 1
-        
-        # Crear cita en el PASADO con el nombre del cliente
+        # Verificar si ya existe
         cursor.execute('''
-            INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre, estado, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-            RETURNING id
-        ''', (negocio_id, profesional_id, numero, fecha_pasado, '10:00', servicio_id, nombre, 'completado'))
+            SELECT id FROM clientes WHERE telefono = %s AND negocio_id = %s
+        ''', (numero, negocio_id))
         
-        cita_id = cursor.fetchone()[0]
+        cliente_existente = cursor.fetchone()
+        
+        if cliente_existente:
+            # Actualizar nombre si ya existe
+            cursor.execute('''
+                UPDATE clientes 
+                SET nombre = %s, updated_at = NOW()
+                WHERE telefono = %s AND negocio_id = %s
+            ''', (nombre, numero, negocio_id))
+        else:
+            # Insertar nuevo cliente
+            cursor.execute('''
+                INSERT INTO clientes (negocio_id, telefono, nombre, created_at, updated_at)
+                VALUES (%s, %s, %s, NOW(), NOW())
+            ''', (negocio_id, numero, nombre))
+        
         conn.commit()
         conn.close()
         
-        print(f"✅ DEBUG: Cita de prueba creada exitosamente. ID: {cita_id}")
-        print(f"✅ DEBUG: Nombre '{nombre}' guardado para el cliente {numero}")
+        print(f"✅ DEBUG: Cliente guardado: {nombre}")
         
     except Exception as e:
-        print(f"⚠️ DEBUG: Error creando cita de prueba: {e}")
-        # No es crítico si falla, continuamos
+        print(f"⚠️ DEBUG: Error guardando cliente: {e}")
+        # No es crítico, continuamos
     
-    # ✅ CORRECCIÓN: Limpiar conversación activa
+    # ✅ Limpiar conversación activa
     if clave_conversacion in conversaciones_activas:
         del conversaciones_activas[clave_conversacion]
     
-    # ✅ CORRECCIÓN: Mostrar menú principal personalizado
+    # ✅ Mostrar menú principal personalizado
     return renderizar_plantilla('menu_principal', negocio_id, {
         'cliente_nombre': nombre
     })
@@ -909,7 +909,7 @@ Responde:
 *0* - ↩️ Volver al menú principal'''
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - VERSIÓN COMPLETA MEJORADA"""
+    """Procesar confirmación de la cita - VERSIÓN COMPLETA Y ROBUSTA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -920,17 +920,23 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
     if mensaje == '1':
         # Confirmar cita
         try:
+            # Obtener datos de la conversación
             hora = conversaciones_activas[clave_conversacion]['hora_seleccionada']
             fecha = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
             profesional_id = conversaciones_activas[clave_conversacion]['profesional_id']
             servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
+            profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
+            servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
+            servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
             
-            # Obtener nombre del cliente (de la sesión actual o de base de datos)
-            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre')
+            # Obtener nombre del cliente
+            nombre_cliente = None
             
-            # Si no hay nombre en la sesión, buscar en base de datos
+            # 1. Buscar en la tabla de clientes
+            nombre_cliente = obtener_nombre_cliente(numero, negocio_id)
+            
+            # 2. Si no hay, buscar en citas anteriores
             if not nombre_cliente:
-                # Buscar nombre más reciente del cliente
                 conn = db.get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -950,20 +956,23 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                 if resultado:
                     nombre_cliente = resultado[0]
             
-            # Si aún no hay nombre, usar valor por defecto
-            if not nombre_cliente:
+            # 3. Si aún no hay nombre, usar valor por defecto
+            if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
                 nombre_cliente = 'Cliente'
+            else:
+                nombre_cliente = str(nombre_cliente).strip()
             
             print(f"🔧 DEBUG: Agendando cita para {nombre_cliente} ({numero})")
+            print(f"🔧 DEBUG: Fecha: {fecha}, Hora: {hora}")
+            print(f"🔧 DEBUG: Profesional: {profesional_nombre}, Servicio: {servicio_nombre}")
             
             # Agendar cita
             cita_id = db.agregar_cita(negocio_id, profesional_id, numero, fecha, hora, servicio_id, nombre_cliente)
             
             if cita_id:
-                # Datos para la plantilla de confirmación
-                profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
-                servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
-                servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
+                print(f"✅ DEBUG: Cita creada exitosamente. ID: {cita_id}")
+                
+                # Formatear datos para la plantilla
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
                 fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 
@@ -989,12 +998,21 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                     'politica_cancelacion': config.get('politica_cancelacion', '')
                 })
             else:
+                print(f"❌ DEBUG: No se pudo crear la cita")
                 if clave_conversacion in conversaciones_activas:
                     del conversaciones_activas[clave_conversacion]
                 return renderizar_plantilla('error_generico', negocio_id)
                 
+        except KeyError as e:
+            print(f"❌ Error de KeyError en confirmación: {e}")
+            print(f"🔧 DEBUG: Contenido de conversación: {conversaciones_activas.get(clave_conversacion, {})}")
+            
+            if clave_conversacion in conversaciones_activas:
+                del conversaciones_activas[clave_conversacion]
+            return renderizar_plantilla('error_generico', negocio_id)
+                
         except Exception as e:
-            print(f"❌ Error confirmando cita: {e}")
+            print(f"❌ Error general confirmando cita: {e}")
             import traceback
             traceback.print_exc()
             

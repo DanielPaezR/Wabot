@@ -1172,20 +1172,55 @@ def es_cliente_nuevo(telefono, negocio_id):
     return count == 0
 
 
-def obtener_nombre_cliente(telefono, negocio_id):
-    """Obtener el nombre del cliente"""
-    conn = get_db_connection()
-    sql = '''
-        SELECT cliente_nombre FROM citas 
-        WHERE cliente_telefono = ? AND negocio_id = ? 
-        AND cliente_nombre IS NOT NULL 
-        AND cliente_nombre != '' 
-        AND cliente_nombre != 'Cliente'
-        ORDER BY created_at DESC LIMIT 1
-    '''
-    resultado = fetch_one(conn.cursor(), sql, (telefono, negocio_id))
-    conn.close()
-    return resultado['cliente_nombre'] if resultado else None
+def obtener_nombre_cliente(numero, negocio_id):
+    """Obtener nombre del cliente desde la base de datos - VERSIÓN ROBUSTA"""
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        # Primero buscar en la tabla de clientes si existe
+        cursor.execute('''
+            SELECT nombre 
+            FROM clientes 
+            WHERE telefono = %s 
+            AND negocio_id = %s 
+            LIMIT 1
+        ''', (numero, negocio_id))
+        
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            nombre = resultado[0]
+            conn.close()
+            if nombre and len(str(nombre).strip()) >= 2:
+                return str(nombre).strip()
+        
+        # Si no hay en clientes, buscar en citas
+        cursor.execute('''
+            SELECT cliente_nombre, MAX(created_at) 
+            FROM citas 
+            WHERE cliente_telefono = %s 
+            AND negocio_id = %s 
+            AND cliente_nombre IS NOT NULL 
+            AND TRIM(cliente_nombre) != ''
+            GROUP BY cliente_nombre
+            ORDER BY MAX(created_at) DESC
+            LIMIT 1
+        ''', (numero, negocio_id))
+        
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if resultado:
+            nombre = resultado[0]
+            if nombre and len(str(nombre).strip()) >= 2:
+                return str(nombre).strip()
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo nombre del cliente: {e}")
+        return None
 
 
 def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
