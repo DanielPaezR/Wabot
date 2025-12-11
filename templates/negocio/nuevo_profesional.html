@@ -81,7 +81,6 @@
         }
         
         input[type="text"],
-        input[type="email"],
         select,
         textarea {
             width: 100%;
@@ -93,7 +92,6 @@
         }
         
         input[type="text"]:focus,
-        input[type="email"]:focus,
         select:focus,
         textarea:focus {
             outline: none;
@@ -176,25 +174,6 @@
             font-weight: 500;
         }
 
-        .password-info {
-            background: #e8f4fc;
-            border: 1px solid #b3d7ff;
-            border-radius: 5px;
-            padding: 12px;
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
-            color: #2c3e50;
-        }
-
-        .password-info strong {
-            color: #e74c3c;
-            font-family: monospace;
-            background: #f8f9fa;
-            padding: 2px 6px;
-            border-radius: 3px;
-            border: 1px solid #ddd;
-        }
-
         small {
             color: #666;
             font-size: 0.85rem;
@@ -206,18 +185,18 @@
             color: #e74c3c;
         }
 
-        .form-section {
-            background: #f8f9fa;
-            padding: 1rem;
+        .access-info {
+            background: #e8f4fc;
+            border: 1px solid #b3d7ff;
             border-radius: 5px;
-            margin-bottom: 1.5rem;
-            border-left: 4px solid #3498db;
+            padding: 12px;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #2c3e50;
         }
 
-        .form-section h3 {
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-            font-size: 1rem;
+        .access-info strong {
+            color: #e74c3c;
         }
     </style>
 </head>
@@ -255,55 +234,31 @@
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
-                <div class="form-section">
-                    <h3>📋 Información Personal</h3>
-                    <div class="form-group">
-                        <label for="nombre">Nombre Completo <span class="required">*</span></label>
-                        <input type="text" id="nombre" name="nombre" required placeholder="Ej: Carlos Rodríguez">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="email">Correo Electrónico <span class="required">*</span></label>
-                        <input type="email" id="email" name="email" required placeholder="ejemplo@correo.com">
-                        <small>El profesional usará este email para iniciar sesión</small>
-                    </div>
+                <div class="form-group">
+                    <label for="nombre">Nombre del Profesional <span class="required">*</span></label>
+                    <input type="text" id="nombre" name="nombre" required placeholder="Ej: Carlos Rodríguez">
                 </div>
                 
-                <div class="form-section">
-                    <h3>💼 Información Profesional</h3>
-                    <div class="form-group">
-                        <label for="especialidad">Especialidad</label>
-                        <input type="text" id="especialidad" name="especialidad" placeholder="Ej: Corte de cabello, Masajes, etc.">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Servicios que ofrece:</label>
-                        <div class="servicios-container">
-                            <div class="servicios-title">Selecciona los servicios que este profesional puede realizar:</div>
-                            {% for servicio in servicios %}
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="servicio_{{ servicio.id }}" name="servicios" value="{{ servicio.id }}">
-                                <label for="servicio_{{ servicio.id }}">{{ servicio.nombre }} - {{ servicio.duracion }}min - ${{ servicio.precio }}</label>
-                            </div>
-                            {% endfor %}
-                            {% if not servicios %}
-                            <div style="color: #666; font-style: italic;">
-                                No hay servicios creados. <a href="{{ url_for('negocio_servicios') }}">Crea servicios primero</a>.
-                            </div>
-                            {% endif %}
+                <div class="form-group">
+                    <label for="especialidad">Especialidad</label>
+                    <input type="text" id="especialidad" name="especialidad" placeholder="Ej: Corte de cabello, Masajes, etc.">
+                </div>
+                
+                <div class="form-group">
+                    <label>Servicios que ofrece:</label>
+                    <div class="servicios-container">
+                        <div class="servicios-title">Selecciona los servicios que este profesional puede realizar:</div>
+                        {% for servicio in servicios %}
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="servicio_{{ servicio.id }}" name="servicios" value="{{ servicio.id }}">
+                            <label for="servicio_{{ servicio.id }}">{{ servicio.nombre }} - {{ servicio.duracion }}min - ${{ servicio.precio }}</label>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="form-section">
-                    <h3>🔐 Acceso al Sistema</h3>
-                    <div class="password-info">
-                        <p><strong>⚠️ IMPORTANTE:</strong> El profesional recibirá acceso al sistema con:</p>
-                        <ul style="margin: 8px 0 8px 20px;">
-                            <li><strong>Usuario:</strong> El correo electrónico que ingreses arriba</li>
-                            <li><strong>Contraseña temporal:</strong> <strong>123456</strong></li>
-                        </ul>
-                        <p>Se recomienda que el profesional cambie su contraseña al primer inicio de sesión.</p>
+                        {% endfor %}
+                        {% if not servicios %}
+                        <div style="color: #666; font-style: italic;">
+                            No hay servicios creados. <a href="{{ url_for('negocio_servicios') }}">Crea servicios primero</a>.
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -313,8 +268,18 @@
                         <label for="activo">Profesional activo (puede recibir citas)</label>
                     </div>
                 </div>
+
+                <div class="access-info">
+                    <p><strong>⚠️ Acceso al Sistema:</strong></p>
+                    <p>Para que este profesional pueda iniciar sesión en el sistema, debes:</p>
+                    <ol style="margin: 8px 0 8px 20px;">
+                        <li>Crear un usuario desde el panel de Administración</li>
+                        <li>Usar el rol "profesional"</li>
+                        <li>Asignar el mismo nombre del profesional</li>
+                    </ol>
+                </div>
                 
-                <button type="submit" class="btn-primary">👨‍💼 Crear Profesional y Usuario</button>
+                <button type="submit" class="btn-primary">👨‍💼 Crear Profesional</button>
             </form>
         </div>
     </div>
