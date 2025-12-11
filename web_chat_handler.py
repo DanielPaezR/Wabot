@@ -8,9 +8,13 @@ from datetime import datetime, timedelta
 import database as db
 import json
 import os
+import pytz
+from app import tz_colombia
 from dotenv import load_dotenv
 
 load_dotenv()
+
+tz_colombia = pytz.timezone('America/Bogota')
 
 web_chat_bp = Blueprint('web_chat', __name__)
 
@@ -107,8 +111,8 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
             'politica_cancelacion': config.get('politica_cancelacion', 'Puedes cancelar hasta 2 horas antes'),
             
             # Fecha y hora actual
-            'fecha_actual': datetime.now().strftime('%d/%m/%Y'),
-            'hora_actual': datetime.now().strftime('%H:%M')
+            'fecha_actual': datetime.now(tz_colombia).strftime('%d/%m/%Y'),
+            'hora_actual': datetime.now(tz_colombia).strftime('%H:%M')
         }
         
         # Combinar con variables adicionales
@@ -230,7 +234,7 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         # Establecer estado como menu_principal
         conversaciones_activas[clave_conversacion] = {
             'estado': 'menu_principal',
-            'timestamp': datetime.now()
+            'timestamp': datetime.now(tz_colombia)
         }
         return "¿En qué puedo ayudarte?"
     
@@ -437,7 +441,7 @@ def saludo_inicial(numero, negocio_id):
             clave_conversacion = f"{numero}_{negocio_id}"
             conversaciones_activas[clave_conversacion] = {
                 'estado': 'menu_principal',
-                'timestamp': datetime.now(),
+                'timestamp': datetime.now(tz_colombia),
                 'cliente_nombre': nombre_cliente
             }
             return f"¡Hola {nombre_cliente}! 👋\n\n¿En qué puedo ayudarte hoy?"
@@ -447,7 +451,7 @@ def saludo_inicial(numero, negocio_id):
             clave_conversacion = f"{numero}_{negocio_id}"
             conversaciones_activas[clave_conversacion] = {
                 'estado': 'solicitando_nombre',
-                'timestamp': datetime.now()
+                'timestamp': datetime.now(tz_colombia)
             }
             return "¡Hola! 👋 Soy tu asistente virtual para agendar citas.\n\n¿Cuál es tu nombre?"
             
@@ -460,7 +464,7 @@ def saludo_inicial(numero, negocio_id):
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_nombre',
-            'timestamp': datetime.now()
+            'timestamp': datetime.now(tz_colombia)
         }
         return "¡Hola! 👋 Para comenzar, ¿cuál es tu nombre?"
 
@@ -490,7 +494,7 @@ def mostrar_profesionales(numero, negocio_id):
         conversaciones_activas[clave_conversacion].update({
             'estado': 'seleccionando_profesional',
             'profesionales': profesionales,
-            'timestamp': datetime.now()
+            'timestamp': datetime.now(tz_colombia)
         })
         
         print(f"✅ [DEBUG] Datos preservados en mostrar_profesionales:")
@@ -524,7 +528,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion]['servicios'] = servicios
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
         return f"📋 **Servicios con {profesional_nombre}:**"
         
@@ -545,7 +549,7 @@ def mostrar_fechas_disponibles(numero, negocio_id):
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion]['fechas_disponibles'] = fechas_disponibles
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
         return "📅 **Selecciona una fecha:**"
         
@@ -560,7 +564,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     print(f"🔧 [DEBUG] mostrar_disponibilidad - fecha_seleccionada: {fecha_seleccionada}")
     
     if not fecha_seleccionada:
-        fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', datetime.now().strftime('%Y-%m-%d'))
+        fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
     
     print(f"🔧 [DEBUG] Fecha a usar: {fecha_seleccionada}")
     
@@ -599,7 +603,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     conversaciones_activas[clave_conversacion]['todos_horarios'] = horarios_disponibles
     conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
     conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
     return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
 
@@ -620,7 +624,7 @@ def mostrar_mis_citas(numero, negocio_id):
         print(f"🔧 [DEBUG] No hay teléfono en conversación, solicitando...")
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_para_ver',
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(tz_colombia),
             'session_id': numero
         }
         return "📱 **Para ver tus citas, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
@@ -746,7 +750,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         print(f"🔧 [DEBUG] No hay teléfono en conversación, solicitando...")
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_para_cancelar',
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now(tz_colombia),
             'session_id': numero
         }
         return "📱 **Para cancelar una cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
@@ -963,7 +967,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                 
                 cliente_existente = cursor.fetchone()
                 
-                fecha_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                fecha_actual = datetime.now(tz_colombia).strftime('%Y-%m-%d %H:%M:%S')
                 
                 if cliente_existente:
                     cliente_id, nombre_actual = cliente_existente
@@ -1057,7 +1061,7 @@ Recibirás recordatorios por mensaje antes de tu cita.
         # Primera confirmación: pedir teléfono
         print(f"🔧 [DEBUG] Usuario confirmó cita, solicitando teléfono...")
         conversacion['estado'] = 'solicitando_telefono'
-        conversacion['timestamp'] = datetime.now()
+        conversacion['timestamp'] = datetime.now(tz_colombia)
         
         return "📱 **Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
     
@@ -1081,7 +1085,7 @@ def solicitar_telefono_para_consulta(numero, negocio_id, accion="ver"):
     # Crear o actualizar conversación
     conversaciones_activas[clave_conversacion] = {
         'estado': f'solicitando_telefono_para_{accion}',
-        'timestamp': datetime.now(),
+        'timestamp': datetime.now(tz_colombia),
         'session_id': numero,
         'accion_pendiente': accion
     }
@@ -1255,7 +1259,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     # ✅ Cambiar el estado a 'menu_principal' y GUARDAR EL NOMBRE CORRECTAMENTE
     conversaciones_activas[clave_conversacion] = {
         'estado': 'menu_principal',
-        'timestamp': datetime.now(),
+        'timestamp': datetime.now(tz_colombia),
         'cliente_nombre': nombre_cliente,  # ¡IMPORTANTE! Guardar aquí para usarlo después
         'session_id': numero  # Guardar para referencia
     }
@@ -1289,7 +1293,7 @@ def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     
     conversaciones_activas[clave_conversacion]['profesional_id'] = profesional_seleccionado['id']
     conversaciones_activas[clave_conversacion]['profesional_nombre'] = profesional_seleccionado['nombre']
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
     return mostrar_servicios(numero, profesional_seleccionado['nombre'], negocio_id)
 
@@ -1322,7 +1326,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
     conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
     conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
     return mostrar_fechas_disponibles(numero, negocio_id)
 
@@ -1355,7 +1359,7 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
     conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
     conversaciones_activas[clave_conversacion]['pagina_horarios'] = 0
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
     return mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada)
 
@@ -1418,7 +1422,7 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     
     conversaciones_activas[clave_conversacion]['hora_seleccionada'] = hora_seleccionada
     conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
     # ✅ CORRECCIÓN: Obtener nombre del cliente correctamente
     nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre')
@@ -1633,7 +1637,7 @@ Esperamos verte pronto en otra ocasión.'''
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     """Obtener las próximas fechas donde el negocio está activo - VERSIÓN MEJORADA PARA POSTGRESQL"""
     fechas_disponibles = []
-    fecha_actual = datetime.now()
+    fecha_actual = datetime.now(tz_colombia)
     
     print(f"🔧 [DEBUG] OBTENER_FECHAS_DISPONIBLES - Negocio: {negocio_id}")
     
@@ -1701,7 +1705,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     print(f"✅ Día activo. Horario: {horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']}")
     
     # ✅ CORRECCIÓN: Si es hoy, considerar margen mínimo de anticipación
-    fecha_actual = datetime.now()
+    fecha_actual = datetime.now(tz_colombia)
     fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
     es_hoy = fecha_cita.date() == fecha_actual.date()
     
@@ -1771,7 +1775,7 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
             return False
         
         # Si es hoy, verificar que queden horarios futuros con margen mínimo
-        fecha_actual = datetime.now()
+        fecha_actual = datetime.now(tz_colombia)
         fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
         
         if fecha_cita.date() == fecha_actual.date():
@@ -1870,7 +1874,7 @@ def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
     clave_conversacion = f"{numero}_{negocio_id}"
     if clave_conversacion in conversaciones_activas:
         if 'timestamp' in conversaciones_activas[clave_conversacion]:
-            tiempo_transcurrido = datetime.now() - conversaciones_activas[clave_conversacion]['timestamp']
+            tiempo_transcurrido = datetime.now(tz_colombia) - conversaciones_activas[clave_conversacion]['timestamp']
             if tiempo_transcurrido.total_seconds() > 600:  # 10 minutos
                 del conversaciones_activas[clave_conversacion]
 

@@ -5,6 +5,7 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 import secrets
 from datetime import datetime, timedelta
+from app import tz_colombia
 import database as db
 from web_chat_handler import web_chat_bp
 import os
@@ -14,6 +15,7 @@ from scheduler import iniciar_scheduler
 import json
 from functools import wraps
 from database import get_db_connection
+import pytz
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
@@ -165,7 +167,7 @@ def tojson_filter(value):
 def utility_processor():
     """Agregar funciones útiles a todos los templates"""
     def now():
-        return datetime.now()
+        return datetime.now(tz_colombia)
     return dict(now=now)
 
 # Registrar blueprint de WhatsApp
@@ -183,7 +185,7 @@ def index():
 @app.route('/health')
 def health_check():
     """Health check para Railway"""
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+    return jsonify({"status": "healthy", "timestamp": datetime.now(tz_colombia).isoformat()})
 
 @app.route('/test-simple')
 def test_simple():
@@ -1312,14 +1314,14 @@ def negocio_dashboard():
     negocio_id = session.get('negocio_id', 1)
     
     # Formatear fecha para mostrar
-    fecha_hoy_str = datetime.now().strftime('%d/%m/%Y')
-    fecha_hoy_db = datetime.now().strftime('%Y-%m-%d')
+    fecha_hoy_str = datetime.now(tz_colombia).strftime('%d/%m/%Y')
+    fecha_hoy_db = datetime.now(tz_colombia).strftime('%Y-%m-%d')
     
     # Obtener estadísticas del mes actual
     stats = db.obtener_estadisticas_mensuales(
         negocio_id, 
-        mes=datetime.now().month, 
-        año=datetime.now().year
+        mes=datetime.now(tz_colombia).month, 
+        año=datetime.now(tz_colombia).year
     )
     
     # Obtener citas de hoy
@@ -1404,14 +1406,14 @@ def negocio_dashboard():
                          stats=stats_formateadas,
                          citas_hoy=citas_procesadas,
                          fecha_hoy=fecha_hoy_str,
-                         mes_actual=datetime.now().strftime('%B %Y'))
+                         mes_actual=datetime.now(tz_colombia).strftime('%B %Y'))
 
 @app.route('/negocio/citas')
 @role_required(['propietario', 'superadmin'])
 def negocio_citas():
     """Gestión de citas del negocio"""
     negocio_id = session.get('negocio_id', 1)
-    fecha = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
     profesional_id = request.args.get('profesional_id', '')
     
     profesionales = db.obtener_profesionales(negocio_id)
@@ -1432,7 +1434,7 @@ def negocio_api_citas():
         estado = request.args.get('estado', '')
         
         if not fecha:
-            fecha = datetime.now().strftime('%Y-%m-%d')
+            fecha = datetime.now(tz_colombia).strftime('%Y-%m-%d')
         
         negocio_id = session.get('negocio_id', 1)
         
@@ -1515,8 +1517,8 @@ def negocio_api_estadisticas():
     """API para obtener estadísticas del negocio - VERSIÓN SIMPLIFICADA SIN TENDENCIA"""
     try:
         profesional_id = request.args.get('profesional_id', '')
-        mes = request.args.get('mes', datetime.now().month)
-        año = request.args.get('año', datetime.now().year)
+        mes = request.args.get('mes', datetime.now(tz_colombia).month)
+        año = request.args.get('año', datetime.now(tz_colombia).year)
         
         negocio_id = session.get('negocio_id', 1)
         
@@ -2423,7 +2425,7 @@ def profesional_dashboard():
     """Dashboard móvil para profesionales"""
     try:
         negocio_id = session.get('negocio_id', 1)
-        fecha = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+        fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
         
         profesional_id = session.get('profesional_id')
         
@@ -2477,7 +2479,7 @@ def profesional_dashboard():
                             total_citas=0, 
                             ganancia_estimada=0,
                             profesional_id=None,
-                            fecha=datetime.now().strftime('%Y-%m-%d'))
+                            fecha=datetime.now(tz_colombia).strftime('%Y-%m-%d'))
     
 @app.route('/profesional/estadisticas')
 @role_required(['profesional', 'propietario', 'superadmin'])
@@ -2488,8 +2490,8 @@ def profesional_estadisticas():
         profesional_id = request.args.get('profesional_id', session.get('profesional_id'))
         
         # Obtener mes y año de los parámetros o usar actual
-        mes = request.args.get('mes', datetime.now().month, type=int)
-        año = request.args.get('año', datetime.now().year, type=int)
+        mes = request.args.get('mes', datetime.now(tz_colombia).month, type=int)
+        año = request.args.get('año', datetime.now(tz_colombia).year, type=int)
         
         if not profesional_id:
             flash('No se pudo identificar al profesional', 'error')
@@ -2720,7 +2722,7 @@ def profesional_agendar():
         conn.close()
         
         # Fecha de hoy para el mínimo del datepicker
-        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        fecha_hoy = datetime.now(tz_colombia).strftime('%Y-%m-%d')
         
         return render_template('profesional/agendar_cita.html',
                             servicios=servicios,
@@ -2954,7 +2956,7 @@ def obtener_citas():
     limit = request.args.get('limit', '')
     
     if not fecha:
-        fecha = datetime.now().strftime('%Y-%m-%d')
+        fecha = datetime.now(tz_colombia).strftime('%Y-%m-%d')
     
     if session.get('usuario_rol') == 'profesional':
         profesional_id = session.get('profesional_id')
@@ -3004,8 +3006,8 @@ def obtener_estadisticas_mensuales():
     """Obtener estadísticas mensuales avanzadas"""
     try:
         profesional_id = request.args.get('profesional_id')
-        mes = request.args.get('mes', datetime.now().month)
-        año = request.args.get('año', datetime.now().year)
+        mes = request.args.get('mes', datetime.now(tz_colombia).month)
+        año = request.args.get('año', datetime.now(tz_colombia).year)
         
         if session.get('usuario_rol') == 'superadmin':
             negocio_id = request.args.get('negocio_id', 1)
@@ -3077,7 +3079,7 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CORREGIDA"""
+    """API para obtener horarios disponibles - VERSIÓN CON ZONA HORARIA CORREGIDA"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -3087,6 +3089,16 @@ def api_horarios_disponibles():
         
         if not all([profesional_id, fecha, servicio_id]):
             return jsonify({'error': 'Parámetros incompletos'}), 400
+        
+        # ✅ CORRECCIÓN: Configurar zona horaria de Colombia
+        # Definir la zona horaria de Colombia
+        tz_colombia = pytz.timezone('America/Bogota')
+        
+        # Obtener fecha y hora ACTUAL en Colombia
+        fecha_actual_colombia = datetime.now(tz_colombia)
+        
+        print(f"🔍 Hora UTC del servidor: {datetime.utcnow()}")
+        print(f"🔍 Hora Colombia: {fecha_actual_colombia}")
         
         # Obtener negocio_id del profesional
         conn = get_db_connection()
@@ -3127,13 +3139,33 @@ def api_horarios_disponibles():
         
         print(f"🔍 Horario configurado: {hora_inicio_str} a {hora_fin_str}, Almuerzo: {almuerzo_inicio_str} a {almuerzo_fin_str}")
         
-        # ✅ CORRECCIÓN: Verificar si es HOY
-        fecha_actual = datetime.now()
-        fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d')
-        es_hoy = fecha_solicitada.date() == fecha_actual.date()
-        print(f"🔍 Fecha actual: {fecha_actual}, Fecha solicitada: {fecha_solicitada}, ¿Es hoy?: {es_hoy}")
+        # ✅ CORRECCIÓN: Usar fecha/hora de Colombia
+        fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d').date()
+        es_hoy = fecha_solicitada == fecha_actual_colombia.date()
         
-        # Convertir strings a datetime para cálculos
+        print(f"🔍 Fecha actual Colombia: {fecha_actual_colombia}")
+        print(f"🔍 Fecha solicitada: {fecha_solicitada}")
+        print(f"🔍 ¿Es hoy en Colombia?: {es_hoy}")
+        print(f"🔍 Hora actual en Colombia: {fecha_actual_colombia.strftime('%H:%M')}")
+        
+        # ✅ CORRECCIÓN: Si es HOY, verificar si ya pasó la hora de cierre EN COLOMBIA
+        if es_hoy:
+            # Crear datetime para la hora de cierre de HOY en Colombia
+            hora_fin_hoy_colombia = tz_colombia.localize(
+                datetime.combine(fecha_solicitada, datetime.strptime(hora_fin_str, '%H:%M').time())
+            )
+            print(f"🔍 Hora de cierre hoy en Colombia: {hora_fin_hoy_colombia.strftime('%Y-%m-%d %H:%M')}")
+            
+            # Si ya pasó la hora de cierre en Colombia, NO hay horarios
+            if fecha_actual_colombia >= hora_fin_hoy_colombia:
+                print(f"⏰ EL NEGOCIO YA CERRÓ HOY EN COLOMBIA ({hora_fin_str}). No hay horarios disponibles.")
+                conn.close()
+                return jsonify({
+                    'horarios': [],
+                    'mensaje': f'El negocio ya cerró hoy a las {hora_fin_str}. No hay horarios disponibles para hoy.'
+                })
+        
+        # Convertir strings a datetime para cálculos (sin zona horaria para cálculos internos)
         hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
         hora_fin = datetime.strptime(hora_fin_str, '%H:%M')
         
@@ -3162,51 +3194,61 @@ def api_horarios_disponibles():
         
         conn.close()
         
-        # ✅ CORRECCIÓN: Generar slots con filtro para HOY
-        intervalos_disponibles = []
-        hora_actual = hora_inicio
+        # ✅ CORRECCIÓN: Si es HOY, usar hora de Colombia
+        if es_hoy:
+            # Calcular la hora mínima para agendar (hora actual Colombia + 30 minutos)
+            hora_minima_colombia = fecha_actual_colombia + timedelta(minutes=30)
+            hora_minima_time = hora_minima_colombia.time()
+            
+            print(f"🔍 Hora actual Colombia: {fecha_actual_colombia.strftime('%H:%M')}")
+            print(f"🔍 Hora mínima para agendar hoy (Colombia): {hora_minima_colombia.strftime('%H:%M')}")
+            
+            # Si la hora mínima es después del horario de cierre, no hay horarios
+            if hora_minima_time >= datetime.strptime(hora_fin_str, '%H:%M').time():
+                print(f"⏰ La hora mínima ({hora_minima_colombia.strftime('%H:%M')}) es después del cierre ({hora_fin_str})")
+                return jsonify({
+                    'horarios': [],
+                    'mensaje': 'No hay horarios disponibles para hoy en el horario laboral restante.'
+                })
+            
+            # Ajustar hora_actual para que empiece desde la hora mínima en Colombia
+            hora_minima_dt = datetime.combine(fecha_solicitada, hora_minima_time)
+            hora_inicio_dt = datetime.combine(fecha_solicitada, hora_inicio.time())
+            
+            hora_actual = max(hora_minima_dt, hora_inicio_dt)
+            # Redondear a intervalos de 30 minutos
+            minutos = hora_actual.minute
+            if minutos % 30 != 0:
+                hora_actual = hora_actual.replace(minute=((minutos // 30) + 1) * 30, second=0, microsecond=0)
+            
+            print(f"🔍 Hora actual ajustada para hoy (Colombia): {hora_actual.strftime('%H:%M')}")
+        else:
+            # Para días futuros, empezar desde la hora de apertura normal
+            hora_actual = datetime.combine(fecha_solicitada, hora_inicio.time())
         
-        while hora_actual < hora_fin:
+        # Convertir hora_fin a datetime completo para comparación
+        hora_fin_completa = datetime.combine(fecha_solicitada, hora_fin.time())
+        
+        # Generar slots
+        intervalos_disponibles = []
+        
+        while hora_actual < hora_fin_completa:
             hora_fin_slot = hora_actual + timedelta(minutes=duracion_minutos)
             
             # Si el slot se pasa del horario de fin, no es válido
-            if hora_fin_slot > hora_fin:
+            if hora_fin_slot > hora_fin_completa:
                 break
-            
-            # ✅ CORRECCIÓN CRÍTICA: Si es HOY, filtrar horarios pasados y con poco margen
-            if es_hoy:
-                # Combinar fecha actual con hora del horario
-                hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-                
-                # Calcular tiempo hasta el horario
-                tiempo_hasta_horario = hora_actual_completa - fecha_actual
-                
-                # MARGEN MÍNIMO: 30 minutos
-                margen_minimo_minutos = 30
-                
-                # Verificar si el horario YA PASÓ (tiempo negativo)
-                if tiempo_hasta_horario.total_seconds() <= 0:
-                    hora_str = hora_actual.strftime('%H:%M')
-                    print(f"⏰ Horario {hora_str} OMITIDO (ya pasó, tiempo: {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
-                    hora_actual += timedelta(minutes=30)
-                    continue
-                
-                # Verificar si tiene suficiente margen (al menos 30 minutos)
-                if tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
-                    hora_str = hora_actual.strftime('%H:%M')
-                    minutos_faltantes = int(tiempo_hasta_horario.total_seconds() / 60)
-                    print(f"⏰ Horario {hora_str} OMITIDO (faltan {minutos_faltantes} minutos, mínimo {margen_minimo_minutos} requeridos)")
-                    hora_actual += timedelta(minutes=30)
-                    continue
             
             # Verificar si está dentro del horario de almuerzo
             dentro_almuerzo = False
             if almuerzo_inicio and almuerzo_fin:
-                if almuerzo_inicio <= hora_actual < almuerzo_fin:
-                    dentro_almuerzo = True
-                elif almuerzo_inicio < hora_fin_slot <= almuerzo_fin:
-                    dentro_almuerzo = True
-                elif hora_actual <= almuerzo_inicio and hora_fin_slot >= almuerzo_fin:
+                hora_actual_time = hora_actual.time()
+                almuerzo_ini_time = almuerzo_inicio.time()
+                almuerzo_fin_time = almuerzo_fin.time()
+                
+                if (almuerzo_ini_time <= hora_actual_time < almuerzo_fin_time or
+                    almuerzo_ini_time < hora_fin_slot.time() <= almuerzo_fin_time or
+                    (hora_actual_time <= almuerzo_ini_time and hora_fin_slot.time() >= almuerzo_fin_time)):
                     dentro_almuerzo = True
             
             if not dentro_almuerzo:
@@ -3224,23 +3266,48 @@ def api_horarios_disponibles():
                         break
                 
                 if not ocupado:
-                    intervalos_disponibles.append(hora_str)
-                    print(f"✅ Horario {hora_str} DISPONIBLE")
+                    # ✅ CORRECCIÓN: Si es HOY, verificar margen con hora de Colombia
+                    if es_hoy:
+                        # Crear datetime del horario en Colombia
+                        horario_colombia = tz_colombia.localize(hora_actual)
+                        
+                        # Calcular tiempo hasta el horario
+                        tiempo_hasta_horario = horario_colombia - fecha_actual_colombia
+                        
+                        # MARGEN MÍNIMO: 30 minutos
+                        margen_minimo = 30 * 60  # segundos
+                        
+                        if tiempo_hasta_horario.total_seconds() < margen_minimo:
+                            print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos, mínimo 30 requeridos)")
+                        else:
+                            intervalos_disponibles.append(hora_str)
+                            print(f"✅ Horario {hora_str} DISPONIBLE (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
+                    else:
+                        # Para días futuros, todos los horarios son válidos
+                        intervalos_disponibles.append(hora_str)
+                        print(f"✅ Horario {hora_str} DISPONIBLE (día futuro)")
             
-            # Avanzar al siguiente slot
+            # Avanzar al siguiente slot (30 minutos)
             hora_actual += timedelta(minutes=30)
         
         print(f"🔍 Horarios disponibles encontrados: {len(intervalos_disponibles)}: {intervalos_disponibles}")
         
         if not intervalos_disponibles:
+            mensaje = 'No hay horarios disponibles para esta fecha'
+            if es_hoy:
+                mensaje = 'No hay horarios disponibles para hoy con el margen requerido'
+            
             return jsonify({
                 'horarios': [],
-                'mensaje': 'No hay horarios disponibles para esta fecha'
+                'mensaje': mensaje,
+                'hora_actual_colombia': fecha_actual_colombia.strftime('%H:%M'),
+                'hora_minima_requerida': (fecha_actual_colombia + timedelta(minutes=30)).strftime('%H:%M') if es_hoy else None
             })
         
         return jsonify({
             'horarios': intervalos_disponibles,
             'duracion': duracion_minutos,
+            'hora_actual_colombia': fecha_actual_colombia.strftime('%H:%M') if es_hoy else None,
             'horario_laboral': {
                 'inicio': hora_inicio_str,
                 'fin': hora_fin_str,
