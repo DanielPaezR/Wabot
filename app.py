@@ -2089,13 +2089,11 @@ def negocio_profesionales():
 @app.route('/negocio/profesionales/nuevo', methods=['GET', 'POST'])
 @login_required
 def negocio_nuevo_profesional():
-    """Crear nuevo profesional con usuario asociado"""
+    """Crear nuevo profesional"""
     if session['usuario_rol'] != 'propietario':
-        flash('No tienes permisos para acceder a esta página', 'error')
         return redirect(url_for('login'))
     
-    negocio_id = session.get('negocio_id', 1)
-    servicios = obtener_servicios_por_negocio(negocio_id)
+    servicios = obtener_servicios_por_negocio(session['negocio_id'])
     
     if request.method == 'POST':
         # Validar CSRF
@@ -2103,57 +2101,29 @@ def negocio_nuevo_profesional():
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             return redirect(url_for('negocio_nuevo_profesional'))
         
-        print(f"🔍 DEBUG FORM DATA:")
-        for key, value in request.form.items():
-            print(f"  {key}: {value}")
-        
-        nombre = request.form.get('nombre', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        especialidad = request.form.get('especialidad', '').strip()
+        nombre = request.form['nombre']
+        especialidad = request.form.get('especialidad', '')
+        pin = request.form['pin']
         servicios_seleccionados = request.form.getlist('servicios')
         activo = 'activo' in request.form
         
-        # Para compatibilidad, usar PIN vacío (se usará '0000' por defecto)
-        pin = ''
-        
-        # Validaciones
-        if not nombre:
-            flash('El nombre es requerido', 'error')
-            return redirect(url_for('negocio_nuevo_profesional'))
-        
-        if not email or '@' not in email:
-            flash('Debe ingresar un correo electrónico válido', 'error')
-            return redirect(url_for('negocio_nuevo_profesional'))
-        
-        print(f"🔍 DEBUG - Datos procesados:")
-        print(f"  - negocio_id: {negocio_id}")
-        print(f"  - nombre: {nombre}")
-        print(f"  - email: {email}")
-        print(f"  - especialidad: {especialidad}")
-        print(f"  - pin: {pin}")
-        print(f"  - servicios_seleccionados: {servicios_seleccionados}")
-        print(f"  - activo: {activo}")
-        
-        # Crear profesional con usuario (usando email)
-        profesional_id, mensaje = crear_profesional(
-            negocio_id=negocio_id,
+        # Crear profesional
+        profesional_id = crear_profesional(
+            negocio_id=session['negocio_id'],
             nombre=nombre,
             especialidad=especialidad,
-            pin=pin,  # Vacío para que use usuario
+            pin=pin,
             servicios_ids=servicios_seleccionados,
-            activo=activo,
-            email=email  # ✅ Nuevo parámetro para crear usuario
+            activo=activo
         )
         
         if profesional_id:
-            flash(f'✅ Profesional "{nombre}" creado exitosamente. {mensaje}', 'success')
+            flash('Profesional creado exitosamente', 'success')
             return redirect(url_for('negocio_profesionales'))
         else:
-            flash(f'❌ Error al crear el profesional: {mensaje}', 'error')
+            flash('Error al crear el profesional', 'error')
     
-    return render_template('negocio/nuevo_profesional.html', 
-                         servicios=servicios,
-                         negocio_id=negocio_id)
+    return render_template('negocio/nuevo_profesional.html', servicios=servicios)
 
 @app.route('/negocio/profesionales/editar/<int:profesional_id>', methods=['GET', 'POST'])
 @login_required

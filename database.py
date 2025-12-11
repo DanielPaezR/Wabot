@@ -1346,74 +1346,31 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
-def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True, email=None):
-    """Crear profesional - VERSIÓN MEJORADA con opción de crear usuario automático"""
+def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True):
+    """Crear profesional - VERSIÓN MEJORADA pero manteniendo firma original"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        print(f"🔍 DEBUG crear_profesional MEJORADA:")
+        print(f"🔍 DEBUG crear_profesional:")
         print(f"  - negocio_id: {negocio_id}")
         print(f"  - nombre: {nombre}")
-        print(f"  - email: {email}")
         print(f"  - especialidad: {especialidad}")
         print(f"  - pin: {pin}")
         print(f"  - servicios_ids: {servicios_ids}")
         print(f"  - activo: {activo}")
         
-        usuario_id = None
+        # Verificar que el pin no sea vacío
+        if not pin or pin.strip() == '':
+            print(f"⚠️  PIN vacío, usando '0000' por defecto")
+            pin = '0000'
         
-        # Si se proporciona email, crear usuario automáticamente
-        if email:
-            # Verificar si el email ya existe como usuario
-            cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
-            if cursor.fetchone():
-                print(f"❌ Error: El email {email} ya está registrado")
-                conn.close()
-                return None, "El email ya está registrado como usuario"
-            
-            # Crear usuario con contraseña temporal 123456
-            import hashlib
-            password_temp = "123456"
-            hashed_password = hashlib.sha256(password_temp.encode()).hexdigest()
-            
-            cursor.execute('''
-                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id
-            ''', (negocio_id, nombre, email, hashed_password, 'profesional', True))
-            
-            user_result = cursor.fetchone()
-            if not user_result:
-                print(f"❌ Error: No se pudo crear el usuario")
-                conn.rollback()
-                conn.close()
-                return None, "Error al crear el usuario"
-            
-            if hasattr(user_result, 'keys'):  # Es un diccionario
-                usuario_id = user_result['id']
-            else:  # Es una tupla
-                usuario_id = user_result[0]
-            
-            print(f"✅ Usuario creado con ID: {usuario_id}")
-        
-        # Insertar profesional (con usuario_id si se creó usuario)
-        if usuario_id:
-            cursor.execute('''
-                INSERT INTO profesionales (negocio_id, nombre, especialidad, usuario_id, activo)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-            ''', (negocio_id, nombre, especialidad, usuario_id, activo))
-        else:
-            # Mantener compatibilidad con PIN para métodos antiguos
-            if not pin or pin.strip() == '':
-                pin = '0000'  # PIN por defecto
-            
-            cursor.execute('''
-                INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-            ''', (negocio_id, nombre, especialidad, pin, activo))
+        # Insertar profesional
+        cursor.execute('''
+            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        ''', (negocio_id, nombre, especialidad, pin, activo))
         
         result = cursor.fetchone()
         
@@ -1421,7 +1378,7 @@ def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, acti
             print(f"❌ Error: No se obtuvo ID del profesional insertado")
             conn.rollback()
             conn.close()
-            return None, "Error al crear el profesional en la base de datos"
+            return None
         
         # ✅ CORRECCIÓN: Acceder correctamente al ID
         if hasattr(result, 'keys'):  # Es un diccionario
@@ -1447,19 +1404,14 @@ def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, acti
             print("ℹ️  No se seleccionaron servicios")
         
         conn.commit()
-        
-        # Mensaje de éxito personalizado
-        if email:
-            return profesional_id, f"Usuario creado con email: {email}, contraseña: 123456"
-        else:
-            return profesional_id, "Profesional creado exitosamente"
+        return profesional_id
         
     except Exception as e:
         conn.rollback()
         print(f"❌ ERROR en crear_profesional: {str(e)}")
         import traceback
         traceback.print_exc()
-        return None, f"Error interno: {str(e)}"
+        return None
     finally:
         conn.close()
 
