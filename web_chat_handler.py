@@ -839,9 +839,8 @@ Hola *{nombre_cliente}*, tu cita ha sido agendada:
 📅 **Fecha:** {fecha_formateada}
 ⏰ **Hora:** {hora}
 🎫 **ID:** #{cita_id}
-
 📱 **Teléfono registrado:** {telefono}
-  
+
 Recibirás recordatorios por mensaje. ¡Te esperamos!'''
                 
                 return mensaje_confirmacion
