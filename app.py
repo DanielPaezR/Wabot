@@ -1018,7 +1018,7 @@ def admin_editar_usuario(usuario_id):
     cursor.execute('''
         SELECT u.*, n.nombre as negocio_nombre 
         FROM usuarios u 
-        JOIN negocios n ON u.negocio_id = n.id 
+        LEFT JOIN negocios n ON u.negocio_id = n.id 
         WHERE u.id = %s
     ''', (usuario_id,))
     
@@ -1038,10 +1038,26 @@ def admin_editar_usuario(usuario_id):
         nombre = request.form.get('nombre')
         email = request.form.get('email')
         rol = request.form.get('rol')
-        negocio_id = request.form.get('negocio_id')
         activo = request.form.get('activo') == 'on'
         nueva_password = request.form.get('nueva_password')
         only_password = request.form.get('only_password') == 'true'
+        
+        # Obtener negocio_id según el rol
+        if rol == 'superadmin':
+            # Para Super Admin, usar el primer negocio o uno específico
+            cursor.execute('SELECT id FROM negocios LIMIT 1')
+            negocio_por_defecto = cursor.fetchone()
+            negocio_id = negocio_por_defecto['id'] if negocio_por_defecto else 1
+        else:
+            negocio_id = request.form.get('negocio_id')
+            if not negocio_id:
+                flash('❌ Debes seleccionar un negocio para este rol', 'error')
+                conn.close()
+                return redirect(url_for('admin_editar_usuario', usuario_id=usuario_id))
+        
+        # Obtener campos adicionales para profesionales
+        especialidad = request.form.get('especialidad', '')
+        telefono = request.form.get('telefono', '')
         
         try:
             if only_password:
@@ -1067,16 +1083,17 @@ def admin_editar_usuario(usuario_id):
                     UPDATE usuarios 
                     SET nombre = %s, email = %s, rol = %s, negocio_id = %s, activo = %s
                 '''
-                params = [nombre, email, rol, negocio_id, activo, usuario_id]
+                params = [nombre, email, rol, negocio_id, activo]
                 
                 # Si se proporciona nueva contraseña, incluirla en la actualización
                 if nueva_password:
                     import hashlib
                     hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
                     update_query += ', password_hash = %s'
-                    params.insert(5, hashed_password)
+                    params.append(hashed_password)
                 
                 update_query += ' WHERE id = %s'
+                params.append(usuario_id)
                 
                 cursor.execute(update_query, params)
                 
@@ -1092,15 +1109,24 @@ def admin_editar_usuario(usuario_id):
                         # Actualizar profesional existente
                         cursor.execute('''
                             UPDATE profesionales 
-                            SET nombre = %s
+                            SET nombre = %s, 
+                                especialidad = COALESCE(%s, 'General'),
+                                telefono = %s,
+                                negocio_id = %s,
+                                activo = %s
                             WHERE usuario_id = %s
-                        ''', (nombre, usuario_id))
+                        ''', (nombre, especialidad, telefono, negocio_id, activo, usuario_id))
                     else:
                         # Crear nuevo profesional
                         cursor.execute('''
-                            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, usuario_id, activo)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        ''', (negocio_id, nombre, 'General', '0000', usuario_id, activo))
+                            INSERT INTO profesionales (negocio_id, nombre, especialidad, telefono, pin, usuario_id, activo)
+                            VALUES (%s, %s, COALESCE(%s, 'General'), %s, %s, %s, %s)
+                        ''', (negocio_id, nombre, especialidad, telefono, '0000', usuario_id, activo))
+                else:
+                    # Si cambia de profesional a otro rol, eliminar de la tabla profesionales
+                    cursor.execute('''
+                        DELETE FROM profesionales WHERE usuario_id = %s
+                    ''', (usuario_id,))
                 
                 conn.commit()
                 flash('✅ Usuario actualizado exitosamente', 'success')
@@ -1110,7 +1136,8 @@ def admin_editar_usuario(usuario_id):
         except Exception as e:
             conn.rollback()
             print(f"❌ Error actualizando usuario: {e}")
-            flash('❌ Error al actualizar el usuario', 'error')
+            flash(f'❌ Error al actualizar el usuario: {str(e)}', 'error')
+            return redirect(url_for('admin_editar_usuario', usuario_id=usuario_id))
         finally:
             conn.close()
     else:
@@ -2942,6 +2969,62 @@ def completar_cita(cita_id):
         print(f"❌ Error completando cita: {e}")
         flash('❌ Error al completar la cita', 'error')
         return redirect(url_for('profesional_dashboard'))
+    
+
+@app.route('/profesional/cambiar-password', methods=['POST'])
+@role_required(['profesional'])
+def cambiar_password():
+    """Permite a un profesional cambiar su contraseña"""
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        return jsonify({'success': False, 'message': 'Error de seguridad'})
+    
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    
+    if not current_password or not new_password:
+        return jsonify({'success': False, 'message': 'Todos los campos son requeridos'})
+    
+    if len(new_password) < 6:
+        return jsonify({'success': False, 'message': 'La nueva contraseña debe tener al menos 6 caracteres'})
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        # Obtener usuario actual
+        usuario_id = session.get('usuario_id')
+        cursor.execute('SELECT * FROM usuarios WHERE id = %s', (usuario_id,))
+        usuario = cursor.fetchone()
+        
+        if not usuario:
+            return jsonify({'success': False, 'message': 'Usuario no encontrado'})
+        
+        # Verificar contraseña actual
+        import hashlib
+        current_hash = hashlib.sha256(current_password.encode()).hexdigest()
+        
+        if current_hash != usuario['password_hash']:
+            return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'})
+        
+        # Actualizar contraseña
+        new_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        cursor.execute('''
+            UPDATE usuarios 
+            SET password_hash = %s
+            WHERE id = %s
+        ''', (new_hash, usuario_id))
+        
+        conn.commit()
+        
+        return jsonify({'success': True, 'message': 'Contraseña actualizada correctamente'})
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error cambiando contraseña: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+        
+    finally:
+        conn.close()
 
 # =============================================================================
 # API ENDPOINTS

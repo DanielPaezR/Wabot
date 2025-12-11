@@ -18,6 +18,7 @@
             --success: #27ae60;
             --danger: #e74c3c;
             --warning: #f39c12;
+            --info: #3498db;
             --dark: #2c3e50;
             --light: #f5f6fa;
             --text: #333;
@@ -98,6 +99,11 @@
         
         .btn-logout {
             background: var(--danger);
+            color: var(--white);
+        }
+        
+        .btn-info {
+            background: var(--info);
             color: var(--white);
         }
         
@@ -364,6 +370,176 @@
             font-weight: 600;
         }
 
+        /* MODAL STYLES */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .modal-content {
+            background: var(--white);
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-light);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            background: #f5f5f5;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .password-input-group {
+            position: relative;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .strength-weak { background: var(--danger); width: 25%; }
+        .strength-medium { background: var(--warning); width: 50%; }
+        .strength-strong { background: var(--success); width: 75%; }
+        .strength-very-strong { background: var(--success); width: 100%; }
+        
+        .form-text {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+        
+        .password-match {
+            color: var(--success);
+            font-weight: 500;
+        }
+        
+        .password-mismatch {
+            color: var(--danger);
+            font-weight: 500;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+        
+        .btn-modal {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-modal-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+        
+        .btn-modal-secondary {
+            background: #e0e0e0;
+            color: var(--text);
+        }
+
         /* LOADING STATES */
         .skeleton {
             background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -434,6 +610,16 @@
             .cita-item {
                 border-bottom-color: #444;
             }
+            
+            .modal-content {
+                background: #3d3d3d;
+            }
+            
+            .form-control {
+                background: #2d2d2d;
+                border-color: #555;
+                color: var(--text);
+            }
         }
 
         /* ORIENTATION LANDSCAPE */
@@ -475,6 +661,78 @@
         ✅ Cita marcada como completada
     </div>
 
+    <!-- Modal para cambiar contraseña -->
+    <div id="passwordModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🔐 Cambiar Contraseña</h3>
+                <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+            </div>
+            
+            <form id="passwordForm" onsubmit="submitPasswordChange(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="form-group">
+                        <label for="current_password" class="form-label">Contraseña Actual *</label>
+                        <div class="password-input-group">
+                            <input type="password" class="form-control" id="current_password" 
+                                   name="current_password" required>
+                            <button type="button" class="toggle-password" onclick="togglePassword('current_password')">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_password" class="form-label">Nueva Contraseña *</label>
+                        <div class="password-input-group">
+                            <input type="password" class="form-control" id="new_password" 
+                                   name="new_password" required minlength="6" oninput="checkPasswordStrength()">
+                            <button type="button" class="toggle-password" onclick="togglePassword('new_password')">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="password-strength" id="passwordStrength"></div>
+                        <div class="form-text">
+                            Mínimo 6 caracteres. Fuerza: <span id="strengthText">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña *</label>
+                        <div class="password-input-group">
+                            <input type="password" class="form-control" id="confirm_password" 
+                                   name="confirm_password" required oninput="checkPasswordMatch()">
+                            <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            <span id="passwordMatchText"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" style="background: #e3f2fd; color: #1976d2; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; margin-top: 1rem;">
+                        <strong>💡 Recomendaciones:</strong><br>
+                        • Usa una contraseña de al menos 8 caracteres<br>
+                        • Combina letras, números y símbolos<br>
+                        • No uses información personal fácil de adivinar
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal btn-modal-secondary" onclick="closePasswordModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-modal btn-modal-primary" id="submitPasswordBtn">
+                        Cambiar Contraseña
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="header">
         <div class="header-top">
             <div class="welcome">
@@ -482,6 +740,7 @@
                 <p>{{ session.negocio_nombre }} - Tu agenda para hoy</p>
             </div>
             <div class="nav-buttons">
+                <button class="btn btn-info" onclick="openPasswordModal()">🔑 Cambiar</button>
                 <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="btn btn-success">📊 Stats</a>
                 <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Salir</a>
             </div>
@@ -561,7 +820,158 @@
     </div>
 
     <script>
-        // Mobile-optimized JavaScript
+        // Funciones para el modal de contraseña
+        function openPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Previene scroll en el fondo
+            // Resetear formulario
+            document.getElementById('passwordForm').reset();
+            document.getElementById('passwordStrength').style.width = '0%';
+            document.getElementById('strengthText').textContent = '-';
+            document.getElementById('passwordMatchText').textContent = '';
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+            field.setAttribute('type', type);
+        }
+
+        function checkPasswordStrength() {
+            const password = document.getElementById('new_password').value;
+            const strengthBar = document.getElementById('passwordStrength');
+            const strengthText = document.getElementById('strengthText');
+            
+            if (!password) {
+                strengthBar.style.width = '0%';
+                strengthText.textContent = '-';
+                return;
+            }
+
+            let strength = 0;
+            
+            // Longitud mínima
+            if (password.length >= 6) strength += 1;
+            // Contiene números
+            if (/\d/.test(password)) strength += 1;
+            // Contiene letras minúsculas y mayúsculas
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 1;
+            // Contiene caracteres especiales
+            if (/[^a-zA-Z0-9]/.test(password)) strength += 1;
+            // Longitud mayor a 8
+            if (password.length >= 8) strength += 1;
+
+            // Actualizar barra y texto
+            switch(strength) {
+                case 0:
+                case 1:
+                    strengthBar.className = 'password-strength strength-weak';
+                    strengthText.textContent = 'Débil';
+                    break;
+                case 2:
+                    strengthBar.className = 'password-strength strength-medium';
+                    strengthText.textContent = 'Media';
+                    break;
+                case 3:
+                    strengthBar.className = 'password-strength strength-strong';
+                    strengthText.textContent = 'Fuerte';
+                    break;
+                case 4:
+                case 5:
+                    strengthBar.className = 'password-strength strength-very-strong';
+                    strengthText.textContent = 'Muy Fuerte';
+                    break;
+            }
+        }
+
+        function checkPasswordMatch() {
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const matchText = document.getElementById('passwordMatchText');
+            
+            if (!confirmPassword) {
+                matchText.textContent = '';
+                matchText.className = '';
+                return;
+            }
+
+            if (newPassword === confirmPassword) {
+                matchText.textContent = '✓ Las contraseñas coinciden';
+                matchText.className = 'password-match';
+            } else {
+                matchText.textContent = '✗ Las contraseñas no coinciden';
+                matchText.className = 'password-mismatch';
+            }
+        }
+
+        async function submitPasswordChange(event) {
+            event.preventDefault();
+            
+            const currentPassword = document.getElementById('current_password').value;
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const csrfToken = document.getElementById('csrf_token').value;
+            const submitBtn = document.getElementById('submitPasswordBtn');
+            
+            // Validaciones
+            if (!currentPassword) {
+                alert('❌ Por favor, ingresa tu contraseña actual');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                alert('❌ La nueva contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                alert('❌ Las contraseñas no coinciden');
+                return;
+            }
+            
+            // Deshabilitar botón mientras se procesa
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Procesando...';
+            
+            try {
+                const response = await fetch('/profesional/cambiar-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'current_password': currentPassword,
+                        'new_password': newPassword,
+                        'csrf_token': csrfToken
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Contraseña cambiada exitosamente');
+                    closePasswordModal();
+                    // Mostrar notificación
+                    showNotification('✅ Contraseña actualizada correctamente');
+                } else {
+                    alert(`❌ Error: ${result.message || 'No se pudo cambiar la contraseña'}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error de conexión. Intenta nuevamente.');
+            } finally {
+                // Rehabilitar botón
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Cambiar Contraseña';
+            }
+        }
+
+        // Funciones existentes
         function cambiarFecha(fecha) {
             window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
         }
@@ -577,6 +987,15 @@
             if (navigator.vibrate) {
                 navigator.vibrate(200);
             }
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
         }
 
         // Auto-recargar cada 2 minutos para ver citas nuevas
@@ -601,6 +1020,20 @@
             }
             lastTouchEnd = now;
         }, false);
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('passwordModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePasswordModal();
+            }
+        });
+
+        // Cerrar modal con Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('passwordModal').style.display === 'flex') {
+                closePasswordModal();
+            }
+        });
 
         // Load animations
         document.addEventListener('DOMContentLoaded', function() {

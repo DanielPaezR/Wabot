@@ -71,6 +71,13 @@
             font-size: 0.85rem;
             color: #856404;
         }
+        
+        /* Estilo para campo deshabilitado */
+        .negocio-disabled {
+            background-color: #e9ecef;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -113,7 +120,7 @@
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">
                         <i class="fas fa-user-edit"></i>
-                        Editar Usuario
+                        Editar Usuario: {{ usuario.nombre }}
                     </h1>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <a href="{{ url_for('admin_usuarios') }}" class="btn btn-secondary">
@@ -139,7 +146,7 @@
                         <div class="role-info">
                             <h3><i class="fas fa-info-circle"></i> Información de Roles</h3>
                             <div class="role-desc">
-                                <strong>👑 Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema.<br>
+                                <strong>👑 Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema. Se asignará automáticamente al primer negocio disponible.<br>
                                 <strong>💼 Propietario:</strong> Gestiona su propio negocio, citas, estadísticas y configuración.<br>
                                 <strong>👨‍💼 Profesional:</strong> Acceso limitado a sus citas del día y funciones básicas.
                             </div>
@@ -183,16 +190,19 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="mb-3">
-                                        <label for="negocio_id" class="form-label">Negocio</label>
-                                        <select class="form-select" id="negocio_id" name="negocio_id">
-                                            <option value="">Selecciona un negocio</option>
+                                        <label for="negocio_id" class="form-label">Negocio *</label>
+                                        <select class="form-select" id="negocio_id" name="negocio_id" required>
                                             {% for negocio in negocios %}
-                                                <option value="{{ negocio.id }}" {% if usuario.negocio_id == negocio.id %}selected{% endif %}>
+                                                <option value="{{ negocio.id }}" 
+                                                        {% if usuario.negocio_id == negocio.id %}selected{% endif %}
+                                                        {% if usuario.rol == 'superadmin' and loop.first and not usuario.negocio_id %}selected{% endif %}>
                                                     {{ negocio.nombre }}
                                                 </option>
                                             {% endfor %}
                                         </select>
-                                        <div class="optional-field">Opcional para Super Admin</div>
+                                        <div class="optional-field" id="negocioHelpText">
+                                            Selecciona el negocio asignado
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -202,7 +212,7 @@
                                             <input class="form-check-input" type="checkbox" id="activo" name="activo" 
                                                    {% if usuario.activo %}checked{% endif %}>
                                             <label class="form-check-label" for="activo">
-                                                {% if usuario.activo %}Activo{% else %}Inactivo{% endif %}
+                                                {% if usuario.activo %}✅ Activo{% else %}❌ Inactivo{% endif %}
                                             </label>
                                         </div>
                                     </div>
@@ -234,8 +244,10 @@
                             </div>
 
                             <div id="profesionalInfo" class="conditional-field">
-                                <strong>💡 Información para Profesional:</strong><br>
-                                El profesional podrá acceder al sistema con su email y contraseña.
+                                <div class="alert alert-info mb-0">
+                                    <strong>💡 Información para Profesional:</strong><br>
+                                    El profesional podrá acceder al sistema con su email y contraseña. Los campos de especialidad y teléfono son opcionales.
+                                </div>
                             </div>
 
                             <!-- Cambio de Contraseña -->
@@ -307,6 +319,9 @@
                                         <small>Marca esta opción para establecer una contraseña temporal fácil de recordar.</small>
                                     </div>
                                 </div>
+
+                                <!-- Campo oculto para indicar cambio solo de contraseña -->
+                                <input type="hidden" name="only_password" id="onlyPasswordField" value="false">
                             </div>
 
                             <div class="mt-4">
@@ -333,16 +348,25 @@
         function toggleNegocioField() {
             const rol = document.getElementById('rol').value;
             const negocioField = document.getElementById('negocio_id');
+            const negocioHelpText = document.getElementById('negocioHelpText');
             const profesionalFields = document.getElementById('profesionalFields');
             const profesionalInfo = document.getElementById('profesionalInfo');
             
             if (rol === 'superadmin') {
-                negocioField.required = false;
+                // Deshabilitar y seleccionar el primer negocio para Super Admin
                 negocioField.disabled = true;
-                negocioField.value = '';
+                negocioField.classList.add('negocio-disabled');
+                negocioHelpText.innerHTML = 'Para Super Admin se usa el primer negocio disponible';
+                
+                // Seleccionar el primer negocio automáticamente
+                if (negocioField.options.length > 0) {
+                    negocioField.value = negocioField.options[0].value;
+                }
             } else {
-                negocioField.required = true;
+                // Habilitar para otros roles
                 negocioField.disabled = false;
+                negocioField.classList.remove('negocio-disabled');
+                negocioHelpText.innerHTML = 'Selecciona el negocio asignado';
             }
             
             // Mostrar/ocultar campos específicos para profesionales
@@ -482,33 +506,11 @@
             }
             
             if (confirm('¿Estás seguro de que quieres cambiar solo la contraseña de este usuario?')) {
-                // Crear un formulario temporal solo para cambiar contraseña
-                const form = document.getElementById('userForm');
-                const tempForm = document.createElement('form');
-                tempForm.method = 'POST';
-                tempForm.action = form.action;
+                // Establecer el campo oculto para indicar cambio solo de contraseña
+                document.getElementById('onlyPasswordField').value = 'true';
                 
-                // Agregar campos necesarios
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrf_token';
-                csrfInput.value = '{{ csrf_token() }}';
-                tempForm.appendChild(csrfInput);
-                
-                const passwordInput = document.createElement('input');
-                passwordInput.type = 'hidden';
-                passwordInput.name = 'nueva_password';
-                passwordInput.value = nuevaPassword;
-                tempForm.appendChild(passwordInput);
-                
-                const onlyPasswordInput = document.createElement('input');
-                onlyPasswordInput.type = 'hidden';
-                onlyPasswordInput.name = 'only_password';
-                onlyPasswordInput.value = 'true';
-                tempForm.appendChild(onlyPasswordInput);
-                
-                document.body.appendChild(tempForm);
-                tempForm.submit();
+                // Enviar el formulario
+                document.getElementById('userForm').submit();
             }
         });
 
@@ -518,6 +520,11 @@
             const confirmarPassword = document.getElementById('confirmar_password').value;
             const negocioField = document.getElementById('negocio_id');
             const rol = document.getElementById('rol').value;
+
+            // Resetear el campo only_password si no es un cambio solo de contraseña
+            if (!document.getElementById('btnOnlyPassword').clicked) {
+                document.getElementById('onlyPasswordField').value = 'false';
+            }
 
             // Validar negocio para roles que lo requieren
             if (rol !== 'superadmin' && !negocioField.value) {
@@ -542,6 +549,11 @@
         // Ejecutar al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             toggleNegocioField();
+            
+            // Marcar si el botón "Solo Cambiar Contraseña" fue clickeado
+            document.getElementById('btnOnlyPassword').addEventListener('click', function() {
+                this.clicked = true;
+            });
         });
     </script>
 </body>
