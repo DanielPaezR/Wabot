@@ -594,7 +594,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - CORREGIDA con más debug"""
+    """Mostrar citas del cliente - CORREGIDA para manejar resultados vacíos"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
@@ -608,7 +608,6 @@ def mostrar_mis_citas(numero, negocio_id):
     # Si NO tenemos teléfono, pedirlo
     if not telefono_real:
         print(f"🔧 [DEBUG] No hay teléfono en conversación, solicitando...")
-        # Crear conversación para ver citas
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_para_ver',
             'timestamp': datetime.now(),
@@ -624,7 +623,8 @@ def mostrar_mis_citas(numero, negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ DEBUG: Primero ver TODAS las citas sin filtro
+        # ✅ DEBUG: Primero ver TODAS las citas sin filtro - CORREGIDO
+        print(f"🔍 [DEBUG] Buscando TODAS las citas para teléfono: {telefono_real}")
         cursor.execute('''
             SELECT id, fecha, hora, estado, cliente_nombre 
             FROM citas 
@@ -634,10 +634,15 @@ def mostrar_mis_citas(numero, negocio_id):
         
         todas_citas = cursor.fetchall()
         print(f"🔍 [DEBUG] TOTAL citas en BD para {telefono_real}: {len(todas_citas)}")
-        for cita in todas_citas:
-            print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}, Estado: {cita[3]}, Nombre: {cita[4]}")
         
-        # Ahora buscar con JOINs
+        # ✅ CORRECCIÓN: Verificar si hay resultados antes de iterar
+        if todas_citas and len(todas_citas) > 0:
+            for cita in todas_citas:
+                print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}, Estado: {cita[3]}, Nombre: {cita[4]}")
+        else:
+            print(f"⚠️ [DEBUG] No se encontraron citas en la BD")
+        
+        # Ahora buscar con JOINs para mostrar al usuario
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
             FROM citas c
@@ -652,6 +657,15 @@ def mostrar_mis_citas(numero, negocio_id):
         conn.close()
         
         print(f"🔧 [DEBUG] Citas futuras encontradas: {len(citas)}")
+        
+        # ✅ CORRECCIÓN: Verificar si hay citas antes de procesarlas
+        if not citas or len(citas) == 0:
+            # Obtener nombre del cliente
+            nombre_cliente = 'Cliente'
+            if clave_conversacion in conversaciones_activas:
+                nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+            
+            return f"📋 **No tienes citas programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*"
         
         # Obtener nombre del cliente
         nombre_cliente = None
@@ -675,9 +689,6 @@ def mostrar_mis_citas(numero, negocio_id):
             nombre_cliente = str(nombre_cliente).strip()
         else:
             nombre_cliente = 'Cliente'
-        
-        if not citas:
-            return f"📋 **No tienes citas programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*"
         
         # Construir lista de citas
         respuesta = f"📋 **Tus citas programadas - {nombre_cliente}:**\n\n"
@@ -721,7 +732,7 @@ def mostrar_mis_citas(numero, negocio_id):
         return "❌ Error al cargar tus citas. Por favor, intenta más tarde."
 
 def mostrar_citas_para_cancelar(numero, negocio_id):
-    """Mostrar citas que pueden ser canceladas - COMPLETAMENTE CORREGIDA"""
+    """Mostrar citas que pueden ser canceladas - CORREGIDA para manejar resultados vacíos"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_citas_para_cancelar - Clave: {clave_conversacion}")
@@ -735,7 +746,6 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
     # Si NO tenemos teléfono, pedirlo
     if not telefono_real:
         print(f"🔧 [DEBUG] No hay teléfono en conversación, solicitando...")
-        # Crear nueva conversación para cancelar
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_para_cancelar',
             'timestamp': datetime.now(),
@@ -768,13 +778,17 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         citas = cursor.fetchall()
         conn.close()
         
-        print(f"🔧 [DEBUG] Citas encontradas para cancelar: {len(citas)}")
+        print(f"🔧 [DEBUG] Citas encontradas para cancelar: {len(citas) if citas else 0}")
         
-        # ✅ DEBUG: Mostrar qué encontró
-        for cita in citas:
-            print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}")
+        # ✅ CORRECCIÓN: Verificar si hay resultados antes de iterar
+        if citas and len(citas) > 0:
+            for cita in citas:
+                print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}")
+        else:
+            print(f"⚠️ [DEBUG] No se encontraron citas para cancelar")
         
-        if not citas:
+        # ✅ CORRECCIÓN: Verificar si no hay citas
+        if not citas or len(citas) == 0:
             # Limpiar conversación
             if clave_conversacion in conversaciones_activas:
                 conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
@@ -791,7 +805,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
             cita_id = citas[0][0]
             return procesar_cancelacion_directa(numero, str(cita_id), negocio_id)
         
-        # ✅ Construir lista de citas para cancelar CON DATOS REALES
+        # ✅ Construir lista de citas para cancelar
         nombre_cliente = 'Cliente'
         if clave_conversacion in conversaciones_activas:
             nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
