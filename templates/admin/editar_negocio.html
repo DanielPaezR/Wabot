@@ -57,7 +57,7 @@
         }
         
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -165,117 +165,32 @@
             margin-bottom: 1rem;
         }
 
-        /* Estilos para la sección de URLs */
-        .urls-section {
+        /* Solo agregué esto: Estilo para mostrar el ID */
+        .id-display {
             background: #f8f9fa;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .urls-section h3 {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 0.5rem;
-        }
-        
-        .url-item {
-            margin-bottom: 1rem;
             padding: 1rem;
-            background: white;
             border-radius: 5px;
+            margin-bottom: 1.5rem;
             border-left: 4px solid #3498db;
         }
         
-        .url-label {
+        .id-label {
             font-weight: 600;
             color: #2c3e50;
             margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
         }
         
-        .url-value {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
+        .id-value {
             font-family: 'Courier New', monospace;
-            word-break: break-all;
-            margin-bottom: 0.5rem;
-        }
-        
-        .url-copy-btn {
-            background: #2ecc71;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
-        }
-        
-        .url-copy-btn:hover {
-            background: #27ae60;
-        }
-        
-        .id-badge {
-            display: inline-block;
-            background: #3498db;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
+            font-size: 1.1rem;
+            color: #3498db;
             font-weight: bold;
-            font-size: 0.9rem;
         }
         
-        .negocio-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #e8f4fc;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-        }
-        
-        .info-item {
-            text-align: center;
-        }
-        
-        .info-label {
-            font-size: 0.9rem;
+        .id-note {
             color: #666;
-            margin-bottom: 0.25rem;
-        }
-        
-        .info-value {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .admin-links {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .admin-link {
-            background: #9b59b6;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 5px;
-            text-decoration: none;
             font-size: 0.9rem;
-        }
-        
-        .admin-link:hover {
-            background: #8e44ad;
+            margin-top: 0.5rem;
         }
     </style>
 </head>
@@ -303,92 +218,20 @@
             {% endwith %}
         </div>
         
-        <!-- Información del Negocio -->
-        <div class="negocio-info">
-            <div class="info-item">
-                <div class="info-label">ID del Negocio</div>
-                <div class="info-value">
-                    <span class="id-badge">#{{ negocio.id }}</span>
-                </div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Estado</div>
-                <div class="info-value">
-                    {% if negocio.activo %}
-                        <span style="color: #27ae60;">✅ Activo</span>
-                    {% else %}
-                        <span style="color: #e74c3c;">❌ Inactivo</span>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="info-item">
-                <div class="info-label">Tipo</div>
-                <div class="info-value">{{ negocio.tipo_negocio|title }}</div>
-            </div>
-        </div>
-        
-        <!-- URLs del Negocio -->
-        <div class="urls-section">
-            <h3>🔗 URLs del Negocio</h3>
-            
-            <!-- URL del Cliente -->
-            <div class="url-item">
-                <div class="url-label">
-                    <span>👤 Panel de Cliente (Chat Web)</span>
-                </div>
-                <div class="url-value" id="url-cliente">
-                    https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}
-                </div>
-                <button class="url-copy-btn" onclick="copiarUrl('url-cliente')">
-                    📋 Copiar URL del Cliente
-                </button>
-                <small>Enlázalo en tu sitio web, redes sociales, o compártelo directamente con clientes.</small>
-            </div>
-            
-            <!-- URL del QR -->
-            <div class="url-item">
-                <div class="url-label">
-                    <span>📱 Código QR para WhatsApp</span>
-                </div>
-                <small>Genera un código QR con la URL del cliente para que los clientes escaneen y accedan fácilmente al chat.</small>
-                <div style="margin-top: 10px;">
-                    <a href="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}" 
-                       target="_blank" 
-                       class="btn" 
-                       style="background: #25D366; color: white;">
-                        📱 Generar QR para WhatsApp
-                    </a>
-                </div>
-            </div>
-
-            <!-- Enlaces de Administración -->
-            <div class="admin-links">
-                <a href="{{ url_for('admin_profesionales', negocio_id=negocio.id) }}" class="admin-link">
-                    👨‍💼 Administrar Profesionales
-                </a>
-                <a href="{{ url_for('admin_servicios', negocio_id=negocio.id) }}" class="admin-link">
-                    💼 Administrar Servicios
-                </a>
-                <a href="{{ url_for('admin_horarios', negocio_id=negocio.id) }}" class="admin-link">
-                    ⏰ Configurar Horarios
-                </a>
-                <a href="{{ url_for('admin_citas', negocio_id=negocio.id) }}" class="admin-link">
-                    📅 Ver Todas las Citas
-                </a>
-            </div>
-        </div>
-        
-        <!-- Formulario de Edición -->
         <div class="form-container">
+            <!-- SOLO ESTO ES NUEVO: Sección para mostrar el ID -->
+            <div class="id-display">
+                <div class="id-label">ID del Negocio</div>
+                <div class="id-value">#{{ negocio.id }}</div>
+                <div class="id-note">
+                    Usa este ID para acceder al negocio:
+                    <br>
+                    🔗 Cliente: <code>https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}</code>
+                </div>
+            </div>
+            
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                <!-- ID del negocio (solo lectura) -->
-                <div class="form-group">
-                    <label for="negocio_id">ID del Negocio</label>
-                    <input type="text" id="negocio_id" value="{{ negocio.id }}" readonly style="background: #f5f5f5; cursor: not-allowed;">
-                    <small>Este ID se usa en la URL del cliente. No se puede modificar.</small>
-                </div>
                 
                 <div class="form-group">
                     <label for="nombre">Nombre del Negocio *</label>
@@ -456,34 +299,5 @@
             </form>
         </div>
     </div>
-    
-    <script>
-        function copiarUrl(elementId) {
-            const element = document.getElementById(elementId);
-            const text = element.textContent.trim();
-            
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    const button = event.target;
-                    const originalText = button.textContent;
-                    button.textContent = '✅ Copiado!';
-                    button.style.background = '#2ecc71';
-                    
-                    setTimeout(() => {
-                        button.textContent = originalText;
-                        button.style.background = '#2ecc71';
-                    }, 2000);
-                })
-                .catch(err => {
-                    console.error('Error al copiar: ', err);
-                    alert('No se pudo copiar el texto');
-                });
-        }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('URL del negocio cargada:');
-            console.log('- Cliente:', document.getElementById('url-cliente').textContent);
-        });
-    </script>
 </body>
 </html>
