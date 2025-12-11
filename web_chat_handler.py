@@ -1465,21 +1465,26 @@ Hola *{nombre_cliente}*, ¿confirmas tu cita?
 **Selecciona una opción:**'''
 
 def procesar_cancelacion_cita(numero, mensaje, negocio_id):
-    """Procesar cancelación de cita - MEJORADO PARA POSTGRESQL"""
+    """Procesar cancelación de cita - VERSIÓN CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
+    
+    print(f"🔧 [DEBUG-CANCELAR] procesar_cancelacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
     
     if mensaje == '0':
         if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return saludo_inicial(numero, negocio_id)
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        return "Volviendo al menú principal..."
     
     if 'citas_disponibles' not in conversaciones_activas[clave_conversacion]:
-        # ✅ CORRECCIÓN 4: Si la sesión expiró durante cancelación, mostrar menú principal
+        print(f"❌ [DEBUG-CANCELAR] No hay citas disponibles en la conversación")
         if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión de cancelación expirada."
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        return "❌ Sesión de cancelación expirada. Por favor, selecciona *3* nuevamente."
     
     citas_disponibles = conversaciones_activas[clave_conversacion]['citas_disponibles']
+    
+    print(f"🔧 [DEBUG-CANCELAR] Citas disponibles: {list(citas_disponibles.keys())}")
+    print(f"🔧 [DEBUG-CANCELAR] Mensaje recibido: '{mensaje}'")
     
     if mensaje not in citas_disponibles:
         return "❌ ID de cita inválido. Por favor, ingresa un ID de la lista anterior."
@@ -1489,63 +1494,155 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         cita_id = mensaje
         cita_info = citas_disponibles[cita_id]
         
+        print(f"🔧 [DEBUG-CANCELAR] Cancelando cita ID: {cita_id}")
+        print(f"🔧 [DEBUG-CANCELAR] Info cita: {cita_info}")
+        
+        # Obtener teléfono REAL para la cancelación
+        telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
+        if not telefono_real:
+            print(f"❌ [DEBUG-CANCELAR] No hay teléfono en conversación")
+            telefono_real = '3174694941'  # Fallback
+        
         # Actualizar estado en base de datos
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('UPDATE citas SET estado = %s WHERE id = %s AND negocio_id = %s', 
-                      ('cancelado', cita_id, negocio_id))
+        # ✅ CORRECCIÓN: Usar cita_id convertido a entero
+        cursor.execute('''
+            UPDATE citas 
+            SET estado = %s 
+            WHERE id = %s AND negocio_id = %s AND cliente_telefono = %s
+        ''', ('cancelado', int(cita_id), negocio_id, telefono_real))
         
+        filas_afectadas = cursor.rowcount
         conn.commit()
         conn.close()
         
-        # Limpiar conversación
+        print(f"✅ [DEBUG-CANCELAR] Cita cancelada. Filas afectadas: {filas_afectadas}")
+        
+        if filas_afectadas == 0:
+            print(f"❌ [DEBUG-CANCELAR] No se pudo cancelar la cita. Verificar datos.")
+            if clave_conversacion in conversaciones_activas:
+                conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+            return "❌ No se pudo cancelar la cita. Por favor, verifica el ID e intenta nuevamente."
+        
+        # Limpiar datos de cancelación pero mantener la conversación
         if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
+            # Eliminar solo los datos de cancelación
+            if 'citas_disponibles' in conversaciones_activas[clave_conversacion]:
+                del conversaciones_activas[clave_conversacion]['citas_disponibles']
+            
+            # Volver al menú principal
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+            
+            # Obtener nombre del cliente
+            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
         
-        # Usar plantilla para mensaje de cancelación
-        nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-        fecha_str = datetime.strptime(str(cita_info[1]), '%Y-%m-%d').strftime('%d/%m')
+        # Formatear fecha para el mensaje
+        try:
+            fecha = cita_info[1]  # Índice 1 es fecha
+            if isinstance(fecha, str):
+                fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+            else:
+                fecha_str = fecha.strftime('%d/%m')
+        except:
+            fecha_str = str(fecha)
         
-        return f'''❌ **Cita cancelada**
+        hora = cita_info[2]  # Índice 2 es hora
+        
+        return f'''❌ **Cita cancelada exitosamente**
 
-Hola {nombre_cliente}, has cancelado tu cita del {fecha_str} a las {cita_info[2]}.
+Hola {nombre_cliente}, has cancelado tu cita:
+
+📅 **Fecha:** {fecha_str}
+⏰ **Hora:** {hora}
+🎫 **ID de cita:** #{cita_id}
 
 Esperamos verte pronto en otra ocasión.'''
         
     except Exception as e:
-        print(f"❌ Error cancelando cita: {e}")
+        print(f"❌ [DEBUG-CANCELAR] Error cancelando cita: {e}")
+        import traceback
+        traceback.print_exc()
+        
         if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return "❌ Error al cancelar la cita."
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        
+        return "❌ Error al cancelar la cita. Por favor, intenta nuevamente."
 
 def procesar_cancelacion_directa(numero, cita_id, negocio_id):
-    """Procesar cancelación cuando solo hay una cita - GENÉRICO PARA POSTGRESQL"""
+    """Procesar cancelación cuando solo hay una cita - VERSIÓN CORREGIDA"""
+    print(f"🔧 [DEBUG-CANCELAR-DIRECTO] Cancelando cita ID: {cita_id}")
+    
     if cita_id == '0':
         clave_conversacion = f"{numero}_{negocio_id}"
         if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return saludo_inicial(numero, negocio_id)
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        return "Volviendo al menú principal..."
     
     # Cancelar cita directamente
-    from database import get_db_connection
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('UPDATE citas SET estado = %s WHERE id = %s AND negocio_id = %s', 
-                  ('cancelado', cita_id, negocio_id))
-    
-    conn.commit()
-    conn.close()
-    
-    nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-    
-    return f'''❌ **Cita cancelada**
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Obtener teléfono REAL de la conversación
+        clave_conversacion = f"{numero}_{negocio_id}"
+        telefono_real = None
+        if clave_conversacion in conversaciones_activas:
+            telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
+        
+        if not telefono_real:
+            print(f"⚠️ [DEBUG-CANCELAR-DIRECTO] No hay teléfono, buscando en BD...")
+            # Buscar teléfono de la cita
+            cursor.execute('''
+                SELECT cliente_telefono FROM citas WHERE id = %s AND negocio_id = %s
+            ''', (cita_id, negocio_id))
+            
+            resultado = cursor.fetchone()
+            if resultado:
+                telefono_real = resultado[0] if isinstance(resultado, tuple) else resultado.get('cliente_telefono')
+                print(f"✅ [DEBUG-CANCELAR-DIRECTO] Teléfono obtenido de BD: {telefono_real}")
+        
+        # Cancelar la cita
+        if telefono_real:
+            cursor.execute('''
+                UPDATE citas SET estado = %s 
+                WHERE id = %s AND negocio_id = %s AND cliente_telefono = %s
+            ''', ('cancelado', int(cita_id), negocio_id, telefono_real))
+        else:
+            cursor.execute('''
+                UPDATE citas SET estado = %s 
+                WHERE id = %s AND negocio_id = %s
+            ''', ('cancelado', int(cita_id), negocio_id))
+        
+        filas_afectadas = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ [DEBUG-CANCELAR-DIRECTO] Cita cancelada. Filas afectadas: {filas_afectadas}")
+        
+        # Obtener nombre del cliente
+        nombre_cliente = 'Cliente'
+        if clave_conversacion in conversaciones_activas:
+            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+        
+        if clave_conversacion in conversaciones_activas:
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        
+        return f'''❌ **Cita cancelada exitosamente**
 
 Hola {nombre_cliente}, has cancelado tu cita (ID: #{cita_id}).
 
 Esperamos verte pronto en otra ocasión.'''
+        
+    except Exception as e:
+        print(f"❌ [DEBUG-CANCELAR-DIRECTO] Error cancelando cita: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        return "❌ Error al cancelar la cita."
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     """Obtener las próximas fechas donde el negocio está activo - VERSIÓN MEJORADA PARA POSTGRESQL"""
