@@ -212,7 +212,7 @@ def saludo_inicial(numero, negocio_id):
     """Saludo inicial - Cliente nuevo o existente - VERSIÓN MEJORADA"""
     try:
         # Verificar si es cliente existente con nombre válido
-        nombre_cliente = obtener_nombre_cliente(numero, negocio_id)
+        nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
         
         print(f"🔧 DEBUG saludo_inicial: numero={numero}, nombre_cliente='{nombre_cliente}'")
         
@@ -883,9 +883,17 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now()
     
-    # Obtener datos para la confirmación
-    nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 
-                                                                   db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente')
+    # ✅ CORRECCIÓN: Obtener nombre del cliente correctamente
+    nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre')
+    if not nombre_cliente:
+        nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
+    
+    # Si aún no hay nombre, usar valor por defecto
+    if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
+        nombre_cliente = 'Cliente'
+    else:
+        nombre_cliente = str(nombre_cliente).strip()
+    
     profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
     servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
     servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
@@ -895,7 +903,7 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     
     return f'''✅ *Confirmar cita*
 
-Hola {nombre_cliente}, ¿confirmas tu cita?
+Hola *{nombre_cliente}*, ¿confirmas tu cita?
 
 👨‍💼 *Profesional:* {profesional_nombre}
 💼 *Servicio:* {servicio_nombre}
@@ -933,7 +941,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             nombre_cliente = None
             
             # 1. Buscar en la tabla de clientes
-            nombre_cliente = obtener_nombre_cliente(numero, negocio_id)
+            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
             
             # 2. Si no hay, buscar en citas anteriores
             if not nombre_cliente:
