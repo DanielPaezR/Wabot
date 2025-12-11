@@ -3092,14 +3092,12 @@ def api_horarios_disponibles():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # ✅ CORRECCIÓN: Acceder correctamente cuando se usa RealDictCursor
         cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
         profesional = cursor.fetchone()
         if not profesional:
             conn.close()
             return jsonify({'error': 'Profesional no encontrado'}), 404
         
-        # Acceder al valor usando clave de diccionario, no índice
         negocio_id = profesional['negocio_id']
         
         # Obtener duración del servicio
@@ -3113,7 +3111,7 @@ def api_horarios_disponibles():
         duracion_minutos = servicio['duracion']
         print(f"🔍 Duración del servicio: {duracion_minutos} minutos, Negocio ID: {negocio_id}")
         
-        # ✅ CORRECCIÓN: Usar la función obtener_horarios_por_dia para obtener la configuración REAL
+        # Obtener configuración de horarios
         horarios_config = db.obtener_horarios_por_dia(negocio_id, fecha)
         print(f"🔍 Configuración de horarios obtenida: {horarios_config}")
         
@@ -3121,13 +3119,19 @@ def api_horarios_disponibles():
             conn.close()
             return jsonify({'error': 'El negocio no trabaja este día'}), 400
         
-        # ✅ Obtener horarios REALES de la configuración
+        # Obtener horarios de la configuración
         hora_inicio_str = horarios_config['hora_inicio']
         hora_fin_str = horarios_config['hora_fin']
         almuerzo_inicio_str = horarios_config.get('almuerzo_inicio')
         almuerzo_fin_str = horarios_config.get('almuerzo_fin')
         
         print(f"🔍 Horario configurado: {hora_inicio_str} a {hora_fin_str}, Almuerzo: {almuerzo_inicio_str} a {almuerzo_fin_str}")
+        
+        # ✅ CORRECCIÓN: Verificar si es HOY
+        fecha_actual = datetime.now()
+        fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d')
+        es_hoy = fecha_solicitada.date() == fecha_actual.date()
+        print(f"🔍 Fecha actual: {fecha_actual}, Fecha solicitada: {fecha_solicitada}, ¿Es hoy?: {es_hoy}")
         
         # Convertir strings a datetime para cálculos
         hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
@@ -3143,7 +3147,7 @@ def api_horarios_disponibles():
             except ValueError:
                 print("⚠️ Error parseando horario de almuerzo, ignorando...")
         
-        # ✅ Obtener citas ya agendadas para este profesional y fecha
+        # Obtener citas ya agendadas
         cursor.execute('''
             SELECT hora FROM citas 
             WHERE profesional_id = %s 
@@ -3158,11 +3162,10 @@ def api_horarios_disponibles():
         
         conn.close()
         
-        # ✅ Generar slots basados en la duración del servicio
+        # ✅ CORRECCIÓN: Generar slots con filtro para HOY
         intervalos_disponibles = []
         hora_actual = hora_inicio
         
-        # Generar slots hasta el horario de fin
         while hora_actual < hora_fin:
             hora_fin_slot = hora_actual + timedelta(minutes=duracion_minutos)
             
@@ -3170,17 +3173,39 @@ def api_horarios_disponibles():
             if hora_fin_slot > hora_fin:
                 break
             
+            # ✅ CORRECCIÓN CRÍTICA: Si es HOY, filtrar horarios pasados y con poco margen
+            if es_hoy:
+                # Combinar fecha actual con hora del horario
+                hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
+                
+                # Calcular tiempo hasta el horario
+                tiempo_hasta_horario = hora_actual_completa - fecha_actual
+                
+                # MARGEN MÍNIMO: 30 minutos
+                margen_minimo_minutos = 30
+                
+                # Verificar si el horario YA PASÓ (tiempo negativo)
+                if tiempo_hasta_horario.total_seconds() <= 0:
+                    hora_str = hora_actual.strftime('%H:%M')
+                    print(f"⏰ Horario {hora_str} OMITIDO (ya pasó, tiempo: {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
+                    hora_actual += timedelta(minutes=30)
+                    continue
+                
+                # Verificar si tiene suficiente margen (al menos 30 minutos)
+                if tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
+                    hora_str = hora_actual.strftime('%H:%M')
+                    minutos_faltantes = int(tiempo_hasta_horario.total_seconds() / 60)
+                    print(f"⏰ Horario {hora_str} OMITIDO (faltan {minutos_faltantes} minutos, mínimo {margen_minimo_minutos} requeridos)")
+                    hora_actual += timedelta(minutes=30)
+                    continue
+            
             # Verificar si está dentro del horario de almuerzo
             dentro_almuerzo = False
             if almuerzo_inicio and almuerzo_fin:
-                # Verificar si el slot se cruza con el horario de almuerzo
-                # Caso 1: El slot empieza durante el almuerzo
                 if almuerzo_inicio <= hora_actual < almuerzo_fin:
                     dentro_almuerzo = True
-                # Caso 2: El slot termina durante el almuerzo  
                 elif almuerzo_inicio < hora_fin_slot <= almuerzo_fin:
                     dentro_almuerzo = True
-                # Caso 3: El slot cubre completamente el almuerzo
                 elif hora_actual <= almuerzo_inicio and hora_fin_slot >= almuerzo_fin:
                     dentro_almuerzo = True
             
@@ -3190,10 +3215,8 @@ def api_horarios_disponibles():
                 ocupado = False
                 
                 for cita_hora in citas_ocupadas:
-                    # Convertir hora de cita a string si es necesario
                     cita_hora_str = str(cita_hora)
                     if ':' in cita_hora_str:
-                        # Extraer solo la parte de hora:minutos
                         cita_hora_str = cita_hora_str[:5]
                     
                     if cita_hora_str == hora_str:
@@ -3202,9 +3225,9 @@ def api_horarios_disponibles():
                 
                 if not ocupado:
                     intervalos_disponibles.append(hora_str)
+                    print(f"✅ Horario {hora_str} DISPONIBLE")
             
-            # Avanzar al siguiente slot (puedes ajustar el intervalo aquí)
-            # Por defecto avanzamos en intervalos de 30 minutos para mostrar más opciones
+            # Avanzar al siguiente slot
             hora_actual += timedelta(minutes=30)
         
         print(f"🔍 Horarios disponibles encontrados: {len(intervalos_disponibles)}: {intervalos_disponibles}")
