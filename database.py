@@ -1173,53 +1173,66 @@ def es_cliente_nuevo(telefono, negocio_id):
 
 
 def obtener_nombre_cliente(numero, negocio_id):
-    """Obtener nombre del cliente desde la base de datos - VERSIÓN ROBUSTA"""
+    """Obtener nombre del cliente desde la base de datos - VERSIÓN MÁS ROBUSTA"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Primero buscar en la tabla de clientes si existe
-        cursor.execute('''
-            SELECT nombre 
-            FROM clientes 
-            WHERE telefono = %s 
-            AND negocio_id = %s 
-            LIMIT 1
-        ''', (numero, negocio_id))
+        nombre_cliente = None
         
-        resultado = cursor.fetchone()
+        # PRIMERO: Intentar buscar en la tabla de clientes
+        try:
+            cursor.execute('''
+                SELECT nombre 
+                FROM clientes 
+                WHERE telefono = %s 
+                AND negocio_id = %s 
+                ORDER BY updated_at DESC, created_at DESC
+                LIMIT 1
+            ''', (numero, negocio_id))
+            
+            resultado = cursor.fetchone()
+            
+            if resultado:
+                nombre = resultado[0]
+                if nombre and len(str(nombre).strip()) >= 2:
+                    nombre_cliente = str(nombre).strip()
+                    print(f"✅ [DB] Nombre encontrado en tabla clientes: {nombre_cliente}")
+            
+        except Exception as e:
+            print(f"⚠️ [DB] Error buscando en tabla clientes (puede no existir): {e}")
+            # Continuamos con la búsqueda en citas
         
-        if resultado:
-            nombre = resultado[0]
-            conn.close()
-            if nombre and len(str(nombre).strip()) >= 2:
-                return str(nombre).strip()
+        # Si no encontramos en clientes, buscar en citas
+        if not nombre_cliente:
+            try:
+                cursor.execute('''
+                    SELECT cliente_nombre 
+                    FROM citas 
+                    WHERE cliente_telefono = %s 
+                    AND negocio_id = %s 
+                    AND cliente_nombre IS NOT NULL 
+                    AND TRIM(cliente_nombre) != ''
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ''', (numero, negocio_id))
+                
+                resultado = cursor.fetchone()
+                
+                if resultado:
+                    nombre = resultado[0]
+                    if nombre and len(str(nombre).strip()) >= 2:
+                        nombre_cliente = str(nombre).strip()
+                        print(f"✅ [DB] Nombre encontrado en tabla citas: {nombre_cliente}")
+                
+            except Exception as e:
+                print(f"⚠️ [DB] Error buscando en tabla citas: {e}")
         
-        # Si no hay en clientes, buscar en citas
-        cursor.execute('''
-            SELECT cliente_nombre, MAX(created_at) 
-            FROM citas 
-            WHERE cliente_telefono = %s 
-            AND negocio_id = %s 
-            AND cliente_nombre IS NOT NULL 
-            AND TRIM(cliente_nombre) != ''
-            GROUP BY cliente_nombre
-            ORDER BY MAX(created_at) DESC
-            LIMIT 1
-        ''', (numero, negocio_id))
-        
-        resultado = cursor.fetchone()
         conn.close()
-        
-        if resultado:
-            nombre = resultado[0]
-            if nombre and len(str(nombre).strip()) >= 2:
-                return str(nombre).strip()
-        
-        return None
+        return nombre_cliente
         
     except Exception as e:
-        print(f"❌ Error obteniendo nombre del cliente: {e}")
+        print(f"❌ Error general en obtener_nombre_cliente: {e}")
         return None
 
 

@@ -418,10 +418,15 @@ def generar_opciones_confirmacion():
 # =============================================================================
 
 def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - SIEMPRE pedir nombre primero, pero si ya existe mostrar menú"""
+    """Saludo inicial - MANEJO MEJORADO DE ERRORES"""
     try:
-        # Verificar si ya tiene nombre registrado
-        nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
+        # Intentar obtener nombre del cliente
+        nombre_cliente = None
+        try:
+            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
+        except Exception as e:
+            print(f"⚠️ [DEBUG] Error al obtener nombre del cliente: {e}")
+            # No es crítico, continuamos sin nombre
         
         print(f"🔧 DEBUG saludo_inicial: numero={numero}, nombre_cliente='{nombre_cliente}'")
         
@@ -431,7 +436,8 @@ def saludo_inicial(numero, negocio_id):
             clave_conversacion = f"{numero}_{negocio_id}"
             conversaciones_activas[clave_conversacion] = {
                 'estado': 'menu_principal',
-                'timestamp': datetime.now()
+                'timestamp': datetime.now(),
+                'cliente_nombre': nombre_cliente
             }
             return f"¡Hola {nombre_cliente}! 👋\n\n¿En qué puedo ayudarte hoy?"
         else:
@@ -691,7 +697,7 @@ def mostrar_ayuda(negocio_id):
     return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - CORREGIDA PARA EVITAR REINICIO"""
+    """Procesar confirmación de la cita - USANDO agregar_cita"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] procesar_confirmacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
@@ -747,33 +753,84 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             servicio_nombre = conversacion['servicio_nombre']
             servicio_precio = conversacion['servicio_precio']
             
-            # Obtener nombre del cliente desde la base de datos
-            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
+            # Obtener nombre del cliente - buscar en este orden:
+            # 1. De la conversación actual (si se guardó al inicio)
+            # 2. De la base de datos
+            # 3. Usar valor por defecto
+            nombre_cliente = conversacion.get('cliente_nombre')
+            
+            if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
+                try:
+                    nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
+                except Exception as e:
+                    print(f"⚠️ [DEBUG] Error obteniendo nombre de BD: {e}")
+                    nombre_cliente = None
+            
+            # Si aún no tenemos nombre, usar "Cliente"
             if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
                 nombre_cliente = 'Cliente'
             else:
                 nombre_cliente = str(nombre_cliente).strip()
             
-            print(f"🔧 [DEBUG] Creando cita para: {nombre_cliente}, Teléfono: {telefono}")
-            print(f"🔧 [DEBUG] Fecha: {fecha}, Hora: {hora}")
-            print(f"🔧 [DEBUG] Profesional: {profesional_nombre}, Servicio: {servicio_nombre}")
+            print(f"🔧 [DEBUG] Datos para cita:")
+            print(f"   - Cliente: {nombre_cliente}")
+            print(f"   - Teléfono: {telefono}")
+            print(f"   - Fecha: {fecha}")
+            print(f"   - Hora: {hora}")
+            print(f"   - Profesional: {profesional_nombre} (ID: {profesional_id})")
+            print(f"   - Servicio: {servicio_nombre} (ID: {servicio_id})")
             
-            # Agendar cita CON TELÉFONO
-            cita_id = db.agendar_cita_con_telefono(
-                negocio_id, profesional_id, telefono, fecha, hora, 
-                servicio_id, nombre_cliente
+            # ✅ LLAMAR A LA FUNCIÓN CORRECTA: agregar_cita
+            cita_id = db.agregar_cita(
+                negocio_id=negocio_id,
+                profesional_id=profesional_id,
+                cliente_telefono=telefono,  # Usar el teléfono que acaba de ingresar
+                fecha=fecha,
+                hora=hora,
+                servicio_id=servicio_id,
+                cliente_nombre=nombre_cliente
             )
             
-            if not cita_id:
-                # Intentar con la función alternativa si existe
-                print(f"🔧 [DEBUG] Intentando con función alternativa...")
-                cita_id = db.agregar_cita_con_telefono(
-                    negocio_id, profesional_id, telefono, fecha, hora, 
-                    servicio_id, nombre_cliente
-                )
-            
-            if cita_id:
+            if cita_id and cita_id > 0:
                 print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
+                
+                # También guardar el cliente en la tabla clientes si no existe
+                try:
+                    # Intentar guardar/actualizar en tabla clientes
+                    from database import get_db_connection
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    
+                    # Verificar si ya existe
+                    cursor.execute('''
+                        SELECT id FROM clientes WHERE telefono = %s AND negocio_id = %s
+                    ''', (telefono, negocio_id))
+                    
+                    cliente_existente = cursor.fetchone()
+                    
+                    fecha_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    if cliente_existente:
+                        # Actualizar nombre si ya existe
+                        cursor.execute('''
+                            UPDATE clientes 
+                            SET nombre = %s, updated_at = %s
+                            WHERE telefono = %s AND negocio_id = %s
+                        ''', (nombre_cliente, fecha_actual, telefono, negocio_id))
+                    else:
+                        # Insertar nuevo cliente
+                        cursor.execute('''
+                            INSERT INTO clientes (negocio_id, telefono, nombre, created_at, updated_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                        ''', (negocio_id, telefono, nombre_cliente, fecha_actual, fecha_actual))
+                    
+                    conn.commit()
+                    conn.close()
+                    print(f"✅ [DEBUG] Cliente guardado en tabla clientes")
+                    
+                except Exception as e:
+                    print(f"⚠️ [DEBUG] Error guardando en tabla clientes: {e}")
+                    # No es crítico, la cita ya está creada
                 
                 # Limpiar conversación ANTES de devolver el mensaje
                 del conversaciones_activas[clave_conversacion]
@@ -798,7 +855,7 @@ Recibirás recordatorios por mensaje. ¡Te esperamos!'''
                 
                 return mensaje_confirmacion
             else:
-                print(f"❌ [DEBUG] Error al crear la cita en la base de datos")
+                print(f"❌ [DEBUG] Error al crear la cita. ID retornado: {cita_id}")
                 del conversaciones_activas[clave_conversacion]
                 return "❌ Error al crear la cita en el sistema. Por favor, intenta nuevamente o contacta al negocio directamente."
                 
@@ -876,7 +933,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         return "❌ Error al procesar tu solicitud."
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
-    """Procesar nombre del cliente nuevo - MODIFICADA PARA MOSTRAR MENÚ PRINCIPAL"""
+    """Procesar nombre del cliente nuevo - GUARDAR EN CONVERSACIÓN"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -891,10 +948,13 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     print(f"🔧 DEBUG: Procesando nombre '{nombre}' para {numero}")
     
     try:
-        # Intentar guardar el cliente en la tabla de clientes
+        # Guardar el cliente en la tabla de clientes
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Formatear fecha actual como texto
+        fecha_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         # Verificar si ya existe
         cursor.execute('''
@@ -907,33 +967,34 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
             # Actualizar nombre si ya existe
             cursor.execute('''
                 UPDATE clientes 
-                SET nombre = %s, updated_at = NOW()
+                SET nombre = %s, updated_at = %s
                 WHERE telefono = %s AND negocio_id = %s
-            ''', (nombre, numero, negocio_id))
+            ''', (nombre, fecha_actual, numero, negocio_id))
         else:
             # Insertar nuevo cliente
             cursor.execute('''
                 INSERT INTO clientes (negocio_id, telefono, nombre, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
-            ''', (negocio_id, numero, nombre))
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (negocio_id, numero, nombre, fecha_actual, fecha_actual))
         
         conn.commit()
         conn.close()
         
-        print(f"✅ DEBUG: Cliente guardado: {nombre}")
+        print(f"✅ DEBUG: Cliente guardado en BD: {nombre}")
         
     except Exception as e:
-        print(f"⚠️ DEBUG: Error guardando cliente: {e}")
+        print(f"⚠️ DEBUG: Error guardando cliente en BD: {e}")
         # No es crítico, continuamos
     
     # ✅ Limpiar conversación activa
     if clave_conversacion in conversaciones_activas:
         del conversaciones_activas[clave_conversacion]
     
-    # Cambiar el estado a 'menu_principal' para que el frontend muestre opciones
+    # Cambiar el estado a 'menu_principal' y GUARDAR EL NOMBRE
     conversaciones_activas[clave_conversacion] = {
         'estado': 'menu_principal',
-        'timestamp': datetime.now()
+        'timestamp': datetime.now(),
+        'cliente_nombre': nombre  # ¡IMPORTANTE! Guardar aquí para usarlo después
     }
     
     return f"¡Hola {nombre}! 👋\n\n¿En qué puedo ayudarte?"
