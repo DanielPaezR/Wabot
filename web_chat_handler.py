@@ -213,12 +213,13 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
 # =============================================================================
 
 def procesar_mensaje(mensaje, numero, negocio_id):
-    """Procesar mensajes usando el sistema de plantillas - MODIFICADA"""
+    """Procesar mensajes usando el sistema de plantillas - CORREGIDA"""
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] PROCESANDO MENSAJE: '{mensaje}' de {numero}")
     print(f"🔧 [DEBUG] Clave conversación: {clave_conversacion}")
+    print(f"🔧 [DEBUG] Conversación activa: {clave_conversacion in conversaciones_activas}")
     
     # Comando especial para volver al menú principal
     if mensaje == '0':
@@ -248,7 +249,7 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         
         return continuar_conversacion(numero, mensaje, negocio_id)
     
-    print(f"🔧 [DEBUG] No hay conversación activa - Procesando comando del menú")
+    print(f"🔧 [DEBUG] No hay conversación activa - Procesando mensaje inicial")
     
     # Si el usuario envía 'hola' y no hay conversación activa
     if mensaje in ['hola', 'hi', 'hello', 'buenas']:
@@ -882,11 +883,11 @@ Recibirás recordatorios por mensaje. ¡Te esperamos!'''
 # =============================================================================
 
 def continuar_conversacion(numero, mensaje, negocio_id):
-    """Continuar conversación basada en el estado actual - MEJORADO"""
+    """Continuar conversación basada en el estado actual - CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas:
-        # ✅ CORRECCIÓN 4: Si la sesión expiró, mostrar menú principal
+        print(f"❌ [DEBUG] No hay conversación activa en continuar_conversacion")
         return saludo_inicial(numero, negocio_id)
     
     estado = conversaciones_activas[clave_conversacion]['estado']
@@ -908,14 +909,21 @@ def continuar_conversacion(numero, mensaje, negocio_id):
             return procesar_confirmacion_cita(numero, mensaje, negocio_id)
         elif estado == 'cancelando':
             return procesar_cancelacion_cita(numero, mensaje, negocio_id)
+        elif estado == 'solicitando_telefono':
+            # ¡IMPORTANTE! Este estado debe ser manejado por procesar_confirmacion_cita
+            # porque es parte del flujo de confirmación
+            return procesar_confirmacion_cita(numero, mensaje, negocio_id)
         else:
             # Estado no reconocido - reiniciar
+            print(f"❌ [DEBUG] Estado no reconocido: {estado}")
             if clave_conversacion in conversaciones_activas:
                 del conversaciones_activas[clave_conversacion]
             return saludo_inicial(numero, negocio_id)
         
     except Exception as e:
         print(f"❌ Error en continuar_conversacion: {e}")
+        import traceback
+        traceback.print_exc()
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return "❌ Error al procesar tu solicitud."
