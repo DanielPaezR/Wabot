@@ -2089,7 +2089,7 @@ def negocio_profesionales():
 @app.route('/negocio/profesionales/nuevo', methods=['GET', 'POST'])
 @login_required
 def negocio_nuevo_profesional():
-    """Crear nuevo profesional - usando crear_usuario"""
+    """Crear nuevo profesional - SIN PIN"""
     if session['usuario_rol'] != 'propietario':
         flash('No tienes permisos para acceder a esta página', 'error')
         return redirect(url_for('login'))
@@ -2108,8 +2108,6 @@ def negocio_nuevo_profesional():
             print(f"  {key}: {value}")
         
         nombre = request.form.get('nombre', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '').strip()
         especialidad = request.form.get('especialidad', '').strip()
         servicios_seleccionados = request.form.getlist('servicios')
         activo = 'activo' in request.form
@@ -2119,66 +2117,27 @@ def negocio_nuevo_profesional():
             flash('El nombre es requerido', 'error')
             return redirect(url_for('negocio_nuevo_profesional'))
         
-        if not email or '@' not in email:
-            flash('Debe ingresar un correo electrónico válido', 'error')
-            return redirect(url_for('negocio_nuevo_profesional'))
-        
-        if len(password) < 6:
-            flash('La contraseña debe tener al menos 6 caracteres', 'error')
-            return redirect(url_for('negocio_nuevo_profesional'))
-        
         print(f"🔍 DEBUG - Datos procesados:")
         print(f"  - negocio_id: {negocio_id}")
         print(f"  - nombre: {nombre}")
-        print(f"  - email: {email}")
         print(f"  - especialidad: {especialidad}")
         print(f"  - servicios_seleccionados: {servicios_seleccionados}")
         print(f"  - activo: {activo}")
         
-        # ✅ USAR LA FUNCIÓN crear_usuario que YA FUNCIONA
-        # Esto creará automáticamente el usuario Y el profesional
-        usuario_id = db.crear_usuario(
+        # ✅ USAR LA FUNCIÓN DE database.py (sin pin)
+        profesional_id = db.crear_profesional(
             negocio_id=negocio_id,
             nombre=nombre,
-            email=email,
-            password=password,
-            rol='profesional'  # ← Esto hará que cree el profesional automáticamente
+            especialidad=especialidad,
+            servicios_ids=servicios_seleccionados,
+            activo=activo
         )
         
-        if usuario_id:
-            # Si queremos asignar servicios específicos, necesitamos hacerlo aquí
-            if servicios_seleccionados:
-                try:
-                    # Obtener el ID del profesional recién creado
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute('SELECT id FROM profesionales WHERE usuario_id = %s', (usuario_id,))
-                    result = cursor.fetchone()
-                    
-                    if result:
-                        profesional_id = result[0] if hasattr(result, '__len__') else result['id']
-                        
-                        # Asignar servicios
-                        for servicio_id in servicios_seleccionados:
-                            try:
-                                servicio_id_int = int(servicio_id)
-                                cursor.execute('''
-                                    INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                                    VALUES (%s, %s)
-                                ''', (profesional_id, servicio_id_int))
-                            except ValueError:
-                                print(f"⚠️  ID de servicio inválido: {servicio_id}")
-                        
-                        conn.commit()
-                    
-                    conn.close()
-                except Exception as e:
-                    print(f"⚠️  Error asignando servicios: {e}")
-            
-            flash(f'✅ Profesional "{nombre}" creado exitosamente. Puede iniciar sesión con email: {email}', 'success')
+        if profesional_id:
+            flash('✅ Profesional creado exitosamente', 'success')
             return redirect(url_for('negocio_profesionales'))
         else:
-            flash('❌ Error al crear el profesional. El email puede estar en uso.', 'error')
+            flash('❌ Error al crear el profesional', 'error')
     
     return render_template('negocio/nuevo_profesional.html', 
                          servicios=servicios,

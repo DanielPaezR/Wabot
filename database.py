@@ -1346,25 +1346,31 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
-def crear_profesional(negocio_id, nombre, especialidad, servicios_ids, activo=True):
-    """Crear profesional - SIN PIN, solo crea profesional"""
+def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, activo=True):
+    """Crear profesional - VERSIÓN MEJORADA pero manteniendo firma original"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        print(f"🔍 DEBUG crear_profesional (SIN PIN):")
+        print(f"🔍 DEBUG crear_profesional:")
         print(f"  - negocio_id: {negocio_id}")
         print(f"  - nombre: {nombre}")
         print(f"  - especialidad: {especialidad}")
+        print(f"  - pin: {pin}")
         print(f"  - servicios_ids: {servicios_ids}")
         print(f"  - activo: {activo}")
         
-        # Insertar profesional SIN campo PIN
+        # Verificar que el pin no sea vacío
+        if not pin or pin.strip() == '':
+            print(f"⚠️  PIN vacío, usando '0000' por defecto")
+            pin = '0000'
+        
+        # Insertar profesional
         cursor.execute('''
-            INSERT INTO profesionales (negocio_id, nombre, especialidad, activo)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin, activo)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id
-        ''', (negocio_id, nombre, especialidad, activo))
+        ''', (negocio_id, nombre, especialidad, pin, activo))
         
         result = cursor.fetchone()
         
