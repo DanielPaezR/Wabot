@@ -21,6 +21,36 @@ conversaciones_activas = {}
 # MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL) - SIN CAMBIOS
 # =============================================================================
 
+def limpiar_formato_whatsapp(texto):
+    """
+    Limpiar formato WhatsApp (*negrita*, _cursiva_) para el chat web
+    """
+    if not texto:
+        return texto
+    
+    # Reemplazar formato WhatsApp por HTML
+    texto = texto.replace('*', '')  # Quitar asteriscos de negrita
+    texto = texto.replace('_', '')  # Quitar guiones bajos de cursiva
+    
+    # Reemplazar emojis por iconos si lo prefieres (opcional)
+    emoji_map = {
+        '👨‍💼': '<i class="fas fa-user-tie"></i>',
+        '💼': '<i class="fas fa-briefcase"></i>',
+        '💰': '<i class="fas fa-money-bill-wave"></i>',
+        '📅': '<i class="fas fa-calendar-alt"></i>',
+        '⏰': '<i class="fas fa-clock"></i>',
+        '🎫': '<i class="fas fa-ticket-alt"></i>',
+        '✅': '<i class="fas fa-check-circle"></i>',
+        '❌': '<i class="fas fa-times-circle"></i>',
+        '💡': '<i class="fas fa-lightbulb"></i>',
+        '📋': '<i class="fas fa-clipboard-list"></i>',
+    }
+    
+    for emoji, icon in emoji_map.items():
+        texto = texto.replace(emoji, f'{icon} ')
+    
+    return texto
+
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
     """Motor principal de plantillas - CORREGIDO PARA POSTGRESQL"""
     try:
@@ -155,6 +185,7 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
             respuesta['options'] = opciones_extra
         
         print(f"🔧 [CHAT WEB] Respuesta generada - Paso: {paso_actual}")
+        respuesta_texto = limpiar_formato_whatsapp(respuesta_texto)
         return respuesta
         
     except Exception as e:

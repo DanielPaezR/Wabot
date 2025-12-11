@@ -1,4 +1,3 @@
-<!-- templates/cliente/index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -94,23 +93,133 @@
             color: var(--primary-color);
         }
         
-        .option-button {
-            display: inline-block;
-            margin: 5px;
-            padding: 8px 15px;
-            background-color: white;
-            border: 2px solid var(--primary-color);
-            border-radius: 20px;
-            color: var(--primary-color);
-            font-weight: 500;
+        .menu-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 10px 0;
+            gap: 8px;
+        }
+        
+        .menu-option {
+            flex: 0 0 calc(50% - 10px);
+            margin: 0;
+            padding: 12px;
+            text-align: center;
+            border-radius: 10px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
             cursor: pointer;
+        }
+        
+        .menu-option:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0,123,255,0.2);
+        }
+        
+        /* Opciones numeradas (profesionales, servicios, fechas) */
+        .opciones-numeradas {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .opcion-btn {
+            min-width: 120px;
+            text-align: left;
+            padding: 10px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: white;
+            border: 1px solid #dee2e6;
+            color: #495057;
+        }
+        
+        .opcion-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,123,255,0.2);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        /* Horarios */
+        .horarios-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        
+        .hora-btn {
+            min-width: 75px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            background: white;
+            border: 1px solid #28a745;
+            color: #28a745;
             transition: all 0.2s;
         }
         
-        .option-button:hover {
-            background-color: var(--primary-color);
+        .hora-btn:hover {
+            background: #28a745;
             color: white;
             transform: translateY(-2px);
+        }
+        
+        /* Navegación */
+        .opciones-navegacion {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .nav-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .nav-next {
+            background: white;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .nav-prev {
+            background: white;
+            border: 1px solid #6c757d;
+            color: #6c757d;
+        }
+        
+        .nav-change {
+            background: white;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+        
+        .nav-home {
+            background: white;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .chat-input {
@@ -142,48 +251,51 @@
             50% { transform: translateY(-5px); }
         }
         
-        .status-badge {
-            font-size: 0.75rem;
-            padding: 3px 8px;
-            border-radius: 10px;
-            margin-left: 5px;
-        }
-        
-        .badge-confirmado { background-color: #d4edda; color: #155724; }
-        .badge-pendiente { background-color: #fff3cd; color: #856404; }
-        .badge-cancelado { background-color: #f8d7da; color: #721c24; }
-        
-        .menu-options {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin: 10px 0;
-        }
-        
-        .menu-option {
-            flex: 0 0 calc(50% - 10px);
-            margin: 5px;
-            padding: 12px;
-            text-align: center;
-            border-radius: 10px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            transition: all 0.3s;
-        }
-        
-        .menu-option:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
-            box-shadow: 0 3px 10px rgba(0,123,255,0.2);
-        }
-        
-        .scroll-indicator {
-            text-align: center;
-            color: #999;
+        .pagination-info {
             font-size: 0.8rem;
-            padding: 5px;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 8px;
+        }
+        
+        /* Confirmación */
+        .confirmacion-opciones {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .confirm-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .confirm-yes {
+            background: #28a745;
+            color: white;
+            border: 1px solid #28a745;
+        }
+        
+        .confirm-no {
+            background: #dc3545;
+            color: white;
+            border: 1px solid #dc3545;
+        }
+        
+        .confirm-back {
+            background: #6c757d;
+            color: white;
+            border: 1px solid #6c757d;
+        }
+        
+        .confirm-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+            opacity: 0.9;
         }
         
         /* Responsive */
@@ -195,8 +307,14 @@
                 max-width: 100%;
             }
             
-            .menu-option {
+            .menu-option, .opcion-btn {
                 flex: 0 0 100%;
+            }
+            
+            .hora-btn {
+                min-width: 70px;
+                padding: 6px 8px;
+                font-size: 0.9rem;
             }
         }
     </style>
@@ -307,35 +425,208 @@
                 scrollToBottom();
             }
             
-            // Agregar mensaje del bot
-            function addBotMessage(message, options = null) {
+            // Extraer opciones numeradas del texto
+            function extraerOpcionesNumeradas(texto) {
+                // Buscar patrones como "1. Texto" o "*1.* Texto"
+                const regex = /(?:\*)?(\d+)\.(?:\*)?\s*(.+?)(?=(?:\n\s*(?:\*)?\d+\.|$))/g;
+                const matches = [...texto.matchAll(regex)];
+                
+                const opciones = [];
+                matches.forEach(match => {
+                    if (match[1] && match[2]) {
+                        opciones.push({
+                            numero: match[1].trim(),
+                            texto: match[2].trim().replace(/\*/g, '') // Limpiar asteriscos
+                        });
+                    }
+                });
+                
+                return opciones;
+            }
+            
+            // Extraer horarios del texto
+            function extraerHorarios(texto) {
+                // Buscar patrones como "1. 09:00" o "*1.* 09:00"
+                const regex = /(?:\*)?(\d+)\.(?:\*)?\s*(\d{1,2}:\d{2})/g;
+                const matches = [...texto.matchAll(regex)];
+                
+                const horarios = [];
+                matches.forEach(match => {
+                    if (match[1] && match[2]) {
+                        horarios.push({
+                            numero: match[1].trim(),
+                            hora: match[2].trim()
+                        });
+                    }
+                });
+                
+                return horarios;
+            }
+            
+            // Detectar opciones de navegación (7, 8, 9, 0)
+            function detectarOpcionesNavegacion(texto) {
+                const tieneOpciones = texto.includes('*7*') || texto.includes('*8*') || 
+                                     texto.includes('*9*') || texto.includes('*0*');
+                
+                if (!tieneOpciones) return null;
+                
+                const opciones = {
+                    tieneCambiarFecha: texto.includes('*7*'),
+                    tienePaginaAnterior: texto.includes('*8*'),
+                    tienePaginaSiguiente: texto.includes('*9*'),
+                    tieneVolverMenu: texto.includes('*0*'),
+                    paginaInfo: texto.match(/📄 Página (\d+) de (\d+)/)
+                };
+                
+                return opciones;
+            }
+            
+            // Detectar opciones de confirmación (1, 2, 0)
+            function detectarOpcionesConfirmacion(texto) {
+                const tieneConfirmacion = texto.includes('*1* - ✅') || texto.includes('*2* - ❌') || 
+                                         texto.includes('*0* - ↩️');
+                
+                if (!tieneConfirmacion) return null;
+                
+                return {
+                    tieneConfirmar: texto.includes('*1* - ✅'),
+                    tieneCancelar: texto.includes('*2* - ❌'),
+                    tieneVolver: texto.includes('*0* - ↩️')
+                };
+            }
+            
+            // Agregar mensaje del bot con botones automáticos
+            function addBotMessage(message) {
+                // Limpiar formato WhatsApp
+                let mensajeLimpio = message.replace(/\*/g, '');
+                
                 let messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
-                        ${message}
+                        ${mensajeLimpio}
                     </div>
                 `;
                 
                 chatMessages.append(messageHtml);
                 
-                // Si hay opciones de horarios, agregar botones
-                if (options && options.horarios) {
-                    let optionsHtml = '<div class="horarios-options mt-2">';
-                    options.horarios.forEach((hora, index) => {
+                // Detectar y agregar opciones numeradas (profesionales, servicios, fechas)
+                const opcionesNumeradas = extraerOpcionesNumeradas(message);
+                if (opcionesNumeradas.length > 0) {
+                    let optionsHtml = '<div class="opciones-numeradas">';
+                    opcionesNumeradas.forEach(opcion => {
                         optionsHtml += `
-                            <button class="btn btn-sm btn-outline-primary hora-btn m-1" 
-                                    data-hora="${hora}">
-                                ${index + 1}. ${hora}
+                            <button class="opcion-btn" data-opcion="${opcion.numero}">
+                                <strong>${opcion.numero}.</strong> ${opcion.texto}
                             </button>
                         `;
                     });
                     optionsHtml += '</div>';
                     chatMessages.append(optionsHtml);
                     
-                    // Agregar event listeners a los botones de hora
+                    $('.opcion-btn').off('click').on('click', function() {
+                        const opcionNumero = $(this).data('opcion');
+                        userInput.val(opcionNumero);
+                        sendMessage();
+                    });
+                }
+                
+                // Detectar y agregar horarios
+                const horarios = extraerHorarios(message);
+                if (horarios.length > 0) {
+                    let optionsHtml = '<div class="horarios-options">';
+                    horarios.forEach(horaInfo => {
+                        optionsHtml += `
+                            <button class="hora-btn" data-opcion="${horaInfo.numero}">
+                                ${horaInfo.numero}. ${horaInfo.hora}
+                            </button>
+                        `;
+                    });
+                    optionsHtml += '</div>';
+                    chatMessages.append(optionsHtml);
+                    
                     $('.hora-btn').off('click').on('click', function() {
-                        const hora = $(this).data('hora');
-                        userInput.val($(this).text().split('. ')[0]); // Enviar solo el número
+                        const opcionNumero = $(this).data('opcion');
+                        userInput.val(opcionNumero);
+                        sendMessage();
+                    });
+                }
+                
+                // Detectar y agregar navegación (7, 8, 9, 0)
+                const navOpciones = detectarOpcionesNavegacion(message);
+                if (navOpciones) {
+                    let navHtml = '<div class="opciones-navegacion">';
+                    
+                    if (navOpciones.tieneCambiarFecha) {
+                        navHtml += `<button class="nav-btn nav-change" data-opcion="7">
+                            <i class="fas fa-calendar-alt"></i> Cambiar fecha
+                        </button>`;
+                    }
+                    
+                    if (navOpciones.tienePaginaAnterior) {
+                        navHtml += `<button class="nav-btn nav-prev" data-opcion="8">
+                            <i class="fas fa-arrow-left"></i> Anterior
+                        </button>`;
+                    }
+                    
+                    if (navOpciones.tienePaginaSiguiente) {
+                        navHtml += `<button class="nav-btn nav-next" data-opcion="9">
+                            <i class="fas fa-arrow-right"></i> Siguiente
+                        </button>`;
+                    }
+                    
+                    if (navOpciones.tieneVolverMenu) {
+                        navHtml += `<button class="nav-btn nav-home" data-opcion="0">
+                            <i class="fas fa-home"></i> Menú principal
+                        </button>`;
+                    }
+                    
+                    navHtml += '</div>';
+                    
+                    // Agregar info de paginación si existe
+                    if (navOpciones.paginaInfo) {
+                        navHtml += `<div class="pagination-info">
+                            Página ${navOpciones.paginaInfo[1]} de ${navOpciones.paginaInfo[2]}
+                        </div>`;
+                    }
+                    
+                    chatMessages.append(navHtml);
+                    
+                    $('.nav-btn').off('click').on('click', function() {
+                        const opcionNumero = $(this).data('opcion');
+                        userInput.val(opcionNumero);
+                        sendMessage();
+                    });
+                }
+                
+                // Detectar y agregar confirmación (1, 2, 0)
+                const confirmOpciones = detectarOpcionesConfirmacion(message);
+                if (confirmOpciones) {
+                    let confirmHtml = '<div class="confirmacion-opciones">';
+                    
+                    if (confirmOpciones.tieneConfirmar) {
+                        confirmHtml += `<button class="confirm-btn confirm-yes" data-opcion="1">
+                            <i class="fas fa-check"></i> Confirmar cita
+                        </button>`;
+                    }
+                    
+                    if (confirmOpciones.tieneCancelar) {
+                        confirmHtml += `<button class="confirm-btn confirm-no" data-opcion="2">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>`;
+                    }
+                    
+                    if (confirmOpciones.tieneVolver) {
+                        confirmHtml += `<button class="confirm-btn confirm-back" data-opcion="0">
+                            <i class="fas fa-arrow-left"></i> Volver
+                        </button>`;
+                    }
+                    
+                    confirmHtml += '</div>';
+                    chatMessages.append(confirmHtml);
+                    
+                    $('.confirm-btn').off('click').on('click', function() {
+                        const opcionNumero = $(this).data('opcion');
+                        userInput.val(opcionNumero);
                         sendMessage();
                     });
                 }
@@ -376,27 +667,6 @@
                         
                         // Mostrar respuesta del bot
                         addBotMessage(response.message);
-                        
-                        // Si hay opciones adicionales, mostrarlas
-                        if (response.options) {
-                            let optionsHtml = '<div class="menu-options">';
-                            response.options.forEach(option => {
-                                optionsHtml += `
-                                    <div class="menu-option" data-option="${option.value}">
-                                        ${option.text}
-                                    </div>
-                                `;
-                            });
-                            optionsHtml += '</div>';
-                            addBotMessage(optionsHtml);
-                            
-                            // Agregar event listeners a las nuevas opciones
-                            $('.menu-option').off('click').on('click', function() {
-                                const optionValue = $(this).data('option');
-                                userInput.val(optionValue);
-                                sendMessage();
-                            });
-                        }
                     },
                     error: function(xhr, status, error) {
                         hideTypingIndicator();
@@ -415,7 +685,7 @@
                 }
             });
             
-            // Event listener para opciones del menú
+            // Event listener para opciones del menú inicial
             $('.menu-option').click(function() {
                 const optionValue = $(this).data('option');
                 userInput.val(optionValue);
@@ -425,7 +695,7 @@
             // Botón reiniciar
             $('#resetButton').click(function() {
                 if (confirm('¿Estás seguro de que quieres reiniciar la conversación?')) {
-                    $.post('/chat/reset', function() {
+                    $.post('/cliente/reset', function() {
                         location.reload();
                     });
                 }
