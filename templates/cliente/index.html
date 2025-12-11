@@ -334,30 +334,7 @@
         </div>
         
         <div class="chat-messages" id="chatMessages">
-            <!-- Mensajes se cargarán aquí con JavaScript -->
-            <div class="message bot-message">
-                <i class="fas fa-robot"></i> <strong>¡Bienvenido a {{ negocio.nombre }}!</strong><br>
-                {{ negocio.config_general.saludo_personalizado if negocio.config_general.saludo_personalizado else 'Para agendar una cita, por favor sigue las instrucciones.' }}
-            </div>
-            
-            <!-- Menú inicial -->
-            <div class="message bot-message" id="initialMenu">
-                <strong><i class="fas fa-bars"></i> Menú Principal:</strong><br><br>
-                <div class="menu-options">
-                    <div class="menu-option" data-option="1">
-                        <i class="fas fa-calendar-plus"></i> Agendar cita
-                    </div>
-                    <div class="menu-option" data-option="2">
-                        <i class="fas fa-list-alt"></i> Ver mis reservas
-                    </div>
-                    <div class="menu-option" data-option="3">
-                        <i class="fas fa-times-circle"></i> Cancelar reserva
-                    </div>
-                    <div class="menu-option" data-option="4">
-                        <i class="fas fa-question-circle"></i> Ayuda
-                    </div>
-                </div>
-            </div>
+            <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
         </div>
         
         <div class="chat-input">
@@ -394,6 +371,12 @@
             const sessionId = $('#sessionId').val();
             const negocioId = $('#negocioId').val();
             const negocioNombre = $('#negocioNombre').val();
+            
+            // Iniciar conversación automáticamente
+            setTimeout(function() {
+                userInput.val('hola');
+                sendMessage();
+            }, 500);
             
             // Hacer scroll al final
             function scrollToBottom() {
@@ -473,33 +456,42 @@
                 else if (options.some(opt => opt.text && (opt.text.includes('Siguiente') || opt.text.includes('Anterior') || opt.text.includes('Cambiar')))) {
                     containerClass = 'opciones-navegacion';
                     buttonClass = 'nav-btn';
+                    
+                    // Aplicar estilos específicos a cada botón de navegación
+                    options.forEach(option => {
+                        if (option.text.includes('Siguiente')) {
+                            option.cssClass = 'nav-next';
+                        } else if (option.text.includes('Anterior')) {
+                            option.cssClass = 'nav-prev';
+                        } else if (option.text.includes('Cambiar')) {
+                            option.cssClass = 'nav-change';
+                        } else if (option.text.includes('Menú')) {
+                            option.cssClass = 'nav-home';
+                        }
+                    });
                 }
                 // Detectar si son opciones de confirmación
                 else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('Cancelar')))) {
                     containerClass = 'confirmacion-opciones';
                     buttonClass = 'confirm-btn';
+                    
+                    // Aplicar estilos específicos a cada botón de confirmación
+                    options.forEach(option => {
+                        if (option.text.includes('Confirmar')) {
+                            option.cssClass = 'confirm-yes';
+                        } else if (option.text.includes('Cancelar')) {
+                            option.cssClass = 'confirm-no';
+                        }
+                    });
                 }
                 
                 let optionsHtml = `<div class="${containerClass}">`;
                 options.forEach(option => {
                     let btnClass = buttonClass;
                     
-                    // Estilos específicos para navegación
-                    if (option.value === '7') {
-                        btnClass += ' nav-change';
-                    } else if (option.value === '8') {
-                        btnClass += ' nav-prev';
-                    } else if (option.value === '9') {
-                        btnClass += ' nav-next';
-                    } else if (option.value === '0') {
-                        btnClass += ' nav-home';
-                    }
-                    
-                    // Estilos específicos para confirmación
-                    if (option.value === '1' && option.text.includes('Confirmar')) {
-                        btnClass += ' confirm-yes';
-                    } else if (option.value === '2' && option.text.includes('Cancelar')) {
-                        btnClass += ' confirm-no';
+                    // Agregar clase CSS específica si existe
+                    if (option.cssClass) {
+                        btnClass += ' ' + option.cssClass;
                     }
                     
                     optionsHtml += `
@@ -571,13 +563,6 @@
                 if (e.which === 13) { // Enter key
                     sendMessage();
                 }
-            });
-            
-            // Event listener para opciones del menú inicial
-            $('.menu-option').click(function() {
-                const optionValue = $(this).data('option');
-                userInput.val(optionValue);
-                sendMessage();
             });
             
             // Botón reiniciar

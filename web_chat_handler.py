@@ -396,19 +396,19 @@ def generar_opciones_confirmacion():
 # =============================================================================
 
 def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - Cliente nuevo o existente - SOLO TEXTO"""
+    """Saludo inicial - SIEMPRE pedir nombre primero"""
     try:
-        # Verificar si es cliente existente con nombre válido
+        # Verificar si ya tiene nombre registrado
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
         
         print(f"🔧 DEBUG saludo_inicial: numero={numero}, nombre_cliente='{nombre_cliente}'")
         
-        if nombre_cliente:
-            print(f"🔧 DEBUG: Mostrando saludo para cliente EXISTENTE: {nombre_cliente}")
-            # Cliente existente - mostrar menú personalizado
+        if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
+            print(f"🔧 DEBUG: Cliente existente: {nombre_cliente}")
+            # Cliente existente - mostrar menú directamente
             return f"¡Hola {nombre_cliente}! 👋\n\n¿En qué puedo ayudarte hoy?"
         else:
-            print(f"🔧 DEBUG: Mostrando saludo para cliente NUEVO")
+            print(f"🔧 DEBUG: Cliente nuevo - pedir nombre")
             # Cliente nuevo - pedir nombre
             clave_conversacion = f"{numero}_{negocio_id}"
             conversaciones_activas[clave_conversacion] = {
@@ -422,8 +422,13 @@ def saludo_inicial(numero, negocio_id):
         import traceback
         traceback.print_exc()
         
-        # En caso de error, mostrar mensaje genérico
-        return "¡Bienvenido! ¿En qué puedo ayudarte?"
+        # En caso de error, pedir nombre
+        clave_conversacion = f"{numero}_{negocio_id}"
+        conversaciones_activas[clave_conversacion] = {
+            'estado': 'solicitando_nombre',
+            'timestamp': datetime.now()
+        }
+        return "¡Hola! 👋 Para comenzar, ¿cuál es tu nombre?"
 
 def mostrar_profesionales(numero, negocio_id):
     """Mostrar lista de profesionales disponibles - SOLO TEXTO"""
@@ -659,30 +664,32 @@ def mostrar_ayuda(negocio_id):
     return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - MODIFICADO PARA SOLO TEXTO"""
+    """Procesar confirmación de la cita - MODIFICADO PARA CORREGIR FLUJO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    if mensaje == '0':
-        if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return saludo_inicial(numero, negocio_id)
+    if not clave_conversacion in conversaciones_activas:
+        return "❌ Sesión expirada. Por favor, inicia nuevamente."
     
-    if mensaje == '1':
+    conversacion = conversaciones_activas[clave_conversacion]
+    
+    # Si estamos solicitando teléfono
+    if conversacion.get('estado') == 'solicitando_telefono':
+        # Validar teléfono
+        telefono = mensaje.strip()
+        
+        # Validar formato: 10 dígitos, puede empezar con 3
+        if not telefono.isdigit() or len(telefono) != 10:
+            return "❌ Número inválido. Por favor ingresa 10 dígitos (ej: 3101234567):"
+        
+        if not telefono.startswith('3'):
+            return "❌ Número inválido. El número debe empezar con 3 (ej: 3101234567):"
+        
+        # Guardar teléfono y mostrar confirmación final
+        conversacion['telefono_cliente'] = telefono
+        
+        # Ahora crear la cita con todos los datos
         try:
-            conversacion = conversaciones_activas[clave_conversacion]
-            
-            # Verificar que tenemos los datos necesarios
-            if 'hora_seleccionada' not in conversacion:
-                del conversaciones_activas[clave_conversacion]
-                return "❌ Error: No se seleccionó hora. Comienza de nuevo."
-            
-            # Si no tenemos teléfono, pedirlo
-            if 'telefono_cliente' not in conversacion:
-                conversacion['estado'] = 'solicitando_telefono'
-                return "📱 **Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (ej: 3101234567):"
-            
-            # Si llegamos aquí, ya tenemos teléfono
-            telefono_cliente = conversacion['telefono_cliente']
+            # Obtener todos los datos necesarios
             hora = conversacion['hora_seleccionada']
             fecha = conversacion['fecha_seleccionada']
             profesional_id = conversacion['profesional_id']
@@ -698,15 +705,16 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             else:
                 nombre_cliente = str(nombre_cliente).strip()
             
-            print(f"🔧 DEBUG: Agendando cita para: {nombre_cliente}, Teléfono: {telefono_cliente}")
+            print(f"🔧 DEBUG: Creando cita para: {nombre_cliente}, Teléfono: {telefono}")
             
             # Agendar cita CON TELÉFONO
             cita_id = db.agregar_cita_con_telefono(
-                negocio_id, profesional_id, telefono_cliente, fecha, hora, 
+                negocio_id, profesional_id, telefono, fecha, hora, 
                 servicio_id, nombre_cliente
             )
             
             if cita_id:
+                # Limpiar conversación
                 del conversaciones_activas[clave_conversacion]
                 
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
@@ -723,6 +731,8 @@ Hola *{nombre_cliente}*, tu cita ha sido agendada:
 ⏰ **Hora:** {hora}
 🎫 **ID:** #{cita_id}
 
+📱 **Teléfono registrado:** {telefono}
+  
 Recibirás recordatorios por mensaje. ¡Te esperamos!'''
             else:
                 del conversaciones_activas[clave_conversacion]
@@ -740,49 +750,21 @@ Recibirás recordatorios por mensaje. ¡Te esperamos!'''
                 del conversaciones_activas[clave_conversacion]
             return "❌ Error. Por favor, intenta nuevamente."
     
+    # Si no estamos solicitando teléfono, procesar opciones normales
+    if mensaje == '1':
+        # Primera confirmación: pedir teléfono
+        conversacion['estado'] = 'solicitando_telefono'
+        conversacion['timestamp'] = datetime.now()
+        
+        return "📱 **Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
+    
     elif mensaje == '2':
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return "❌ Agendamiento cancelado."
     
     else:
-        # Si estamos solicitando teléfono
-        if (clave_conversacion in conversaciones_activas and 
-            conversaciones_activas[clave_conversacion].get('estado') == 'solicitando_telefono'):
-            
-            # Validar teléfono
-            telefono = mensaje.strip()
-            if not telefono.isdigit() or len(telefono) != 10:
-                return "❌ Número inválido. Por favor ingresa 10 dígitos (ej: 3101234567):"
-            
-            # Guardar teléfono y mostrar confirmación
-            conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
-            conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
-            
-            # Mostrar confirmación con teléfono
-            conversacion = conversaciones_activas[clave_conversacion]
-            nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id) or 'Cliente'
-            profesional_nombre = conversacion['profesional_nombre']
-            servicio_nombre = conversacion['servicio_nombre']
-            servicio_precio = conversacion['servicio_precio']
-            precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
-            fecha_formateada = datetime.strptime(conversacion['fecha_seleccionada'], '%Y-%m-%d').strftime('%d/%m/%Y')
-            hora = conversacion['hora_seleccionada']
-            
-            return f'''✅ **Confirmar cita**
-
-Hola *{nombre_cliente}*, ¿confirmas tu cita?
-
-👨‍💼 **Profesional:** {profesional_nombre}
-💼 **Servicio:** {servicio_nombre}
-💰 **Precio:** {precio_formateado}
-📅 **Fecha:** {fecha_formateada}
-⏰ **Hora:** {hora}
-📱 **Teléfono para notificaciones:** {telefono}
-
-**Selecciona una opción:**'''
-        
-        return "❌ Opción no válida."
+        return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
 
 # =============================================================================
 # EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUAL
@@ -828,7 +810,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         return "❌ Error al procesar tu solicitud."
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
-    """Procesar nombre del cliente nuevo - VERSIÓN SIMPLIFICADA Y ROBUSTA"""
+    """Procesar nombre del cliente nuevo - VERSIÓN MEJORADA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
