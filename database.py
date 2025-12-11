@@ -1347,28 +1347,22 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # =============================================================================
 
 def crear_usuario(negocio_id, nombre, email, password, rol):
-    """Crear usuario - VERSIÓN CORREGIDA con acceso a columnas correcto"""
+    """Crear usuario - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # 1. VERIFICAR EMAIL - Revisa este fetch_one
-        sql = 'SELECT id FROM usuarios WHERE email = ?'
-        
-        # ¿Cómo está implementado fetch_one?
-        # Si devuelve una tupla: resultado[0]
-        # Si devuelve un diccionario: resultado['id']
-        resultado = fetch_one(cursor, sql, (email,))
-        
-        if resultado:
+        # 1. VERIFICAR EMAIL EXISTENTE
+        sql = 'SELECT id FROM usuarios WHERE email = %s' if is_postgresql() else 'SELECT id FROM usuarios WHERE email = ?'
+        cursor.execute(sql, (email,))
+        if cursor.fetchone():
             print(f"❌ Email ya existe: {email}")
             conn.close()
             return None
         
-        # 2. VALIDACIÓN DE NEGOCIO_ID - Aquí podría estar el error "0"
+        # 2. VALIDACIÓN DE NEGOCIO_ID
         print(f"DEBUG: negocio_id recibido: {negocio_id}, tipo: {type(negocio_id)}")
         
-        # Si negocio_id es string vacío o None para no-superadmin
         if rol != 'superadmin':
             if negocio_id is None or negocio_id == '' or negocio_id == '0':
                 print(f"❌ Error: negocio_id inválido para rol {rol}: {negocio_id}")
@@ -1392,7 +1386,7 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         
         print(f"DEBUG: Insertando - negocio_id: {negocio_id_int}, nombre: {nombre}, email: {email}, rol: {rol}")
         
-        # 4. INSERT USUARIO - CUIDADO con el orden de columnas
+        # 4. INSERT USUARIO - CORREGIDO para manejar diccionarios/tuplas
         if is_postgresql():
             sql = '''
                 INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo) 
@@ -1401,13 +1395,19 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
             '''
             cursor.execute(sql, (negocio_id_int, nombre, email, hashed_password, rol, True))
             result = cursor.fetchone()
-            # ACCESO CORRECTO:
+            
+            # **CORRECCIÓN: Manejar tanto diccionarios como tuplas**
             if result:
-                nuevo_usuario_id = result[0]  # Si es tupla
-                # O si es diccionario: result['id']
+                if isinstance(result, dict):  # Es diccionario
+                    nuevo_usuario_id = result['id']
+                elif hasattr(result, '_asdict'):  # Es NamedTuple
+                    nuevo_usuario_id = result.id
+                else:  # Es tupla o lista
+                    nuevo_usuario_id = result[0]
             else:
                 nuevo_usuario_id = None
         else:
+            # SQLite
             sql = '''
                 INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol, activo) 
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -1425,16 +1425,15 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         
         # 5. CREAR PROFESIONAL SI CORRESPONDE
         if rol == 'profesional':
-            # VERIFICA que la tabla se llama 'profesionales' y no 'barberos'
             print(f"DEBUG: Creando profesional para usuario {nuevo_usuario_id}")
             
-            # PRIMERO: Verifica que el profesional no exista
-            check_sql = 'SELECT id FROM profesionales WHERE usuario_id = ?'
+            # Verificar que el profesional no exista
+            check_sql = 'SELECT id FROM profesionales WHERE usuario_id = ?' if not is_postgresql() else 'SELECT id FROM profesionales WHERE usuario_id = %s'
             cursor.execute(check_sql, (nuevo_usuario_id,))
             if cursor.fetchone():
                 print(f"⚠️ Profesional ya existe para usuario {nuevo_usuario_id}")
             else:
-                # INSERCIÓN - Revisa el ORDEN de columnas
+                # Crear profesional automáticamente
                 if is_postgresql():
                     sql = '''
                         INSERT INTO profesionales 
@@ -1465,13 +1464,20 @@ def crear_usuario(negocio_id, nombre, email, password, rol):
         # DEBUG EXTRA: Verifica estructura de tablas
         try:
             print("\n=== DEBUG ESTRUCTURA TABLAS ===")
-            cursor.execute("PRAGMA table_info(usuarios)")
-            print("Usuarios columns:", cursor.fetchall())
-            
-            cursor.execute("PRAGMA table_info(profesionales)")
-            print("Profesionales columns:", cursor.fetchall())
-        except:
-            pass
+            if is_postgresql():
+                cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'usuarios' ORDER BY ordinal_position")
+                print("Usuarios columns:", cursor.fetchall())
+                
+                cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'profesionales' ORDER BY ordinal_position")
+                print("Profesionales columns:", cursor.fetchall())
+            else:
+                cursor.execute("PRAGMA table_info(usuarios)")
+                print("Usuarios columns:", cursor.fetchall())
+                
+                cursor.execute("PRAGMA table_info(profesionales)")
+                print("Profesionales columns:", cursor.fetchall())
+        except Exception as debug_e:
+            print(f"Error en debug: {debug_e}")
             
         return None
     finally:
