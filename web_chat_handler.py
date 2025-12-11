@@ -691,32 +691,54 @@ def mostrar_ayuda(negocio_id):
     return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - MODIFICADO PARA CORREGIR FLUJO"""
+    """Procesar confirmación de la cita - CORREGIDA PARA EVITAR REINICIO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    if not clave_conversacion in conversaciones_activas:
+    print(f"🔧 [DEBUG] procesar_confirmacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
+    
+    # Verificar que existe la conversación
+    if clave_conversacion not in conversaciones_activas:
+        print(f"❌ [DEBUG] No hay conversación activa para {clave_conversacion}")
         return "❌ Sesión expirada. Por favor, inicia nuevamente."
     
     conversacion = conversaciones_activas[clave_conversacion]
+    estado_actual = conversacion.get('estado', '')
+    
+    print(f"🔧 [DEBUG] Estado actual: {estado_actual}")
     
     # Si estamos solicitando teléfono
-    if conversacion.get('estado') == 'solicitando_telefono':
+    if estado_actual == 'solicitando_telefono':
+        print(f"🔧 [DEBUG] Procesando número de teléfono: {mensaje}")
+        
         # Validar teléfono
         telefono = mensaje.strip()
         
-        # Validar formato: 10 dígitos, puede empezar con 3
+        # Validar formato: 10 dígitos, debe empezar con 3
         if not telefono.isdigit() or len(telefono) != 10:
-            return "❌ Número inválido. Por favor ingresa 10 dígitos (ej: 3101234567):"
+            print(f"❌ [DEBUG] Teléfono inválido: {telefono}")
+            return "❌ Número inválido. Por favor ingresa 10 dígitos (debe empezar con 3, ej: 3101234567):"
         
         if not telefono.startswith('3'):
+            print(f"❌ [DEBUG] Teléfono no empieza con 3: {telefono}")
             return "❌ Número inválido. El número debe empezar con 3 (ej: 3101234567):"
         
-        # Guardar teléfono y mostrar confirmación final
+        # Guardar teléfono en la conversación
         conversacion['telefono_cliente'] = telefono
         
-        # Ahora crear la cita con todos los datos
+        # Obtener todos los datos necesarios para crear la cita
         try:
-            # Obtener todos los datos necesarios
+            print(f"🔧 [DEBUG] Obteniendo datos de la cita...")
+            
+            # Verificar que tenemos todos los datos necesarios
+            datos_requeridos = ['hora_seleccionada', 'fecha_seleccionada', 'profesional_id', 
+                              'servicio_id', 'profesional_nombre', 'servicio_nombre', 'servicio_precio']
+            
+            for dato in datos_requeridos:
+                if dato not in conversacion:
+                    print(f"❌ [DEBUG] Falta dato: {dato}")
+                    del conversaciones_activas[clave_conversacion]
+                    return "❌ Error: Datos incompletos. Comienza de nuevo."
+            
             hora = conversacion['hora_seleccionada']
             fecha = conversacion['fecha_seleccionada']
             profesional_id = conversacion['profesional_id']
@@ -725,29 +747,41 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             servicio_nombre = conversacion['servicio_nombre']
             servicio_precio = conversacion['servicio_precio']
             
-            # Obtener nombre del cliente
+            # Obtener nombre del cliente desde la base de datos
             nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
             if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
                 nombre_cliente = 'Cliente'
             else:
                 nombre_cliente = str(nombre_cliente).strip()
             
-            print(f"🔧 DEBUG: Creando cita para: {nombre_cliente}, Teléfono: {telefono}")
+            print(f"🔧 [DEBUG] Creando cita para: {nombre_cliente}, Teléfono: {telefono}")
+            print(f"🔧 [DEBUG] Fecha: {fecha}, Hora: {hora}")
+            print(f"🔧 [DEBUG] Profesional: {profesional_nombre}, Servicio: {servicio_nombre}")
             
             # Agendar cita CON TELÉFONO
-            cita_id = db.agregar_cita_con_telefono(
+            cita_id = db.agendar_cita_con_telefono(
                 negocio_id, profesional_id, telefono, fecha, hora, 
                 servicio_id, nombre_cliente
             )
             
+            if not cita_id:
+                # Intentar con la función alternativa si existe
+                print(f"🔧 [DEBUG] Intentando con función alternativa...")
+                cita_id = db.agregar_cita_con_telefono(
+                    negocio_id, profesional_id, telefono, fecha, hora, 
+                    servicio_id, nombre_cliente
+                )
+            
             if cita_id:
-                # Limpiar conversación
+                print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
+                
+                # Limpiar conversación ANTES de devolver el mensaje
                 del conversaciones_activas[clave_conversacion]
                 
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
                 fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 
-                return f'''✅ **Cita confirmada**
+                mensaje_confirmacion = f'''✅ **Cita confirmada**
 
 Hola *{nombre_cliente}*, tu cita ha sido agendada:
 
@@ -761,37 +795,42 @@ Hola *{nombre_cliente}*, tu cita ha sido agendada:
 📱 **Teléfono registrado:** {telefono}
   
 Recibirás recordatorios por mensaje. ¡Te esperamos!'''
-            else:
-                del conversaciones_activas[clave_conversacion]
-                return "❌ Error al crear la cita. Intenta nuevamente."
                 
-        except KeyError as e:
-            print(f"❌ KeyError: {e}")
-            if clave_conversacion in conversaciones_activas:
+                return mensaje_confirmacion
+            else:
+                print(f"❌ [DEBUG] Error al crear la cita en la base de datos")
                 del conversaciones_activas[clave_conversacion]
-            return "❌ Error: Datos incompletos. Comienza de nuevo."
-            
+                return "❌ Error al crear la cita en el sistema. Por favor, intenta nuevamente o contacta al negocio directamente."
+                
         except Exception as e:
-            print(f"❌ Error general: {e}")
+            print(f"❌ [DEBUG] Error general al crear cita: {e}")
+            import traceback
+            traceback.print_exc()
+            
             if clave_conversacion in conversaciones_activas:
                 del conversaciones_activas[clave_conversacion]
-            return "❌ Error. Por favor, intenta nuevamente."
+            return "❌ Error inesperado al procesar tu cita. Por favor, intenta nuevamente."
     
-    # Si no estamos solicitando teléfono, procesar opciones normales
+    # Si no estamos solicitando teléfono, procesar opciones normales de confirmación
     if mensaje == '1':
         # Primera confirmación: pedir teléfono
+        print(f"🔧 [DEBUG] Usuario confirmó cita, solicitando teléfono...")
         conversacion['estado'] = 'solicitando_telefono'
         conversacion['timestamp'] = datetime.now()
         
         return "📱 **Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
     
     elif mensaje == '2':
+        print(f"🔧 [DEBUG] Usuario canceló agendamiento")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return "❌ Agendamiento cancelado."
     
     else:
+        print(f"❌ [DEBUG] Opción inválida recibida: {mensaje}")
         return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
+    
+
 
 # =============================================================================
 # EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUAL
