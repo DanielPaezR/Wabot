@@ -266,7 +266,7 @@ def procesar_mensaje(mensaje, numero, negocio_id):
     return saludo_inicial(numero, negocio_id)
 
 def procesar_opcion_menu(numero, opcion, negocio_id):
-    """Procesar opción del menú principal"""
+    """Procesar opción del menú principal - CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if opcion == '1':
@@ -277,7 +277,7 @@ def procesar_opcion_menu(numero, opcion, negocio_id):
         return mostrar_mis_citas(numero, negocio_id)
     elif opcion == '3':
         print(f"🔧 [DEBUG] Comando '3' detectado - Cancelando reserva")
-        conversaciones_activas[clave_conversacion] = {'estado': 'cancelando', 'timestamp': datetime.now()}
+        # No crear conversación aquí, dejar que mostrar_citas_para_cancelar lo haga
         return mostrar_citas_para_cancelar(numero, negocio_id)
     elif opcion == '4':
         print(f"🔧 [DEBUG] Comando '4' detectado - Mostrando ayuda")
@@ -594,7 +594,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - CORREGIDA para PostgreSQL"""
+    """Mostrar citas del cliente - CORREGIDA con más debug"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
@@ -608,7 +608,7 @@ def mostrar_mis_citas(numero, negocio_id):
     # Si NO tenemos teléfono, pedirlo
     if not telefono_real:
         print(f"🔧 [DEBUG] No hay teléfono en conversación, solicitando...")
-        # Pasar a estado de solicitar teléfono para ver citas
+        # Crear conversación para ver citas
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_para_ver',
             'timestamp': datetime.now(),
@@ -624,26 +624,39 @@ def mostrar_mis_citas(numero, negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ CORRECCIÓN: Usar CAST para convertir fecha de texto a date
+        # ✅ DEBUG: Primero ver TODAS las citas sin filtro
+        cursor.execute('''
+            SELECT id, fecha, hora, estado, cliente_nombre 
+            FROM citas 
+            WHERE cliente_telefono = %s AND negocio_id = %s
+            ORDER BY fecha, hora
+        ''', (telefono_real, negocio_id))
+        
+        todas_citas = cursor.fetchall()
+        print(f"🔍 [DEBUG] TOTAL citas en BD para {telefono_real}: {len(todas_citas)}")
+        for cita in todas_citas:
+            print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}, Estado: {cita[3]}, Nombre: {cita[4]}")
+        
+        # Ahora buscar con JOINs
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
             WHERE c.cliente_telefono = %s AND c.negocio_id = %s 
-            AND (c.fecha)::date >= CURRENT_DATE  -- ✅ CONVERTIR texto a date
+            AND (c.fecha)::date >= CURRENT_DATE
             ORDER BY (c.fecha)::date, c.hora
         ''', (telefono_real, negocio_id))
         
         citas = cursor.fetchall()
         conn.close()
         
-        print(f"🔧 [DEBUG] Citas encontradas: {len(citas)}")
+        print(f"🔧 [DEBUG] Citas futuras encontradas: {len(citas)}")
         
         # Obtener nombre del cliente
         nombre_cliente = None
         
-        # 1. Primero de la conversación
+        # 1. De la conversación
         if clave_conversacion in conversaciones_activas:
             nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre')
             print(f"🔧 [DEBUG] Nombre de conversación: {nombre_cliente}")
@@ -672,7 +685,9 @@ def mostrar_mis_citas(numero, negocio_id):
         for cita in citas:
             id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
             
-            # Formatear fecha (manejar tanto string como date)
+            print(f"🔧 [DEBUG] Procesando cita: ID={id_cita}, Fecha={fecha}, Hora={hora}")
+            
+            # Formatear fecha
             try:
                 if isinstance(fecha, str):
                     fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
@@ -683,9 +698,9 @@ def mostrar_mis_citas(numero, negocio_id):
                 print(f"⚠️ [DEBUG] Error formateando fecha {fecha}: {e}")
             
             emoji = "✅" if estado == 'confirmado' else "❌"
-            respuesta += f"{emoji} *{fecha_str}* - {hora}\n"
-            respuesta += f"   👨‍💼 {profesional_nombre} - {servicio}\n"
-            respuesta += f"   🎫 ID: #{id_cita}\n\n"
+            respuesta += f"{emoji} *{fecha_str}* - **{hora}**\n"
+            respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio}\n"
+            respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
         
         respuesta += "Para cancelar una cita, selecciona: *3*"
         
@@ -706,7 +721,7 @@ def mostrar_mis_citas(numero, negocio_id):
         return "❌ Error al cargar tus citas. Por favor, intenta más tarde."
 
 def mostrar_citas_para_cancelar(numero, negocio_id):
-    """Mostrar citas que pueden ser canceladas - MODIFICADA para pedir teléfono"""
+    """Mostrar citas que pueden ser canceladas - COMPLETAMENTE CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_citas_para_cancelar - Clave: {clave_conversacion}")
@@ -720,7 +735,13 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
     # Si NO tenemos teléfono, pedirlo
     if not telefono_real:
         print(f"🔧 [DEBUG] No hay teléfono en conversación, solicitando...")
-        return solicitar_telefono_para_consulta(numero, negocio_id, "cancelar")
+        # Crear nueva conversación para cancelar
+        conversaciones_activas[clave_conversacion] = {
+            'estado': 'solicitando_telefono_para_cancelar',
+            'timestamp': datetime.now(),
+            'session_id': numero
+        }
+        return "📱 **Para cancelar una cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
     
     # Si SÍ tenemos teléfono, buscar citas para cancelar
     print(f"🔧 [DEBUG] Buscando citas para cancelar con teléfono: {telefono_real}")
@@ -730,15 +751,18 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ CORRECCIÓN: Usar ::date para convertir texto a fecha
+        # ✅ Buscar citas confirmadas
         cursor.execute('''
-            SELECT c.id, c.fecha, c.hora, p.nombre as profesional_nombre, s.nombre as servicio_nombre
+            SELECT c.id, c.fecha, c.hora, p.nombre as profesional_nombre, 
+                   s.nombre as servicio_nombre, c.cliente_nombre
             FROM citas c
             JOIN profesionales p ON c.profesional_id = p.id
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.cliente_telefono = %s AND c.negocio_id = %s 
-            AND c.fecha::date >= CURRENT_DATE AND c.estado = 'confirmado'
-            ORDER BY c.fecha::date, c.hora
+            WHERE c.cliente_telefono = %s 
+            AND c.negocio_id = %s 
+            AND (c.fecha)::date >= CURRENT_DATE 
+            AND c.estado = 'confirmado'
+            ORDER BY (c.fecha)::date, c.hora
         ''', (telefono_real, negocio_id))
         
         citas = cursor.fetchall()
@@ -746,25 +770,38 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         
         print(f"🔧 [DEBUG] Citas encontradas para cancelar: {len(citas)}")
         
+        # ✅ DEBUG: Mostrar qué encontró
+        for cita in citas:
+            print(f"   - ID: {cita[0]}, Fecha: {cita[1]}, Hora: {cita[2]}")
+        
         if not citas:
-            # Limpiar conversación de cancelación
+            # Limpiar conversación
             if clave_conversacion in conversaciones_activas:
                 conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
             
-            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
-            return f"❌ **No tienes citas para cancelar, {nombre_cliente}.**"
+            # Obtener nombre
+            nombre_cliente = 'Cliente'
+            if clave_conversacion in conversaciones_activas:
+                nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+            
+            return f"❌ **No tienes citas confirmadas para cancelar, {nombre_cliente}.**\n\nPara ver tus citas, selecciona: *2*"
         
         if len(citas) == 1:
             # Solo una cita, cancelar directamente
             cita_id = citas[0][0]
             return procesar_cancelacion_directa(numero, str(cita_id), negocio_id)
         
-        # Construir lista de citas para cancelar
-        nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+        # ✅ Construir lista de citas para cancelar CON DATOS REALES
+        nombre_cliente = 'Cliente'
+        if clave_conversacion in conversaciones_activas:
+            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+        
         respuesta = f"❌ **Citas para cancelar - {nombre_cliente}:**\n\n"
         
         for cita in citas:
-            id_cita, fecha, hora, profesional_nombre, servicio_nombre = cita
+            id_cita, fecha, hora, profesional_nombre, servicio_nombre, nombre_cita = cita
+            
+            # Formatear fecha
             try:
                 if isinstance(fecha, str):
                     fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
@@ -773,15 +810,16 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
             except:
                 fecha_str = str(fecha)
             
-            respuesta += f"📅 {fecha_str} - {hora}\n"
-            respuesta += f"   👨‍💼 {profesional_nombre} - {servicio_nombre}\n"
-            respuesta += f"   🎫 ID: #{id_cita}\n\n"
+            respuesta += f"📅 **{fecha_str}** - **{hora}**\n"
+            respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio_nombre}\n"
+            respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
         
-        respuesta += "\n**Selecciona el ID de la cita que quieres cancelar.**"
+        respuesta += "**Selecciona el ID de la cita que quieres cancelar.**"
         
-        # Guardar citas disponibles para cancelación
+        # ✅ Guardar citas disponibles para cancelación
         conversaciones_activas[clave_conversacion]['citas_disponibles'] = {str(t[0]): t for t in citas}
         conversaciones_activas[clave_conversacion]['estado'] = 'cancelando'
+        conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono_real
         
         return respuesta
         
@@ -1030,7 +1068,7 @@ def solicitar_telefono_para_consulta(numero, negocio_id, accion="ver"):
 # =============================================================================
 
 def continuar_conversacion(numero, mensaje, negocio_id):
-    """Continuar conversación basada en el estado actual - CORREGIDA"""
+    """Continuar conversación basada en el estado actual - CORREGIDA COMPLETA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas:
@@ -1060,8 +1098,17 @@ def continuar_conversacion(numero, mensaje, negocio_id):
             # Para confirmar cita
             return procesar_confirmacion_cita(numero, mensaje, negocio_id)
         elif estado == 'solicitando_telefono_para_ver':
-            # Nuevo estado: procesar teléfono para ver citas
+            # Para ver citas
             return procesar_telefono_para_ver_citas(numero, mensaje, negocio_id)
+        elif estado == 'solicitando_telefono_para_cancelar':
+            # ✅ NUEVO: Para cancelar citas
+            return procesar_telefono_para_cancelar_citas(numero, mensaje, negocio_id)
+        elif estado == 'menu_principal':
+            # Si estamos en menu_principal y el usuario envía opción
+            if mensaje in ['1', '2', '3', '4']:
+                return procesar_opcion_menu(numero, mensaje, negocio_id)
+            else:
+                return "Por favor, selecciona una opción válida del menú (1, 2, 3 o 4)."
         else:
             # Estado no reconocido - reiniciar
             print(f"❌ [DEBUG] Estado no reconocido: {estado}")
@@ -1113,6 +1160,41 @@ def procesar_telefono_para_ver_citas(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
     
     return mostrar_mis_citas(numero, negocio_id)
+
+def procesar_telefono_para_cancelar_citas(numero, mensaje, negocio_id):
+    """Procesar teléfono ingresado para cancelar citas"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if mensaje == '0':
+        if clave_conversacion in conversaciones_activas:
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        return "Volviendo al menú principal..."
+    
+    # Validar teléfono
+    telefono = mensaje.strip()
+    
+    if not telefono.isdigit() or len(telefono) != 10 or not telefono.startswith('3'):
+        return "❌ Número inválido. Por favor ingresa 10 dígitos (debe empezar con 3, ej: 3101234567):"
+    
+    print(f"🔧 [DEBUG] Teléfono válido para cancelar citas: {telefono}")
+    
+    # Crear/actualizar conversación
+    if clave_conversacion not in conversaciones_activas:
+        conversaciones_activas[clave_conversacion] = {}
+    
+    conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
+    
+    # Intentar obtener nombre del cliente de BD
+    try:
+        nombre_cliente = db.obtener_nombre_cliente(telefono, negocio_id)
+        if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
+            conversaciones_activas[clave_conversacion]['cliente_nombre'] = str(nombre_cliente).strip()
+            print(f"🔧 [DEBUG] Nombre obtenido de BD: {nombre_cliente}")
+    except Exception as e:
+        print(f"⚠️ [DEBUG] Error obteniendo nombre de BD: {e}")
+    
+    # Ahora mostrar citas para cancelar
+    return mostrar_citas_para_cancelar(numero, negocio_id)
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
     """Procesar nombre del cliente nuevo - GUARDAR EN CONVERSACIÓN"""
