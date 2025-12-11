@@ -917,7 +917,7 @@ Responde:
 *0* - ↩️ Volver al menú principal'''
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - VERSIÓN COMPLETA Y ROBUSTA"""
+    """Procesar confirmación de la cita - VERSIÓN CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -926,122 +926,77 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return saludo_inicial(numero, negocio_id)
     
     if mensaje == '1':
-        # Confirmar cita
         try:
-            # Obtener datos de la conversación
-            hora = conversaciones_activas[clave_conversacion]['hora_seleccionada']
-            fecha = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
-            profesional_id = conversaciones_activas[clave_conversacion]['profesional_id']
-            servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
-            profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
-            servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
-            servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
+            conversacion = conversaciones_activas[clave_conversacion]
             
-            # Obtener nombre del cliente
-            nombre_cliente = None
+            # Verificar que tenemos los datos necesarios
+            if 'hora_seleccionada' not in conversacion:
+                del conversaciones_activas[clave_conversacion]
+                return "❌ Error: No se seleccionó hora. Comienza de nuevo."
             
-            # 1. Buscar en la tabla de clientes
+            hora = conversacion['hora_seleccionada']
+            fecha = conversacion['fecha_seleccionada']
+            profesional_id = conversacion['profesional_id']
+            servicio_id = conversacion['servicio_id']
+            profesional_nombre = conversacion['profesional_nombre']
+            servicio_nombre = conversacion['servicio_nombre']
+            servicio_precio = conversacion['servicio_precio']
+            
+            # ✅ CORREGIDO: Usar db.obtener_nombre_cliente
             nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
             
-            # 2. Si no hay, buscar en citas anteriores
-            if not nombre_cliente:
-                conn = db.get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT cliente_nombre 
-                    FROM citas 
-                    WHERE cliente_telefono = %s 
-                    AND negocio_id = %s 
-                    AND cliente_nombre IS NOT NULL 
-                    AND cliente_nombre != ''
-                    ORDER BY created_at DESC 
-                    LIMIT 1
-                ''', (numero, negocio_id))
-                
-                resultado = cursor.fetchone()
-                conn.close()
-                
-                if resultado:
-                    nombre_cliente = resultado[0]
-            
-            # 3. Si aún no hay nombre, usar valor por defecto
             if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
                 nombre_cliente = 'Cliente'
             else:
                 nombre_cliente = str(nombre_cliente).strip()
             
-            print(f"🔧 DEBUG: Agendando cita para {nombre_cliente} ({numero})")
-            print(f"🔧 DEBUG: Fecha: {fecha}, Hora: {hora}")
-            print(f"🔧 DEBUG: Profesional: {profesional_nombre}, Servicio: {servicio_nombre}")
+            print(f"🔧 DEBUG: Agendando cita para: {nombre_cliente}")
             
             # Agendar cita
             cita_id = db.agregar_cita(negocio_id, profesional_id, numero, fecha, hora, servicio_id, nombre_cliente)
             
             if cita_id:
-                print(f"✅ DEBUG: Cita creada exitosamente. ID: {cita_id}")
+                del conversaciones_activas[clave_conversacion]
                 
-                # Formatear datos para la plantilla
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
                 fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 
-                # Limpiar conversación
-                if clave_conversacion in conversaciones_activas:
-                    del conversaciones_activas[clave_conversacion]
-                
-                # Obtener información del negocio para la plantilla
-                negocio = db.obtener_negocio_por_id(negocio_id)
-                config = json.loads(negocio['configuracion']) if negocio['configuracion'] else {}
-                
-                # Usar plantilla para el mensaje de confirmación
-                return renderizar_plantilla('cita_confirmada', negocio_id, {
-                    'cliente_nombre': nombre_cliente,
-                    'profesional_nombre': profesional_nombre,
-                    'servicio_nombre': servicio_nombre,
-                    'precio_formateado': precio_formateado,
-                    'fecha': fecha_formateada,
-                    'hora': hora,
-                    'cita_id': cita_id,
-                    'direccion': config.get('direccion', ''),
-                    'telefono_contacto': config.get('telefono_contacto', ''),
-                    'politica_cancelacion': config.get('politica_cancelacion', '')
-                })
+                # Mensaje simple y directo
+                return f'''✅ *Cita confirmada*
+
+Hola *{nombre_cliente}*, tu cita ha sido agendada:
+
+👨‍💼 *Profesional:* {profesional_nombre}
+💼 *Servicio:* {servicio_nombre}
+💰 *Precio:* {precio_formateado}
+📅 *Fecha:* {fecha_formateada}
+⏰ *Hora:* {hora}
+🎫 *ID:* #{cita_id}
+
+¡Te esperamos!'''
             else:
-                print(f"❌ DEBUG: No se pudo crear la cita")
-                if clave_conversacion in conversaciones_activas:
-                    del conversaciones_activas[clave_conversacion]
-                return renderizar_plantilla('error_generico', negocio_id)
+                del conversaciones_activas[clave_conversacion]
+                return "❌ Error al crear la cita. Intenta nuevamente."
                 
         except KeyError as e:
-            print(f"❌ Error de KeyError en confirmación: {e}")
-            print(f"🔧 DEBUG: Contenido de conversación: {conversaciones_activas.get(clave_conversacion, {})}")
-            
+            print(f"❌ KeyError: {e}")
             if clave_conversacion in conversaciones_activas:
                 del conversaciones_activas[clave_conversacion]
-            return renderizar_plantilla('error_generico', negocio_id)
-                
+            return "❌ Error: Datos incompletos. Comienza de nuevo con 'hola'"
+            
         except Exception as e:
-            print(f"❌ Error general confirmando cita: {e}")
-            import traceback
-            traceback.print_exc()
-            
+            print(f"❌ Error general: {e}")
             if clave_conversacion in conversaciones_activas:
                 del conversaciones_activas[clave_conversacion]
-            return renderizar_plantilla('error_generico', negocio_id)
+            return "❌ Error. Por favor, intenta nuevamente."
     
     elif mensaje == '2':
-        # Cancelar agendamiento
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Agendamiento cancelado.\n\nSi necesitas algo más, ¡estaré aquí!\n\n💡 *Escribe 'hola' para comenzar*"
+        return "❌ Agendamiento cancelado."
     
     else:
-        # Opción no válida
-        return f'''❌ Opción no válida.
-
-Responde:
-*1* - ✅ Confirmar cita
-*2* - ❌ Cancelar agendamiento
-*0* - ↩️ Volver al menú principal'''
+        return "❌ Opción no válida. Responde con *1* para confirmar o *0* para volver."
 
 def procesar_cancelacion_cita(numero, mensaje, negocio_id):
     """Procesar cancelación de cita - MEJORADO PARA POSTGRESQL"""
