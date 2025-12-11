@@ -1688,7 +1688,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - VERSIÓN MEJORADA PARA POSTGRESQL"""
+    """Generar horarios disponibles considerando la configuración por días - VERSIÓN CORREGIDA"""
     print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
@@ -1725,19 +1725,27 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     while hora_actual < hora_fin:
         hora_str = hora_actual.strftime('%H:%M')
         
-        # ✅ CORRECCIÓN: Si es hoy, aplicar margen mínimo de 30 minutos (CONSISTENTE)
+        # ✅ CORRECCIÓN CRÍTICA: Si es hoy, verificar horarios futuros con margen
         if es_hoy:
             # Combinar fecha actual con hora del horario
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
             
-            # Calcular tiempo hasta el horario
+            # Calcular tiempo hasta el horario (puede ser negativo si ya pasó)
             tiempo_hasta_horario = hora_actual_completa - fecha_actual
             
-            # ✅ MARGEN MÍNIMO: 30 minutos de anticipación (IGUAL QUE verificar_disponibilidad_basica)
+            # ✅ MARGEN MÍNIMO: 30 minutos de anticipación
             margen_minimo_minutos = 30
             
-            # Si el horario es muy pronto (menos de 30 minutos), omitirlo
-            if tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
+            # ⚠️ CORRECCIÓN: Verificar DOS condiciones:
+            # 1. Que el horario no haya pasado (tiempo_hasta_horario > 0)
+            # 2. Que tenga al menos 30 minutos de margen
+            if tiempo_hasta_horario.total_seconds() <= 0:
+                # Horario YA PASÓ (es en el pasado)
+                print(f"⏰ Horario {hora_str} omitido (ya pasó)")
+                hora_actual += timedelta(minutes=30)
+                continue
+            elif tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
+                # Horario es muy pronto (menos de 30 minutos)
                 print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos, mínimo {margen_minimo_minutos} minutos requeridos)")
                 hora_actual += timedelta(minutes=30)
                 continue
@@ -1767,15 +1775,18 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
         fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
         
         if fecha_cita.date() == fecha_actual.date():
-            # Para hoy, verificar si hay al menos un horario futuro con margen de 1 hora
+            # Para hoy, verificar si hay al menos un horario futuro con margen
             hora_actual = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
             hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
             
             while hora_actual < hora_fin:
                 hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
                 
-                # ✅ MARGEN MÍNIMO: 60 minutos (1 hora)
-                if hora_actual_completa >= (fecha_actual + timedelta(minutes=60)):
+                # ✅ CORRECCIÓN: Solo considerar horarios FUTUROS con margen
+                tiempo_hasta_horario = hora_actual_completa - fecha_actual
+                
+                # Horario debe ser futuro y con al menos 30 minutos de margen
+                if tiempo_hasta_horario.total_seconds() > 0 and tiempo_hasta_horario.total_seconds() >= (30 * 60):
                     return True  # Hay al menos un horario futuro con margen suficiente
                 
                 hora_actual += timedelta(minutes=30)
