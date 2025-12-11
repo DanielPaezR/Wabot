@@ -1346,68 +1346,103 @@ def actualizar_configuracion_horarios(negocio_id, configuraciones):
 # AUTENTICACIÓN DE USUARIOS
 # =============================================================================
 
-def crear_profesional(negocio_id, nombre, especialidad, servicios_ids, activo=True):
-    """Crear profesional - SIN PIN, solo crea profesional"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+@app.route('/negocio/profesionales/nuevo', methods=['GET', 'POST'])
+@login_required
+def negocio_nuevo_profesional():
+    """Crear nuevo profesional - usando crear_usuario"""
+    if session['usuario_rol'] != 'propietario':
+        flash('No tienes permisos para acceder a esta página', 'error')
+        return redirect(url_for('login'))
     
-    try:
-        print(f"🔍 DEBUG crear_profesional (SIN PIN):")
+    negocio_id = session.get('negocio_id', 1)
+    servicios = obtener_servicios_por_negocio(negocio_id)
+    
+    if request.method == 'POST':
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        print(f"🔍 DEBUG FORM DATA:")
+        for key, value in request.form.items():
+            print(f"  {key}: {value}")
+        
+        nombre = request.form.get('nombre', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '').strip()
+        especialidad = request.form.get('especialidad', '').strip()
+        servicios_seleccionados = request.form.getlist('servicios')
+        activo = 'activo' in request.form
+        
+        # Validaciones
+        if not nombre:
+            flash('El nombre es requerido', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        if not email or '@' not in email:
+            flash('Debe ingresar un correo electrónico válido', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        if len(password) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres', 'error')
+            return redirect(url_for('negocio_nuevo_profesional'))
+        
+        print(f"🔍 DEBUG - Datos procesados:")
         print(f"  - negocio_id: {negocio_id}")
         print(f"  - nombre: {nombre}")
+        print(f"  - email: {email}")
         print(f"  - especialidad: {especialidad}")
-        print(f"  - servicios_ids: {servicios_ids}")
+        print(f"  - servicios_seleccionados: {servicios_seleccionados}")
         print(f"  - activo: {activo}")
         
-        # Insertar profesional SIN campo PIN
-        cursor.execute('''
-            INSERT INTO profesionales (negocio_id, nombre, especialidad, activo)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-        ''', (negocio_id, nombre, especialidad, activo))
+        # ✅ USAR LA FUNCIÓN crear_usuario que YA FUNCIONA
+        # Esto creará automáticamente el usuario Y el profesional
+        usuario_id = db.crear_usuario(
+            negocio_id=negocio_id,
+            nombre=nombre,
+            email=email,
+            password=password,
+            rol='profesional'  # ← Esto hará que cree el profesional automáticamente
+        )
         
-        result = cursor.fetchone()
-        
-        if not result:
-            print(f"❌ Error: No se obtuvo ID del profesional insertado")
-            conn.rollback()
-            conn.close()
-            return None
-        
-        # ✅ CORRECCIÓN: Acceder correctamente al ID
-        if hasattr(result, 'keys'):  # Es un diccionario
-            profesional_id = result['id']
-        else:  # Es una tupla
-            profesional_id = result[0]
-        
-        print(f"✅ Profesional creado con ID: {profesional_id}")
-        
-        # Asignar servicios solo si hay servicios seleccionados
-        if servicios_ids:
-            for servicio_id in servicios_ids:
+        if usuario_id:
+            # Si queremos asignar servicios específicos, necesitamos hacerlo aquí
+            if servicios_seleccionados:
                 try:
-                    servicio_id_int = int(servicio_id)
-                    cursor.execute('''
-                        INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                        VALUES (%s, %s)
-                    ''', (profesional_id, servicio_id_int))
-                    print(f"  - Servicio {servicio_id_int} asignado")
-                except ValueError:
-                    print(f"⚠️  ID de servicio inválido: {servicio_id}")
+                    # Obtener el ID del profesional recién creado
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT id FROM profesionales WHERE usuario_id = %s', (usuario_id,))
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        profesional_id = result[0] if hasattr(result, '__len__') else result['id']
+                        
+                        # Asignar servicios
+                        for servicio_id in servicios_seleccionados:
+                            try:
+                                servicio_id_int = int(servicio_id)
+                                cursor.execute('''
+                                    INSERT INTO profesional_servicios (profesional_id, servicio_id)
+                                    VALUES (%s, %s)
+                                ''', (profesional_id, servicio_id_int))
+                            except ValueError:
+                                print(f"⚠️  ID de servicio inválido: {servicio_id}")
+                        
+                        conn.commit()
+                    
+                    conn.close()
+                except Exception as e:
+                    print(f"⚠️  Error asignando servicios: {e}")
+            
+            flash(f'✅ Profesional "{nombre}" creado exitosamente. Puede iniciar sesión con email: {email}', 'success')
+            return redirect(url_for('negocio_profesionales'))
         else:
-            print("ℹ️  No se seleccionaron servicios")
-        
-        conn.commit()
-        return profesional_id
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ ERROR en crear_profesional: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return None
-    finally:
-        conn.close()
+            flash('❌ Error al crear el profesional. El email puede estar en uso.', 'error')
+    
+    return render_template('negocio/nuevo_profesional.html', 
+                         servicios=servicios,
+                         negocio_id=negocio_id)
 
 
 def verificar_usuario(email, password):
