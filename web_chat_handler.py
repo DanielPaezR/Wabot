@@ -503,8 +503,12 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     """Mostrar horarios disponibles - SOLO TEXTO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
+    print(f"🔧 [DEBUG] mostrar_disponibilidad - fecha_seleccionada: {fecha_seleccionada}")
+    
     if not fecha_seleccionada:
         fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', datetime.now().strftime('%Y-%m-%d'))
+    
+    print(f"🔧 [DEBUG] Fecha a usar: {fecha_seleccionada}")
     
     # Verificar disponibilidad básica
     if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
@@ -512,12 +516,19 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         return f"❌ No hay horarios disponibles para el {fecha_formateada}.\n\nPor favor, selecciona otra fecha."
     
     # Obtener datos de la conversación
+    if 'profesional_id' not in conversaciones_activas[clave_conversacion]:
+        return "❌ Error: No se encontró información del profesional."
+    
     profesional_id = conversaciones_activas[clave_conversacion]['profesional_id']
     servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
     pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
     
+    print(f"🔧 [DEBUG] Generando horarios para: profesional_id={profesional_id}, servicio_id={servicio_id}")
+    
     # Generar horarios disponibles
     horarios_disponibles = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha_seleccionada, servicio_id)
+    
+    print(f"🔧 [DEBUG] Horarios generados: {len(horarios_disponibles)}")
     
     if not horarios_disponibles:
         fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
@@ -931,7 +942,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     return mostrar_fechas_disponibles(numero, negocio_id)
 
 def procesar_seleccion_fecha(numero, mensaje, negocio_id):
-    """Procesar selección de fecha"""
+    """Procesar selección de fecha - CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -951,7 +962,10 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     
     # Guardar fecha seleccionada
     fecha_index = int(mensaje) - 1
-    fecha_seleccionada = fechas_disponibles[fecha_index]['fecha']
+    fecha_seleccionada = fechas_disponibles[fecha_index]['fecha']  # YA está en formato YYYY-MM-DD
+    
+    print(f"🔧 [DEBUG] Fecha seleccionada: {fecha_seleccionada} (índice: {fecha_index})")
+    print(f"🔧 [DEBUG] Datos completos: {fechas_disponibles[fecha_index]}")
     
     conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
     conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
@@ -1157,8 +1171,9 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
                 # Verificar si hay horarios disponibles para hoy con margen mínimo
                 if verificar_disponibilidad_basica(negocio_id, fecha_str):
                     fechas_disponibles.append({
-                        'fecha': fecha_str,
-                        'mostrar': "Hoy"
+                        'fecha': fecha_str,  # YA en formato YYYY-MM-DD
+                        'mostrar': "Hoy",
+                        'fecha_original': fecha_str  # Mantener referencia
                     })
                     print(f"🔧 [DEBUG] ✅ Hoy agregado - Hay horarios disponibles con margen")
                 else:
@@ -1179,8 +1194,9 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
                     fecha_formateada = "Mañana"
                 
                 fechas_disponibles.append({
-                    'fecha': fecha_str,
-                    'mostrar': fecha_formateada
+                    'fecha': fecha_str,  # YA en formato YYYY-MM-DD
+                    'mostrar': fecha_formateada,
+                    'fecha_original': fecha_str  # Mantener referencia
                 })
                 print(f"🔧 [DEBUG] ✅ Fecha {fecha_str} agregada como disponible")
         else:
