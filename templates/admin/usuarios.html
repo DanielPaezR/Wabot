@@ -533,6 +533,12 @@
                                 {% endif %}
                             </td>
                             <td class="actions">
+                                <!-- Botón de Editar -->
+                                <a href="{{ url_for('admin_editar_usuario', usuario_id=usuario.id) }}" class="btn-sm btn-edit">
+                                    ✏️ Editar
+                                </a>
+                                
+                                <!-- Botón de Toggle Activo/Inactivo -->
                                 <form method="POST" action="{{ url_for('admin_toggle_usuario', usuario_id=usuario.id) }}" class="form-inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-sm btn-toggle" 
@@ -540,6 +546,8 @@
                                         {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
                                     </button>
                                 </form>
+                                
+                                <!-- Botón de Eliminar -->
                                 <form method="POST" action="{{ url_for('admin_eliminar_usuario', usuario_id=usuario.id) }}" class="form-inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-sm btn-delete" 
@@ -613,6 +621,12 @@
                     </div>
                     
                     <div class="card-actions">
+                        <!-- Botón de Editar -->
+                        <a href="{{ url_for('admin_editar_usuario', usuario_id=usuario.id) }}" class="btn-sm btn-edit">
+                            ✏️ Editar
+                        </a>
+                        
+                        <!-- Botón de Toggle Activo/Inactivo -->
                         <form method="POST" action="{{ url_for('admin_toggle_usuario', usuario_id=usuario.id) }}" class="form-inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-sm btn-toggle" 
@@ -620,6 +634,8 @@
                                 {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
                             </button>
                         </form>
+                        
+                        <!-- Botón de Eliminar -->
                         <form method="POST" action="{{ url_for('admin_eliminar_usuario', usuario_id=usuario.id) }}" class="form-inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-sm btn-delete" 
