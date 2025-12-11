@@ -209,33 +209,57 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         return renderizar_plantilla('menu_principal', negocio_id)
 
 def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - Cliente nuevo o existente - MEJORADO"""
+    """Saludo inicial - Cliente nuevo o existente - CORREGIDO"""
     try:
-        # DEBUG: Verificar estado real del cliente
-        es_nuevo = db.es_cliente_nuevo(numero, negocio_id)
-        nombre_existente = db.obtener_nombre_cliente(numero, negocio_id)
+        # Obtener información del cliente desde la base de datos
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
         
-        print(f"🔧 DEBUG saludo_inicial: numero={numero}, es_nuevo={es_nuevo}, nombre_existente='{nombre_existente}'")
+        # Consulta PostgreSQL para verificar si el cliente existe y tiene nombre
+        cursor.execute('''
+            SELECT c.nombre, COUNT(*) as total_citas
+            FROM citas c
+            WHERE c.cliente_telefono = %s 
+            AND c.negocio_id = %s
+            AND c.estado NOT IN ('cancelado', 'completado')
+            GROUP BY c.nombre
+            LIMIT 1
+        ''', (numero, negocio_id))
         
-        # ✅ CORRECCIÓN MEJORADA: Si es cliente nuevo O no tenemos su nombre registrado
-        if es_nuevo or not nombre_existente:
-            print("🔧 DEBUG: Tratando como cliente NUEVO o sin nombre")
-            # Cliente nuevo - pedir nombre
-            clave_conversacion = f"{numero}_{negocio_id}"
-            conversaciones_activas[clave_conversacion] = {
-                'estado': 'solicitando_nombre',
-                'timestamp': datetime.now()
-            }
-            return renderizar_plantilla('saludo_inicial_nuevo', negocio_id)
-        else:
-            print("🔧 DEBUG: Tratando como cliente EXISTENTE con nombre")
-            # Cliente existente - mostrar menú personalizado
-            return renderizar_plantilla('saludo_inicial_existente', negocio_id, {
-                'cliente_nombre': nombre_existente
-            })
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        print(f"🔧 DEBUG saludo_inicial: numero={numero}, resultado={resultado}")
+        
+        if resultado:
+            nombre_cliente = resultado[0]
+            total_citas = resultado[1]
+            
+            print(f"🔧 DEBUG: Cliente EXISTENTE - Nombre: '{nombre_cliente}', Citas: {total_citas}")
+            
+            # Si tenemos un nombre válido, mostrar menú personalizado
+            if nombre_cliente and len(nombre_cliente.strip()) >= 2:
+                return renderizar_plantilla('saludo_inicial_existente', negocio_id, {
+                    'cliente_nombre': nombre_cliente.strip()
+                })
+        
+        print(f"🔧 DEBUG: Tratando como cliente NUEVO")
+        
+        # Cliente nuevo o sin nombre - pedir nombre
+        clave_conversacion = f"{numero}_{negocio_id}"
+        conversaciones_activas[clave_conversacion] = {
+            'estado': 'solicitando_nombre',
+            'timestamp': datetime.now()
+        }
+        return renderizar_plantilla('saludo_inicial_nuevo', negocio_id)
+        
     except Exception as e:
         print(f"❌ Error en saludo_inicial: {e}")
-        return renderizar_plantilla('error_generico', negocio_id)
+        import traceback
+        traceback.print_exc()
+        
+        # En caso de error, mostrar menú genérico
+        return renderizar_plantilla('menu_principal', negocio_id)
 
 def mostrar_profesionales(numero, negocio_id):
     """Mostrar lista de profesionales disponibles - CORREGIDO PARA POSTGRESQL"""
