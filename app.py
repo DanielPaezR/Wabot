@@ -5,7 +5,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 import secrets
 from datetime import datetime, timedelta
-from app import tz_colombia
 import database as db
 from web_chat_handler import web_chat_bp
 import os
@@ -22,6 +21,8 @@ import uuid
 
 # Cargar variables de entorno
 load_dotenv()
+
+tz_colombia = pytz.timezone('America/Bogota')
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')

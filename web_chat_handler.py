@@ -14,8 +14,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-tz_colombia = pytz.timezone('America/Bogota')
-
 web_chat_bp = Blueprint('web_chat', __name__)
 
 # Estados de conversación para sesiones web
