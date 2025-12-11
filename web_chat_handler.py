@@ -1725,7 +1725,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     while hora_actual < hora_fin:
         hora_str = hora_actual.strftime('%H:%M')
         
-        # ✅ CORRECCIÓN MEJORADA: Si es hoy, aplicar margen mínimo de 1 hora
+        # ✅ CORRECCIÓN: Si es hoy, aplicar margen mínimo de 30 minutos (CONSISTENTE)
         if es_hoy:
             # Combinar fecha actual con hora del horario
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
@@ -1733,10 +1733,10 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
             # Calcular tiempo hasta el horario
             tiempo_hasta_horario = hora_actual_completa - fecha_actual
             
-            # ✅ MARGEN MÍNIMO: 60 minutos (1 hora) de anticipación
-            margen_minimo_minutos = 60
+            # ✅ MARGEN MÍNIMO: 30 minutos de anticipación (IGUAL QUE verificar_disponibilidad_basica)
+            margen_minimo_minutos = 30
             
-            # Si el horario es muy pronto (menos de 1 hora), omitirlo
+            # Si el horario es muy pronto (menos de 30 minutos), omitirlo
             if tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
                 print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos, mínimo {margen_minimo_minutos} minutos requeridos)")
                 hora_actual += timedelta(minutes=30)
@@ -1755,7 +1755,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     return horarios
 
 def verificar_disponibilidad_basica(negocio_id, fecha):
-    """Verificación rápida de disponibilidad para una fecha (sin profesional específico) - VERSIÓN MEJORADA"""
+    """Verificación rápida de disponibilidad para una fecha (sin profesional específico)"""
     try:
         # Verificar si el día está activo
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)

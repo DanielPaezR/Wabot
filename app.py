@@ -2735,7 +2735,7 @@ def profesional_agendar():
 @app.route('/profesional/crear-cita', methods=['POST'])
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_crear_cita():
-    """Crear cita desde el panel del profesional - VERSIÓN CORREGIDA PARA POSTGRESQL"""
+    """Crear cita desde el panel del profesional - VERSIÓN COMPLETA CORREGIDA"""
     try:
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
@@ -2760,7 +2760,66 @@ def profesional_crear_cita():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Verificar disponibilidad
+        # ✅ 1. PRIMERO: Crear o actualizar cliente en tabla `clientes`
+        print(f"🔍 [CLIENTE] Verificando/creando cliente con teléfono: {cliente_telefono}")
+        
+        try:
+            # Verificar si el cliente ya existe
+            cursor.execute('''
+                SELECT id, nombre FROM clientes 
+                WHERE telefono = %s AND negocio_id = %s
+                LIMIT 1
+            ''', (cliente_telefono, negocio_id))
+            
+            cliente_existente = cursor.fetchone()
+            
+            if cliente_existente:
+                # ✅ Cliente existe - actualizar si es necesario
+                if hasattr(cliente_existente, 'keys'):  # Diccionario
+                    cliente_id = cliente_existente['id']
+                    nombre_actual = cliente_existente['nombre']
+                else:  # Tupla
+                    cliente_id = cliente_existente[0]
+                    nombre_actual = cliente_existente[1]
+                
+                print(f"✅ [CLIENTE] Cliente existente encontrado: ID={cliente_id}, Nombre actual: '{nombre_actual}'")
+                
+                # Actualizar nombre si es diferente
+                if nombre_actual != cliente_nombre:
+                    cursor.execute('''
+                        UPDATE clientes 
+                        SET nombre = %s, updated_at = NOW()
+                        WHERE id = %s
+                    ''', (cliente_nombre, cliente_id))
+                    print(f"✅ [CLIENTE] Nombre actualizado: '{nombre_actual}' -> '{cliente_nombre}'")
+                else:
+                    print(f"✅ [CLIENTE] Manteniendo nombre existente: '{nombre_actual}'")
+            else:
+                # ✅ Cliente nuevo - crear registro
+                cursor.execute('''
+                    INSERT INTO clientes (
+                        negocio_id, 
+                        telefono, 
+                        nombre, 
+                        created_at, 
+                        updated_at
+                    ) VALUES (%s, %s, %s, NOW(), NOW())
+                    RETURNING id
+                ''', (negocio_id, cliente_telefono, cliente_nombre))
+                
+                cliente_result = cursor.fetchone()
+                if hasattr(cliente_result, 'keys'):
+                    cliente_id = cliente_result['id']
+                else:
+                    cliente_id = cliente_result[0]
+                
+                print(f"✅ [CLIENTE] Nuevo cliente creado: ID={cliente_id}, Nombre='{cliente_nombre}'")
+                
+        except Exception as e:
+            print(f"⚠️ [CLIENTE] Error procesando cliente: {e}")
+            # Continuamos aunque falle, la cita se puede crear igual
+        
+        # ✅ 2. Verificar disponibilidad
         cursor.execute('''
             SELECT id FROM citas 
             WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
@@ -2772,7 +2831,7 @@ def profesional_crear_cita():
             conn.close()
             return redirect(url_for('profesional_agendar'))
         
-        # Crear la cita - VERSIÓN POSTGRESQL
+        # ✅ 3. Crear la cita
         cursor.execute('''
             INSERT INTO citas (
                 negocio_id, 
@@ -2798,12 +2857,21 @@ def profesional_crear_cita():
         
         result = cursor.fetchone()
         if result:
-            # ✅ CORRECCIÓN PARA POSTGRESQL: Acceder correctamente al ID
-            if hasattr(result, 'keys'):  # Es un diccionario (RealDictCursor)
+            if hasattr(result, 'keys'):
                 cita_id = result['id']
-            else:  # Es una tupla
+            else:
                 cita_id = result[0]
-            print(f"✅ Cita creada exitosamente. ID: {cita_id}")
+            
+            print(f"✅ [CITA] Cita creada exitosamente. ID: {cita_id}")
+            
+            # ✅ 4. OPCIONAL: Notificación (puedes activarlo después)
+            try:
+                # Aquí podrías enviar notificación al cliente
+                # enviar_notificacion_cita(cita_id, cliente_telefono, cliente_nombre, fecha, hora)
+                pass
+            except Exception as e:
+                print(f"⚠️ [NOTIFICACIÓN] Error enviando notificación: {e}")
+        
         else:
             flash('❌ Error al crear la cita en la base de datos', 'error')
             conn.rollback()
