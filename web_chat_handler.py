@@ -225,40 +225,62 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         print(f"🔧 [DEBUG] Comando '0' detectado - Volviendo al menú principal")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return saludo_inicial(numero, negocio_id)
+        
+        # Establecer estado como menu_principal
+        conversaciones_activas[clave_conversacion] = {
+            'estado': 'menu_principal',
+            'timestamp': datetime.now()
+        }
+        return "¿En qué puedo ayudarte?"
     
     # Reiniciar conversación si ha pasado mucho tiempo
     reiniciar_conversacion_si_es_necesario(numero, negocio_id)
     
     # Si hay conversación activa, continuarla
     if clave_conversacion in conversaciones_activas:
-        estado_actual = conversaciones_activas[clave_conversacion]['estado']
-        print(f"🔧 [DEBUG] Conversación activa encontrada - Estado: {estado_actual}")
+        estado = conversaciones_activas[clave_conversacion]['estado']
+        print(f"🔧 [DEBUG] Conversación activa encontrada - Estado: {estado}")
+        
+        # Si estamos en menu_principal y el usuario envía un número, procesarlo
+        if estado == 'menu_principal' and mensaje in ['1', '2', '3', '4']:
+            print(f"🔧 [DEBUG] Opción de menú seleccionada: {mensaje}")
+            return procesar_opcion_menu(numero, mensaje, negocio_id)
+        
         return continuar_conversacion(numero, mensaje, negocio_id)
     
     print(f"🔧 [DEBUG] No hay conversación activa - Procesando comando del menú")
     
-    # Procesar comandos del menú principal SOLO si no hay conversación activa
-    if mensaje == '1':
+    # Si el usuario envía 'hola' y no hay conversación activa
+    if mensaje in ['hola', 'hi', 'hello', 'buenas']:
+        print(f"🔧 [DEBUG] Saludo detectado - Mostrando saludo inicial")
+        return saludo_inicial(numero, negocio_id)
+    
+    # Si el usuario envía un número directamente
+    if mensaje in ['1', '2', '3', '4']:
+        print(f"🔧 [DEBUG] Opción de menú seleccionada directamente: {mensaje}")
+        return procesar_opcion_menu(numero, mensaje, negocio_id)
+    
+    # Mensaje no reconocido - mostrar saludo inicial
+    print(f"🔧 [DEBUG] Mensaje no reconocido - Mostrando saludo inicial")
+    return saludo_inicial(numero, negocio_id)
+
+def procesar_opcion_menu(numero, opcion, negocio_id):
+    """Procesar opción del menú principal"""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    
+    if opcion == '1':
         print(f"🔧 [DEBUG] Comando '1' detectado - Mostrando profesionales")
         return mostrar_profesionales(numero, negocio_id)
-    elif mensaje == '2':
+    elif opcion == '2':
         print(f"🔧 [DEBUG] Comando '2' detectado - Mostrando citas")
         return mostrar_mis_citas(numero, negocio_id)
-    elif mensaje == '3':
+    elif opcion == '3':
         print(f"🔧 [DEBUG] Comando '3' detectado - Cancelando reserva")
         conversaciones_activas[clave_conversacion] = {'estado': 'cancelando', 'timestamp': datetime.now()}
         return mostrar_citas_para_cancelar(numero, negocio_id)
-    elif mensaje == '4':
+    elif opcion == '4':
         print(f"🔧 [DEBUG] Comando '4' detectado - Mostrando ayuda")
         return mostrar_ayuda(negocio_id)
-    elif mensaje in ['hola', 'hi', 'hello', 'buenas']:
-        print(f"🔧 [DEBUG] Saludo detectado - Mostrando menú inicial")
-        return saludo_inicial(numero, negocio_id)
-    else:
-        # Mensaje no reconocido - mostrar menú principal
-        print(f"🔧 [DEBUG] Mensaje no reconocido - Mostrando menú principal")
-        return renderizar_plantilla('menu_principal', negocio_id)
 
 # =============================================================================
 # FUNCIONES PARA GENERAR OPCIONES EN EL CHAT WEB - MODIFICADAS
@@ -396,7 +418,7 @@ def generar_opciones_confirmacion():
 # =============================================================================
 
 def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - SIEMPRE pedir nombre primero"""
+    """Saludo inicial - SIEMPRE pedir nombre primero, pero si ya existe mostrar menú"""
     try:
         # Verificar si ya tiene nombre registrado
         nombre_cliente = db.obtener_nombre_cliente(numero, negocio_id)
@@ -406,6 +428,11 @@ def saludo_inicial(numero, negocio_id):
         if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
             print(f"🔧 DEBUG: Cliente existente: {nombre_cliente}")
             # Cliente existente - mostrar menú directamente
+            clave_conversacion = f"{numero}_{negocio_id}"
+            conversaciones_activas[clave_conversacion] = {
+                'estado': 'menu_principal',
+                'timestamp': datetime.now()
+            }
             return f"¡Hola {nombre_cliente}! 👋\n\n¿En qué puedo ayudarte hoy?"
         else:
             print(f"🔧 DEBUG: Cliente nuevo - pedir nombre")
@@ -810,7 +837,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         return "❌ Error al procesar tu solicitud."
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
-    """Procesar nombre del cliente nuevo - VERSIÓN MEJORADA"""
+    """Procesar nombre del cliente nuevo - MODIFICADA PARA MOSTRAR MENÚ PRINCIPAL"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -863,6 +890,12 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     # ✅ Limpiar conversación activa
     if clave_conversacion in conversaciones_activas:
         del conversaciones_activas[clave_conversacion]
+    
+    # Cambiar el estado a 'menu_principal' para que el frontend muestre opciones
+    conversaciones_activas[clave_conversacion] = {
+        'estado': 'menu_principal',
+        'timestamp': datetime.now()
+    }
     
     return f"¡Hola {nombre}! 👋\n\n¿En qué puedo ayudarte?"
 
