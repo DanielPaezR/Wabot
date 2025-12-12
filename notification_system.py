@@ -91,7 +91,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
     # ==================== FUNCIONES DE BASE DE DATOS ====================
     
     def _save_notification_db(self, profesional_id, titulo, mensaje, tipo, metadata=None):
-        """Guardar notificación en PostgreSQL"""
+        """Guardar notificación en PostgreSQL - VERSIÓN CORREGIDA"""
         if not profesional_id or profesional_id <= 0:
             print(f"❌ Profesional ID inválido: {profesional_id}")
             return False
@@ -102,7 +102,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             return False
         
         try:
-            cursor = conn.cursor()  # ✅ Usar cursor NORMAL, no RealDictCursor aquí
+            cursor = conn.cursor()
             
             query = """
                 INSERT INTO notificaciones_profesional 
@@ -113,10 +113,32 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
             metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else '{}'
             
+            print(f"🔔 Guardando notificación para profesional {profesional_id}")
             cursor.execute(query, (profesional_id, titulo, mensaje, tipo, metadata_json))
             
             result = cursor.fetchone()
-            notif_id = result[0] if result and len(result) > 0 else None
+            
+            # ✅ CORRECCIÓN: Manejar cualquier tipo de resultado
+            notif_id = None
+            if result:
+                print(f"🔍 Resultado crudo: {result}")
+                print(f"🔍 Tipo de resultado: {type(result)}")
+                
+                if isinstance(result, dict):
+                    # RealDictRow (diccionario)
+                    notif_id = result.get('id')
+                    if notif_id is None:
+                        # Intentar con índice 0 como clave
+                        notif_id = result.get(0)
+                elif isinstance(result, (tuple, list)) and len(result) > 0:
+                    # Tupla tradicional
+                    notif_id = result[0]
+                else:
+                    # Último recurso: intentar obtener primer elemento
+                    try:
+                        notif_id = result[0]
+                    except:
+                        pass
             
             conn.commit()
             

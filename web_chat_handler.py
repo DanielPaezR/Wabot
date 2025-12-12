@@ -1016,7 +1016,8 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             if cita_id and cita_id > 0:
                 print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
                 
-                # ✅ 3. ENVIAR NOTIFICACIÓN AL PROFESIONAL (NUEVO CÓDIGO)
+                # ✅ 3. ENVIAR NOTIFICACIÓN AL PROFESIONAL
+                print(f"📧 [CHAT WEB] Preparando notificación para cita #{cita_id}")
                 try:
                     from scheduler import appointment_scheduler
                     
@@ -1035,19 +1036,31 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                         'estado': 'confirmado'
                     }
                     
+                    print(f"📧 [CHAT WEB] Datos para notificación: {cita_data}")
+                    
                     # Enviar confirmación inmediata al profesional
                     success = appointment_scheduler.enviar_confirmacion_inmediata(cita_data)
                     
                     if success:
-                        print(f"✅ [DEBUG] Notificación enviada al profesional #{profesional_id}")
+                        print(f"✅ [CHAT WEB] Notificación ENVIADA al profesional #{profesional_id}")
                     else:
-                        print(f"⚠️ [DEBUG] Error enviando notificación al profesional")
+                        print(f"❌ [CHAT WEB] Error: appointment_scheduler.enviar_confirmacion_inmediata devolvió False")
                     
                 except ImportError as e:
-                    print(f"⚠️ [DEBUG] No se pudo importar scheduler: {e}")
+                    print(f"❌ [CHAT WEB] Error importando scheduler: {e}")
+                    # Intentar notificación directa
+                    try:
+                        from notification_system import notification_system
+                        notif_id = notification_system.notify_appointment_created(profesional_id, cita_data)
+                        print(f"✅ [CHAT WEB] Notificación directa enviada: ID #{notif_id}")
+                    except Exception as e2:
+                        print(f"❌ [CHAT WEB] Error en notificación directa: {e2}")
+                        
                 except Exception as e:
-                    print(f"⚠️ [DEBUG] Error enviando notificación: {e}")
-                    # Continuar aunque falle la notificación
+                    print(f"❌ [CHAT WEB] Error enviando notificación: {e}")
+                    import traceback
+                    traceback.print_exc()
+
                 
                 # ✅ 4. LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
                 del conversaciones_activas[clave_conversacion]

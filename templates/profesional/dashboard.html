@@ -179,50 +179,57 @@
             border-left: 4px solid var(--info);
             background: #f8f9fa;
             transition: all 0.2s ease;
+            /* ✅ AGREGAR: Color de texto siempre visible */
+            color: #333333;
         }
-        
+
         .notification-item:hover {
             background: #f0f0f0;
             transform: translateX(2px);
         }
         
         .notification-item.unread {
-            background: #e3f2fd;
+            background: #e3f2fd;  /* Azul muy claro */
             border-left-color: var(--info);
+            color: #333333;  /* Texto oscuro */
         }
-        
+
         .notification-item.warning {
-            background: #fff3cd;
+            background: #fff3cd;  /* Amarillo claro */
             border-left-color: var(--warning);
+            color: #856404;  /* Texto marrón oscuro para contraste */
         }
-        
+
         .notification-item.success {
-            background: #d4edda;
+            background: #d4edda;  /* Verde claro */
             border-left-color: var(--success);
+            color: #155724;  /* Texto verde oscuro */
         }
-        
+
         .notification-item.danger {
-            background: #f8d7da;
+            background: #f8d7da;  /* Rojo claro */
             border-left-color: var(--danger);
+            color: #721c24;  /* Texto rojo oscuro */
         }
-        
+
+        /* ✅ CORRECCIÓN ESPECÍFICA PARA TÍTULO Y MENSAJE */
         .notification-title {
             font-weight: bold;
             margin-bottom: 0.5rem;
-            color: var(--dark);
+            color: #2c3e50;  /* Azul oscuro - siempre visible */
         }
-        
+
         .notification-message {
             font-size: 0.9rem;
-            color: var(--text);
+            color: #34495e;  /* Gris azulado oscuro - siempre visible */
             line-height: 1.5;
             margin-bottom: 0.5rem;
             white-space: pre-line;
         }
-        
+
         .notification-time {
             font-size: 0.75rem;
-            color: var(--text-light);
+            color: #7f8c8d;  /* Gris medio */
             text-align: right;
         }
         
