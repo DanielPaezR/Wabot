@@ -192,7 +192,7 @@ class AppointmentScheduler:
             
             cursor.execute('''
                 SELECT DISTINCT c.profesional_id, p.nombre as profesional_nombre,
-                       COUNT(c.id) as total_citas_hoy
+                    COUNT(c.id) as total_citas_hoy
                 FROM citas c
                 JOIN profesionales p ON c.profesional_id = p.id
                 WHERE c.estado = 'confirmado'
@@ -227,15 +227,26 @@ class AppointmentScheduler:
                         profesional_nombre = prof[1]
                         total_citas = prof[2]
                     
+                    # ✅ VALIDACIÓN CRÍTICA - AGREGAR ESTO
+                    if not profesional_id or profesional_id <= 0:
+                        print(f"   ⚠️ Saltando profesional: ID inválido ({profesional_id})")
+                        continue
+                    
+                    if not profesional_nombre:
+                        print(f"   ⚠️ Saltando profesional {profesional_id}: sin nombre")
+                        continue
+                    
+                    print(f"   👨‍💼 Procesando profesional: {profesional_id} - {profesional_nombre}")
+                    
                     # Crear notificación de resumen del día
                     titulo = "📋 Citas Programadas para Hoy"
                     mensaje = f"""RESUMEN DEL DÍA
 
-Hola {profesional_nombre},
+    Hola {profesional_nombre},
 
-Tienes {total_citas} cita(s) programada(s) para hoy.
+    Tienes {total_citas} cita(s) programada(s) para hoy.
 
-¡Que tengas un excelente día de trabajo!"""
+    ¡Que tengas un excelente día de trabajo!"""
                     
                     metadata = {
                         'tipo': 'cita_hoy',
@@ -251,6 +262,8 @@ Tienes {total_citas} cita(s) programada(s) para hoy.
                     if notif_id:
                         notificaciones_enviadas += 1
                         print(f"   ✅ Notificado {profesional_nombre} ({total_citas} citas)")
+                    else:
+                        print(f"   ❌ Error notificando {profesional_nombre}")
                     
                 except Exception as e:
                     print(f"   ❌ Error notificando profesional: {e}")
