@@ -309,14 +309,21 @@ class AppointmentScheduler:
     # ==================== FUNCIÓN DE CONFIRMACIÓN INMEDIATA ====================
     
     def enviar_confirmacion_inmediata(self, cita_data):
-        """Llamar esta función después de crear una cita"""
+        """Llamar esta función después de crear una cita - VERSIÓN CORREGIDA"""
         try:
-            print(f"📧 Enviando confirmación para cita #{cita_data.get('id')}")
+            print(f"📧 [SCHEDULER] Enviando confirmación para cita #{cita_data.get('id')}")
             
+            # Verificar datos esenciales
+            if not cita_data:
+                print("⚠️ [SCHEDULER] Cita data vacía")
+                return False
+                
             # Verificar que tenga profesional_id
             if 'profesional_id' not in cita_data or not cita_data['profesional_id']:
-                print("⚠️ Cita sin profesional_id, no se puede notificar")
+                print("⚠️ [SCHEDULER] Cita sin profesional_id, no se puede notificar")
                 return False
+            
+            print(f"👨‍💼 [SCHEDULER] Notificando al profesional #{cita_data['profesional_id']}")
             
             # Notificar al profesional sobre la nueva cita
             notif_id = notification_system.notify_appointment_created(
@@ -324,14 +331,14 @@ class AppointmentScheduler:
             )
             
             if notif_id:
-                print(f"👨‍💼 Notificación #{notif_id} enviada al profesional {cita_data['profesional_id']}")
+                print(f"✅ [SCHEDULER] Notificación #{notif_id} enviada al profesional {cita_data['profesional_id']}")
                 return True
             else:
-                print("❌ Error enviando notificación al profesional")
+                print("❌ [SCHEDULER] Error enviando notificación al profesional")
                 return False
                 
         except Exception as e:
-            print(f"❌ Error confirmación: {e}")
+            print(f"❌ [SCHEDULER] Error en confirmación: {e}")
             import traceback
             traceback.print_exc()
             return False

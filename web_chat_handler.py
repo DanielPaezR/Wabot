@@ -867,7 +867,7 @@ def mostrar_ayuda(negocio_id):
     return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - COMPLETAMENTE CORREGIDA"""
+    """Procesar confirmación de la cita - CON NOTIFICACIONES INTEGRADAS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] procesar_confirmacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
@@ -1016,7 +1016,40 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             if cita_id and cita_id > 0:
                 print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
                 
-                # Limpiar conversación ANTES de devolver el mensaje
+                # ✅ 3. ENVIAR NOTIFICACIÓN AL PROFESIONAL (NUEVO CÓDIGO)
+                try:
+                    from scheduler import appointment_scheduler
+                    
+                    # Crear datos completos para notificación
+                    cita_data = {
+                        'id': cita_id,
+                        'cliente_nombre': nombre_cliente,
+                        'cliente_telefono': telefono,
+                        'profesional_id': profesional_id,
+                        'profesional_nombre': profesional_nombre,
+                        'servicio_nombre': servicio_nombre,
+                        'precio': servicio_precio,
+                        'fecha': fecha,
+                        'hora': hora,
+                        'negocio_id': negocio_id,
+                        'estado': 'confirmado'
+                    }
+                    
+                    # Enviar confirmación inmediata al profesional
+                    success = appointment_scheduler.enviar_confirmacion_inmediata(cita_data)
+                    
+                    if success:
+                        print(f"✅ [DEBUG] Notificación enviada al profesional #{profesional_id}")
+                    else:
+                        print(f"⚠️ [DEBUG] Error enviando notificación al profesional")
+                    
+                except ImportError as e:
+                    print(f"⚠️ [DEBUG] No se pudo importar scheduler: {e}")
+                except Exception as e:
+                    print(f"⚠️ [DEBUG] Error enviando notificación: {e}")
+                    # Continuar aunque falle la notificación
+                
+                # ✅ 4. LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
                 del conversaciones_activas[clave_conversacion]
                 
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')

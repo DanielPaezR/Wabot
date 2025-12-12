@@ -3482,6 +3482,12 @@ def manifest():
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
+try:
+    scheduler_thread = iniciar_scheduler_en_segundo_plano()
+    if scheduler_thread:
+        print("✅ Scheduler iniciado exitosamente")
+except Exception as e:
+    print(f"⚠️ No se pudo iniciar scheduler automáticamente: {e}")
 
 if __name__ == '__main__':
     print("🏠 MODO DESARROLLO LOCAL")

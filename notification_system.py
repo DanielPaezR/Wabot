@@ -1,20 +1,19 @@
-# notification_system.py - CORRECCIÓN DE ERROR KeyError: 0
+# notification_system.py - VERSIÓN CORREGIDA COMPLETA
 import os
 import json
 from datetime import datetime, timedelta
 import database as db
 
 class ProfessionalNotificationSystem:
-    """Sistema de notificaciones para profesionales"""
+    """Sistema de notificaciones para profesionales - VERSIÓN CORREGIDA"""
     
     def __init__(self):
-        print("🔔 Sistema de Notificaciones Profesionales")
+        print("🔔 Sistema de Notificaciones Profesionales iniciado")
     
     # ==================== FUNCIONES PRINCIPALES ====================
     
     def notify_appointment_created(self, profesional_id, cita_data):
         """Notificar nueva cita al profesional"""
-        # VALIDACIÓN CRÍTICA
         if not profesional_id or profesional_id <= 0:
             print(f"⚠️ Profesional ID inválido: {profesional_id}")
             return False
@@ -39,8 +38,7 @@ Estado: Confirmado"""
         return self._save_notification_db(profesional_id, titulo, mensaje, 'success', metadata)
     
     def notify_appointment_today(self, profesional_id, cita_data):
-        """Notificar citas de HOY al profesional (llamada desde scheduler)"""
-        # VALIDACIÓN CRÍTICA
+        """Notificar citas de HOY al profesional"""
         if not profesional_id or profesional_id <= 0:
             print(f"⚠️ Profesional ID inválido: {profesional_id}")
             return False
@@ -63,7 +61,6 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}
     
     def notify_appointment_reminder(self, profesional_id, cita_data, hours_before):
         """Recordatorio de cita próxima"""
-        # VALIDACIÓN CRÍTICA
         if not profesional_id or profesional_id <= 0:
             print(f"⚠️ Profesional ID inválido: {profesional_id}")
             return False
@@ -71,7 +68,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}
         if hours_before == 24:
             titulo = "⏰ Recordatorio - Cita Mañana"
             tiempo = "mañana"
-        else:  # 1 hora
+        else:
             titulo = "🚀 Cita Próxima - 1 Hora"
             tiempo = "en 1 hora"
         
@@ -93,8 +90,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
     # ==================== FUNCIONES DE BASE DE DATOS ====================
     
     def _save_notification_db(self, profesional_id, titulo, mensaje, tipo, metadata=None):
-        """Guardar notificación en PostgreSQL - VERSIÓN CORREGIDA"""
-        # VALIDACIÓN CRÍTICA
+        """Guardar notificación en PostgreSQL"""
         if not profesional_id or profesional_id <= 0:
             print(f"❌ Profesional ID inválido: {profesional_id}")
             return False
@@ -107,7 +103,6 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
         try:
             cursor = conn.cursor()
             
-            # Usar CURRENT_DATE porque el campo es DATE
             query = """
                 INSERT INTO notificaciones_profesional 
                 (profesional_id, titulo, mensaje, tipo, leida, metadata, fecha_creacion)
@@ -119,18 +114,8 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
             cursor.execute(query, (profesional_id, titulo, mensaje, tipo, metadata_json))
             
-            # ✅ CORRECCIÓN: Obtener ID de forma segura para PostgreSQL y SQLite
             result = cursor.fetchone()
-            
-            # PostgreSQL devuelve una tupla, SQLite también
-            # En PostgreSQL con RealDictCursor podría ser diccionario, pero aquí usamos cursor normal
-            if result:
-                if isinstance(result, dict):  # Si es diccionario (RealDictCursor)
-                    notif_id = result.get('id') or result.get(0)
-                else:  # Si es tupla o lista
-                    notif_id = result[0] if len(result) > 0 else None
-            else:
-                notif_id = None
+            notif_id = result[0] if result and len(result) > 0 else None
             
             conn.commit()
             
@@ -152,7 +137,9 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                 conn.close()
     
     def get_professional_notifications(self, profesional_id, unread_only=True, limit=20):
-        """Obtener notificaciones del profesional"""
+        """Obtener notificaciones del profesional - VERSIÓN CORREGIDA DEFINITIVA"""
+        print(f"🔔 Obteniendo notificaciones para profesional {profesional_id}")
+        
         if not profesional_id or profesional_id <= 0:
             print(f"⚠️ Profesional ID inválido: {profesional_id}")
             return []
@@ -164,59 +151,60 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
         try:
             cursor = conn.cursor()
             
-            if unread_only:
-                query = """
-                    SELECT id, titulo, mensaje, tipo, fecha_creacion, metadata
-                    FROM notificaciones_profesional
-                    WHERE profesional_id = %s AND leida = FALSE
-                    ORDER BY id DESC
-                    LIMIT %s
-                """
-                cursor.execute(query, (profesional_id, limit))
-            else:
-                query = """
-                    SELECT id, titulo, mensaje, tipo, fecha_creacion, metadata, leida
-                    FROM notificaciones_profesional
-                    WHERE profesional_id = %s
-                    ORDER BY id DESC
-                    LIMIT %s
-                """
-                cursor.execute(query, (profesional_id, limit))
+            # QUERY SIMPLIFICADO Y SEGURO
+            query = """
+                SELECT id, titulo, mensaje, tipo, fecha_creacion, metadata, leida
+                FROM notificaciones_profesional
+                WHERE profesional_id = %s
+                ORDER BY id DESC
+                LIMIT %s
+            """
             
+            cursor.execute(query, (profesional_id, limit))
             rows = cursor.fetchall()
+            
             notifications = []
             
             for row in rows:
-                # PostgreSQL devuelve tuplas, no diccionarios (a menos que uses RealDictCursor)
-                # row[0] = id, row[1] = titulo, row[2] = mensaje, row[3] = tipo, row[4] = fecha_creacion, row[5] = metadata
-                
-                fecha_str = str(row[4]) if len(row) > 4 and row[4] else None
-                
-                notif = {
-                    'id': row[0] if len(row) > 0 else 0,
-                    'titulo': row[1] if len(row) > 1 else '',
-                    'mensaje': row[2] if len(row) > 2 else '',
-                    'tipo': row[3] if len(row) > 3 else 'info',
-                    'fecha_creacion': fecha_str,
-                    'fecha_display': self._format_date_display(fecha_str),
-                    'metadata': json.loads(row[5]) if len(row) > 5 and row[5] else {}
-                }
-                
-                if not unread_only and len(row) > 6:
-                    notif['leida'] = row[6]
-                
-                # Timestamp para ordenar
-                timestamp = notif['metadata'].get('timestamp', '')
                 try:
-                    notif['_timestamp'] = datetime.fromisoformat(timestamp) if timestamp else datetime.min
-                except:
-                    notif['_timestamp'] = datetime.min
-                
-                notifications.append(notif)
+                    # ACCESO SEGURO A TODOS LOS CAMPOS
+                    row_list = list(row)
+                    
+                    notif = {
+                        'id': row_list[0] if len(row_list) > 0 else 0,
+                        'titulo': row_list[1] if len(row_list) > 1 else '',
+                        'mensaje': row_list[2] if len(row_list) > 2 else '',
+                        'tipo': row_list[3] if len(row_list) > 3 else 'info',
+                        'fecha_creacion': str(row_list[4]) if len(row_list) > 4 and row_list[4] else '',
+                        'metadata': json.loads(row_list[5]) if len(row_list) > 5 and row_list[5] else {},
+                        'leida': row_list[6] if len(row_list) > 6 else False
+                    }
+                    
+                    # Formatear fecha para display
+                    notif['fecha_display'] = self._format_date_display(notif['fecha_creacion'])
+                    
+                    # Timestamp para ordenar
+                    timestamp = notif['metadata'].get('timestamp', '')
+                    try:
+                        notif['_timestamp'] = datetime.fromisoformat(timestamp) if timestamp else datetime.min
+                    except:
+                        notif['_timestamp'] = datetime.min
+                    
+                    # Filtrar no leídas si se solicita
+                    if unread_only and notif['leida']:
+                        notifications.append(notif)
+                    elif not unread_only:
+                        notifications.append(notif)
+                        
+                except Exception as e:
+                    print(f"⚠️ Error procesando fila: {e}")
+                    print(f"⚠️ Row: {row}")
+                    continue
             
-            # Ordenar por timestamp real (más reciente primero)
+            # Ordenar por timestamp
             notifications.sort(key=lambda x: x['_timestamp'], reverse=True)
             
+            print(f"✅ {len(notifications)} notificaciones encontradas")
             return notifications
             
         except Exception as e:
@@ -234,24 +222,20 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             return "Hoy"
         
         try:
-            # Parsear fecha (YYYY-MM-DD)
             fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
             hoy = datetime.now().date()
             
-            # Comparar fechas
             if fecha == hoy:
                 return "Hoy"
             elif fecha == hoy - timedelta(days=1):
                 return "Ayer"
             else:
-                # Meses en español
                 meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
                         'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
                 
                 dia = fecha.day
                 mes = meses[fecha.month - 1]
                 
-                # Si es de otro año, mostrar año
                 if fecha.year != hoy.year:
                     return f"{dia} {mes} {fecha.year}"
                 else:
@@ -269,7 +253,6 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
         
         try:
             cursor = conn.cursor()
-            # Usar CURRENT_DATE porque el campo es DATE
             query = """
                 UPDATE notificaciones_profesional
                 SET leida = TRUE, fecha_leida = CURRENT_DATE
@@ -282,8 +265,6 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
         except Exception as e:
             print(f"❌ Error marcando como leída: {str(e)}")
-            import traceback
-            traceback.print_exc()
             return False
         finally:
             if conn:
@@ -319,7 +300,9 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                 conn.close()
     
     def get_unread_count(self, profesional_id):
-        """Contar notificaciones no leídas"""
+        """Contar notificaciones no leídas - VERSIÓN CORREGIDA"""
+        print(f"🔍 Contando notificaciones no leídas para profesional {profesional_id}")
+        
         if not profesional_id or profesional_id <= 0:
             print(f"⚠️ Profesional ID inválido: {profesional_id}")
             return 0
@@ -338,8 +321,17 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             cursor.execute(query, (profesional_id,))
             
             result = cursor.fetchone()
-            # PostgreSQL devuelve una tupla
-            count = result[0] if result and len(result) > 0 else 0
+            
+            # ACCESO SEGURO AL RESULTADO
+            if result:
+                if isinstance(result, (tuple, list)):
+                    count = result[0] if len(result) > 0 else 0
+                else:
+                    count = int(result) if result else 0
+            else:
+                count = 0
+            
+            print(f"✅ {count} notificaciones no leídas encontradas")
             return count
             
         except Exception as e:
