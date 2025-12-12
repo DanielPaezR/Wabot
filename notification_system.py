@@ -1,7 +1,7 @@
-# notification_system.py - VERSIÓN CORREGIDA
+# notification_system.py - VERSIÓN CORREGIDA Y COMPLETA
 import os
 import json
-from datetime import datetime, timedelta  # AÑADE timedelta aquí
+from datetime import datetime, timedelta
 import database as db
 
 class ProfessionalNotificationSystem:
@@ -28,26 +28,40 @@ Estado: Confirmado"""
         metadata = {
             'cita_id': cita_data.get('id'),
             'tipo': 'nueva_cita',
-            'timestamp': datetime.now().isoformat()  # Guardamos hora real en metadata
+            'timestamp': datetime.now().isoformat()
         }
         
         return self._save_notification_db(profesional_id, titulo, mensaje, 'success', metadata)
+    
+    def notify_appointment_today(self, profesional_id, cita_data):
+        """Notificar citas de HOY al profesional (llamada desde scheduler)"""
+        titulo = "📋 Cita de Hoy"
+        mensaje = f"""CITA HOY - {cita_data.get('hora', '')}
+
+Cliente: {cita_data.get('cliente_nombre', 'Cliente')}
+Servicio: {cita_data.get('servicio_nombre', 'Servicio')}
+
+¡Prepárate para la sesión!"""
+
+        metadata = {
+            'cita_id': cita_data.get('id'),
+            'tipo': 'cita_hoy',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return self._save_notification_db(profesional_id, titulo, mensaje, 'info', metadata)
     
     def notify_appointment_reminder(self, profesional_id, cita_data, hours_before):
         """Recordatorio de cita próxima"""
         if hours_before == 24:
             titulo = "⏰ Recordatorio - Cita Mañana"
-            mensaje = f"""RECORDATORIO - CITA MAÑANA
-
-Recuerda tu cita de mañana:
-Hora: {cita_data.get('hora', '')}
-Cliente: {cita_data.get('cliente_nombre', 'Cliente')}
-Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
+            tiempo = "mañana"
         else:  # 1 hora
             titulo = "🚀 Cita Próxima - 1 Hora"
-            mensaje = f"""CITA EN 1 HORA
+            tiempo = "en 1 hora"
+        
+        mensaje = f"""RECORDATORIO - CITA {tiempo.upper()}
 
-Tu cita es en 1 hora:
 Hora: {cita_data.get('hora', '')}
 Cliente: {cita_data.get('cliente_nombre', 'Cliente')}
 Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
@@ -64,7 +78,12 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
     # ==================== FUNCIONES DE BASE DE DATOS ====================
     
     def _save_notification_db(self, profesional_id, titulo, mensaje, tipo, metadata=None):
-        """Guardar notificación en PostgreSQL - USANDO DATE"""
+        """Guardar notificación en PostgreSQL"""
+        # VALIDACIÓN CRÍTICA
+        if not profesional_id or profesional_id <= 0:
+            print(f"⚠️ Profesional ID inválido: {profesional_id}")
+            return False
+        
         conn = db.get_db_connection()
         if not conn:
             print("❌ Error: No hay conexión a la base de datos")
@@ -84,26 +103,34 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else '{}'
             
             cursor.execute(query, (profesional_id, titulo, mensaje, tipo, metadata_json))
-            notif_id = cursor.fetchone()[0]
+            
+            # Obtener ID de forma segura
+            result = cursor.fetchone()
+            notif_id = result[0] if result else None
             
             conn.commit()
             
-            print(f"✅ Notificación #{notif_id} guardada en BD")
-            print(f"   Profesional: {profesional_id}")
-            print(f"   Tipo: {tipo}")
-            print(f"   Título: {titulo}")
-            
-            return notif_id
-            
+            if notif_id:
+                print(f"✅ Notificación #{notif_id} guardada")
+                print(f"   Profesional: {profesional_id}")
+                print(f"   Tipo: {tipo}")
+                print(f"   Título: {titulo}")
+                return notif_id
+            else:
+                print("⚠️ Notificación guardada pero sin ID retornado")
+                return True
+                
         except Exception as e:
             print(f"❌ Error guardando notificación: {e}")
+            import traceback
+            traceback.print_exc()
             conn.rollback()
             return False
         finally:
             if conn:
                 conn.close()
     
-    def get_professional_notifications(self, profesional_id, unread_only=True):
+    def get_professional_notifications(self, profesional_id, unread_only=True, limit=20):
         """Obtener notificaciones del profesional"""
         conn = db.get_db_connection()
         if not conn:
@@ -117,18 +144,19 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                     SELECT id, titulo, mensaje, tipo, fecha_creacion, metadata
                     FROM notificaciones_profesional
                     WHERE profesional_id = %s AND leida = FALSE
-                    ORDER BY id DESC  # Ordenar por ID para ver las más recientes primero
+                    ORDER BY fecha_creacion DESC, id DESC
+                    LIMIT %s
                 """
-                cursor.execute(query, (profesional_id,))
+                cursor.execute(query, (profesional_id, limit))
             else:
                 query = """
                     SELECT id, titulo, mensaje, tipo, fecha_creacion, metadata, leida
                     FROM notificaciones_profesional
                     WHERE profesional_id = %s
-                    ORDER BY id DESC
-                    LIMIT 50
+                    ORDER BY fecha_creacion DESC, id DESC
+                    LIMIT %s
                 """
-                cursor.execute(query, (profesional_id,))
+                cursor.execute(query, (profesional_id, limit))
             
             notifications = []
             for row in cursor.fetchall():
@@ -139,25 +167,29 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                     'titulo': row[1],
                     'mensaje': row[2],
                     'tipo': row[3],
-                    'fecha_creacion': fecha_str,  # Solo fecha
-                    'fecha_display': self._format_date_display(fecha_str),  # Formato amigable
+                    'fecha_creacion': fecha_str,
+                    'fecha_display': self._format_date_display(fecha_str),
                     'metadata': json.loads(row[5]) if row[5] else {}
                 }
+                
                 if not unread_only:
                     notif['leida'] = row[6]
                 
-                # Ordenar por timestamp en metadata si está disponible
-                notif['_timestamp'] = notif['metadata'].get('timestamp', '')
+                # Timestamp para ordenar
+                timestamp = notif['metadata'].get('timestamp', '')
+                notif['_timestamp'] = datetime.fromisoformat(timestamp) if timestamp else datetime.min
                 
                 notifications.append(notif)
             
-            # Ordenar por timestamp real (guardado en metadata) si está disponible
+            # Ordenar por timestamp real (más reciente primero)
             notifications.sort(key=lambda x: x['_timestamp'], reverse=True)
             
             return notifications
             
         except Exception as e:
             print(f"❌ Error obteniendo notificaciones: {e}")
+            import traceback
+            traceback.print_exc()
             return []
         finally:
             if conn:
@@ -176,7 +208,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             # Comparar fechas
             if fecha == hoy:
                 return "Hoy"
-            elif fecha == hoy - timedelta(days=1):  # Aquí está corregido
+            elif fecha == hoy - timedelta(days=1):
                 return "Ayer"
             else:
                 # Meses en español
@@ -217,7 +249,34 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
         except Exception as e:
             print(f"❌ Error marcando como leída: {e}")
+            import traceback
+            traceback.print_exc()
             return False
+        finally:
+            if conn:
+                conn.close()
+    
+    def mark_all_as_read(self, profesional_id):
+        """Marcar TODAS las notificaciones como leídas"""
+        conn = db.get_db_connection()
+        if not conn:
+            return False
+        
+        try:
+            cursor = conn.cursor()
+            query = """
+                UPDATE notificaciones_profesional
+                SET leida = TRUE, fecha_leida = CURRENT_DATE
+                WHERE profesional_id = %s AND leida = FALSE
+            """
+            cursor.execute(query, (profesional_id,))
+            conn.commit()
+            
+            return cursor.rowcount
+            
+        except Exception as e:
+            print(f"❌ Error marcando todas como leídas: {e}")
+            return 0
         finally:
             if conn:
                 conn.close()
