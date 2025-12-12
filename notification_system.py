@@ -314,7 +314,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                 conn.close()
     
     def get_unread_count(self, profesional_id):
-        """Contar notificaciones no leídas - VERSIÓN CORREGIDA"""
+        """Contar notificaciones no leídas - VERSIÓN CORREGIDA DEFINITIVA"""
         print(f"🔍 Contando notificaciones no leídas para profesional {profesional_id}")
         
         if not profesional_id or profesional_id <= 0:
@@ -328,7 +328,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
         try:
             cursor = conn.cursor()
             query = """
-                SELECT COUNT(*) 
+                SELECT COUNT(*) as total
                 FROM notificaciones_profesional
                 WHERE profesional_id = %s AND leida = FALSE
             """
@@ -336,12 +336,26 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
             result = cursor.fetchone()
             
-            # ✅ CORRECCIÓN: Acceso seguro para PostgreSQL con cursor normal
+            # ✅ CORRECCIÓN: Manejar cualquier tipo de resultado
+            count = 0
+            
             if result:
-                # PostgreSQL devuelve: (count,)
-                count = result[0] if len(result) > 0 else 0
-            else:
-                count = 0
+                print(f"🔍 Resultado crudo: {result}")
+                print(f"🔍 Tipo de resultado: {type(result)}")
+                
+                if isinstance(result, dict):
+                    # RealDictCursor devuelve diccionario
+                    count = result.get('total', 0) or result.get('count', 0) or result.get(0, 0)
+                elif isinstance(result, (tuple, list)):
+                    # Cursor normal devuelve tupla/lista
+                    if len(result) > 0:
+                        count = result[0] if result[0] is not None else 0
+                else:
+                    # Otro tipo
+                    try:
+                        count = int(result)
+                    except:
+                        count = 0
             
             print(f"✅ {count} notificaciones no leídas encontradas")
             return count
