@@ -8,32 +8,35 @@ import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import sqlite3  # Para fallback
 
 
 def get_db_connection():
-    """Establecer conexión SOLO a PostgreSQL"""
+    """Establecer conexión a la base de datos (PostgreSQL o SQLite)"""
     database_url = os.getenv('DATABASE_URL')
     
-    # Si hay URL de PostgreSQL, usarla
+    # Si estamos en producción con PostgreSQL
     if database_url and database_url.startswith('postgresql://'):
         try:
-            # Convertir URL para psycopg2 si es necesario
+            # Convertir URL de PostgreSQL para psycopg2
             if database_url.startswith('postgresql://'):
                 database_url = database_url.replace('postgresql://', 'postgres://')
             
-            # Conectar solo con PostgreSQL
+            # Conectar con cursor que retorna diccionarios
             conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-            print("✅ Conectado a PostgreSQL")
             return conn
             
         except Exception as e:
             print(f"❌ Error conectando a PostgreSQL: {e}")
-            # NO hacer fallback, solo retornar None
-            return None
+            print("🔄 Fallback a SQLite...")
+            conn = sqlite3.connect('negocio.db')
+            conn.row_factory = sqlite3.Row
+            return conn
     else:
-        # Si no hay PostgreSQL configurado
-        print("❌ No hay configuración de PostgreSQL en DATABASE_URL")
-        return None
+        # Desarrollo local con SQLite
+        conn = sqlite3.connect('negocio.db')
+        conn.row_factory = sqlite3.Row
+        return conn
 
 
 def is_postgresql():
@@ -42,57 +45,87 @@ def is_postgresql():
     return database_url.startswith('postgresql://')
 
 
+def execute_sql(cursor, sql, params=()):
+    """Ejecutar SQL adaptado para PostgreSQL o SQLite - VERSIÓN MEJORADA"""
+    if is_postgresql():
+        # Reemplazar ? por %s para PostgreSQL
+        sql = sql.replace('?', '%s')
+        # Usar execute directamente para PostgreSQL
+        cursor.execute(sql, params)
+    else:
+        # SQLite
+        cursor.execute(sql, params)
 
 
 def fetch_all(cursor, sql, params=()):
     """Ejecutar SELECT y retornar todos los resultados"""
-    cursor.execute(sql, params)
+    execute_sql(cursor, sql, params)
     results = cursor.fetchall()
-    # PostgreSQL con RealDictCursor ya retorna diccionarios
-    return results
+    
+    if is_postgresql():
+        # PostgreSQL ya retorna diccionarios por RealDictCursor
+        return results
+    else:
+        # SQLite: convertir Row a dict
+        return [dict(row) for row in results]
 
 
 def fetch_one(cursor, sql, params=()):
-    """Ejecutar SELECT y retornar un resultado"""
-    cursor.execute(sql, params)
+    """Ejecutar SELECT y retornar un resultado - VERSIÓN MEJORADA"""
+    execute_sql(cursor, sql, params)
     result = cursor.fetchone()
-    return result  # Ya es diccionario por RealDictCursor
+    
+    if result:
+        if is_postgresql():
+            # PostgreSQL con RealDictCursor retorna diccionarios
+            return dict(result) if hasattr(result, 'keys') else result
+        else:
+            # SQLite: convertir Row a dict
+            return dict(result)
+    return None
+
 
 # =============================================================================
 # INICIALIZACIÓN DE BASE DE DATOS
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos SOLO para PostgreSQL"""
-    print("🔧 INICIANDO INIT_DB - SOLO POSTGRESQL...")
+    """Inicializar base de datos"""
+    print("🔧 INICIANDO INIT_DB - CREANDO ESQUEMA...")
     
     conn = None
     try:
         conn = get_db_connection()
-        if not conn:
-            print("❌ No se pudo conectar a PostgreSQL")
-            return
-            
         cursor = conn.cursor()
         
-        # Crear tablas CON SINTAXIS POSTGRESQL
-        _crear_tablas_postgresql(cursor)
+        # Crear tablas
+        _crear_tablas(cursor)
         print("✅ Tablas creadas/verificadas")
         
         # Insertar datos por defecto
-        _insertar_datos_por_defecto_postgresql(cursor)
-        print("✅ Datos por defecto insertados")
+        try:
+            _insertar_datos_por_defecto(cursor)
+            print("✅ Datos por defecto insertados")
+        except Exception as e:
+            print(f"⚠️ Error en datos por defecto: {e}")
         
         conn.commit()
-        print("🎉 BASE DE DATOS POSTGRESQL INICIALIZADA")
+        
+        # Crear plantillas
+        try:
+            crear_plantillas_personalizadas_para_negocios()
+            print("✅ Plantillas personalizadas creadas")
+        except Exception as e:
+            print(f"⚠️ Error creando plantillas: {e}")
+        
+        print("🎉 BASE DE DATOS INICIALIZADA COMPLETAMENTE")
         
     except Exception as e:
         print(f"❌ Error en init_db: {e}")
-        import traceback
-        traceback.print_exc()
     finally:
         if conn:
             conn.close()
+
 
 def _crear_tablas(cursor):
     """Crear todas las tablas necesarias"""
@@ -1767,52 +1800,97 @@ def crear_profesional_con_usuario(negocio_id, nombre, email, password, especiali
 
 def verificar_usuario(email, password):
     """Verificar credenciales de usuario - VERSIÓN CORREGIDA"""
-    conn = get_db_connection()
-    
-    if is_postgresql():
-        sql = '''
-            SELECT u.*, n.nombre as negocio_nombre 
-            FROM usuarios u 
-            JOIN negocios n ON u.negocio_id = n.id 
-            WHERE u.email = %s AND u.activo = TRUE
-        '''
-    else:
-        sql = '''
-            SELECT u.*, n.nombre as negocio_nombre 
-            FROM usuarios u 
-            JOIN negocios n ON u.negocio_id = n.id 
-            WHERE u.email = ? AND u.activo = TRUE
-        '''
-    
-    usuario = fetch_one(conn.cursor(), sql, (email,))
-    conn.close()
-    
-    if usuario:
-        # SHA256
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+        
+        cursor = conn.cursor()
+        
+        # Buscar usuario por email
+        if is_postgresql():
+            sql = '''
+                SELECT u.*, n.nombre as negocio_nombre 
+                FROM usuarios u 
+                JOIN negocios n ON u.negocio_id = n.id 
+                WHERE u.email = %s AND u.activo = TRUE
+            '''
+        else:
+            sql = '''
+                SELECT u.*, n.nombre as negocio_nombre 
+                FROM usuarios u 
+                JOIN negocios n ON u.negocio_id = n.id 
+                WHERE u.email = ? AND u.activo = TRUE
+            '''
+        
+        cursor.execute(sql, (email,))
+        
+        # Obtener resultado
+        if is_postgresql() and hasattr(cursor, 'fetchone'):
+            usuario = cursor.fetchone()
+        else:
+            usuario = cursor.fetchone()
+        
+        if not usuario:
+            conn.close()
+            return None
+        
+        # Convertir a diccionario si es necesario
+        if hasattr(usuario, 'keys'):  # Es un diccionario (RealDictCursor)
+            usuario_dict = dict(usuario)
+        else:  # Es una tupla
+            usuario_dict = {
+                'id': usuario[0],
+                'negocio_id': usuario[1],
+                'nombre': usuario[2],
+                'email': usuario[3],
+                'password_hash': usuario[4],
+                'rol': usuario[5],
+                'activo': usuario[6],
+                'created_at': usuario[7],
+                'ultimo_login': usuario[8],
+                'negocio_nombre': usuario[9] if len(usuario) > 9 else 'Negocio'
+            }
+        
+        # Verificar contraseña (SHA256)
         import hashlib
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
-        if usuario['password_hash'] == password_hash:
-            # Actualizar último login
-            conn = get_db_connection()
-            if is_postgresql():
-                sql = 'UPDATE usuarios SET ultimo_login = %s WHERE id = %s'
-            else:
-                sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
-            
-            execute_sql(conn.cursor(), sql, (datetime.now(), usuario['id']))
-            conn.commit()
+        if usuario_dict['password_hash'] != password_hash:
             conn.close()
+            return None
+        
+        # ✅ CORRECCIÓN: Actualizar último login usando cursor.execute directamente
+        try:
+            if is_postgresql():
+                update_sql = 'UPDATE usuarios SET ultimo_login = %s WHERE id = %s'
+            else:
+                update_sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
             
-            return {
-                'id': usuario['id'],
-                'nombre': usuario['nombre'],
-                'email': usuario['email'],
-                'rol': usuario['rol'],
-                'negocio_id': usuario['negocio_id'],
-                'negocio_nombre': usuario['negocio_nombre']
-            }
-    return None
+            cursor.execute(update_sql, (datetime.now(), usuario_dict['id']))
+            conn.commit()
+            
+        except Exception as e:
+            print(f"⚠️ Error actualizando último login: {e}")
+            conn.rollback()
+        
+        conn.close()
+        
+        # Retornar solo datos necesarios
+        return {
+            'id': usuario_dict['id'],
+            'nombre': usuario_dict['nombre'],
+            'email': usuario_dict['email'],
+            'rol': usuario_dict['rol'],
+            'negocio_id': usuario_dict['negocio_id'],
+            'negocio_nombre': usuario_dict['negocio_nombre']
+        }
+        
+    except Exception as e:
+        print(f"❌ Error en verificar_usuario: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def obtener_usuarios_por_negocio(negocio_id):
