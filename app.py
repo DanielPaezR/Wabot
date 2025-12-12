@@ -18,6 +18,7 @@ import pytz
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
+from flask import send_from_directory
 
 # Cargar variables de entorno
 load_dotenv()
@@ -3415,6 +3416,11 @@ def api_horarios_disponibles():
 def debug_session():
     """Debug de la sesión actual"""
     return jsonify(dict(session))
+
+@app.route('/manifest.json')
+def manifest():
+    """Genera el manifest.json dinámicamente para PWA"""
+    return send_from_directory('static', 'manifest.json')
 
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
