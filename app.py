@@ -457,10 +457,6 @@ def eliminar_profesional(profesional_id, negocio_id):
 # RUTAS DE AUTENTICACIÓN
 # =============================================================================
 
-@app.route('/')
-def index():
-    return redirect(url_for('login'))
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login para todos los usuarios - VERSIÓN CORREGIDA"""
