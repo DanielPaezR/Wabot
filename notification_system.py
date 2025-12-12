@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime, timedelta
 import database as db
+from psycopg2.extras import RealDictCursor
 
 class ProfessionalNotificationSystem:
     """Sistema de notificaciones para profesionales - VERSIÓN CORREGIDA"""
@@ -101,7 +102,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             return False
         
         try:
-            cursor = conn.cursor()
+            cursor = conn.cursor()  # ✅ Usar cursor NORMAL, no RealDictCursor aquí
             
             query = """
                 INSERT INTO notificaciones_profesional 
@@ -149,7 +150,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             return []
         
         try:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)  # ✅ Usar RealDictCursor
             
             # QUERY SIMPLIFICADO Y SEGURO
             query = """
@@ -167,17 +168,28 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
             for row in rows:
                 try:
-                    # ACCESO SEGURO A TODOS LOS CAMPOS
-                    row_list = list(row)
+                    # ✅ CORRECCIÓN: row ya es un diccionario por RealDictCursor
+                    metadata_value = row['metadata']
+                    
+                    # ⚠️ IMPORTANTE: metadata puede ser string JSON o ya diccionario
+                    if isinstance(metadata_value, dict):
+                        metadata_dict = metadata_value
+                    elif metadata_value:
+                        try:
+                            metadata_dict = json.loads(metadata_value)
+                        except:
+                            metadata_dict = {}
+                    else:
+                        metadata_dict = {}
                     
                     notif = {
-                        'id': row_list[0] if len(row_list) > 0 else 0,
-                        'titulo': row_list[1] if len(row_list) > 1 else '',
-                        'mensaje': row_list[2] if len(row_list) > 2 else '',
-                        'tipo': row_list[3] if len(row_list) > 3 else 'info',
-                        'fecha_creacion': str(row_list[4]) if len(row_list) > 4 and row_list[4] else '',
-                        'metadata': json.loads(row_list[5]) if len(row_list) > 5 and row_list[5] else {},
-                        'leida': row_list[6] if len(row_list) > 6 else False
+                        'id': row['id'],
+                        'titulo': row['titulo'] or '',
+                        'mensaje': row['mensaje'] or '',
+                        'tipo': row['tipo'] or 'info',
+                        'fecha_creacion': str(row['fecha_creacion']) if row['fecha_creacion'] else '',
+                        'metadata': metadata_dict,  # ✅ Ya es diccionario
+                        'leida': row['leida'] or False
                     }
                     
                     # Formatear fecha para display
@@ -191,14 +203,16 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                         notif['_timestamp'] = datetime.min
                     
                     # Filtrar no leídas si se solicita
-                    if unread_only and notif['leida']:
+                    if unread_only and not notif['leida']:
                         notifications.append(notif)
                     elif not unread_only:
                         notifications.append(notif)
                         
                 except Exception as e:
                     print(f"⚠️ Error procesando fila: {e}")
-                    print(f"⚠️ Row: {row}")
+                    print(f"⚠️ Row keys: {list(row.keys())}")
+                    print(f"⚠️ metadata type: {type(row.get('metadata'))}")
+                    print(f"⚠️ metadata value: {row.get('metadata')}")
                     continue
             
             # Ordenar por timestamp
@@ -322,12 +336,10 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
             result = cursor.fetchone()
             
-            # ACCESO SEGURO AL RESULTADO
+            # ✅ CORRECCIÓN: Acceso seguro para PostgreSQL con cursor normal
             if result:
-                if isinstance(result, (tuple, list)):
-                    count = result[0] if len(result) > 0 else 0
-                else:
-                    count = int(result) if result else 0
+                # PostgreSQL devuelve: (count,)
+                count = result[0] if len(result) > 0 else 0
             else:
                 count = 0
             
@@ -336,6 +348,8 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             
         except Exception as e:
             print(f"❌ Error contando notificaciones: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return 0
         finally:
             if conn:
