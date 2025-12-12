@@ -8,35 +8,32 @@ import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import sqlite3  # Para fallback
 
 
 def get_db_connection():
-    """Establecer conexión a la base de datos (PostgreSQL o SQLite)"""
+    """Establecer conexión SOLO a PostgreSQL"""
     database_url = os.getenv('DATABASE_URL')
     
-    # Si estamos en producción con PostgreSQL
+    # Si hay URL de PostgreSQL, usarla
     if database_url and database_url.startswith('postgresql://'):
         try:
-            # Convertir URL de PostgreSQL para psycopg2
+            # Convertir URL para psycopg2 si es necesario
             if database_url.startswith('postgresql://'):
                 database_url = database_url.replace('postgresql://', 'postgres://')
             
-            # Conectar con cursor que retorna diccionarios
+            # Conectar solo con PostgreSQL
             conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+            print("✅ Conectado a PostgreSQL")
             return conn
             
         except Exception as e:
             print(f"❌ Error conectando a PostgreSQL: {e}")
-            print("🔄 Fallback a SQLite...")
-            conn = sqlite3.connect('negocio.db')
-            conn.row_factory = sqlite3.Row
-            return conn
+            # NO hacer fallback, solo retornar None
+            return None
     else:
-        # Desarrollo local con SQLite
-        conn = sqlite3.connect('negocio.db')
-        conn.row_factory = sqlite3.Row
-        return conn
+        # Si no hay PostgreSQL configurado
+        print("❌ No hay configuración de PostgreSQL en DATABASE_URL")
+        return None
 
 
 def is_postgresql():
@@ -45,87 +42,57 @@ def is_postgresql():
     return database_url.startswith('postgresql://')
 
 
-def execute_sql(cursor, sql, params=()):
-    """Ejecutar SQL adaptado para PostgreSQL o SQLite - VERSIÓN MEJORADA"""
-    if is_postgresql():
-        # Reemplazar ? por %s para PostgreSQL
-        sql = sql.replace('?', '%s')
-        # Usar execute directamente para PostgreSQL
-        cursor.execute(sql, params)
-    else:
-        # SQLite
-        cursor.execute(sql, params)
 
 
 def fetch_all(cursor, sql, params=()):
     """Ejecutar SELECT y retornar todos los resultados"""
-    execute_sql(cursor, sql, params)
+    cursor.execute(sql, params)
     results = cursor.fetchall()
-    
-    if is_postgresql():
-        # PostgreSQL ya retorna diccionarios por RealDictCursor
-        return results
-    else:
-        # SQLite: convertir Row a dict
-        return [dict(row) for row in results]
+    # PostgreSQL con RealDictCursor ya retorna diccionarios
+    return results
 
 
 def fetch_one(cursor, sql, params=()):
-    """Ejecutar SELECT y retornar un resultado - VERSIÓN MEJORADA"""
-    execute_sql(cursor, sql, params)
+    """Ejecutar SELECT y retornar un resultado"""
+    cursor.execute(sql, params)
     result = cursor.fetchone()
-    
-    if result:
-        if is_postgresql():
-            # PostgreSQL con RealDictCursor retorna diccionarios
-            return dict(result) if hasattr(result, 'keys') else result
-        else:
-            # SQLite: convertir Row a dict
-            return dict(result)
-    return None
-
+    return result  # Ya es diccionario por RealDictCursor
 
 # =============================================================================
 # INICIALIZACIÓN DE BASE DE DATOS
 # =============================================================================
 
 def init_db():
-    """Inicializar base de datos"""
-    print("🔧 INICIANDO INIT_DB - CREANDO ESQUEMA...")
+    """Inicializar base de datos SOLO para PostgreSQL"""
+    print("🔧 INICIANDO INIT_DB - SOLO POSTGRESQL...")
     
     conn = None
     try:
         conn = get_db_connection()
+        if not conn:
+            print("❌ No se pudo conectar a PostgreSQL")
+            return
+            
         cursor = conn.cursor()
         
-        # Crear tablas
-        _crear_tablas(cursor)
+        # Crear tablas CON SINTAXIS POSTGRESQL
+        _crear_tablas_postgresql(cursor)
         print("✅ Tablas creadas/verificadas")
         
         # Insertar datos por defecto
-        try:
-            _insertar_datos_por_defecto(cursor)
-            print("✅ Datos por defecto insertados")
-        except Exception as e:
-            print(f"⚠️ Error en datos por defecto: {e}")
+        _insertar_datos_por_defecto_postgresql(cursor)
+        print("✅ Datos por defecto insertados")
         
         conn.commit()
-        
-        # Crear plantillas
-        try:
-            crear_plantillas_personalizadas_para_negocios()
-            print("✅ Plantillas personalizadas creadas")
-        except Exception as e:
-            print(f"⚠️ Error creando plantillas: {e}")
-        
-        print("🎉 BASE DE DATOS INICIALIZADA COMPLETAMENTE")
+        print("🎉 BASE DE DATOS POSTGRESQL INICIALIZADA")
         
     except Exception as e:
         print(f"❌ Error en init_db: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         if conn:
             conn.close()
-
 
 def _crear_tablas(cursor):
     """Crear todas las tablas necesarias"""
@@ -1072,7 +1039,7 @@ def obtener_duracion_servicio(negocio_id, servicio_id):
 # =============================================================================
 
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
-    """Agregar nueva cita a la base de datos"""
+    """Agregar nueva cita a la base de datos y enviar confirmación inmediata"""
     print(f"🔍 [DEBUG agregar_cita] Iniciando inserción:")
     print(f"   - negocio_id: {negocio_id}")
     print(f"   - profesional_id: {profesional_id}")
@@ -1088,11 +1055,11 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         return 0
     
     cursor = conn.cursor()
+    cita_id = 0
     
     try:
         print("🔍 [DEBUG] Intentando INSERT...")
         
-        # Para PostgreSQL con RealDictCursor
         sql = '''
             INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
                              fecha, hora, servicio_id, estado)
@@ -1103,30 +1070,193 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
                            fecha, hora, servicio_id))
         
-        # ✅ CORRECCIÓN: Acceder correctamente al resultado
         result = cursor.fetchone()
         
-        # Si usas RealDictRow, accede por nombre de columna
         if hasattr(result, '__getitem__') and isinstance(result, dict):
             cita_id = result['id']
         else:
-            # Si es una tupla normal
             cita_id = result[0] if result else 0
         
         conn.commit()
         
         print(f"✅ [DEBUG] ¡ÉXITO! Cita agregada con ID: {cita_id}")
+        
+        # ✅ ENVIAR CONFIRMACIÓN INMEDIATA
+        if cita_id and cita_id > 0:
+            enviar_confirmacion_despues_de_guardar(cita_id, negocio_id, profesional_id, 
+                                                  cliente_telefono, cliente_nombre, 
+                                                  fecha, hora, servicio_id)
+        
         return cita_id
         
     except Exception as e:
         print(f"❌ [DEBUG] Error CRÍTICO al agregar cita: {e}")
         import traceback
         traceback.print_exc()
+        conn.rollback()
         return 0
     finally:
         if conn:
             conn.close()
         print("🔍 [DEBUG] Conexión cerrada")
+
+def enviar_confirmacion_despues_de_guardar(cita_id, negocio_id, profesional_id, 
+                                         cliente_telefono, cliente_nombre, 
+                                         fecha, hora, servicio_id):
+    """Función auxiliar para enviar confirmación después de guardar"""
+    try:
+        print(f"📧 Preparando confirmación para cita #{cita_id}")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Obtener datos COMPLETOS de la cita
+        sql = '''
+            SELECT 
+                c.*,
+                n.nombre as negocio_nombre,
+                COALESCE(n.direccion, '') as negocio_direccion,
+                p.nombre as profesional_nombre,
+                s.nombre as servicio_nombre,
+                s.precio,
+                s.duracion
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.id = %s
+        '''
+        
+        cursor.execute(sql, (cita_id,))
+        cita_completa = cursor.fetchone()
+        conn.close()
+        
+        if not cita_completa:
+            print(f"❌ No se encontró la cita #{cita_id} para confirmación")
+            return False
+        
+        # Convertir a diccionario
+        if hasattr(cita_completa, 'keys'):
+            cita_dict = dict(cita_completa)
+        else:
+            cita_dict = {
+                'id': cita_id,
+                'negocio_id': negocio_id,
+                'profesional_id': profesional_id,
+                'cliente_telefono': cliente_telefono,
+                'cliente_nombre': cliente_nombre,
+                'fecha': fecha,
+                'hora': hora,
+                'servicio_id': servicio_id,
+                'negocio_nombre': cita_completa[12] if len(cita_completa) > 12 else 'Barbería',
+                'negocio_direccion': cita_completa[13] if len(cita_completa) > 13 else '',
+                'profesional_nombre': cita_completa[14] if len(cita_completa) > 14 else 'Profesional',
+                'servicio_nombre': cita_completa[15] if len(cita_completa) > 15 else 'Servicio',
+                'precio': cita_completa[16] if len(cita_completa) > 16 else 0,
+                'duracion': cita_completa[17] if len(cita_completa) > 17 else 30
+            }
+        
+        # Enviar confirmación via scheduler
+        from scheduler import enviar_confirmacion_inmediata
+        success = enviar_confirmacion_inmediata(cita_dict)
+        
+        if success:
+            print(f"✅ Confirmación SMS enviada para cita #{cita_id}")
+        else:
+            print(f"⚠️ Falló el envío de confirmación para cita #{cita_id}")
+            
+        return success
+        
+    except ImportError:
+        print(f"⚠️ No se pudo importar scheduler para cita #{cita_id}")
+        return False
+    except Exception as e:
+        print(f"⚠️ Error enviando confirmación cita #{cita_id}: {e}")
+        return False
+
+# Añade esta función en database.py, después de agregar_cita:
+
+def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id, 
+                                         cliente_telefono, cliente_nombre, 
+                                         fecha, hora, servicio_id):
+    """Función auxiliar para enviar confirmación inmediata después de crear cita"""
+    try:
+        print(f"📧 [DB] Preparando confirmación inmediata para cita #{cita_id}")
+        
+        # Obtener datos completos de la cita
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        sql = '''
+            SELECT 
+                c.*,
+                n.nombre as negocio_nombre,
+                n.telefono_whatsapp as negocio_telefono,
+                n.direccion as negocio_direccion,
+                p.nombre as profesional_nombre,
+                p.telefono as profesional_telefono,
+                s.nombre as servicio_nombre,
+                s.duracion,
+                s.precio
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.id = %s
+        '''
+        
+        cursor.execute(sql, (cita_id,))
+        cita_completa = cursor.fetchone()
+        conn.close()
+        
+        if not cita_completa:
+            print(f"❌ [DB] No se encontró la cita #{cita_id} para confirmación")
+            return False
+        
+        # Convertir a diccionario
+        if hasattr(cita_completa, 'keys'):
+            cita_dict = dict(cita_completa)
+        else:
+            # Si es tupla, crear diccionario manual
+            cita_dict = {
+                'id': cita_id,
+                'negocio_id': negocio_id,
+                'profesional_id': profesional_id,
+                'cliente_telefono': cliente_telefono,
+                'cliente_nombre': cliente_nombre,
+                'fecha': fecha,
+                'hora': hora,
+                'servicio_id': servicio_id,
+                'negocio_nombre': cita_completa[1] if len(cita_completa) > 1 else 'Negocio',
+                'profesional_nombre': cita_completa[4] if len(cita_completa) > 4 else 'Profesional',
+                'servicio_nombre': cita_completa[6] if len(cita_completa) > 6 else 'Servicio',
+                'duracion': cita_completa[7] if len(cita_completa) > 7 else 30,
+                'precio': cita_completa[8] if len(cita_completa) > 8 else 0,
+                'negocio_telefono': cita_completa[2] if len(cita_completa) > 2 else '',
+                'negocio_direccion': cita_completa[3] if len(cita_completa) > 3 else ''
+            }
+        
+        # Importar y llamar a la función de confirmación del scheduler
+        try:
+            from scheduler import enviar_confirmacion_inmediata
+            success = enviar_confirmacion_inmediata(cita_dict)
+            
+            if success:
+                print(f"✅ [DB] Confirmación inmediata enviada para cita #{cita_id}")
+            else:
+                print(f"⚠️ [DB] Falló el envío de confirmación para cita #{cita_id}")
+                
+            return success
+            
+        except ImportError as e:
+            print(f"⚠️ [DB] No se pudo importar scheduler: {e}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ [DB] Error en confirmación inmediata: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):

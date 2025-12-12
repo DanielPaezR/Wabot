@@ -11,6 +11,8 @@ import os
 from dotenv import load_dotenv
 import threading
 from scheduler import iniciar_scheduler
+import threading
+from scheduler import iniciar_scheduler_en_segundo_plano
 import json
 from functools import wraps
 from database import get_db_connection
@@ -19,6 +21,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
 from flask import send_from_directory
+from notification_system import notification_system
 
 # Cargar variables de entorno
 load_dotenv()
@@ -3406,16 +3409,91 @@ def api_horarios_disponibles():
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
+    
+# =============================================================================
+# RUTAS DE recordatorios
+# =============================================================================
+
+
+def iniciar_tareas_background():
+    """Iniciar tareas en segundo plano al arrancar la aplicación"""
+    try:
+        print("🚀 Iniciando scheduler de recordatorios...")
+        iniciar_scheduler_en_segundo_plano()
+        print("✅ Tareas en segundo plano iniciadas")
+    except Exception as e:
+        print(f"⚠️ Error iniciando tareas en segundo plano: {e}")
+
+# EJECUCIÓN PRINCIPAL
+if __name__ == "__main__":
+    # Iniciar trabajos en segundo plano ANTES de arrancar Flask
+    background_thread = threading.Thread(target=iniciar_tareas_background, daemon=True)
+    background_thread.start()
+    print("✅ Hilo de tareas background iniciado")
+    
+    # Iniciar la app Flask
+    app.run(debug=True, port=5000, use_reloader=False)
 
 # =============================================================================
-# RUTAS DE DEBUG Y TEST
+# RUTAS DE notificaciones
 # =============================================================================
 
+@app.route('/api/profesional/notificaciones', methods=['GET'])
+def get_professional_notifications():
+    """API para obtener notificaciones del profesional"""
+    if 'profesional_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+    
+    profesional_id = session['profesional_id']
+    notificaciones = notification_system.get_professional_notifications(profesional_id)
+    
+    return jsonify({
+        'success': True,
+        'notificaciones': notificaciones,
+        'total_no_leidas': notification_system.get_unread_count(profesional_id)
+    })
 
-@app.route('/debug-session')
-def debug_session():
-    """Debug de la sesión actual"""
-    return jsonify(dict(session))
+@app.route('/api/profesional/notificaciones/<int:notif_id>/leer', methods=['POST'])
+def mark_notification_read(notif_id):
+    """API para marcar notificación como leída"""
+    if notification_system.mark_as_read(notif_id):
+        return jsonify({'success': True})
+    return jsonify({'success': False}), 400
+
+@app.route('/api/profesional/notificaciones/leer-todas', methods=['POST'])
+def mark_all_notifications_read():
+    """API para marcar todas las notificaciones como leídas"""
+    if 'profesional_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+    
+    profesional_id = session['profesional_id']
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Actualizar todas las notificaciones no leídas del profesional
+        cursor.execute('''
+            UPDATE notificaciones_profesional 
+            SET leida = TRUE, fecha_leida = NOW()
+            WHERE profesional_id = %s AND leida = FALSE
+        ''', (profesional_id,))
+        
+        conn.commit()
+        
+        rows_updated = cursor.rowcount
+        
+        return jsonify({
+            'success': True,
+            'message': f'Se marcaron {rows_updated} notificaciones como leídas'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error marcando todas como leídas: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/manifest.json')
 def manifest():
