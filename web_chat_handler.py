@@ -867,7 +867,7 @@ def mostrar_ayuda(negocio_id):
     return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - COMPLETAMENTE CORREGIDA"""
+    """Procesar confirmación de la cita - CON NOTIFICACIONES INTEGRADAS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] procesar_confirmacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
@@ -1016,7 +1016,53 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             if cita_id and cita_id > 0:
                 print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
                 
-                # Limpiar conversación ANTES de devolver el mensaje
+                # ✅ 3. ENVIAR NOTIFICACIÓN AL PROFESIONAL
+                print(f"📧 [CHAT WEB] Preparando notificación para cita #{cita_id}")
+                try:
+                    from scheduler import appointment_scheduler
+                    
+                    # Crear datos completos para notificación
+                    cita_data = {
+                        'id': cita_id,
+                        'cliente_nombre': nombre_cliente,
+                        'cliente_telefono': telefono,
+                        'profesional_id': profesional_id,
+                        'profesional_nombre': profesional_nombre,
+                        'servicio_nombre': servicio_nombre,
+                        'precio': servicio_precio,
+                        'fecha': fecha,
+                        'hora': hora,
+                        'negocio_id': negocio_id,
+                        'estado': 'confirmado'
+                    }
+                    
+                    print(f"📧 [CHAT WEB] Datos para notificación: {cita_data}")
+                    
+                    # Enviar confirmación inmediata al profesional
+                    success = appointment_scheduler.enviar_confirmacion_inmediata(cita_data)
+                    
+                    if success:
+                        print(f"✅ [CHAT WEB] Notificación ENVIADA al profesional #{profesional_id}")
+                    else:
+                        print(f"❌ [CHAT WEB] Error: appointment_scheduler.enviar_confirmacion_inmediata devolvió False")
+                    
+                except ImportError as e:
+                    print(f"❌ [CHAT WEB] Error importando scheduler: {e}")
+                    # Intentar notificación directa
+                    try:
+                        from notification_system import notification_system
+                        notif_id = notification_system.notify_appointment_created(profesional_id, cita_data)
+                        print(f"✅ [CHAT WEB] Notificación directa enviada: ID #{notif_id}")
+                    except Exception as e2:
+                        print(f"❌ [CHAT WEB] Error en notificación directa: {e2}")
+                        
+                except Exception as e:
+                    print(f"❌ [CHAT WEB] Error enviando notificación: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+                
+                # ✅ 4. LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
                 del conversaciones_activas[clave_conversacion]
                 
                 precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
@@ -1933,37 +1979,6 @@ Recibirás recordatorios por correo electrónico.'''
         print(f"❌ Error notificando cita: {e}")
         return False
 
-# =============================================================================
-# FUNCIONES PARA RECORDATORIOS (MIGRADAS DESDE WHATSAPP_HANDLER)
-# =============================================================================
 
-def enviar_recordatorio_24h(cita):
-    """Enviar recordatorio 24 horas antes de la cita - VERSIÓN PARA WEB CHAT"""
-    try:
-        # Esta función ahora debe enviar correo o SMS, no WhatsApp
-        print(f"🔔 [WEB CHAT] Recordatorio 24h para cita #{cita.get('id')}")
-        print(f"   Cliente: {cita.get('cliente_nombre')}")
-        print(f"   Fecha: {cita.get('fecha')} {cita.get('hora')}")
-        
-        # TODO: Implementar envío de correo/SMS aquí
-        # Por ahora solo registramos en consola
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error enviando recordatorio 24h: {e}")
-        return False
 
-def enviar_recordatorio_1h(cita):
-    """Enviar recordatorio 1 hora antes de la cita - VERSIÓN PARA WEB CHAT"""
-    try:
-        print(f"🔔 [WEB CHAT] Recordatorio 1h para cita #{cita.get('id')}")
-        print(f"   Cliente: {cita.get('cliente_nombre')}")
-        print(f"   Hora: {cita.get('hora')} (hoy)")
-        
-        # TODO: Implementar envío de correo/SMS aquí
-        # Por ahora solo registramos en consola
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error enviando recordatorio 1h: {e}")
-        return False
+

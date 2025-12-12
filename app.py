@@ -10,7 +10,8 @@ from web_chat_handler import web_chat_bp
 import os
 from dotenv import load_dotenv
 import threading
-from scheduler import iniciar_scheduler
+from scheduler import iniciar_scheduler_en_segundo_plano
+import threading
 import json
 from functools import wraps
 from database import get_db_connection
@@ -18,6 +19,8 @@ import pytz
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
+from flask import send_from_directory
+from notification_system import notification_system
 
 # Cargar variables de entorno
 load_dotenv()
@@ -3405,49 +3408,98 @@ def api_horarios_disponibles():
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
-
+   
 # =============================================================================
-# RUTAS DE DEBUG Y TEST
+# RUTAS DE notificaciones
 # =============================================================================
 
+@app.route('/api/profesional/notificaciones', methods=['GET'])
+def get_professional_notifications():
+    """API para obtener notificaciones del profesional"""
+    if 'profesional_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+    
+    profesional_id = session['profesional_id']
+    notificaciones = notification_system.get_professional_notifications(profesional_id)
+    
+    return jsonify({
+        'success': True,
+        'notificaciones': notificaciones,
+        'total_no_leidas': notification_system.get_unread_count(profesional_id)
+    })
 
-@app.route('/debug-session')
-def debug_session():
-    """Debug de la sesión actual"""
-    return jsonify(dict(session))
+@app.route('/api/profesional/notificaciones/<int:notif_id>/leer', methods=['POST'])
+def mark_notification_read(notif_id):
+    """API para marcar notificación como leída"""
+    if notification_system.mark_as_read(notif_id):
+        return jsonify({'success': True})
+    return jsonify({'success': False}), 400
+
+@app.route('/api/profesional/notificaciones/leer-todas', methods=['POST'])
+def mark_all_notifications_read():
+    """API para marcar todas las notificaciones como leídas"""
+    if 'profesional_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+    
+    profesional_id = session['profesional_id']
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Actualizar todas las notificaciones no leídas del profesional
+        cursor.execute('''
+            UPDATE notificaciones_profesional 
+            SET leida = TRUE, fecha_leida = NOW()
+            WHERE profesional_id = %s AND leida = FALSE
+        ''', (profesional_id,))
+        
+        conn.commit()
+        
+        rows_updated = cursor.rowcount
+        
+        return jsonify({
+            'success': True,
+            'message': f'Se marcaron {rows_updated} notificaciones como leídas'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error marcando todas como leídas: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/manifest.json')
+def manifest():
+    """Genera el manifest.json dinámicamente para PWA"""
+    return send_from_directory('static', 'manifest.json')
 
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
 
 # =============================================================================
-# INICIALIZACIÓN - EJECUTAR SIEMPRE
+# EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
+try:
+    scheduler_thread = iniciar_scheduler_en_segundo_plano()
+    if scheduler_thread:
+        print("✅ Scheduler iniciado exitosamente")
+except Exception as e:
+    print(f"⚠️ No se pudo iniciar scheduler automáticamente: {e}")
 
-def initialize_app():
-    """Inicializar la aplicación - EJECUTAR SIEMPRE"""
-    print("🚀 INICIALIZANDO APLICACIÓN...")
-    
-    try:
-        db.init_db()
-        print("✅ Base de datos inicializada")
-    except Exception as e:
-        print(f"⚠️ Error en init_db: {e}")
-
-    try:
-        scheduler_thread = threading.Thread(target=iniciar_scheduler)
-        scheduler_thread.daemon = True
-        scheduler_thread.start()
-        print("✅ Scheduler iniciado")
-    except Exception as e:
-        print(f"⚠️ Error en scheduler: {e}")
-
-# ✅ INICIALIZAR SIEMPRE - SIN IMPORTAR CÓMO SE CARGUE EL MÓDULO
-print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
-initialize_app()
-
-# ✅ SALTO DE LÍNEA OBLIGATORIO AQUÍ
 if __name__ == '__main__':
+    print("🏠 MODO DESARROLLO LOCAL")
+    
+    # Para desarrollo local: Iniciar scheduler
+    try:
+        iniciar_scheduler_en_segundo_plano()
+        print("✅ Scheduler iniciado para desarrollo local")
+    except Exception as e:
+        print(f"⚠️ Error iniciando scheduler local: {e}")
+    
+    # Iniciar Flask
     port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")
     app.run(host='0.0.0.0', port=port, debug=False)

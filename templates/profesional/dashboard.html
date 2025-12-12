@@ -110,6 +110,151 @@
         .btn:active {
             transform: scale(0.98);
         }
+
+        /* NOTIFICATIONS BADGE */
+        .notification-btn {
+            position: relative;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        /* NOTIFICATIONS PANEL */
+        .notifications-panel {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 2px solid #e0e0e0;
+        }
+        
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .notifications-header h3 {
+            font-size: 1.1rem;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        #notifications-list {
+            max-height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .notification-item {
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--info);
+            background: #f8f9fa;
+            transition: all 0.2s ease;
+            /* ✅ AGREGAR: Color de texto siempre visible */
+            color: #333333;
+        }
+
+        .notification-item:hover {
+            background: #f0f0f0;
+            transform: translateX(2px);
+        }
+        
+        .notification-item.unread {
+            background: #e3f2fd;  /* Azul muy claro */
+            border-left-color: var(--info);
+            color: #333333;  /* Texto oscuro */
+        }
+
+        .notification-item.warning {
+            background: #fff3cd;  /* Amarillo claro */
+            border-left-color: var(--warning);
+            color: #856404;  /* Texto marrón oscuro para contraste */
+        }
+
+        .notification-item.success {
+            background: #d4edda;  /* Verde claro */
+            border-left-color: var(--success);
+            color: #155724;  /* Texto verde oscuro */
+        }
+
+        .notification-item.danger {
+            background: #f8d7da;  /* Rojo claro */
+            border-left-color: var(--danger);
+            color: #721c24;  /* Texto rojo oscuro */
+        }
+
+        /* ✅ CORRECCIÓN ESPECÍFICA PARA TÍTULO Y MENSAJE */
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;  /* Azul oscuro - siempre visible */
+        }
+
+        .notification-message {
+            font-size: 0.9rem;
+            color: #34495e;  /* Gris azulado oscuro - siempre visible */
+            line-height: 1.5;
+            margin-bottom: 0.5rem;
+            white-space: pre-line;
+        }
+
+        .notification-time {
+            font-size: 0.75rem;
+            color: #7f8c8d;  /* Gris medio */
+            text-align: right;
+        }
+        
+        .notification-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .btn-mark-read {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            background: var(--info);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .empty-notifications {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-light);
+        }
         
         /* STATS CARDS MOBILE */
         .stats {
@@ -620,6 +765,15 @@
                 border-color: #555;
                 color: var(--text);
             }
+            
+            .notifications-panel {
+                background: #2d2d2d;
+                border-color: #444;
+            }
+            
+            .notification-item {
+                background: #3d3d3d;
+            }
         }
 
         /* ORIENTATION LANDSCAPE */
@@ -740,9 +894,33 @@
                 <p>{{ session.negocio_nombre }} - Tu agenda para hoy</p>
             </div>
             <div class="nav-buttons">
+                <!-- Botón de notificaciones con badge -->
+                <button class="btn btn-info notification-btn" onclick="toggleNotifications()">
+                    🔔
+                    <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+                </button>
                 <button class="btn btn-info" onclick="openPasswordModal()">🔑 Cambiar</button>
                 <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="btn btn-success">📊 Stats</a>
                 <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Salir</a>
+            </div>
+        </div>
+        
+        <!-- Panel de notificaciones (oculto inicialmente) -->
+        <div id="notificationsPanel" class="notifications-panel" style="display: none;">
+            <div class="notifications-header">
+                <h3>🔔 Notificaciones</h3>
+                <div>
+                    <button class="btn btn-sm btn-info" onclick="loadNotifications()">🔄</button>
+                    <button class="btn btn-sm btn-success" onclick="markAllAsRead()">✓ Leer todas</button>
+                </div>
+            </div>
+            <div id="notificationsList">
+                <!-- Notificaciones se cargarán aquí -->
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Cargando...</span>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -820,6 +998,172 @@
     </div>
 
     <script>
+        // ==================== FUNCIONES DE NOTIFICACIONES WEB ====================
+        
+        let notificationsOpen = false;
+        
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationsPanel');
+            notificationsOpen = !notificationsOpen;
+            
+            if (notificationsOpen) {
+                panel.style.display = 'block';
+                loadNotifications();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        async function loadNotifications() {
+            const container = document.getElementById('notificationsList');
+            
+            // Mostrar loading
+            container.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Cargando...</span>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/profesional/notificaciones');
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderNotifications(data.notificaciones);
+                    updateBadge(data.total_no_leidas);
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-notifications">
+                            <p>❌ Error al cargar notificaciones</p>
+                            <button class="btn btn-sm btn-info" onclick="loadNotifications()">
+                                Reintentar
+                            </button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando notificaciones:', error);
+                container.innerHTML = `
+                    <div class="empty-notifications">
+                        <p>⚠️ Error de conexión</p>
+                        <button class="btn btn-sm btn-info" onclick="loadNotifications()">
+                            Reintentar
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderNotifications(notificaciones) {
+            const container = document.getElementById('notificationsList');
+            
+            if (!notificaciones || notificaciones.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-notifications">
+                        <p>📭 No tienes notificaciones nuevas</p>
+                        <small class="text-muted">Recibirás notificaciones de nuevas citas y recordatorios</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            notificaciones.forEach(notif => {
+                const tipoClase = notif.tipo || 'info';
+                const fechaDisplay = notif.fecha_display || notif.fecha_creacion || 'Hoy';
+                
+                html += `
+                <div class="notification-item ${tipoClase} unread" data-id="${notif.id}">
+                    <div class="notification-title">${notif.titulo || 'Notificación'}</div>
+                    <div class="notification-message">${(notif.mensaje || '').replace(/\n/g, '<br>')}</div>
+                    <div class="notification-time">${fechaDisplay}</div>
+                    <div class="notification-actions">
+                        <button class="btn-mark-read" onclick="markAsRead(${notif.id})">
+                            ✓ Marcar como leída
+                        </button>
+                    </div>
+                </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function updateBadge(count) {
+            const badge = document.getElementById('notificationBadge');
+            
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'flex';
+                
+                // Si hay notificaciones y están cerradas, animar
+                if (!notificationsOpen) {
+                    badge.style.animation = 'pulse 2s infinite';
+                }
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        
+        async function markAsRead(notificationId) {
+            try {
+                const response = await fetch(`/api/profesional/notificaciones/${notificationId}/leer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Remover la notificación de la lista
+                    const notifElement = document.querySelector(`[data-id="${notificationId}"]`);
+                    if (notifElement) {
+                        notifElement.classList.remove('unread');
+                        notifElement.style.opacity = '0.7';
+                        setTimeout(() => {
+                            notifElement.remove();
+                            // Recargar conteo
+                            loadNotifications();
+                        }, 500);
+                    }
+                }
+            } catch (error) {
+                console.error('Error marcando como leída:', error);
+            }
+        }
+        
+        async function markAllAsRead() {
+            try {
+                const response = await fetch('/api/profesional/notificaciones/leer-todas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Recargar notificaciones
+                    loadNotifications();
+                    showNotification('✅ Todas las notificaciones marcadas como leídas');
+                }
+            } catch (error) {
+                console.error('Error marcando todas como leídas:', error);
+            }
+        }
+        
+        // Cargar notificaciones al inicio
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotifications();
+            // Recargar cada 30 segundos
+            setInterval(loadNotifications, 30000);
+        });
+        
+        // ==================== FUNCIONES EXISTENTES ====================
+        
         // Funciones para el modal de contraseña
         function openPasswordModal() {
             document.getElementById('passwordModal').style.display = 'flex';
@@ -1032,6 +1376,16 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.getElementById('passwordModal').style.display === 'flex') {
                 closePasswordModal();
+            }
+        });
+
+        // Cerrar panel de notificaciones al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('notificationsPanel');
+            const btn = document.querySelector('.notification-btn');
+            
+            if (notificationsOpen && panel && !panel.contains(e.target) && !btn.contains(e.target)) {
+                toggleNotifications();
             }
         });
 

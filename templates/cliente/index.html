@@ -2,8 +2,28 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agendar Cita - {{ negocio.nombre }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WaBot - {{ negocio.nombre }}</title>
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WaBot">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/icon-180x180.png') }}">
+    <link rel="apple-touch-icon" sizes="167x167" href="{{ url_for('static', filename='icons/icon-167x167.png') }}">
+
+    <!-- Microsoft Tile -->
+    <meta name="msapplication-TileColor" content="#007bff">
+    <meta name="msapplication-TileImage" content="{{ url_for('static', filename='icons/icon-144x144.png') }}">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/icon-16x16.png') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='icons/favicon.ico') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -15,49 +35,114 @@
             --dark-bg: #343a40;
             --user-msg-bg: #007bff;
             --bot-msg-bg: #e9ecef;
+            --header-height: 80px; /* Altura fija para el header */
+        }
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Previene scroll general */
         }
         
         body {
             background-color: #f5f5f5;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation; /* Mejora rendimiento táctil */
         }
         
         .chat-container {
             max-width: 500px;
-            margin: 20px auto;
+            margin: 0 auto;
             border: 1px solid #ddd;
             border-radius: 15px;
             overflow: hidden;
             box-shadow: 0 5px 20px rgba(0,0,0,0.1);
             background-color: white;
-            height: 85vh;
+            height: 100vh; /* Ocupa toda la altura de la ventana */
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         
+        /* Header fijo mejorado */
         .chat-header {
             background: linear-gradient(135deg, var(--primary-color), #0056b3);
             color: white;
-            padding: 20px;
+            padding: 15px 20px;
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            flex-shrink: 0; /* No se encoge */
+            min-height: var(--header-height);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .chat-header h5 {
             margin: 0;
             font-weight: 600;
+            font-size: 1.2rem;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 10px;
         }
         
         .chat-header small {
             opacity: 0.9;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
+            margin-top: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 10px;
         }
         
+        /* Área de mensajes con scroll */
         .chat-messages {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 20px;
             background-color: #fafafa;
+            -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+            padding-top: 10px; /* Espacio después del header */
+        }
+        
+        /* Aseguramos que el primer mensaje tenga espacio después del header */
+        .chat-messages::before {
+            content: '';
+            display: block;
+            height: 5px;
+        }
+        
+        /* Mejor scrollbar */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
         
         .message {
@@ -67,6 +152,7 @@
             max-width: 80%;
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
+            line-height: 1.4;
         }
         
         @keyframes fadeIn {
@@ -111,6 +197,7 @@
             border: 1px solid #e0e0e0;
             transition: all 0.3s;
             cursor: pointer;
+            font-size: 0.95rem;
         }
         
         .menu-option:hover {
@@ -130,15 +217,17 @@
         }
         
         .opcion-btn {
-            min-width: 120px;
+            flex: 0 0 calc(50% - 4px);
             text-align: left;
-            padding: 10px 14px;
+            padding: 10px 12px;
             border-radius: 8px;
             transition: all 0.2s;
             cursor: pointer;
             background: white;
             border: 1px solid #dee2e6;
             color: #495057;
+            font-size: 0.9rem;
+            min-height: 44px; /* Tamaño táctil mínimo */
         }
         
         .opcion-btn:hover {
@@ -157,14 +246,16 @@
         }
         
         .hora-btn {
-            min-width: 75px;
-            padding: 8px 10px;
+            flex: 0 0 calc(33.333% - 4px);
+            padding: 10px 5px;
             border-radius: 6px;
             cursor: pointer;
             background: white;
             border: 1px solid #28a745;
             color: #28a745;
             transition: all 0.2s;
+            font-size: 0.85rem;
+            min-height: 44px; /* Tamaño táctil mínimo */
         }
         
         .hora-btn:hover {
@@ -186,11 +277,14 @@
         }
         
         .nav-btn {
-            padding: 6px 12px;
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 8px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.85rem;
             transition: all 0.2s;
+            min-height: 44px; /* Tamaño táctil mínimo */
         }
         
         .nav-next {
@@ -222,10 +316,16 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
+        /* Footer fijo */
         .chat-input {
             padding: 15px;
             background-color: white;
             border-top: 1px solid #ddd;
+            flex-shrink: 0; /* No se encoge */
+            position: sticky;
+            bottom: 0;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
         }
         
         .typing-indicator {
@@ -256,9 +356,10 @@
             color: #6c757d;
             text-align: center;
             margin-top: 8px;
-            padding: 5px;
+            padding: 8px;
             background: #f8f9fa;
-            border-radius: 4px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
         }
         
         /* Confirmación */
@@ -270,11 +371,14 @@
         }
         
         .confirm-btn {
-            padding: 10px 20px;
+            flex: 1;
+            padding: 12px 10px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 500;
             transition: all 0.2s;
+            min-height: 44px; /* Tamaño táctil mínimo */
+            font-size: 0.9rem;
         }
         
         .confirm-yes {
@@ -301,42 +405,141 @@
             opacity: 0.9;
         }
         
-        /* Responsive */
+        /* Botones de acción */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            min-height: 40px;
+        }
+        
+        /* Input mejorado para móviles */
+        .form-control {
+            font-size: 16px !important; /* Previene zoom en iOS */
+            min-height: 44px; /* Tamaño táctil mínimo */
+            padding: 10px 15px;
+        }
+        
+        .btn {
+            min-height: 44px; /* Tamaño táctil mínimo */
+            padding: 10px 15px;
+            font-size: 0.95rem;
+        }
+        
+        /* Estilos específicos para pantallas muy pequeñas */
         @media (max-width: 576px) {
             .chat-container {
                 margin: 0;
-                height: 100vh;
                 border-radius: 0;
                 max-width: 100%;
+                border: none;
+                box-shadow: none;
+            }
+            
+            .chat-header {
+                padding: 12px 15px;
+                min-height: 70px;
+            }
+            
+            .chat-header h5 {
+                font-size: 1.1rem;
+            }
+            
+            .chat-header small {
+                font-size: 0.75rem;
+            }
+            
+            .chat-messages {
+                padding: 15px;
             }
             
             .menu-option, .opcion-btn {
-                flex: 0 0 100%;
+                flex: 0 0 100% !important;
             }
             
             .hora-btn {
-                min-width: 70px;
-                padding: 6px 8px;
+                flex: 0 0 calc(50% - 3px) !important;
                 font-size: 0.9rem;
+                padding: 10px 5px;
             }
             
-            .confirmacion-opciones {
-                flex-direction: column;
+            .nav-btn {
+                flex: 0 0 calc(50% - 3px) !important;
+                font-size: 0.8rem;
+                min-width: auto;
             }
+            
+            .confirm-btn {
+                font-size: 0.85rem;
+                padding: 10px 8px;
+            }
+            
+            .message {
+                max-width: 90%;
+                padding: 10px 12px;
+                font-size: 0.95rem;
+            }
+            
+            .chat-input {
+                padding: 12px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 6px;
+            }
+            
+            .action-btn {
+                width: 100%;
+            }
+        }
+        
+        /* Estilos para pantallas más grandes */
+        @media (min-width: 768px) {
+            .chat-container {
+                margin: 20px auto;
+                height: 90vh;
+                max-height: 800px;
+            }
+        }
+        
+        /* Prevenir selección de texto en botones */
+        button {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* Animación suave para todos los botones */
+        button, .menu-option, .opcion-btn, .hora-btn, .nav-btn, .confirm-btn {
+            transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        button:active, .menu-option:active, .opcion-btn:active, .hora-btn:active, .nav-btn:active, .confirm-btn:active {
+            transform: scale(0.98);
         }
     </style>
 </head>
 <body>
     <div class="chat-container">
+        <!-- Header fijo siempre visible -->
         <div class="chat-header">
             <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
             <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
         </div>
         
+        <!-- Área de mensajes con scroll -->
         <div class="chat-messages" id="chatMessages">
             <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
         </div>
         
+        <!-- Footer fijo -->
         <div class="chat-input">
             <div class="input-group">
                 <input type="text" class="form-control" id="userInput" 
@@ -346,11 +549,11 @@
                     <i class="fas fa-paper-plane"></i> Enviar
                 </button>
             </div>
-            <div class="mt-2 d-flex justify-content-between">
-                <button class="btn btn-sm btn-outline-secondary" id="resetButton">
+            <div class="action-buttons mt-2">
+                <button class="btn btn-outline-secondary action-btn" id="resetButton">
                     <i class="fas fa-redo"></i> Reiniciar
                 </button>
-                <button class="btn btn-sm btn-outline-info" id="helpButton">
+                <button class="btn btn-outline-info action-btn" id="helpButton">
                     <i class="fas fa-question"></i> Ayuda
                 </button>
             </div>
@@ -372,15 +575,51 @@
             const negocioId = $('#negocioId').val();
             const negocioNombre = $('#negocioNombre').val();
             
-            // Iniciar conversación automáticamente
+            // Asegurar que el header sea visible al inicio
+            function ensureHeaderVisible() {
+                // Scroll al inicio para ver el header
+                chatMessages.scrollTop(0);
+                
+                // Agregar espacio extra para el header en móviles
+                if ($(window).width() <= 576) {
+                    const headerHeight = $('.chat-header').outerHeight();
+                    chatMessages.css('padding-top', '15px');
+                    
+                    // Ajustar el contenedor para que no quede oculto por el header
+                    const firstMessage = chatMessages.children('.message').first();
+                    if (firstMessage.length) {
+                        const messageTop = firstMessage.offset().top;
+                        const containerTop = chatMessages.offset().top;
+                        if (messageTop < containerTop + headerHeight + 20) {
+                            chatMessages.scrollTop(0);
+                        }
+                    }
+                }
+            }
+            
+            // Llamar al inicio y después de cada actualización
+            ensureHeaderVisible();
+            
+            // Iniciar conversación automáticamente después de asegurar que el header es visible
             setTimeout(function() {
                 userInput.val('hola');
                 sendMessage();
-            }, 500);
+            }, 800); // Un poco más de tiempo para que el header sea visible
             
-            // Hacer scroll al final
+            // Hacer scroll al final pero respetando el header
             function scrollToBottom() {
-                chatMessages.scrollTop(chatMessages[0].scrollHeight);
+                setTimeout(function() {
+                    const scrollHeight = chatMessages[0].scrollHeight;
+                    const height = chatMessages[0].clientHeight;
+                    const maxScrollTop = scrollHeight - height;
+                    
+                    // No hacer scroll completo si hay pocos mensajes
+                    if (scrollHeight <= height * 1.5) {
+                        chatMessages.scrollTop(0);
+                    } else {
+                        chatMessages.scrollTop(scrollHeight);
+                    }
+                }, 100);
             }
             
             // Mostrar indicador de "escribiendo"
@@ -442,6 +681,7 @@
                 }
                 
                 scrollToBottom();
+                ensureHeaderVisible(); // Re-asegurar que el header sea visible
             }
             
             // Mostrar opciones como botones
@@ -586,14 +826,20 @@
                 sendMessage();
             });
             
-            // Scroll inicial
-            scrollToBottom();
-            
             // Auto-focus en el input
             userInput.focus();
             
-            // Asegurar scroll cuando se añaden elementos
-            chatMessages.on('DOMNodeInserted', scrollToBottom);
+            // Asegurar que el header sea visible al cambiar tamaño de ventana
+            $(window).resize(function() {
+                ensureHeaderVisible();
+            });
+            
+            // Prevenir comportamientos no deseados en móviles
+            document.addEventListener('touchmove', function(e) {
+                if (e.scale !== 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
         });
     </script>
 </body>
