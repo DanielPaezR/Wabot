@@ -3507,19 +3507,16 @@ def initialize_app():
     except Exception as e:
         print(f"⚠️ Error en init_db: {e}")
 
-    try:
-        scheduler_thread = threading.Thread(target=iniciar_scheduler_en_segundo_plano)
-        scheduler_thread.daemon = True
-        scheduler_thread.start()
-        print("✅ Scheduler iniciado")
-    except Exception as e:
-        print(f"⚠️ Error en scheduler: {e}")
+    # El scheduler se inicia automáticamente al importar los módulos
+    # No necesitamos iniciarlo manualmente aquí
 
-# ✅ INICIALIZAR SIEMPRE - SIN IMPORTAR CÓMO SE CARGUE EL MÓDULO
-print("🔧 INICIALIZANDO APLICACIÓN FLASK...")
+# ✅ Inicializar (se ejecuta al importar el módulo)
 initialize_app()
 
-# ✅ SALTO DE LÍNEA OBLIGATORIO AQUÍ
+# =============================================================================
+# EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
+# =============================================================================
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")
