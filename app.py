@@ -10,9 +10,8 @@ from web_chat_handler import web_chat_bp
 import os
 from dotenv import load_dotenv
 import threading
-from scheduler import iniciar_scheduler
-import threading
 from scheduler import iniciar_scheduler_en_segundo_plano
+import threading
 import json
 from functools import wraps
 from database import get_db_connection
@@ -3519,7 +3518,7 @@ def initialize_app():
         print(f"⚠️ Error en init_db: {e}")
 
     try:
-        scheduler_thread = threading.Thread(target=iniciar_scheduler)
+        scheduler_thread = threading.Thread(target=iniciar_scheduler_en_segundo_plano)
         scheduler_thread.daemon = True
         scheduler_thread.start()
         print("✅ Scheduler iniciado")
