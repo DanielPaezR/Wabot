@@ -3423,16 +3423,6 @@ def iniciar_tareas_background():
     except Exception as e:
         print(f"⚠️ Error iniciando tareas en segundo plano: {e}")
 
-# EJECUCIÓN PRINCIPAL
-if __name__ == "__main__":
-    # Iniciar trabajos en segundo plano ANTES de arrancar Flask
-    background_thread = threading.Thread(target=iniciar_tareas_background, daemon=True)
-    background_thread.start()
-    print("✅ Hilo de tareas background iniciado")
-    
-    # Iniciar la app Flask
-    app.run(debug=True, port=5000, use_reloader=False)
-
 # =============================================================================
 # RUTAS DE notificaciones
 # =============================================================================
