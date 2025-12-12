@@ -3408,21 +3408,7 @@ def api_horarios_disponibles():
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
-    
-# =============================================================================
-# RUTAS DE recordatorios
-# =============================================================================
-
-
-def iniciar_tareas_background():
-    """Iniciar tareas en segundo plano al arrancar la aplicación"""
-    try:
-        print("🚀 Iniciando scheduler de recordatorios...")
-        iniciar_scheduler_en_segundo_plano()
-        print("✅ Tareas en segundo plano iniciadas")
-    except Exception as e:
-        print(f"⚠️ Error iniciando tareas en segundo plano: {e}")
-
+   
 # =============================================================================
 # RUTAS DE notificaciones
 # =============================================================================
@@ -3494,30 +3480,20 @@ def manifest():
 # =============================================================================
 
 # =============================================================================
-# INICIALIZACIÓN - EJECUTAR SIEMPRE
-# =============================================================================
-
-def initialize_app():
-    """Inicializar la aplicación - EJECUTAR SIEMPRE"""
-    print("🚀 INICIALIZANDO APLICACIÓN...")
-    
-    try:
-        db.init_db()
-        print("✅ Base de datos inicializada")
-    except Exception as e:
-        print(f"⚠️ Error en init_db: {e}")
-
-    # El scheduler se inicia automáticamente al importar los módulos
-    # No necesitamos iniciarlo manualmente aquí
-
-# ✅ Inicializar (se ejecuta al importar el módulo)
-initialize_app()
-
-# =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
 
 if __name__ == '__main__':
+    print("🏠 MODO DESARROLLO LOCAL")
+    
+    # Para desarrollo local: Iniciar scheduler
+    try:
+        iniciar_scheduler_en_segundo_plano()
+        print("✅ Scheduler iniciado para desarrollo local")
+    except Exception as e:
+        print(f"⚠️ Error iniciando scheduler local: {e}")
+    
+    # Iniciar Flask
     port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")
     app.run(host='0.0.0.0', port=port, debug=False)
