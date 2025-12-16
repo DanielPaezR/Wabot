@@ -1293,13 +1293,12 @@ def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id,
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
-    """Obtener todas las citas de un profesional en un día específico - VERSIÓN CORREGIDA"""
+    """Obtener todas las citas de un profesional en un día específico - VERSIÓN FIX PARA DICCIONARIOS"""
     conn = get_db_connection()
     
     if is_postgresql():
-        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
         sql = '''
-            SELECT c.hora, s.duracion 
+            SELECT c.hora, s.duracion, c.estado
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
@@ -1309,7 +1308,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
         '''
     else:
         sql = '''
-            SELECT c.hora, s.duracion 
+            SELECT c.hora, s.duracion, c.estado
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ? 
@@ -1317,8 +1316,36 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             ORDER BY c.hora
         '''
     
-    citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
+    cursor = conn.cursor()
+    
+    if is_postgresql():
+        cursor.execute(sql, (negocio_id, profesional_id, fecha))
+    else:
+        cursor.execute(sql, (negocio_id, profesional_id, fecha))
+    
+    resultados = cursor.fetchall()
     conn.close()
+    
+    # ✅ FIX: Convertir RealDictRow a diccionario regular para consistencia
+    citas = []
+    for row in resultados:
+        if hasattr(row, '_asdict'):  # Para namedtuple
+            row = row._asdict()
+        elif hasattr(row, '__dict__'):  # Para objetos
+            row = dict(row.__dict__)
+        elif isinstance(row, tuple):  # Para tuplas
+            # Convertir tupla a diccionario
+            keys = ['hora', 'duracion', 'estado']
+            row_dict = {}
+            for i, key in enumerate(keys):
+                if i < len(row):
+                    row_dict[key] = row[i]
+            row = row_dict
+        elif not isinstance(row, dict):  # Para otros tipos
+            row = dict(row) if hasattr(row, 'items') else {'hora': str(row)}
+        
+        citas.append(row)
+    
     return citas
 
 
