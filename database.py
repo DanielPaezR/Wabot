@@ -1293,13 +1293,13 @@ def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id,
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
-    """Obtener todas las citas de un profesional en un día específico - VERSIÓN CORREGIDA"""
+    """Obtener todas las citas de un profesional en un día específico - VERSIÓN MEJORADA CON ESTADO"""
     conn = get_db_connection()
     
     if is_postgresql():
-        # ✅ CORRECCIÓN: Usar comparación directa con fecha convertida
+        # ✅ MEJORADO: Incluir el estado de la cita
         sql = '''
-            SELECT c.hora, s.duracion 
+            SELECT c.hora, s.duracion, c.estado
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
@@ -1309,7 +1309,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
         '''
     else:
         sql = '''
-            SELECT c.hora, s.duracion 
+            SELECT c.hora, s.duracion, c.estado
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ? 

@@ -467,7 +467,7 @@ Tu número de teléfono se usará como identificador durante toda la conversaci�
         return "¡Hola! 👋 Para comenzar, necesitamos tu número de teléfono como identificador.\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
 
 def procesar_telefono_inicial(numero, mensaje, negocio_id):
-    """Procesar teléfono ingresado al inicio - NUEVO FLUJO"""
+    """Procesar teléfono ingresado al inicio - MEJORADO PARA RECONOCER CLIENTES"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -483,18 +483,14 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
     
     print(f"🔧 [DEBUG] Teléfono válido ingresado: {telefono}")
     
-    # Verificar si es cliente existente
-    nombre_cliente = None
-    try:
-        nombre_cliente = db.obtener_nombre_cliente(telefono, negocio_id)
-    except Exception as e:
-        print(f"⚠️ [DEBUG] Error al obtener nombre del cliente: {e}")
+    # ✅ MEJORADO: Buscar cliente en múltiples fuentes
+    nombre_cliente = buscar_cliente_existente(telefono, negocio_id)
     
     # Guardar teléfono en la conversación
     conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
     
-    if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
-        # Cliente existente
+    if nombre_cliente:
+        # Cliente existente reconocido
         nombre_cliente = str(nombre_cliente).strip().title()
         print(f"🔧 [DEBUG] Cliente existente encontrado: {nombre_cliente}")
         
@@ -514,6 +510,93 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
         return f"✅ Número registrado exitosamente.\n\n📝 **Ahora necesitamos tu nombre para completar tu registro.**\n\nPor favor, ingresa tu nombre completo:"
+
+def buscar_cliente_existente(telefono, negocio_id):
+    """Buscar cliente existente en múltiples fuentes"""
+    nombre_cliente = None
+    
+    # Método 1: Buscar en tabla clientes
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT nombre FROM clientes 
+                WHERE telefono = %s AND negocio_id = %s
+                ORDER BY updated_at DESC LIMIT 1
+            ''', (telefono, negocio_id))
+        else:
+            cursor.execute('''
+                SELECT nombre FROM clientes 
+                WHERE telefono = ? AND negocio_id = ?
+                ORDER BY updated_at DESC LIMIT 1
+            ''', (telefono, negocio_id))
+        
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if resultado:
+            if isinstance(resultado, dict):
+                nombre_cliente = resultado.get('nombre')
+            else:
+                nombre_cliente = resultado[0] if resultado else None
+            
+            if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
+                print(f"✅ [DEBUG] Cliente encontrado en tabla clientes: {nombre_cliente}")
+                return nombre_cliente
+    
+    except Exception as e:
+        print(f"⚠️ [DEBUG] Error buscando en tabla clientes: {e}")
+    
+    # Método 2: Buscar en citas anteriores
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if db.is_postgresql():
+            cursor.execute('''
+                SELECT cliente_nombre FROM citas 
+                WHERE cliente_telefono = %s AND negocio_id = %s
+                ORDER BY fecha DESC, hora DESC LIMIT 1
+            ''', (telefono, negocio_id))
+        else:
+            cursor.execute('''
+                SELECT cliente_nombre FROM citas 
+                WHERE cliente_telefono = ? AND negocio_id = ?
+                ORDER BY fecha DESC, hora DESC LIMIT 1
+            ''', (telefono, negocio_id))
+        
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if resultado:
+            if isinstance(resultado, dict):
+                nombre_cliente = resultado.get('cliente_nombre')
+            else:
+                nombre_cliente = resultado[0] if resultado else None
+            
+            if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
+                print(f"✅ [DEBUG] Cliente encontrado en historial de citas: {nombre_cliente}")
+                return nombre_cliente
+    
+    except Exception as e:
+        print(f"⚠️ [DEBUG] Error buscando en tabla citas: {e}")
+    
+    # Método 3: Usar la función original
+    try:
+        nombre_cliente = db.obtener_nombre_cliente(telefono, negocio_id)
+        if nombre_cliente and len(str(nombre_cliente).strip()) >= 2:
+            print(f"✅ [DEBUG] Cliente encontrado mediante db.obtener_nombre_cliente: {nombre_cliente}")
+            return nombre_cliente
+    except Exception as e:
+        print(f"⚠️ [DEBUG] Error con db.obtener_nombre_cliente: {e}")
+    
+    print(f"🔍 [DEBUG] No se encontró cliente con teléfono {telefono}")
+    return None
+
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
     """Procesar nombre del cliente nuevo - NUEVO FLUJO"""
@@ -1620,7 +1703,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - SIN CAMBIOS"""
+    """Generar horarios disponibles considerando la configuración por días - CORREGIDO PARA EVITAR DUPLICADOS"""
     print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
@@ -1637,9 +1720,18 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
     es_hoy = fecha_cita.date() == fecha_actual.date()
     
-    # Obtener citas ya agendadas
+    # Obtener citas ya agendadas (ahora incluye estado)
     citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
-    print(f"📅 Citas ocupadas: {len(citas_ocupadas)}")
+    print(f"📅 Citas ocupadas encontradas: {len(citas_ocupadas)}")
+    
+    if citas_ocupadas:
+        print(f"📋 Detalle de citas ocupadas:")
+        for cita in citas_ocupadas:
+            # cita = (hora, duracion, estado)
+            hora = cita[0]
+            duracion = cita[1]
+            estado = cita[2] if len(cita) > 2 else 'confirmado'
+            print(f"   - Hora: {hora}, Duración: {duracion} min, Estado: {estado}")
     
     # Obtener duración del servicio
     duracion_servicio = db.obtener_duracion_servicio(negocio_id, servicio_id)
@@ -1662,37 +1754,39 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
             # Combinar fecha actual con hora del horario
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
             
-            # Calcular tiempo hasta el horario (puede ser negativo si ya pasó)
+            # Calcular tiempo hasta el horario
             tiempo_hasta_horario = hora_actual_completa - fecha_actual
             
             # ✅ MARGEN MÍNIMO: 30 minutos de anticipación
             margen_minimo_minutos = 30
             
-            # ⚠️ CORRECCIÓN: Verificar DOS condiciones:
-            # 1. Que el horario no haya pasado (tiempo_hasta_horario > 0)
-            # 2. Que tenga al menos 30 minutos de margen
             if tiempo_hasta_horario.total_seconds() <= 0:
-                # Horario YA PASÓ (es en el pasado)
+                # Horario YA PASÓ
                 print(f"⏰ Horario {hora_str} omitido (ya pasó)")
                 hora_actual += timedelta(minutes=30)
                 continue
             elif tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
-                # Horario es muy pronto (menos de 30 minutos)
-                print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos, mínimo {margen_minimo_minutos} minutos requeridos)")
+                # Horario es muy pronto
+                print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
                 hora_actual += timedelta(minutes=30)
                 continue
         
         # Verificar si no es horario de almuerzo
         if not es_horario_almuerzo(hora_actual, horarios_dia):
-            # Verificar disponibilidad
+            # ✅ MEJORADO: Verificar disponibilidad
             if esta_disponible(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
                 horarios.append(hora_str)
                 print(f"✅ Horario disponible: {hora_str}")
+            else:
+                print(f"❌ Horario NO disponible: {hora_str} (ocupado o conflicto)")
+        else:
+            print(f"🍽️ Horario {hora_str} omitido (horario de almuerzo)")
         
         hora_actual += timedelta(minutes=30)
     
     print(f"🎯 Total horarios disponibles: {len(horarios)}")
     return horarios
+
 
 def verificar_disponibilidad_basica(negocio_id, fecha):
     """Verificación rápida de disponibilidad para una fecha (sin profesional específico) - SIN CAMBIOS"""
@@ -1746,7 +1840,7 @@ def es_horario_almuerzo(hora, config_dia):
         return False
 
 def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """Verificar si un horario está disponible - SIN CAMBIOS"""
+    """Verificar si un horario está disponible - VERSIÓN MEJORADA PARA EVITAR DUPLICADOS"""
     hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
     
     # Verificar que no se pase del horario de cierre del día
@@ -1762,18 +1856,29 @@ def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
     if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
         return False
     
-    # Verificar que no se solape con otras citas
-    for cita_ocupada in citas_ocupadas:
-        try:
-            hora_cita = datetime.strptime(cita_ocupada[0], '%H:%M')
-            duracion_cita = cita_ocupada[1]
-            hora_fin_cita = hora_cita + timedelta(minutes=duracion_cita)
-            
-            if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-                return False
-        except Exception as e:
-            print(f"❌ Error verificando cita ocupada: {e}")
-            continue
+    # ✅ CORRECCIÓN CRÍTICA: Verificar que no se solape con otras citas (CONFIRMADAS)
+    if citas_ocupadas:
+        for cita_ocupada in citas_ocupadas:
+            try:
+                # Manejar diferentes estructuras de datos
+                if len(cita_ocupada) >= 2:
+                    hora_cita_str = cita_ocupada[0]
+                    duracion_cita = cita_ocupada[1]
+                    
+                    # ✅ SOLO considerar citas CONFIRMADAS
+                    estado_cita = cita_ocupada[2] if len(cita_ocupada) > 2 else 'confirmado'
+                    if estado_cita != 'confirmado':
+                        continue  # Saltar citas canceladas
+                    
+                    hora_cita = datetime.strptime(hora_cita_str, '%H:%M')
+                    hora_fin_cita = hora_cita + timedelta(minutes=duracion_cita)
+                    
+                    if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
+                        return False
+                        
+            except Exception as e:
+                print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
+                continue
     
     return True
 
