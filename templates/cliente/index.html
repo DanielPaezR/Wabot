@@ -36,6 +36,7 @@
             --user-msg-bg: #007bff;
             --bot-msg-bg: #e9ecef;
             --header-height: 80px; /* Altura fija para el header */
+            --footer-height: 150px; /* Altura aproximada del footer */
         }
         
         * {
@@ -47,7 +48,7 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Previene scroll general */
+            overflow: hidden; /* Previene scroll general en body */
         }
         
         body {
@@ -56,6 +57,7 @@
             touch-action: manipulation; /* Mejora rendimiento táctil */
         }
         
+        /* Contenedor principal con disposición fija */
         .chat-container {
             max-width: 500px;
             margin: 0 auto;
@@ -70,22 +72,20 @@
             position: relative;
         }
         
-        /* Header fijo mejorado */
+        /* Header fijo en la parte superior */
         .chat-header {
             background: linear-gradient(135deg, var(--primary-color), #0056b3);
             color: white;
             padding: 15px 20px;
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.2);
-            position: sticky;
-            top: 0;
-            z-index: 100;
             flex-shrink: 0; /* No se encoge */
             min-height: var(--header-height);
             display: flex;
             flex-direction: column;
             justify-content: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
         }
         
         .chat-header h5 {
@@ -109,22 +109,14 @@
             padding: 0 10px;
         }
         
-        /* Área de mensajes con scroll */
+        /* Área de mensajes con scroll - MODIFICADO */
         .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
+            flex: 1; /* Toma todo el espacio disponible */
+            overflow-y: auto; /* Scroll vertical */
+            overflow-x: hidden; /* Sin scroll horizontal */
             padding: 20px;
             background-color: #fafafa;
             -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
-            padding-top: 10px; /* Espacio después del header */
-        }
-        
-        /* Aseguramos que el primer mensaje tenga espacio después del header */
-        .chat-messages::before {
-            content: '';
-            display: block;
-            height: 5px;
         }
         
         /* Mejor scrollbar */
@@ -143,6 +135,16 @@
         
         .chat-messages::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
+        }
+        
+        /* Footer fijo en la parte inferior */
+        .chat-input {
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #ddd;
+            flex-shrink: 0; /* No se encoge */
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 100;
         }
         
         .message {
@@ -316,18 +318,6 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        /* Footer fijo */
-        .chat-input {
-            padding: 15px;
-            background-color: white;
-            border-top: 1px solid #ddd;
-            flex-shrink: 0; /* No se encoge */
-            position: sticky;
-            bottom: 0;
-            z-index: 100;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-        
         .typing-indicator {
             display: flex;
             padding: 10px;
@@ -460,6 +450,10 @@
                 padding: 15px;
             }
             
+            .chat-input {
+                padding: 12px;
+            }
+            
             .menu-option, .opcion-btn {
                 flex: 0 0 100% !important;
             }
@@ -485,10 +479,6 @@
                 max-width: 90%;
                 padding: 10px 12px;
                 font-size: 0.95rem;
-            }
-            
-            .chat-input {
-                padding: 12px;
             }
             
             .action-buttons {
@@ -524,6 +514,18 @@
         button:active, .menu-option:active, .opcion-btn:active, .hora-btn:active, .nav-btn:active, .confirm-btn:active {
             transform: scale(0.98);
         }
+        
+        /* Estilo para el último mensaje - mantener separación del input */
+        .message:last-of-type {
+            margin-bottom: 10px;
+        }
+        
+        /* Asegurar que haya espacio al final para el scroll */
+        .chat-messages::after {
+            content: '';
+            display: block;
+            height: 10px;
+        }
     </style>
 </head>
 <body>
@@ -534,12 +536,12 @@
             <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
         </div>
         
-        <!-- Área de mensajes con scroll -->
+        <!-- Área de mensajes con scroll - SOLO ESTA PARTE SCROLLEA -->
         <div class="chat-messages" id="chatMessages">
             <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
         </div>
         
-        <!-- Footer fijo -->
+        <!-- Footer fijo en la parte inferior -->
         <div class="chat-input">
             <div class="input-group">
                 <input type="text" class="form-control" id="userInput" 
@@ -575,51 +577,27 @@
             const negocioId = $('#negocioId').val();
             const negocioNombre = $('#negocioNombre').val();
             
-            // Asegurar que el header sea visible al inicio
-            function ensureHeaderVisible() {
-                // Scroll al inicio para ver el header
-                chatMessages.scrollTop(0);
-                
-                // Agregar espacio extra para el header en móviles
-                if ($(window).width() <= 576) {
-                    const headerHeight = $('.chat-header').outerHeight();
-                    chatMessages.css('padding-top', '15px');
-                    
-                    // Ajustar el contenedor para que no quede oculto por el header
-                    const firstMessage = chatMessages.children('.message').first();
-                    if (firstMessage.length) {
-                        const messageTop = firstMessage.offset().top;
-                        const containerTop = chatMessages.offset().top;
-                        if (messageTop < containerTop + headerHeight + 20) {
-                            chatMessages.scrollTop(0);
-                        }
-                    }
-                }
-            }
-            
-            // Llamar al inicio y después de cada actualización
-            ensureHeaderVisible();
-            
-            // Iniciar conversación automáticamente después de asegurar que el header es visible
-            setTimeout(function() {
-                userInput.val('hola');
-                sendMessage();
-            }, 800); // Un poco más de tiempo para que el header sea visible
-            
-            // Hacer scroll al final pero respetando el header
+            // Hacer scroll al final de los mensajes cuando se agrega uno nuevo
             function scrollToBottom() {
+                // Pequeño delay para asegurar que el DOM se actualizó
                 setTimeout(function() {
                     const scrollHeight = chatMessages[0].scrollHeight;
                     const height = chatMessages[0].clientHeight;
                     const maxScrollTop = scrollHeight - height;
                     
-                    // No hacer scroll completo si hay pocos mensajes
-                    if (scrollHeight <= height * 1.5) {
-                        chatMessages.scrollTop(0);
-                    } else {
+                    // Solo hacer scroll si estamos cerca del final actual
+                    const currentScroll = chatMessages.scrollTop();
+                    if (scrollHeight - (currentScroll + height) < 100) {
                         chatMessages.scrollTop(scrollHeight);
                     }
-                }, 100);
+                }, 50);
+            }
+            
+            // Hacer scroll al final cuando se carga la página (para el primer mensaje)
+            function scrollToInitialBottom() {
+                setTimeout(function() {
+                    chatMessages.scrollTop(chatMessages[0].scrollHeight);
+                }, 300);
             }
             
             // Mostrar indicador de "escribiendo"
@@ -681,7 +659,6 @@
                 }
                 
                 scrollToBottom();
-                ensureHeaderVisible(); // Re-asegurar que el header sea visible
             }
             
             // Mostrar opciones como botones
@@ -755,6 +732,8 @@
                     userInput.val(opcionNumero);
                     sendMessage();
                 });
+                
+                scrollToBottom();
             }
             
             // Enviar mensaje al servidor
@@ -829,10 +808,12 @@
             // Auto-focus en el input
             userInput.focus();
             
-            // Asegurar que el header sea visible al cambiar tamaño de ventana
-            $(window).resize(function() {
-                ensureHeaderVisible();
-            });
+            // Iniciar conversación automáticamente
+            setTimeout(function() {
+                userInput.val('hola');
+                sendMessage();
+                scrollToInitialBottom();
+            }, 800);
             
             // Prevenir comportamientos no deseados en móviles
             document.addEventListener('touchmove', function(e) {
