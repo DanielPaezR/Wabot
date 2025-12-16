@@ -1304,7 +1304,7 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     return mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada)
 
 def procesar_seleccion_hora(numero, mensaje, negocio_id):
-    """Procesar selección de horario - SIN CAMBIOS"""
+    """Procesar selección de horario - ACTUALIZADO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -1328,15 +1328,19 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
         horarios_disponibles = conversaciones_activas[clave_conversacion]['todos_horarios']
         horarios_por_pagina = 6
         
-        # ✅ Verificar que hay más páginas
         max_pagina = (len(horarios_disponibles) - 1) // horarios_por_pagina
         if pagina_actual < max_pagina:
             conversaciones_activas[clave_conversacion]['pagina_horarios'] = pagina_actual + 1
         else:
-            # Ya estamos en la última página, mostrar mensaje
             return "ℹ️ Ya estás en la última página de horarios.\n\nSelecciona un horario o usa otra opción"
         
         return mostrar_disponibilidad(numero, negocio_id)
+    
+    # ✅ Solo procesar números 1-6 como horarios
+    if not mensaje.isdigit():
+        return f"❌ Por favor, ingresa un número válido."
+    
+    mensaje_num = int(mensaje)
     
     # Obtener horarios de la página actual
     pagina_actual = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
@@ -1346,17 +1350,10 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     fin = inicio + horarios_por_pagina
     horarios_pagina = horarios_disponibles[inicio:fin]
     
-    # ✅ Verificar que el mensaje es un número válido para horarios
-    if not mensaje.isdigit():
-        return f"❌ Por favor, ingresa un número válido."
-    
-    mensaje_num = int(mensaje)
-    
-    # ✅ Solo procesar números 1-6 como horarios (evitar conflicto con 7,8,9)
     if mensaje_num < 1 or mensaje_num > len(horarios_pagina):
         return f"❌ Número inválido. Por favor, elige entre 1 y {len(horarios_pagina)}"
     
-    # Guardar horario seleccionado y pedir confirmación
+    # Guardar horario seleccionado
     hora_index = mensaje_num - 1
     hora_seleccionada = horarios_pagina[hora_index]
     
@@ -1364,22 +1361,8 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
-    # ✅ Obtener nombre del cliente correctamente
-    nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre')
-    if not nombre_cliente:
-        # Intentar obtener de BD usando teléfono
-        telefono = conversaciones_activas[clave_conversacion].get('telefono_cliente')
-        if telefono:
-            try:
-                nombre_cliente = db.obtener_nombre_cliente(telefono, negocio_id)
-            except:
-                pass
-    
-    # Si aún no hay nombre, usar valor por defecto
-    if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
-        nombre_cliente = 'Cliente'
-    else:
-        nombre_cliente = str(nombre_cliente).strip()
+    # Obtener nombre del cliente
+    nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
     
     profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
     servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
