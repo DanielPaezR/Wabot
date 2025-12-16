@@ -35,53 +35,60 @@
             --dark-bg: #343a40;
             --user-msg-bg: #007bff;
             --bot-msg-bg: #e9ecef;
-            --header-height: 80px; /* Altura fija para el header */
-            --footer-height: 160px; /* Altura aproximada del footer */
+            --header-height: 80px;
+            --footer-height: 160px;
         }
         
         * {
             -webkit-tap-highlight-color: transparent;
             -webkit-text-size-adjust: 100%;
-            box-sizing: border-box; /* Asegurar box-sizing consistente */
+            box-sizing: border-box;
         }
         
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Previene scroll general en body */
+            overflow: hidden;
         }
         
         body {
             background-color: #f5f5f5;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: manipulation; /* Mejora rendimiento táctil */
+            touch-action: manipulation;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
         }
         
-        /* Contenedor principal que ocupa toda la pantalla */
-        .app-container {
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
             height: 100vh;
+            max-height: 90vh;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            background-color: white;
             display: flex;
             flex-direction: column;
-            position: relative;
         }
         
-        /* Header fijo en la parte superior */
+        /* Header fijo */
         .chat-header {
             background: linear-gradient(135deg, var(--primary-color), #0056b3);
             color: white;
             padding: 15px 20px;
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.2);
-            flex-shrink: 0; /* No se encoge */
+            flex-shrink: 0;
             min-height: var(--header-height);
             display: flex;
             flex-direction: column;
             justify-content: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 100;
+            z-index: 10;
         }
         
         .chat-header h5 {
@@ -105,24 +112,24 @@
             padding: 0 10px;
         }
         
-        /* Contenedor principal del chat con posición absoluta */
-        .chat-main-container {
-            flex: 1; /* Toma todo el espacio restante */
+        /* Contenedor principal de mensajes - ¡LA CLAVE! */
+        .messages-container {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Oculta el overflow del contenedor principal */
+            overflow: hidden;
             position: relative;
         }
         
-        /* Área de mensajes con scroll - ¡ESTA ES LA CLAVE! */
+        /* Área de mensajes con scroll independiente */
         .chat-messages {
-            flex: 1; /* Toma todo el espacio disponible entre header y footer */
-            overflow-y: auto; /* Scroll vertical */
-            overflow-x: hidden; /* Sin scroll horizontal */
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
             padding: 20px;
             background-color: #fafafa;
-            -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
-            position: relative;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
         }
         
         /* Mejor scrollbar */
@@ -143,14 +150,13 @@
             background: #a8a8a8;
         }
         
-        /* Footer fijo en la parte inferior */
+        /* Footer fijo */
         .chat-input {
             padding: 15px;
             background-color: white;
             border-top: 1px solid #ddd;
-            flex-shrink: 0; /* No se encoge */
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-            z-index: 100;
+            flex-shrink: 0;
+            z-index: 10;
         }
         
         /* Estilos para mensajes */
@@ -162,7 +168,6 @@
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
             line-height: 1.4;
-            position: relative;
         }
         
         @keyframes fadeIn {
@@ -189,7 +194,7 @@
             color: var(--primary-color);
         }
         
-        /* Estilos para opciones y botones */
+        /* Mantener el resto de estilos igual */
         .menu-options {
             display: flex;
             flex-wrap: wrap;
@@ -219,7 +224,6 @@
             box-shadow: 0 3px 10px rgba(0,123,255,0.2);
         }
         
-        /* Opciones numeradas (profesionales, servicios, fechas) */
         .opciones-numeradas {
             display: flex;
             flex-wrap: wrap;
@@ -238,7 +242,7 @@
             border: 1px solid #dee2e6;
             color: #495057;
             font-size: 0.9rem;
-            min-height: 44px; /* Tamaño táctil mínimo */
+            min-height: 44px;
         }
         
         .opcion-btn:hover {
@@ -248,7 +252,6 @@
             color: var(--primary-color);
         }
         
-        /* Horarios */
         .horarios-options {
             display: flex;
             flex-wrap: wrap;
@@ -266,7 +269,7 @@
             color: #28a745;
             transition: all 0.2s;
             font-size: 0.85rem;
-            min-height: 44px; /* Tamaño táctil mínimo */
+            min-height: 44px;
         }
         
         .hora-btn:hover {
@@ -275,7 +278,6 @@
             transform: translateY(-2px);
         }
         
-        /* Navegación */
         .opciones-navegacion {
             display: flex;
             flex-wrap: wrap;
@@ -295,7 +297,7 @@
             cursor: pointer;
             font-size: 0.85rem;
             transition: all 0.2s;
-            min-height: 44px; /* Tamaño táctil mínimo */
+            min-height: 44px;
         }
         
         .nav-next {
@@ -327,7 +329,6 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        /* Indicador de escritura */
         .typing-indicator {
             display: flex;
             padding: 10px;
@@ -352,7 +353,6 @@
             50% { transform: translateY(-5px); }
         }
         
-        /* Paginación */
         .pagination-info {
             font-size: 0.8rem;
             color: #6c757d;
@@ -364,7 +364,6 @@
             border: 1px solid #e0e0e0;
         }
         
-        /* Confirmación */
         .confirmacion-opciones {
             display: flex;
             justify-content: center;
@@ -379,7 +378,7 @@
             cursor: pointer;
             font-weight: 500;
             transition: all 0.2s;
-            min-height: 44px; /* Tamaño táctil mínimo */
+            min-height: 44px;
             font-size: 0.9rem;
         }
         
@@ -407,7 +406,6 @@
             opacity: 0.9;
         }
         
-        /* Botones de acción */
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -422,23 +420,32 @@
             min-height: 40px;
         }
         
-        /* Input mejorado para móviles */
         .form-control {
-            font-size: 16px !important; /* Previene zoom en iOS */
-            min-height: 44px; /* Tamaño táctil mínimo */
+            font-size: 16px !important;
+            min-height: 44px;
             padding: 10px 15px;
         }
         
         .btn {
-            min-height: 44px; /* Tamaño táctil mínimo */
+            min-height: 44px;
             padding: 10px 15px;
             font-size: 0.95rem;
         }
         
-        /* Estilos específicos para pantallas muy pequeñas */
+        /* Responsive */
         @media (max-width: 576px) {
-            .app-container {
+            body {
+                padding: 0;
+            }
+            
+            .chat-container {
+                margin: 0;
+                border-radius: 0;
                 max-width: 100%;
+                height: 100vh;
+                max-height: 100vh;
+                border: none;
+                box-shadow: none;
             }
             
             .chat-header {
@@ -456,10 +463,6 @@
             
             .chat-messages {
                 padding: 15px;
-            }
-            
-            .chat-input {
-                padding: 12px;
             }
             
             .menu-option, .opcion-btn {
@@ -489,6 +492,10 @@
                 font-size: 0.95rem;
             }
             
+            .chat-input {
+                padding: 12px;
+            }
+            
             .action-buttons {
                 flex-direction: column;
                 gap: 6px;
@@ -499,32 +506,19 @@
             }
         }
         
-        /* Estilos para pantallas más grandes */
         @media (min-width: 768px) {
-            .app-container {
-                max-width: 500px;
+            .chat-container {
                 margin: 20px auto;
                 height: 90vh;
                 max-height: 800px;
-                border: 1px solid #ddd;
-                border-radius: 15px;
-                overflow: hidden;
-                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-                background-color: white;
-            }
-            
-            .chat-header {
-                border-radius: 15px 15px 0 0;
             }
         }
         
-        /* Prevenir selección de texto en botones */
         button {
             user-select: none;
             -webkit-user-select: none;
         }
         
-        /* Animación suave para todos los botones */
         button, .menu-option, .opcion-btn, .hora-btn, .nav-btn, .confirm-btn {
             transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
         }
@@ -533,62 +527,47 @@
             transform: scale(0.98);
         }
         
-        /* Espacio al final para facilitar scroll */
+        /* Espacio al final para facilitar el scroll */
         .chat-messages::after {
             content: '';
             display: block;
             height: 10px;
         }
-        
-        /* Asegurar que los mensajes no queden ocultos */
-        .message:last-of-type {
-            margin-bottom: 10px;
-        }
-        
-        /* Clase para cuando el área de mensajes está vacía */
-        .chat-messages-empty {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            color: #6c757d;
-            font-style: italic;
-        }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header fijo siempre visible -->
+    <div class="chat-container">
+        <!-- Header fijo -->
         <div class="chat-header">
             <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
             <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
         </div>
         
-        <!-- Contenedor principal para mensajes y footer -->
-        <div class="chat-main-container">
-            <!-- Área de mensajes con scroll - SOLO ESTA PARTE SCROLLEA -->
+        <!-- Contenedor para mensajes con scroll -->
+        <div class="messages-container">
+            <!-- Área de mensajes con scroll independiente -->
             <div class="chat-messages" id="chatMessages">
                 <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
             </div>
-            
-            <!-- Footer fijo en la parte inferior -->
-            <div class="chat-input">
-                <div class="input-group">
-                    <input type="text" class="form-control" id="userInput" 
-                           placeholder="Escribe tu opción o mensaje..." autocomplete="off"
-                           aria-label="Mensaje">
-                    <button class="btn btn-primary" id="sendButton">
-                        <i class="fas fa-paper-plane"></i> Enviar
-                    </button>
-                </div>
-                <div class="action-buttons mt-2">
-                    <button class="btn btn-outline-secondary action-btn" id="resetButton">
-                        <i class="fas fa-redo"></i> Reiniciar
-                    </button>
-                    <button class="btn btn-outline-info action-btn" id="helpButton">
-                        <i class="fas fa-question"></i> Ayuda
-                    </button>
-                </div>
+        </div>
+        
+        <!-- Footer fijo -->
+        <div class="chat-input">
+            <div class="input-group">
+                <input type="text" class="form-control" id="userInput" 
+                       placeholder="Escribe tu opción o mensaje..." autocomplete="off"
+                       aria-label="Mensaje">
+                <button class="btn btn-primary" id="sendButton">
+                    <i class="fas fa-paper-plane"></i> Enviar
+                </button>
+            </div>
+            <div class="action-buttons mt-2">
+                <button class="btn btn-outline-secondary action-btn" id="resetButton">
+                    <i class="fas fa-redo"></i> Reiniciar
+                </button>
+                <button class="btn btn-outline-info action-btn" id="helpButton">
+                    <i class="fas fa-question"></i> Ayuda
+                </button>
             </div>
         </div>
     </div>
@@ -608,27 +587,13 @@
             const negocioId = $('#negocioId').val();
             const negocioNombre = $('#negocioNombre').val();
             
-            console.log("🔧 [INICIO] Chat web inicializado");
+            console.log("🔧 Chat inicializado correctamente");
             
-            // Función para hacer scroll al final de los mensajes
+            // Función simplificada para hacer scroll al final
             function scrollToBottom() {
                 setTimeout(function() {
-                    const scrollHeight = chatMessages[0].scrollHeight;
-                    const height = chatMessages[0].clientHeight;
-                    
-                    // Solo hacer scroll si estamos cerca del final actual
-                    const currentScroll = chatMessages.scrollTop();
-                    const threshold = 100; // Píxeles de margen
-                    
-                    if (scrollHeight - (currentScroll + height) < threshold) {
-                        chatMessages.scrollTop(scrollHeight);
-                    }
-                }, 50);
-            }
-            
-            // Función para hacer scroll al inicio (para ver mensajes antiguos)
-            function scrollToTop() {
-                chatMessages.scrollTop(0);
+                    chatMessages.scrollTop(chatMessages[0].scrollHeight);
+                }, 100);
             }
             
             // Mostrar indicador de "escribiendo"
@@ -651,9 +616,7 @@
             function addUserMessage(message) {
                 if (!message.trim()) return;
                 
-                // Convertir saltos de línea en <br> para HTML
                 const messageWithLineBreaks = message.replace(/\n/g, '<br>');
-                
                 const messageHtml = `
                     <div class="message user-message">
                         <strong><i class="fas fa-user"></i> Tú:</strong><br>
@@ -661,14 +624,20 @@
                     </div>
                 `;
                 chatMessages.append(messageHtml);
-                scrollToBottom();
+                
+                // Solo hacer scroll si estamos cerca del final
+                const currentScroll = chatMessages.scrollTop();
+                const scrollHeight = chatMessages[0].scrollHeight;
+                const height = chatMessages[0].clientHeight;
+                
+                if (scrollHeight - (currentScroll + height) < 200) {
+                    scrollToBottom();
+                }
             }
             
-            // Agregar mensaje del bot con opciones del backend
+            // Agregar mensaje del bot con opciones
             function addBotMessage(message, options = null, pagination = null) {
-                // Convertir saltos de línea en <br> para HTML
                 const messageWithLineBreaks = message.replace(/\n/g, '<br>');
-                
                 let messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
@@ -678,40 +647,40 @@
                 
                 chatMessages.append(messageHtml);
                 
-                // Si el backend envió opciones, mostrarlas como botones
                 if (options && options.length > 0) {
                     mostrarOpciones(options);
                 }
                 
-                // Mostrar información de paginación si existe
                 if (pagination) {
                     const paginationHtml = `<div class="pagination-info">${pagination}</div>`;
                     chatMessages.append(paginationHtml);
                 }
                 
-                scrollToBottom();
+                // Solo hacer scroll si estamos cerca del final
+                const currentScroll = chatMessages.scrollTop();
+                const scrollHeight = chatMessages[0].scrollHeight;
+                const height = chatMessages[0].clientHeight;
+                
+                if (scrollHeight - (currentScroll + height) < 200) {
+                    scrollToBottom();
+                }
             }
             
-            // Mostrar opciones como botones
+            // Mostrar opciones como botones (función sin cambios)
             function mostrarOpciones(options) {
-                // Determinar el tipo de opciones por el contexto
                 const mensajeAnterior = $('.bot-message').last().text();
                 const pasoActual = $('#chatMessages').data('current-step') || 'menu';
                 
                 let containerClass = 'opciones-numeradas';
                 let buttonClass = 'opcion-btn';
                 
-                // Detectar si son horarios (contienen formato de hora)
                 if (options.some(opt => opt.text && (opt.text.includes(':') || opt.text.includes('horario')))) {
                     containerClass = 'horarios-options';
                     buttonClass = 'hora-btn';
-                }
-                // Detectar si son opciones de navegación
-                else if (options.some(opt => opt.text && (opt.text.includes('Siguiente') || opt.text.includes('Anterior') || opt.text.includes('Cambiar')))) {
+                } else if (options.some(opt => opt.text && (opt.text.includes('Siguiente') || opt.text.includes('Anterior') || opt.text.includes('Cambiar')))) {
                     containerClass = 'opciones-navegacion';
                     buttonClass = 'nav-btn';
                     
-                    // Aplicar estilos específicos a cada botón de navegación
                     options.forEach(option => {
                         if (option.text.includes('Siguiente')) {
                             option.cssClass = 'nav-next';
@@ -723,13 +692,10 @@
                             option.cssClass = 'nav-home';
                         }
                     });
-                }
-                // Detectar si son opciones de confirmación
-                else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('Cancelar')))) {
+                } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('Cancelar')))) {
                     containerClass = 'confirmacion-opciones';
                     buttonClass = 'confirm-btn';
                     
-                    // Aplicar estilos específicos a cada botón de confirmación
                     options.forEach(option => {
                         if (option.text.includes('Confirmar')) {
                             option.cssClass = 'confirm-yes';
@@ -742,8 +708,6 @@
                 let optionsHtml = `<div class="${containerClass}">`;
                 options.forEach(option => {
                     let btnClass = buttonClass;
-                    
-                    // Agregar clase CSS específica si existe
                     if (option.cssClass) {
                         btnClass += ' ' + option.cssClass;
                     }
@@ -770,14 +734,10 @@
                 const message = userInput.val().trim();
                 if (!message) return;
                 
-                // Mostrar mensaje del usuario
                 addUserMessage(message);
                 userInput.val('');
-                
-                // Mostrar indicador de "escribiendo"
                 showTypingIndicator();
                 
-                // Enviar al servidor
                 $.ajax({
                     url: '/cliente/send',
                     method: 'POST',
@@ -788,7 +748,6 @@
                         negocio_id: negocioId
                     }),
                     success: function(response) {
-                        // Ocultar indicador
                         hideTypingIndicator();
                         
                         if (response.error) {
@@ -796,10 +755,7 @@
                             return;
                         }
                         
-                        // Guardar paso actual para referencia
                         $('#chatMessages').data('current-step', response.step);
-                        
-                        // Mostrar respuesta del bot con opciones si las hay
                         addBotMessage(response.message, response.options, response.pagination);
                     },
                     error: function(xhr, status, error) {
@@ -814,12 +770,11 @@
             sendButton.click(sendMessage);
             
             userInput.keypress(function(e) {
-                if (e.which === 13) { // Enter key
+                if (e.which === 13) {
                     sendMessage();
                 }
             });
             
-            // Botón reiniciar
             $('#resetButton').click(function() {
                 if (confirm('¿Estás seguro de que quieres reiniciar la conversación?')) {
                     $.post('/cliente/reset', function() {
@@ -828,38 +783,25 @@
                 }
             });
             
-            // Botón ayuda
             $('#helpButton').click(function() {
                 userInput.val('4');
                 sendMessage();
             });
             
-            // Auto-focus en el input
             userInput.focus();
             
-            // Iniciar conversación automáticamente después de un breve delay
+            // Iniciar conversación automáticamente
             setTimeout(function() {
-                // Enviar "hola" automáticamente para iniciar la conversación
                 userInput.val('hola');
                 sendMessage();
-            }, 500);
+            }, 800);
             
-            // Ajustar el tamaño del área de mensajes cuando cambia el tamaño de la ventana
-            $(window).resize(function() {
-                scrollToBottom();
-            });
-            
-            // Prevenir comportamientos no deseados en móviles
+            // Prevenir zoom en iOS
             document.addEventListener('touchmove', function(e) {
                 if (e.scale !== 1) {
                     e.preventDefault();
                 }
             }, { passive: false });
-            
-            // Forzar redibujado para asegurar que el scroll funciona
-            setTimeout(function() {
-                chatMessages.css('display', 'flex').hide().show(0);
-            }, 100);
         });
     </script>
 </body>
