@@ -1293,7 +1293,12 @@ def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id,
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
-    """Obtener todas las citas de un profesional en un día específico - VERSIÓN FIX PARA DICCIONARIOS"""
+    """Obtener todas las citas de un profesional en un día específico - CON VERIFICACIÓN"""
+    print(f"\n📋 [DB-DIAGNÓSTICO] obtener_citas_dia llamado con:")
+    print(f"   negocio_id: {negocio_id}")
+    print(f"   profesional_id: {profesional_id}")
+    print(f"   fecha: {fecha}")
+    
     conn = get_db_connection()
     
     if is_postgresql():
@@ -1306,6 +1311,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             AND c.estado != 'cancelado'
             ORDER BY c.hora
         '''
+        params = (negocio_id, profesional_id, fecha)
     else:
         sql = '''
             SELECT c.hora, s.duracion, c.estado
@@ -1315,37 +1321,39 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             AND c.estado != 'cancelado'
             ORDER BY c.hora
         '''
+        params = (negocio_id, profesional_id, fecha)
+    
+    print(f"📋 SQL a ejecutar: {sql}")
+    print(f"📋 Parámetros: {params}")
     
     cursor = conn.cursor()
-    
-    if is_postgresql():
-        cursor.execute(sql, (negocio_id, profesional_id, fecha))
-    else:
-        cursor.execute(sql, (negocio_id, profesional_id, fecha))
+    cursor.execute(sql, params)
     
     resultados = cursor.fetchall()
     conn.close()
     
-    # ✅ FIX: Convertir RealDictRow a diccionario regular para consistencia
+    print(f"📋 Resultados crudos de BD: {resultados}")
+    print(f"📋 Número de resultados: {len(resultados)}")
+    
+    # Convertir resultados a formato consistente
     citas = []
     for row in resultados:
-        if hasattr(row, '_asdict'):  # Para namedtuple
-            row = row._asdict()
-        elif hasattr(row, '__dict__'):  # Para objetos
-            row = dict(row.__dict__)
-        elif isinstance(row, tuple):  # Para tuplas
-            # Convertir tupla a diccionario
-            keys = ['hora', 'duracion', 'estado']
-            row_dict = {}
-            for i, key in enumerate(keys):
-                if i < len(row):
-                    row_dict[key] = row[i]
-            row = row_dict
-        elif not isinstance(row, dict):  # Para otros tipos
-            row = dict(row) if hasattr(row, 'items') else {'hora': str(row)}
-        
-        citas.append(row)
+        if isinstance(row, dict):
+            citas.append(row)
+        elif isinstance(row, (list, tuple)):
+            # Convertir tupla a dict
+            cita_dict = {}
+            if len(row) > 0:
+                cita_dict['hora'] = row[0]
+            if len(row) > 1:
+                cita_dict['duracion'] = row[1]
+            if len(row) > 2:
+                cita_dict['estado'] = row[2]
+            else:
+                cita_dict['estado'] = 'confirmado'
+            citas.append(cita_dict)
     
+    print(f"📋 Citas procesadas para retornar: {citas}")
     return citas
 
 

@@ -1122,6 +1122,65 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         servicio_precio = conversacion['servicio_precio']
         telefono = conversacion['telefono_cliente']
         
+        # ✅ AGREGAR DIAGNÓSTICO ANTES DE CREAR LA CITA
+        print(f"\n🚨 DIAGNÓSTICO DE DUPLICADOS ANTES DE CREAR CITA 🚨")
+        print(f"Fecha: {fecha}")
+        print(f"Hora: {hora}")
+        print(f"Profesional ID: {profesional_id}")
+        print(f"Servicio ID: {servicio_id}")
+        
+        # Obtener duración del servicio
+        duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
+        print(f"Duración servicio: {duracion} minutos")
+        
+        # Obtener todas las citas del día
+        citas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
+        print(f"\n📋 TODAS las citas en BD para este día:")
+        
+        for i, cita in enumerate(citas):
+            print(f"  Cita #{i+1}:")
+            print(f"    Hora: {cita.get('hora')}")
+            print(f"    Duración: {cita.get('duracion')}")
+            print(f"    Estado: {cita.get('estado')}")
+        
+        # Verificar si ya existe una cita a esa hora
+        cita_existente = None
+        for cita in citas:
+            if cita.get('hora') == hora and cita.get('estado') == 'confirmado':
+                cita_existente = cita
+                break
+        
+        if cita_existente:
+            print(f"\n🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
+            print(f"   Hora: {cita_existente.get('hora')}")
+            print(f"   Duración: {cita_existente.get('duracion')}")
+            print(f"   Estado: {cita_existente.get('estado')}")
+            # ¡ESTE ES EL ERROR! No deberíamos continuar
+            return "❌ Error: Ya existe una cita confirmada a esta hora. Por favor, selecciona otro horario."
+        else:
+            print(f"\n✅ No hay citas confirmadas a las {hora}")
+        
+        # Calcular horario propuesto
+        hora_inicio = datetime.strptime(hora, '%H:%M')
+        hora_fin = hora_inicio + timedelta(minutes=duracion)
+        
+        print(f"\n⏰ Horario propuesto: {hora} - {hora_fin.strftime('%H:%M')}")
+        
+        # Verificar solapamientos
+        for cita in citas:
+            if cita.get('estado') == 'confirmado':
+                cita_hora = datetime.strptime(cita.get('hora'), '%H:%M')
+                cita_duracion = cita.get('duracion', 0)
+                cita_fin = cita_hora + timedelta(minutes=int(cita_duracion))
+                
+                if se_solapan(hora_inicio, hora_fin, cita_hora, cita_fin):
+                    print(f"\n🚨 SOLAPAMIENTO CON CITA EXISTENTE:")
+                    print(f"   Cita existente: {cita.get('hora')} - {cita_fin.strftime('%H:%M')}")
+                    print(f"   Nueva cita: {hora} - {hora_fin.strftime('%H:%M')}")
+                    return "❌ Error: Este horario se solapa con una cita existente. Por favor, selecciona otro horario."
+        
+        print(f"\n✅ Diagnóstico completado - No hay conflictos detectados")
+        
         # Obtener nombre del cliente
         if 'cliente_nombre' not in conversacion:
             nombre_cliente = 'Cliente'
@@ -1233,6 +1292,62 @@ Recibirás recordatorios por mensaje antes de tu cita.
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return "❌ Error inesperado al procesar tu cita. Por favor, intenta nuevamente."
+
+
+def diagnostico_citas_duplicadas(negocio_id, profesional_id, fecha, hora, servicio_id):
+    """Función para diagnosticar por qué se permiten citas duplicadas"""
+    print(f"\n🚨 DIAGNÓSTICO DE DUPLICADOS 🚨")
+    print(f"Fecha: {fecha}")
+    print(f"Hora: {hora}")
+    print(f"Profesional ID: {profesional_id}")
+    print(f"Servicio ID: {servicio_id}")
+    
+    # Obtener duración del servicio
+    duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
+    print(f"Duración servicio: {duracion} minutos")
+    
+    # Obtener todas las citas del día
+    citas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
+    print(f"\n📋 TODAS las citas en BD para este día:")
+    
+    for i, cita in enumerate(citas):
+        print(f"  Cita #{i+1}:")
+        print(f"    Hora: {cita.get('hora')}")
+        print(f"    Duración: {cita.get('duracion')}")
+        print(f"    Estado: {cita.get('estado')}")
+    
+    # Verificar si ya existe una cita a esa hora
+    cita_existente = None
+    for cita in citas:
+        if cita.get('hora') == hora and cita.get('estado') == 'confirmado':
+            cita_existente = cita
+            break
+    
+    if cita_existente:
+        print(f"\n🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
+        print(f"   Hora: {cita_existente.get('hora')}")
+        print(f"   Duración: {cita_existente.get('duracion')}")
+        print(f"   Estado: {cita_existente.get('estado')}")
+    else:
+        print(f"\n✅ No hay citas confirmadas a las {hora}")
+    
+    # Calcular horario propuesto
+    hora_inicio = datetime.strptime(hora, '%H:%M')
+    hora_fin = hora_inicio + timedelta(minutes=duracion)
+    
+    print(f"\n⏰ Horario propuesto: {hora} - {hora_fin.strftime('%H:%M')}")
+    
+    # Verificar solapamientos
+    for cita in citas:
+        if cita.get('estado') == 'confirmado':
+            cita_hora = datetime.strptime(cita.get('hora'), '%H:%M')
+            cita_duracion = cita.get('duracion', 0)
+            cita_fin = cita_hora + timedelta(minutes=int(cita_duracion))
+            
+            if se_solapan(hora_inicio, hora_fin, cita_hora, cita_fin):
+                print(f"\n🚨 SOLAPAMIENTO CON CITA EXISTENTE:")
+                print(f"   Cita existente: {cita.get('hora')} - {cita_fin.strftime('%H:%M')}")
+                print(f"   Nueva cita: {hora} - {hora_fin.strftime('%H:%M')}")
 
 def continuar_conversacion(numero, mensaje, negocio_id):
     """Continuar conversación basada en el estado actual - ACTUALIZADO PARA NUEVO FLUJO"""
@@ -1703,8 +1818,9 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - FIX PARA DICCIONARIOS"""
-    print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
+    """Generar horarios disponibles considerando la configuración por días - CON LOGS DIAGNÓSTICOS"""
+    print(f"\n🔍 [DIAGNÓSTICO] Iniciando verificación para {fecha}")
+    print(f"   Negocio: {negocio_id}, Profesional: {profesional_id}, Servicio: {servicio_id}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
     horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
@@ -1715,29 +1831,32 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     
     print(f"✅ Día activo. Horario: {horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']}")
     
-    # ✅ CORRECCIÓN: Si es hoy, considerar margen mínimo de anticipación
-    fecha_actual = datetime.now(tz_colombia)
-    fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
-    es_hoy = fecha_cita.date() == fecha_actual.date()
-    
-    # Obtener citas ya agendadas (ahora incluye estado)
+    # ✅ Obtener citas ya agendadas - CON DIAGNÓSTICO
+    print(f"📋 Llamando a obtener_citas_dia...")
     citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
-    print(f"📅 Citas ocupadas encontradas: {len(citas_ocupadas)}")
+    print(f"📊 TOTAL citas devueltas por BD: {len(citas_ocupadas)}")
     
+    # DIAGNÓSTICO DETALLADO de cada cita
     if citas_ocupadas:
-        print(f"📋 Detalle de citas ocupadas:")
-        for cita in citas_ocupadas:
-            # Manejar tanto diccionarios como tuplas
-            if isinstance(cita, dict):
-                hora = cita.get('hora', '')
-                duracion = cita.get('duracion', 0)
-                estado = cita.get('estado', 'confirmado')
-            else:
-                hora = cita[0] if len(cita) > 0 else ''
-                duracion = cita[1] if len(cita) > 1 else 0
-                estado = cita[2] if len(cita) > 2 else 'confirmado'
+        print("📋 DETALLE DE CADA CITA OBTENIDA DE BD:")
+        for i, cita in enumerate(citas_ocupadas):
+            print(f"   Cita #{i+1}:")
+            print(f"     Tipo de dato: {type(cita)}")
             
-            print(f"   - Hora: {hora}, Duración: {duracion} min, Estado: {estado}")
+            if isinstance(cita, dict):
+                print(f"     Dict - Hora: {cita.get('hora')}, Duración: {cita.get('duracion')}, Estado: {cita.get('estado')}")
+            elif isinstance(cita, (list, tuple)):
+                print(f"     List/Tuple - Contenido: {cita}")
+                if len(cita) > 0:
+                    print(f"       Hora: {cita[0]}")
+                if len(cita) > 1:
+                    print(f"       Duración: {cita[1]}")
+                if len(cita) > 2:
+                    print(f"       Estado: {cita[2]}")
+            else:
+                print(f"     Otro tipo: {cita}")
+    else:
+        print("📭 No hay citas registradas en BD para este día/profesional")
     
     # Obtener duración del servicio
     duracion_servicio = db.obtener_duracion_servicio(negocio_id, servicio_id)
@@ -1745,7 +1864,12 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         print(f"❌ No se pudo obtener duración del servicio {servicio_id}")
         return []
     
-    print(f"⏱️ Duración servicio: {duracion_servicio} minutos")
+    print(f"⏱️ Duración del servicio a agendar: {duracion_servicio} minutos")
+    
+    # ✅ CORRECCIÓN: Si es hoy, considerar margen mínimo de anticipación
+    fecha_actual = datetime.now(tz_colombia)
+    fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
+    es_hoy = fecha_cita.date() == fecha_actual.date()
     
     # Generar horarios disponibles
     horarios = []
@@ -1853,56 +1977,77 @@ def es_horario_almuerzo(hora, config_dia):
         return False
 
 def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """Verificar si un horario está disponible - VERSIÓN FIX PARA DICCIONARIOS"""
+    """Verificar si un horario está disponible - CON LUGS DETALLADOS"""
+    hora_str = hora_inicio.strftime('%H:%M')
     hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
     
-    # Verificar que no se pase del horario de cierre del día
+    print(f"\n   🔍 Verificando disponibilidad para {hora_str} (duración: {duracion_servicio} min)")
+    
+    # Verificar límites del día
     try:
         hora_fin_jornada = datetime.strptime(config_dia['hora_fin'], '%H:%M')
         if hora_fin_servicio.time() > hora_fin_jornada.time():
+            print(f"     ❌ NO DISPONIBLE - Se pasa del horario de cierre ({config_dia['hora_fin']})")
             return False
     except Exception as e:
         print(f"❌ Error verificando horario cierre: {e}")
         return False
     
-    # Verificar que no interfiera con horario de almuerzo
+    # Verificar almuerzo
     if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
+        print(f"     ❌ NO DISPONIBLE - Se solapa con horario de almuerzo")
         return False
     
-    # ✅ FIX: Manejar diccionarios en citas_ocupadas
+    # Verificar citas existentes
     if citas_ocupadas:
-        for cita_ocupada in citas_ocupadas:
+        print(f"     📋 Verificando contra {len(citas_ocupadas)} citas existentes...")
+        
+        for i, cita_ocupada in enumerate(citas_ocupadas):
             try:
-                # Manejar diferentes estructuras de datos
+                # Extraer datos de la cita
+                hora_cita_str = None
+                duracion_cita = 0
+                estado_cita = 'confirmado'
+                
                 if isinstance(cita_ocupada, dict):
                     hora_cita_str = cita_ocupada.get('hora')
-                    duracion_cita = cita_ocupada.get('duracion')
+                    duracion_cita = cita_ocupada.get('duracion', 0)
                     estado_cita = cita_ocupada.get('estado', 'confirmado')
                 elif isinstance(cita_ocupada, (list, tuple)) and len(cita_ocupada) >= 2:
                     hora_cita_str = cita_ocupada[0]
                     duracion_cita = cita_ocupada[1]
                     estado_cita = cita_ocupada[2] if len(cita_ocupada) > 2 else 'confirmado'
-                else:
-                    print(f"⚠️ Formato de cita desconocido: {type(cita_ocupada)}")
+                
+                if not hora_cita_str:
+                    print(f"       ⚠️ Hora de cita vacía, saltando...")
                     continue
                 
-                # ✅ SOLO considerar citas CONFIRMADAS
-                if estado_cita != 'confirmado':
-                    continue  # Saltar citas canceladas
+                print(f"     🔍 Comparando con cita #{i+1}: {hora_cita_str} ({duracion_cita} min, Estado: {estado_cita})")
                 
-                if not hora_cita_str or not duracion_cita:
+                # VERIFICACIÓN CRÍTICA DEL ESTADO
+                if estado_cita and estado_cita.lower() != 'confirmado':
+                    print(f"       ⏭️ IGNORADA - Estado no confirmado: {estado_cita}")
                     continue
                 
-                hora_cita = datetime.strptime(str(hora_cita_str), '%H:%M')
+                # Verificar solapamiento
+                hora_cita = datetime.strptime(str(hora_cita_str).strip(), '%H:%M')
                 hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
                 
                 if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
+                    print(f"       ❌ SOLAPAMIENTO DETECTADO")
+                    print(f"         Nuevo: {hora_str}-{hora_fin_servicio.strftime('%H:%M')}")
+                    print(f"         Existente: {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')}")
                     return False
+                else:
+                    print(f"       ✅ No hay solapamiento")
                     
             except Exception as e:
                 print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
                 continue
+    else:
+        print(f"     📭 No hay citas para comparar")
     
+    print(f"     ✅ DISPONIBLE - {hora_str}")
     return True
 
 def se_solapa_con_almuerzo(hora_inicio, hora_fin, config_dia):
@@ -1921,9 +2066,15 @@ def se_solapa_con_almuerzo(hora_inicio, hora_fin, config_dia):
         return False
 
 def se_solapan(inicio1, fin1, inicio2, fin2):
-    """Verificar si dos intervalos de tiempo se solapan - SIN CAMBIOS"""
-    return (inicio1.time() < fin2.time() and 
-            fin1.time() > inicio2.time())
+    """Verificar si dos intervalos de tiempo se solapan - CON LOGS"""
+    solapan = (inicio1.time() < fin2.time() and fin1.time() > inicio2.time())
+    
+    if solapan:
+        print(f"       🚨 SOLAPAMIENTO DETECTADO:")
+        print(f"         Intervalo 1: {inicio1.time()} - {fin1.time()}")
+        print(f"         Intervalo 2: {inicio2.time()} - {fin2.time()}")
+    
+    return solapan
 
 def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
     """Reiniciar conversación si ha pasado mucho tiempo - SIN CAMBIOS"""
