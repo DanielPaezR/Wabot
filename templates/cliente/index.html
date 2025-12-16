@@ -36,12 +36,13 @@
             --user-msg-bg: #007bff;
             --bot-msg-bg: #e9ecef;
             --header-height: 80px; /* Altura fija para el header */
-            --footer-height: 150px; /* Altura aproximada del footer */
+            --footer-height: 160px; /* Altura aproximada del footer */
         }
         
         * {
             -webkit-tap-highlight-color: transparent;
             -webkit-text-size-adjust: 100%;
+            box-sizing: border-box; /* Asegurar box-sizing consistente */
         }
         
         html, body {
@@ -55,18 +56,13 @@
             background-color: #f5f5f5;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             touch-action: manipulation; /* Mejora rendimiento táctil */
+            display: flex;
+            flex-direction: column;
         }
         
-        /* Contenedor principal con disposición fija */
-        .chat-container {
-            max-width: 500px;
-            margin: 0 auto;
-            border: 1px solid #ddd;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            background-color: white;
-            height: 100vh; /* Ocupa toda la altura de la ventana */
+        /* Contenedor principal que ocupa toda la pantalla */
+        .app-container {
+            height: 100vh;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -109,14 +105,24 @@
             padding: 0 10px;
         }
         
-        /* Área de mensajes con scroll - MODIFICADO */
+        /* Contenedor principal del chat con posición absoluta */
+        .chat-main-container {
+            flex: 1; /* Toma todo el espacio restante */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Oculta el overflow del contenedor principal */
+            position: relative;
+        }
+        
+        /* Área de mensajes con scroll - ¡ESTA ES LA CLAVE! */
         .chat-messages {
-            flex: 1; /* Toma todo el espacio disponible */
+            flex: 1; /* Toma todo el espacio disponible entre header y footer */
             overflow-y: auto; /* Scroll vertical */
             overflow-x: hidden; /* Sin scroll horizontal */
             padding: 20px;
             background-color: #fafafa;
             -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+            position: relative;
         }
         
         /* Mejor scrollbar */
@@ -147,14 +153,16 @@
             z-index: 100;
         }
         
+        /* Estilos para mensajes */
         .message {
             margin-bottom: 15px;
             padding: 12px 15px;
             border-radius: 15px;
-            max-width: 80%;
+            max-width: 85%;
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
             line-height: 1.4;
+            position: relative;
         }
         
         @keyframes fadeIn {
@@ -181,6 +189,7 @@
             color: var(--primary-color);
         }
         
+        /* Estilos para opciones y botones */
         .menu-options {
             display: flex;
             flex-wrap: wrap;
@@ -318,9 +327,11 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
+        /* Indicador de escritura */
         .typing-indicator {
             display: flex;
             padding: 10px;
+            margin-bottom: 15px;
         }
         
         .typing-indicator span {
@@ -341,6 +352,7 @@
             50% { transform: translateY(-5px); }
         }
         
+        /* Paginación */
         .pagination-info {
             font-size: 0.8rem;
             color: #6c757d;
@@ -425,12 +437,8 @@
         
         /* Estilos específicos para pantallas muy pequeñas */
         @media (max-width: 576px) {
-            .chat-container {
-                margin: 0;
-                border-radius: 0;
+            .app-container {
                 max-width: 100%;
-                border: none;
-                box-shadow: none;
             }
             
             .chat-header {
@@ -493,10 +501,20 @@
         
         /* Estilos para pantallas más grandes */
         @media (min-width: 768px) {
-            .chat-container {
+            .app-container {
+                max-width: 500px;
                 margin: 20px auto;
                 height: 90vh;
                 max-height: 800px;
+                border: 1px solid #ddd;
+                border-radius: 15px;
+                overflow: hidden;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+                background-color: white;
+            }
+            
+            .chat-header {
+                border-radius: 15px 15px 0 0;
             }
         }
         
@@ -515,49 +533,62 @@
             transform: scale(0.98);
         }
         
-        /* Estilo para el último mensaje - mantener separación del input */
-        .message:last-of-type {
-            margin-bottom: 10px;
-        }
-        
-        /* Asegurar que haya espacio al final para el scroll */
+        /* Espacio al final para facilitar scroll */
         .chat-messages::after {
             content: '';
             display: block;
             height: 10px;
         }
+        
+        /* Asegurar que los mensajes no queden ocultos */
+        .message:last-of-type {
+            margin-bottom: 10px;
+        }
+        
+        /* Clase para cuando el área de mensajes está vacía */
+        .chat-messages-empty {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #6c757d;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
-    <div class="chat-container">
+    <div class="app-container">
         <!-- Header fijo siempre visible -->
         <div class="chat-header">
             <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
             <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
         </div>
         
-        <!-- Área de mensajes con scroll - SOLO ESTA PARTE SCROLLEA -->
-        <div class="chat-messages" id="chatMessages">
-            <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
-        </div>
-        
-        <!-- Footer fijo en la parte inferior -->
-        <div class="chat-input">
-            <div class="input-group">
-                <input type="text" class="form-control" id="userInput" 
-                       placeholder="Escribe tu opción o mensaje..." autocomplete="off"
-                       aria-label="Mensaje">
-                <button class="btn btn-primary" id="sendButton">
-                    <i class="fas fa-paper-plane"></i> Enviar
-                </button>
+        <!-- Contenedor principal para mensajes y footer -->
+        <div class="chat-main-container">
+            <!-- Área de mensajes con scroll - SOLO ESTA PARTE SCROLLEA -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
             </div>
-            <div class="action-buttons mt-2">
-                <button class="btn btn-outline-secondary action-btn" id="resetButton">
-                    <i class="fas fa-redo"></i> Reiniciar
-                </button>
-                <button class="btn btn-outline-info action-btn" id="helpButton">
-                    <i class="fas fa-question"></i> Ayuda
-                </button>
+            
+            <!-- Footer fijo en la parte inferior -->
+            <div class="chat-input">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="userInput" 
+                           placeholder="Escribe tu opción o mensaje..." autocomplete="off"
+                           aria-label="Mensaje">
+                    <button class="btn btn-primary" id="sendButton">
+                        <i class="fas fa-paper-plane"></i> Enviar
+                    </button>
+                </div>
+                <div class="action-buttons mt-2">
+                    <button class="btn btn-outline-secondary action-btn" id="resetButton">
+                        <i class="fas fa-redo"></i> Reiniciar
+                    </button>
+                    <button class="btn btn-outline-info action-btn" id="helpButton">
+                        <i class="fas fa-question"></i> Ayuda
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -577,27 +608,27 @@
             const negocioId = $('#negocioId').val();
             const negocioNombre = $('#negocioNombre').val();
             
-            // Hacer scroll al final de los mensajes cuando se agrega uno nuevo
+            console.log("🔧 [INICIO] Chat web inicializado");
+            
+            // Función para hacer scroll al final de los mensajes
             function scrollToBottom() {
-                // Pequeño delay para asegurar que el DOM se actualizó
                 setTimeout(function() {
                     const scrollHeight = chatMessages[0].scrollHeight;
                     const height = chatMessages[0].clientHeight;
-                    const maxScrollTop = scrollHeight - height;
                     
                     // Solo hacer scroll si estamos cerca del final actual
                     const currentScroll = chatMessages.scrollTop();
-                    if (scrollHeight - (currentScroll + height) < 100) {
+                    const threshold = 100; // Píxeles de margen
+                    
+                    if (scrollHeight - (currentScroll + height) < threshold) {
                         chatMessages.scrollTop(scrollHeight);
                     }
                 }, 50);
             }
             
-            // Hacer scroll al final cuando se carga la página (para el primer mensaje)
-            function scrollToInitialBottom() {
-                setTimeout(function() {
-                    chatMessages.scrollTop(chatMessages[0].scrollHeight);
-                }, 300);
+            // Función para hacer scroll al inicio (para ver mensajes antiguos)
+            function scrollToTop() {
+                chatMessages.scrollTop(0);
             }
             
             // Mostrar indicador de "escribiendo"
@@ -732,8 +763,6 @@
                     userInput.val(opcionNumero);
                     sendMessage();
                 });
-                
-                scrollToBottom();
             }
             
             // Enviar mensaje al servidor
@@ -808,12 +837,17 @@
             // Auto-focus en el input
             userInput.focus();
             
-            // Iniciar conversación automáticamente
+            // Iniciar conversación automáticamente después de un breve delay
             setTimeout(function() {
+                // Enviar "hola" automáticamente para iniciar la conversación
                 userInput.val('hola');
                 sendMessage();
-                scrollToInitialBottom();
-            }, 800);
+            }, 500);
+            
+            // Ajustar el tamaño del área de mensajes cuando cambia el tamaño de la ventana
+            $(window).resize(function() {
+                scrollToBottom();
+            });
             
             // Prevenir comportamientos no deseados en móviles
             document.addEventListener('touchmove', function(e) {
@@ -821,6 +855,11 @@
                     e.preventDefault();
                 }
             }, { passive: false });
+            
+            // Forzar redibujado para asegurar que el scroll funciona
+            setTimeout(function() {
+                chatMessages.css('display', 'flex').hide().show(0);
+            }, 100);
         });
     </script>
 </body>
