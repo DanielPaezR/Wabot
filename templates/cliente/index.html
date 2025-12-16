@@ -56,24 +56,18 @@
             background-color: #f5f5f5;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             touch-action: manipulation;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
         }
         
-        /* CAMBIO CRÍTICO: Eliminar max-height del contenedor principal */
+        /* CONTENEDOR PRINCIPAL - SOLUCIÓN SIMPLIFICADA */
         .chat-container {
             width: 100%;
             max-width: 500px;
-            height: 100vh; /* Cambiado de max-height: 90vh a height: 100vh */
-            border: 1px solid #ddd;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            height: 100vh;
+            margin: 0 auto;
             background-color: white;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         
         /* Header fijo */
@@ -84,11 +78,7 @@
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.2);
             flex-shrink: 0;
-            min-height: var(--header-height);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            z-index: 10;
+            z-index: 100;
         }
         
         .chat-header h5 {
@@ -99,43 +89,38 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            padding: 0 10px;
         }
         
         .chat-header small {
             opacity: 0.9;
             font-size: 0.8rem;
             margin-top: 3px;
+            display: block;
+        }
+        
+        /* CONTENEDOR DE MENSAJES - SOLUCIÓN CRÍTICA */
+        .chat-messages-wrapper {
+            flex: 1;
+            position: relative;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            padding: 0 10px;
+            background-color: #fafafa;
         }
         
-        /* CONTENEDOR PRINCIPAL DE MENSAJES - CAMBIO CRÍTICO */
-        .messages-container {
-            flex: 1; /* Esto hace que tome todo el espacio disponible */
-            display: flex;
-            flex-direction: column;
-            overflow: hidden; /* IMPORTANTE: oculta el overflow de este contenedor */
-            min-height: 0; /* CRÍTICO: permite que el contenido interno haga scroll */
-        }
-        
-        /* Área de mensajes con scroll independiente - CAMBIO CRÍTICO */
         .chat-messages {
-            flex: 1; /* Toma todo el espacio disponible */
-            overflow-y: auto !important; /* Forzar scroll vertical */
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
             overflow-x: hidden;
             padding: 20px;
-            background-color: #fafafa;
             -webkit-overflow-scrolling: touch;
-            scroll-behavior: smooth;
-            min-height: 0; /* CRÍTICO: permite el scroll interno */
         }
         
-        /* Mejor scrollbar */
+        /* Scrollbar mejorada */
         .chat-messages::-webkit-scrollbar {
-            width: 8px; /* Un poco más ancha para mejor manejo táctil */
+            width: 8px;
         }
         
         .chat-messages::-webkit-scrollbar-track {
@@ -157,10 +142,10 @@
             background-color: white;
             border-top: 1px solid #ddd;
             flex-shrink: 0;
-            z-index: 10;
+            z-index: 100;
         }
         
-        /* Estilos para mensajes */
+        /* Mensajes */
         .message {
             margin-bottom: 15px;
             padding: 12px 15px;
@@ -195,7 +180,7 @@
             color: var(--primary-color);
         }
         
-        /* Mantener el resto de estilos igual */
+        /* Opciones y botones */
         .menu-options {
             display: flex;
             flex-wrap: wrap;
@@ -435,22 +420,14 @@
         
         /* Responsive */
         @media (max-width: 576px) {
-            body {
-                padding: 0;
-            }
-            
             .chat-container {
-                margin: 0;
-                border-radius: 0;
                 max-width: 100%;
-                height: 100vh;
                 border: none;
                 box-shadow: none;
             }
             
             .chat-header {
                 padding: 12px 15px;
-                min-height: 70px;
             }
             
             .chat-header h5 {
@@ -509,8 +486,15 @@
         @media (min-width: 768px) {
             .chat-container {
                 margin: 20px auto;
-                height: 90vh; /* En desktop, mantener 90vh */
+                height: 90vh;
                 max-height: 800px;
+                border: 1px solid #ddd;
+                border-radius: 15px;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            }
+            
+            .chat-header {
+                border-radius: 15px 15px 0 0;
             }
         }
         
@@ -527,11 +511,11 @@
             transform: scale(0.98);
         }
         
-        /* Espacio al final para facilitar el scroll */
+        /* Espacio al final para scroll */
         .chat-messages::after {
             content: '';
             display: block;
-            height: 20px; /* Aumentado a 20px para más espacio */
+            height: 20px;
         }
     </style>
 </head>
@@ -543,9 +527,8 @@
             <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
         </div>
         
-        <!-- Contenedor para mensajes con scroll -->
-        <div class="messages-container">
-            <!-- Área de mensajes con scroll independiente -->
+        <!-- Contenedor para mensajes con scroll - NUEVA ESTRUCTURA -->
+        <div class="chat-messages-wrapper">
             <div class="chat-messages" id="chatMessages">
                 <!-- Los mensajes se cargarán dinámicamente con JavaScript -->
             </div>
@@ -579,207 +562,254 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-    $(document).ready(function() {
-        const chatMessages = $('#chatMessages');
-        const userInput = $('#userInput');
-        const sendButton = $('#sendButton');
-        const sessionId = $('#sessionId').val();
-        const negocioId = $('#negocioId').val();
-        const negocioNombre = $('#negocioNombre').val();
-        
-        console.log("🔧 Chat inicializado correctamente");
-        
-        // Función para forzar un redibujado y asegurar que el scroll funcione
-        function forceReflow() {
-            chatMessages.hide().show(0);
-        }
-        
-        // Función para hacer scroll al final
-        function scrollToBottom() {
-            setTimeout(function() {
-                try {
-                    // Forzar cálculo de altura
-                    chatMessages[0].scrollTop = chatMessages[0].scrollHeight;
-                    
-                    // Asegurarse de que el scroll está funcionando
-                    const isAtBottom = Math.abs(
-                        chatMessages[0].scrollHeight - 
-                        chatMessages[0].scrollTop - 
-                        chatMessages[0].clientHeight
-                    ) < 10;
-                    
-                    if (!isAtBottom) {
-                        chatMessages[0].scrollTop = chatMessages[0].scrollHeight;
-                    }
-                } catch (e) {
-                    console.log("Error en scroll:", e);
+        $(document).ready(function() {
+            const chatMessages = $('#chatMessages');
+            const userInput = $('#userInput');
+            const sendButton = $('#sendButton');
+            const sessionId = $('#sessionId').val();
+            const negocioId = $('#negocioId').val();
+            const negocioNombre = $('#negocioNombre').val();
+            
+            console.log("🚀 Chat inicializado - Scroll garantizado");
+            
+            // Función para verificar y asegurar el scroll
+            function ensureScroll() {
+                // Forzar el cálculo del scrollHeight
+                const el = chatMessages[0];
+                el.style.display = 'none';
+                el.offsetHeight; // Forzar reflow
+                el.style.display = 'block';
+                
+                // Asegurar que el contenedor puede hacer scroll
+                if (el.scrollHeight > el.clientHeight) {
+                    console.log("✅ Scroll disponible:", el.scrollHeight, ">", el.clientHeight);
+                } else {
+                    console.log("⚠️  Scroll no necesario aún");
                 }
-            }, 150); // Aumentado a 150ms para dar tiempo al DOM
-        }
-        
-        // Verificar si hay espacio para scroll
-        function canScroll() {
-            return chatMessages[0].scrollHeight > chatMessages[0].clientHeight;
-        }
-        
-        // Mostrar indicador de "escribiendo"
-        function showTypingIndicator() {
-            const typingHtml = `
-                <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                </div>
-            `;
-            chatMessages.append(typingHtml);
-            scrollToBottom();
-        }
-        
-        // Ocultar indicador de "escribiendo"
-        function hideTypingIndicator() {
-            $('.typing-indicator').remove();
-        }
-        
-        // Agregar mensaje del usuario
-        function addUserMessage(message) {
-            if (!message.trim()) return;
-            
-            const messageWithLineBreaks = message.replace(/\n/g, '<br>');
-            const messageHtml = `
-                <div class="message user-message">
-                    <strong><i class="fas fa-user"></i> Tú:</strong><br>
-                    ${messageWithLineBreaks}
-                </div>
-            `;
-            chatMessages.append(messageHtml);
-            
-            // Siempre hacer scroll para mensajes nuevos del usuario
-            scrollToBottom();
-        }
-        
-        // Agregar mensaje del bot con opciones
-        function addBotMessage(message, options = null, pagination = null) {
-            const messageWithLineBreaks = message.replace(/\n/g, '<br>');
-            let messageHtml = `
-                <div class="message bot-message">
-                    <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
-                    ${messageWithLineBreaks}
-                </div>
-            `;
-            
-            chatMessages.append(messageHtml);
-            
-            if (options && options.length > 0) {
-                mostrarOpciones(options);
             }
             
-            if (pagination) {
-                const paginationHtml = `<div class="pagination-info">${pagination}</div>`;
-                chatMessages.append(paginationHtml);
+            // Función para hacer scroll al final
+            function scrollToBottom() {
+                setTimeout(() => {
+                    try {
+                        const el = chatMessages[0];
+                        el.scrollTop = el.scrollHeight;
+                        console.log("📜 Scroll al final:", el.scrollTop, "/", el.scrollHeight);
+                    } catch (e) {
+                        console.error("Error en scroll:", e);
+                    }
+                }, 100);
             }
             
-            // Esperar un poco más para asegurar que el DOM se actualizó
-            setTimeout(function() {
+            // Mostrar indicador de "escribiendo"
+            function showTypingIndicator() {
+                const typingHtml = `
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                `;
+                chatMessages.append(typingHtml);
                 scrollToBottom();
-                forceReflow(); // Forzar redibujado
-            }, 200);
-        }
-        
-        // Mostrar opciones como botones
-        function mostrarOpciones(options) {
-            // ... (esta función se mantiene igual que antes)
-            // Solo cambia la parte final:
-            chatMessages.append(optionsHtml);
+                ensureScroll();
+            }
             
-            $('button[data-opcion]').off('click').on('click', function() {
-                const opcionNumero = $(this).data('opcion');
-                userInput.val(opcionNumero);
-                sendMessage();
-            });
+            // Ocultar indicador de "escribiendo"
+            function hideTypingIndicator() {
+                $('.typing-indicator').remove();
+            }
             
-            // Forzar redibujado después de agregar botones
-            forceReflow();
-        }
-        
-        // Enviar mensaje al servidor
-        function sendMessage() {
-            const message = userInput.val().trim();
-            if (!message) return;
+            // Agregar mensaje del usuario
+            function addUserMessage(message) {
+                if (!message.trim()) return;
+                
+                const messageWithLineBreaks = message.replace(/\n/g, '<br>');
+                const messageHtml = `
+                    <div class="message user-message">
+                        <strong><i class="fas fa-user"></i> Tú:</strong><br>
+                        ${messageWithLineBreaks}
+                    </div>
+                `;
+                chatMessages.append(messageHtml);
+                scrollToBottom();
+                ensureScroll();
+            }
             
-            addUserMessage(message);
-            userInput.val('');
-            showTypingIndicator();
+            // Agregar mensaje del bot con opciones
+            function addBotMessage(message, options = null, pagination = null) {
+                const messageWithLineBreaks = message.replace(/\n/g, '<br>');
+                let messageHtml = `
+                    <div class="message bot-message">
+                        <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
+                        ${messageWithLineBreaks}
+                    </div>
+                `;
+                
+                chatMessages.append(messageHtml);
+                
+                if (options && options.length > 0) {
+                    mostrarOpciones(options);
+                }
+                
+                if (pagination) {
+                    const paginationHtml = `<div class="pagination-info">${pagination}</div>`;
+                    chatMessages.append(paginationHtml);
+                }
+                
+                setTimeout(() => {
+                    scrollToBottom();
+                    ensureScroll();
+                }, 150);
+            }
             
-            $.ajax({
-                url: '/cliente/send',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    message: message,
-                    session_id: sessionId,
-                    negocio_id: negocioId
-                }),
-                success: function(response) {
-                    hideTypingIndicator();
+            // Mostrar opciones como botones
+            function mostrarOpciones(options) {
+                const mensajeAnterior = $('.bot-message').last().text();
+                const pasoActual = $('#chatMessages').data('current-step') || 'menu';
+                
+                let containerClass = 'opciones-numeradas';
+                let buttonClass = 'opcion-btn';
+                
+                if (options.some(opt => opt.text && (opt.text.includes(':') || opt.text.includes('horario')))) {
+                    containerClass = 'horarios-options';
+                    buttonClass = 'hora-btn';
+                } else if (options.some(opt => opt.text && (opt.text.includes('Siguiente') || opt.text.includes('Anterior') || opt.text.includes('Cambiar')))) {
+                    containerClass = 'opciones-navegacion';
+                    buttonClass = 'nav-btn';
                     
-                    if (response.error) {
-                        addBotMessage(`❌ ${response.error}`);
-                        return;
+                    options.forEach(option => {
+                        if (option.text.includes('Siguiente')) {
+                            option.cssClass = 'nav-next';
+                        } else if (option.text.includes('Anterior')) {
+                            option.cssClass = 'nav-prev';
+                        } else if (option.text.includes('Cambiar')) {
+                            option.cssClass = 'nav-change';
+                        } else if (option.text.includes('Menú')) {
+                            option.cssClass = 'nav-home';
+                        }
+                    });
+                } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('Cancelar')))) {
+                    containerClass = 'confirmacion-opciones';
+                    buttonClass = 'confirm-btn';
+                    
+                    options.forEach(option => {
+                        if (option.text.includes('Confirmar')) {
+                            option.cssClass = 'confirm-yes';
+                        } else if (option.text.includes('Cancelar')) {
+                            option.cssClass = 'confirm-no';
+                        }
+                    });
+                }
+                
+                let optionsHtml = `<div class="${containerClass}">`;
+                options.forEach(option => {
+                    let btnClass = buttonClass;
+                    if (option.cssClass) {
+                        btnClass += ' ' + option.cssClass;
                     }
                     
-                    $('#chatMessages').data('current-step', response.step);
-                    addBotMessage(response.message, response.options, response.pagination);
-                },
-                error: function(xhr, status, error) {
-                    hideTypingIndicator();
-                    addBotMessage(`❌ Error al procesar tu mensaje. Intenta de nuevo.`);
-                    console.error('Error:', error);
-                }
-            });
-        }
-        
-        // Event listeners
-        sendButton.click(sendMessage);
-        
-        userInput.keypress(function(e) {
-            if (e.which === 13) {
-                sendMessage();
+                    optionsHtml += `
+                        <button class="${btnClass}" data-opcion="${option.value}">
+                            ${option.text}
+                        </button>
+                    `;
+                });
+                optionsHtml += '</div>';
+                
+                chatMessages.append(optionsHtml);
+                
+                $('button[data-opcion]').off('click').on('click', function() {
+                    const opcionNumero = $(this).data('opcion');
+                    userInput.val(opcionNumero);
+                    sendMessage();
+                });
+                
+                ensureScroll();
             }
-        });
-        
-        $('#resetButton').click(function() {
-            if (confirm('¿Estás seguro de que quieres reiniciar la conversación?')) {
-                $.post('/cliente/reset', function() {
-                    location.reload();
+            
+            // Enviar mensaje al servidor
+            function sendMessage() {
+                const message = userInput.val().trim();
+                if (!message) return;
+                
+                addUserMessage(message);
+                userInput.val('');
+                showTypingIndicator();
+                
+                $.ajax({
+                    url: '/cliente/send',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        message: message,
+                        session_id: sessionId,
+                        negocio_id: negocioId
+                    }),
+                    success: function(response) {
+                        hideTypingIndicator();
+                        
+                        if (response.error) {
+                            addBotMessage(`❌ ${response.error}`);
+                            return;
+                        }
+                        
+                        $('#chatMessages').data('current-step', response.step);
+                        addBotMessage(response.message, response.options, response.pagination);
+                    },
+                    error: function(xhr, status, error) {
+                        hideTypingIndicator();
+                        addBotMessage(`❌ Error al procesar tu mensaje. Intenta de nuevo.`);
+                        console.error('Error:', error);
+                    }
                 });
             }
+            
+            // Event listeners
+            sendButton.click(sendMessage);
+            
+            userInput.keypress(function(e) {
+                if (e.which === 13) {
+                    sendMessage();
+                }
+            });
+            
+            $('#resetButton').click(function() {
+                if (confirm('¿Estás seguro de que quieres reiniciar la conversación?')) {
+                    $.post('/cliente/reset', function() {
+                        location.reload();
+                    });
+                }
+            });
+            
+            $('#helpButton').click(function() {
+                userInput.val('4');
+                sendMessage();
+            });
+            
+            userInput.focus();
+            
+            // Iniciar conversación automáticamente
+            setTimeout(function() {
+                userInput.val('hola');
+                sendMessage();
+                // Asegurar scroll inicial
+                setTimeout(ensureScroll, 1000);
+            }, 800);
+            
+            // Prevenir zoom en iOS
+            document.addEventListener('touchmove', function(e) {
+                if (e.scale !== 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // Inicializar scroll
+            setTimeout(ensureScroll, 500);
+            
+            // Log para debug
+            console.log("✅ Chat listo. Header:", $('.chat-header').height(), "px");
+            console.log("✅ Footer:", $('.chat-input').height(), "px");
+            console.log("✅ Área de mensajes disponible");
         });
-        
-        $('#helpButton').click(function() {
-            userInput.val('4');
-            sendMessage();
-        });
-        
-        userInput.focus();
-        
-        // Iniciar conversación automáticamente
-        setTimeout(function() {
-            userInput.val('hola');
-            sendMessage();
-            // Forzar redibujado inicial
-            setTimeout(forceReflow, 500);
-        }, 800);
-        
-        // Prevenir zoom en iOS
-        document.addEventListener('touchmove', function(e) {
-            if (e.scale !== 1) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-        
-        // Asegurar que el scroll funcione al cargar la página
-        $(window).on('load', function() {
-            setTimeout(forceReflow, 1000);
-        });
-    });
-</script>
+    </script>
 </body>
 </html>
