@@ -36,7 +36,7 @@
             padding-bottom: env(safe-area-inset-bottom);
         }
         
-        /* HEADER MOBILE OPTIMIZED */
+        /* HEADER MOBILE OPTIMIZED - REORGANIZADO */
         .header {
             background: var(--white);
             padding: 1rem;
@@ -47,76 +47,54 @@
             padding-top: calc(1rem + env(safe-area-inset-top));
         }
         
-        .header-top {
+        /* NUEVO: Encabezado con saludo y botón de notificaciones */
+        .header-main {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 1rem;
-            gap: 0.5rem;
+            gap: 1rem;
+        }
+        
+        .welcome {
+            flex: 1;
+            min-width: 0; /* Permite que el texto se trunque si es necesario */
         }
         
         .welcome h1 {
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             color: var(--dark);
-            margin-bottom: 0.2rem;
+            margin-bottom: 0.3rem;
+            line-height: 1.2;
         }
         
         .welcome p {
             color: var(--text-light);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
         }
         
-        .nav-buttons {
-            display: flex;
-            gap: 0.5rem;
+        .notification-header-btn {
             flex-shrink: 0;
-        }
-        
-        .btn {
-            padding: 10px 14px;
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--info);
             border: none;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
             cursor: pointer;
             transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            min-height: 44px; /* Tappable area */
         }
         
-        .btn-primary {
-            background: var(--primary);
-            color: var(--white);
+        .notification-header-btn:active {
+            transform: scale(0.95);
         }
         
-        .btn-success {
-            background: var(--success);
-            color: var(--white);
-        }
-        
-        .btn-logout {
-            background: var(--danger);
-            color: var(--white);
-        }
-        
-        .btn-info {
-            background: var(--info);
-            color: var(--white);
-        }
-        
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        /* NOTIFICATIONS BADGE */
-        .notification-btn {
-            position: relative;
-        }
-        
-        .notification-badge {
+        .notification-header-badge {
             position: absolute;
             top: -5px;
             right: -5px;
@@ -125,12 +103,94 @@
             border-radius: 50%;
             width: 20px;
             height: 20px;
-            font-size: 12px;
+            font-size: 11px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
             animation: pulse 2s infinite;
+        }
+        
+        /* NUEVO: Barra de acciones inferior */
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-height: 44px;
+            text-align: center;
+        }
+        
+        .action-btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+        
+        .action-btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+        
+        .action-btn-logout {
+            background: var(--danger);
+            color: var(--white);
+        }
+        
+        .action-btn-info {
+            background: var(--info);
+            color: var(--white);
+        }
+        
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* Ajustes para pantallas más grandes */
+        @media (min-width: 480px) {
+            .header-actions {
+                gap: 0.8rem;
+            }
+            
+            .action-btn {
+                font-size: 0.9rem;
+                padding: 10px 12px;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .header-main {
+                align-items: center;
+            }
+            
+            .welcome h1 {
+                font-size: 1.5rem;
+            }
+            
+            .header-actions {
+                justify-content: flex-start;
+                gap: 1rem;
+            }
+            
+            .action-btn {
+                flex: 0 0 auto;
+                padding: 10px 16px;
+            }
         }
         
         @keyframes pulse {
@@ -179,7 +239,6 @@
             border-left: 4px solid var(--info);
             background: #f8f9fa;
             transition: all 0.2s ease;
-            /* ✅ AGREGAR: Color de texto siempre visible */
             color: #333333;
         }
 
@@ -189,39 +248,38 @@
         }
         
         .notification-item.unread {
-            background: #e3f2fd;  /* Azul muy claro */
+            background: #e3f2fd;
             border-left-color: var(--info);
-            color: #333333;  /* Texto oscuro */
+            color: #333333;
         }
 
         .notification-item.warning {
-            background: #fff3cd;  /* Amarillo claro */
+            background: #fff3cd;
             border-left-color: var(--warning);
-            color: #856404;  /* Texto marrón oscuro para contraste */
+            color: #856404;
         }
 
         .notification-item.success {
-            background: #d4edda;  /* Verde claro */
+            background: #d4edda;
             border-left-color: var(--success);
-            color: #155724;  /* Texto verde oscuro */
+            color: #155724;
         }
 
         .notification-item.danger {
-            background: #f8d7da;  /* Rojo claro */
+            background: #f8d7da;
             border-left-color: var(--danger);
-            color: #721c24;  /* Texto rojo oscuro */
+            color: #721c24;
         }
 
-        /* ✅ CORRECCIÓN ESPECÍFICA PARA TÍTULO Y MENSAJE */
         .notification-title {
             font-weight: bold;
             margin-bottom: 0.5rem;
-            color: #2c3e50;  /* Azul oscuro - siempre visible */
+            color: #2c3e50;
         }
 
         .notification-message {
             font-size: 0.9rem;
-            color: #34495e;  /* Gris azulado oscuro - siempre visible */
+            color: #34495e;
             line-height: 1.5;
             margin-bottom: 0.5rem;
             white-space: pre-line;
@@ -229,7 +287,7 @@
 
         .notification-time {
             font-size: 0.75rem;
-            color: #7f8c8d;  /* Gris medio */
+            color: #7f8c8d;
             text-align: right;
         }
         
@@ -705,7 +763,7 @@
                 margin: 0 auto;
             }
             
-            .header-top {
+            .header-main {
                 align-items: center;
             }
             
@@ -795,8 +853,16 @@
                 padding: 0.8rem;
             }
             
-            .btn {
-                padding: 10px 12px;
+            .action-btn {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+            }
+            
+            .welcome h1 {
+                font-size: 1.2rem;
+            }
+            
+            .welcome p {
                 font-size: 0.8rem;
             }
         }
@@ -804,7 +870,7 @@
         /* Prevenir zoom en inputs en iOS */
         @media (max-width: 768px) {
             input, select, textarea {
-                font-size: 16px; /* Previene zoom en iOS */
+                font-size: 16px;
             }
         }
     </style>
@@ -888,21 +954,32 @@
     </div>
 
     <div class="header">
-        <div class="header-top">
+        <!-- Fila superior: Saludo + Botón de notificaciones -->
+        <div class="header-main">
             <div class="welcome">
                 <h1>👋 Hola, {{ session.usuario_nombre }}</h1>
                 <p>{{ session.negocio_nombre }} - Tu agenda para hoy</p>
             </div>
-            <div class="nav-buttons">
-                <!-- Botón de notificaciones con badge -->
-                <button class="btn btn-info notification-btn" onclick="toggleNotifications()">
-                    🔔
-                    <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
-                </button>
-                <button class="btn btn-info" onclick="openPasswordModal()">🔑 Cambiar</button>
-                <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="btn btn-success">📊 Stats</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Salir</a>
-            </div>
+            <button class="notification-header-btn" onclick="toggleNotifications()">
+                🔔
+                <span id="notificationBadge" class="notification-header-badge" style="display: none;">0</span>
+            </button>
+        </div>
+        
+        <!-- Fila inferior: Botones de acción -->
+        <div class="header-actions">
+            <button class="action-btn action-btn-info" onclick="openPasswordModal()">
+                <span>🔑</span>
+                <span>Contraseña</span>
+            </button>
+            <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="action-btn action-btn-success">
+                <span>📊</span>
+                <span>Estadísticas</span>
+            </a>
+            <a href="{{ url_for('logout') }}" class="action-btn action-btn-logout">
+                <span>🚪</span>
+                <span>Salir</span>
+            </a>
         </div>
         
         <!-- Panel de notificaciones (oculto inicialmente) -->
@@ -910,8 +987,8 @@
             <div class="notifications-header">
                 <h3>🔔 Notificaciones</h3>
                 <div>
-                    <button class="btn btn-sm btn-info" onclick="loadNotifications()">🔄</button>
-                    <button class="btn btn-sm btn-success" onclick="markAllAsRead()">✓ Leer todas</button>
+                    <button class="action-btn action-btn-info" onclick="loadNotifications()" style="padding: 8px; font-size: 0.8rem;">🔄</button>
+                    <button class="action-btn action-btn-success" onclick="markAllAsRead()" style="padding: 8px; font-size: 0.8rem;">✓ Leer todas</button>
                 </div>
             </div>
             <div id="notificationsList">
@@ -924,6 +1001,7 @@
             </div>
         </div>
         
+        <!-- Estadísticas -->
         <div class="stats">
             <div class="stat">
                 <div class="stat-number">{{ total_citas }}</div>
@@ -1382,7 +1460,7 @@
         // Cerrar panel de notificaciones al hacer clic fuera
         document.addEventListener('click', function(e) {
             const panel = document.getElementById('notificationsPanel');
-            const btn = document.querySelector('.notification-btn');
+            const btn = document.querySelector('.notification-header-btn');
             
             if (notificationsOpen && panel && !panel.contains(e.target) && !btn.contains(e.target)) {
                 toggleNotifications();
