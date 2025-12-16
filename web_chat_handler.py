@@ -1703,7 +1703,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - CORREGIDO PARA EVITAR DUPLICADOS"""
+    """Generar horarios disponibles considerando la configuración por días - FIX PARA DICCIONARIOS"""
     print(f"🔍 Generando horarios para negocio {negocio_id}, profesional {profesional_id}, fecha {fecha}")
     
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
@@ -1727,10 +1727,16 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     if citas_ocupadas:
         print(f"📋 Detalle de citas ocupadas:")
         for cita in citas_ocupadas:
-            # cita = (hora, duracion, estado)
-            hora = cita[0]
-            duracion = cita[1]
-            estado = cita[2] if len(cita) > 2 else 'confirmado'
+            # Manejar tanto diccionarios como tuplas
+            if isinstance(cita, dict):
+                hora = cita.get('hora', '')
+                duracion = cita.get('duracion', 0)
+                estado = cita.get('estado', 'confirmado')
+            else:
+                hora = cita[0] if len(cita) > 0 else ''
+                duracion = cita[1] if len(cita) > 1 else 0
+                estado = cita[2] if len(cita) > 2 else 'confirmado'
+            
             print(f"   - Hora: {hora}, Duración: {duracion} min, Estado: {estado}")
     
     # Obtener duración del servicio
@@ -1753,6 +1759,9 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         if es_hoy:
             # Combinar fecha actual con hora del horario
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
+            
+            # ✅ FIX: Asegurar que ambas fechas tengan timezone
+            hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_colombia)
             
             # Calcular tiempo hasta el horario
             tiempo_hasta_horario = hora_actual_completa - fecha_actual
@@ -1789,7 +1798,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
 
 
 def verificar_disponibilidad_basica(negocio_id, fecha):
-    """Verificación rápida de disponibilidad para una fecha (sin profesional específico) - SIN CAMBIOS"""
+    """Verificación rápida de disponibilidad para una fecha - FIX TIMEZONE"""
     try:
         # Verificar si el día está activo
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
@@ -1806,7 +1815,9 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
             hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
             
             while hora_actual < hora_fin:
+                # ✅ FIX: Asegurar timezone
                 hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
+                hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_colombia)
                 
                 # ✅ CORRECCIÓN: Solo considerar horarios FUTUROS con margen
                 tiempo_hasta_horario = hora_actual_completa - fecha_actual
@@ -1822,6 +1833,8 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
         
     except Exception as e:
         print(f"❌ Error en verificación básica: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def es_horario_almuerzo(hora, config_dia):
@@ -1840,7 +1853,7 @@ def es_horario_almuerzo(hora, config_dia):
         return False
 
 def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """Verificar si un horario está disponible - VERSIÓN MEJORADA PARA EVITAR DUPLICADOS"""
+    """Verificar si un horario está disponible - VERSIÓN FIX PARA DICCIONARIOS"""
     hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
     
     # Verificar que no se pase del horario de cierre del día
@@ -1856,26 +1869,36 @@ def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
     if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
         return False
     
-    # ✅ CORRECCIÓN CRÍTICA: Verificar que no se solape con otras citas (CONFIRMADAS)
+    # ✅ FIX: Manejar diccionarios en citas_ocupadas
     if citas_ocupadas:
         for cita_ocupada in citas_ocupadas:
             try:
                 # Manejar diferentes estructuras de datos
-                if len(cita_ocupada) >= 2:
+                if isinstance(cita_ocupada, dict):
+                    hora_cita_str = cita_ocupada.get('hora')
+                    duracion_cita = cita_ocupada.get('duracion')
+                    estado_cita = cita_ocupada.get('estado', 'confirmado')
+                elif isinstance(cita_ocupada, (list, tuple)) and len(cita_ocupada) >= 2:
                     hora_cita_str = cita_ocupada[0]
                     duracion_cita = cita_ocupada[1]
-                    
-                    # ✅ SOLO considerar citas CONFIRMADAS
                     estado_cita = cita_ocupada[2] if len(cita_ocupada) > 2 else 'confirmado'
-                    if estado_cita != 'confirmado':
-                        continue  # Saltar citas canceladas
+                else:
+                    print(f"⚠️ Formato de cita desconocido: {type(cita_ocupada)}")
+                    continue
+                
+                # ✅ SOLO considerar citas CONFIRMADAS
+                if estado_cita != 'confirmado':
+                    continue  # Saltar citas canceladas
+                
+                if not hora_cita_str or not duracion_cita:
+                    continue
+                
+                hora_cita = datetime.strptime(str(hora_cita_str), '%H:%M')
+                hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
+                
+                if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
+                    return False
                     
-                    hora_cita = datetime.strptime(hora_cita_str, '%H:%M')
-                    hora_fin_cita = hora_cita + timedelta(minutes=duracion_cita)
-                    
-                    if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-                        return False
-                        
             except Exception as e:
                 print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
                 continue
