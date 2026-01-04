@@ -325,31 +325,49 @@ def generar_opciones_profesionales(numero, negocio_id):
     return opciones
 
 def generar_opciones_servicios(numero, negocio_id):
-    """Generar opciones para botones - SIMPLE"""
+    """Generar opciones de servicios para botones del chat web"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas:
         return None
     
     tiene_personalizado = conversaciones_activas[clave_conversacion].get('tiene_personalizado', False)
-    mostrar_todos = conversaciones_activas[clave_conversacion].get('mostrar_todos_servicios', False)
+    ya_selecciono = conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado', False)
     
-    # 1. Si tiene personalizado y NO ha elegido ver todos
-    if tiene_personalizado and not mostrar_todos:
+    # Si tiene personalizado y NO ha seleccionado todavía
+    if tiene_personalizado and not ya_selecciono:
+        print(f"🎯 [OPCIONES_SERVICIOS] Generando 2 opciones para servicio personalizado")
         return [
             {'value': '1', 'text': 'Seleccionar mi servicio personalizado 🌟'},
             {'value': '2', 'text': 'Ver todos los servicios disponibles'}
         ]
     
-    # 2. Para servicios normales
-    servicios = conversaciones_activas[clave_conversacion].get('servicios', [])
+    # Si ya seleccionó ver todos O no tiene personalizado
+    if 'servicios' not in conversaciones_activas[clave_conversacion]:
+        return None
+    
+    servicios = conversaciones_activas[clave_conversacion]['servicios']
     opciones = []
     
-    inicio = 3 if (tiene_personalizado and mostrar_todos) else 1
+    # Determinar índice inicial
+    if tiene_personalizado and ya_selecciono:
+        inicio = 3  # Porque 1 y 2 ya se usaron
+    else:
+        inicio = 1
+    
+    print(f"📋 [OPCIONES_SERVICIOS] Generando opciones desde índice {inicio}")
     
     for i, servicio in enumerate(servicios, inicio):
-        texto = f"{servicio['nombre']} - ${float(servicio['precio']):,.0f}"
-        opciones.append({'value': str(i), 'text': texto})
+        precio_formateado = f"${float(servicio['precio']):,.0f}"
+        texto = f"{servicio['nombre']} - {precio_formateado}"
+        
+        if len(texto) > 50:
+            texto = texto[:47] + "..."
+        
+        opciones.append({
+            'value': str(i),
+            'text': texto
+        })
     
     return opciones
 
@@ -730,116 +748,193 @@ def mostrar_profesionales(numero, negocio_id):
         return "❌ Error al cargar profesionales."
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - VERSIÓN CORREGIDA"""
+    """Mostrar servicios disponibles - VERSIÓN ORIGINAL QUE FUNCIONABA"""
     try:
-        print(f"🔍 [SERVICIOS] === MOSTRANDO SERVICIOS ===")
+        print(f"🔍 [SERVICIOS] Mostrando servicios para cliente: {numero}")
         
+        # PRIMERO: Verificar si el cliente tiene teléfono registrado en la conversación
         clave_conversacion = f"{numero}_{negocio_id}"
         
-        # 1. Obtener servicios
-        servicios = db.obtener_servicios(negocio_id)
-        servicios = [s for s in servicios if s.get('activo', True)]
+        telefono_cliente = None
+        if clave_conversacion in conversaciones_activas:
+            telefono_cliente = conversaciones_activas[clave_conversacion].get('telefono_cliente')
+            print(f"🔍 [SERVICIOS] Teléfono cliente en conversación: {telefono_cliente}")
         
-        # Guardar en conversación
+        servicio_personalizado = None
+        tiene_personalizado = False
+        
+        if telefono_cliente:
+            # Buscar servicio personalizado
+            try:
+                from database import obtener_servicio_personalizado_cliente
+                servicio_personalizado = obtener_servicio_personalizado_cliente(telefono_cliente, negocio_id)
+                print(f"🔍 [SERVICIOS] Servicio personalizado encontrado: {servicio_personalizado is not None}")
+                
+                if servicio_personalizado:
+                    tiene_personalizado = True
+            except Exception as e:
+                print(f"⚠️ [SERVICIOS] Error buscando servicio personalizado: {e}")
+        
+        # Obtener servicios normales del negocio
+        servicios = db.obtener_servicios(negocio_id)
+        
+        # Filtrar servicios activos
+        servicios_activos = []
+        for servicio in servicios:
+            if servicio.get('activo', True):
+                servicios_activos.append(servicio)
+        
+        servicios = servicios_activos
+        
+        # Guardar en conversación activa
         if clave_conversacion not in conversaciones_activas:
             conversaciones_activas[clave_conversacion] = {}
-        
+            
         conversaciones_activas[clave_conversacion]['servicios'] = servicios
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['tiene_personalizado'] = tiene_personalizado
         
-        # 2. Verificar si tiene servicio personalizado
-        telefono = conversaciones_activas[clave_conversacion].get('telefono_cliente')
-        tiene_personalizado = False
+        if tiene_personalizado:
+            conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
+            # IMPORTANTE: Inicializar esta variable
+            conversaciones_activas[clave_conversacion]['ya_selecciono_personalizado'] = False
         
-        if telefono:
-            try:
-                from database import obtener_servicio_personalizado_cliente
-                servicio_personalizado = obtener_servicio_personalizado_cliente(telefono, negocio_id)
-                if servicio_personalizado:
-                    tiene_personalizado = True
-                    conversaciones_activas[clave_conversacion]['tiene_personalizado'] = True
-                    conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
-            except:
-                pass
-        
-        # 3. Determinar si ya eligió ver todos
-        mostrar_todos = conversaciones_activas[clave_conversacion].get('mostrar_todos_servicios', False)
-        
-        # 4. Mostrar mensaje según situación
+        # Construir mensaje según si tiene personalizado o no
         mensaje = ""
         
-        # Caso 1: Tiene personalizado y NO ha elegido ver todos
-        if tiene_personalizado and not mostrar_todos:
-            print(f"🎯 [SERVICIOS] Mostrando OPCIONES (1 o 2)")
+        # CASO 1: Tiene servicio personalizado
+        if tiene_personalizado and servicio_personalizado:
+            print(f"🎯 [SERVICIOS] Cliente tiene servicio personalizado")
             
-            sp = conversaciones_activas[clave_conversacion]['servicio_personalizado']
+            # Mostrar opciones de personalizado PRIMERO
+            mensaje += f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
+            mensaje += f"*{servicio_personalizado['nombre_personalizado']}*\n"
+            mensaje += f"⏱️ Duración: {servicio_personalizado['duracion_personalizada']} min\n"
+            mensaje += f"💵 Precio: ${float(servicio_personalizado['precio_personalizado']):,.0f}\n"
             
-            mensaje = f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
-            mensaje += f"*{sp['nombre_personalizado']}*\n"
-            mensaje += f"⏱️ {sp['duracion_personalizada']} min\n"
-            mensaje += f"💵 ${float(sp['precio_personalizado']):,.0f}\n"
-            
-            if sp.get('descripcion'):
-                mensaje += f"📝 {sp['descripcion']}\n"
+            if servicio_personalizado.get('descripcion'):
+                mensaje += f"📝 {servicio_personalizado['descripcion']}\n"
             
             mensaje += f"\n🔢 *Selecciona una opción:*\n"
             mensaje += f"*1* - Usar mi servicio personalizado 🌟\n"
-            mensaje += f"*2* - Ver todos los servicios disponibles"
+            mensaje += f"*2* - Ver todos los servicios disponibles\n\n"
+            
+            # Si ya seleccionó ver todos, mostrar la lista completa
+            if conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado', False):
+                print(f"📋 [SERVICIOS] Cliente ya eligió ver todos los servicios")
+                mensaje += f"📋 **Todos los servicios con {profesional_nombre}:**\n\n"
+                
+                # Los servicios normales empiezan en índice 3 (porque 1 y 2 son las opciones)
+                for i, servicio in enumerate(servicios, 3):
+                    mensaje += f"*{i}* - *{servicio['nombre']}*\n"
+                    mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${float(servicio['precio']):,.0f}\n"
+                    if servicio.get('descripcion'):
+                        mensaje += f"   📝 {servicio['descripcion']}\n"
+                    mensaje += "\n"
+                
+                mensaje += "🔢 *Responde con el número del servicio (opciones 3 en adelante)*"
+            else:
+                print(f"🔢 [SERVICIOS] Mostrando solo opciones 1 y 2")
+                # Solo mostrar las opciones 1 y 2
             
             return mensaje
         
-        # Caso 2: Ya eligió ver todos O no tiene personalizado
-        print(f"📋 [SERVICIOS] Mostrando LISTA COMPLETA")
+        # CASO 2: No tiene servicio personalizado
+        print(f"📋 [SERVICIOS] Cliente NO tiene servicio personalizado")
         
-        if tiene_personalizado and mostrar_todos:
-            mensaje = f"📋 **Todos los servicios con {profesional_nombre}:**\n\n"
-            inicio = 3  # Los servicios normales empiezan en 3
-        else:
-            mensaje = f"📋 **Servicios con {profesional_nombre}:**\n\n"
-            inicio = 1
+        if not servicios:
+            return "❌ No hay servicios disponibles en este momento."
         
-        for i, servicio in enumerate(servicios, inicio):
+        mensaje += f"📋 **Servicios con {profesional_nombre}:**\n\n"
+        
+        for i, servicio in enumerate(servicios, 1):
             mensaje += f"*{i}* - *{servicio['nombre']}*\n"
             mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${float(servicio['precio']):,.0f}\n"
             if servicio.get('descripcion'):
                 mensaje += f"   📝 {servicio['descripcion']}\n"
             mensaje += "\n"
         
-        if tiene_personalizado and mostrar_todos:
-            mensaje += "🔢 *Responde con el número del servicio (opciones 3 en adelante)*"
-        else:
-            mensaje += "🔢 *Responde con el número del servicio*"
+        mensaje += "🔢 *Responde con el número del servicio que deseas*"
         
         return mensaje
         
     except Exception as e:
         print(f"❌ Error en mostrar_servicios: {e}")
+        import traceback
+        traceback.print_exc()
         return "❌ Error al cargar servicios."
     
 def procesar_seleccion_servicio(numero, mensaje, negocio_id):
-    """Procesar selección de servicio - VERSIÓN CORREGIDA"""
+    """Procesar selección de servicio - VERSIÓN ORIGINAL QUE FUNCIONABA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    print(f"🔍 [SELECCION_SERVICIO] === PROCESANDO: '{mensaje}' ===")
+    print(f"🔍 [SELECCION_SERVICIO] === INICIO ===")
+    print(f"🔍 [SELECCION_SERVICIO] Mensaje: '{mensaje}'")
+    print(f"🔍 [SELECCION_SERVICIO] Tiene personalizado: {conversaciones_activas[clave_conversacion].get('tiene_personalizado', False)}")
+    print(f"🔍 [SELECCION_SERVICIO] Ya seleccionó: {conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado', False)}")
     
-    # Si el cliente tiene servicio personalizado
-    if conversaciones_activas[clave_conversacion].get('tiene_personalizado', False):
+    # Manejar el comando "0" para volver al menú principal
+    if mensaje == '0':
+        if clave_conversacion in conversaciones_activas:
+            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        return "Volviendo al menú principal..."
+    
+    tiene_personalizado = conversaciones_activas[clave_conversacion].get('tiene_personalizado', False)
+    ya_selecciono = conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado', False)
+    
+    # ========== CASO 1: Tiene servicio personalizado ==========
+    if tiene_personalizado:
         print(f"🎯 [SELECCION_SERVICIO] Cliente TIENE servicio personalizado")
         
-        # PRIMERO verificar si ya eligió ver todos los servicios
-        if conversaciones_activas[clave_conversacion].get('mostrar_todos_servicios', False):
-            print(f"📋 [SELECCION_SERVICIO] Ya está viendo todos los servicios")
+        # SUBCASO 1A: Si NO ha seleccionado todavía (está en pantalla de opciones 1/2)
+        if not ya_selecciono:
+            print(f"🔢 [SELECCION_SERVICIO] Está en pantalla de OPCIONES (1 o 2)")
             
-            # Aquí procesa selección de servicios normales (3, 4, 5...)
+            if mensaje == '1':
+                # Cliente eligió su servicio personalizado
+                print(f"✅ [SELECCION_SERVICIO] Opción 1 - Usar servicio personalizado")
+                
+                servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
+                
+                # Guardar el servicio personalizado como seleccionado
+                conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_personalizado['servicio_base_id']
+                conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_personalizado['nombre_personalizado']
+                conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_personalizado['precio_personalizado']
+                conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
+                conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
+                conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+                
+                return mostrar_fechas_disponibles(numero, negocio_id)
+            
+            elif mensaje == '2':
+                # Cliente quiere ver todos los servicios
+                print(f"📋 [SELECCION_SERVICIO] Opción 2 - Ver todos los servicios")
+                
+                # Marcar que ya pasó por las opciones
+                conversaciones_activas[clave_conversacion]['ya_selecciono_personalizado'] = True
+                
+                # Volver a mostrar servicios (ahora mostrará la lista completa)
+                profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
+                return mostrar_servicios(numero, profesional_nombre, negocio_id)
+            
+            else:
+                return "❌ Opción no válida. Responde con *1* para tu servicio personalizado o *2* para ver todos los servicios."
+        
+        # SUBCASO 1B: Si YA seleccionó "ver todos" (está en pantalla de servicios 3+)
+        else:
+            print(f"📋 [SELECCION_SERVICIO] Ya seleccionó ver todos - procesando servicio normal")
+            
             try:
                 idx_servicio = int(mensaje)
+                print(f"🔢 [SELECCION_SERVICIO] Índice recibido: {idx_servicio}")
                 
-                # Los servicios normales empiezan en 3
+                # Los servicios normales empiezan en 3 (porque 1 y 2 ya se usaron)
                 if idx_servicio < 3:
                     return "❌ Opción no válida. Selecciona un servicio de la lista (números 3 en adelante)."
                 
-                idx_servicio_real = idx_servicio - 2
+                idx_servicio_real = idx_servicio - 2  # Convertir a índice real de la lista
+                print(f"🔢 [SELECCION_SERVICIO] Índice real: {idx_servicio_real}")
                 
                 servicios = conversaciones_activas[clave_conversacion]['servicios']
                 
@@ -850,7 +945,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
                 servicio_index = idx_servicio_real - 1
                 servicio_seleccionado = servicios[servicio_index]
                 
-                print(f"✅ [SELECCION_SERVICIO] Servicio normal seleccionado: {servicio_seleccionado['nombre']}")
+                print(f"✅ [SELECCION_SERVICIO] Servicio seleccionado: {servicio_seleccionado['nombre']}")
                 
                 conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_seleccionado['id']
                 conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_seleccionado['nombre']
@@ -863,41 +958,8 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
                 
             except ValueError:
                 return "❌ Por favor, ingresa un número válido."
-        
-        # Si NO ha elegido ver todos los servicios, procesar opciones 1 y 2
-        print(f"🔢 [SELECCION_SERVICIO] Está en pantalla de OPCIONES (1 o 2)")
-        
-        if mensaje == '1':
-            print(f"✅ [SELECCION_SERVICIO] Opción 1 - Usar servicio personalizado")
-            
-            servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
-            
-            # Guardar el servicio personalizado como seleccionado
-            conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_personalizado['servicio_base_id']
-            conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_personalizado['nombre_personalizado']
-            conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_personalizado['precio_personalizado']
-            conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
-            conversaciones_activas[clave_conversacion]['mostrar_todos_servicios'] = False
-            conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
-            
-            return mostrar_fechas_disponibles(numero, negocio_id)
-        
-        elif mensaje == '2':
-            print(f"📋 [SELECCION_SERVICIO] Opción 2 - Ver todos los servicios")
-            
-            # SOLO marcamos que quiere ver todos
-            conversaciones_activas[clave_conversacion]['mostrar_todos_servicios'] = True
-            
-            # NO cambiamos el estado, NO seleccionamos servicio
-            # Simplemente volvemos a mostrar_servicios para que muestre la lista
-            profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
-            return mostrar_servicios(numero, profesional_nombre, negocio_id)
-        
-        else:
-            return "❌ Opción no válida. Responde con *1* para tu servicio personalizado o *2* para ver todos los servicios."
     
-    # Si NO tiene servicio personalizado (flujo normal)
+    # ========== CASO 2: No tiene servicio personalizado ==========
     print(f"📋 [SELECCION_SERVICIO] Cliente NO tiene servicio personalizado")
     
     try:
