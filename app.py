@@ -3370,21 +3370,22 @@ def profesional_personalizar_servicio(cita_id):
         if request.method == 'POST':
             print("📝 [PERSONALIZAR] Procesando formulario POST")
             
-            # Procesar formulario
+            # Procesar formulario (SIN servicios adicionales)
             nombre_personalizado = request.form.get('nombre_personalizado', '').strip()
             duracion_personalizada = request.form.get('duracion', 0)
             precio_personalizado = request.form.get('precio', 0)
             descripcion = request.form.get('descripcion', '').strip()
             
-            servicios_adicionales = request.form.getlist('servicios_adicionales[]')
-            incluidos_por_defecto = request.form.getlist('incluidos_por_defecto[]')
-            
             print(f"📝 [PERSONALIZAR] Datos recibidos:")
             print(f"   Nombre: {nombre_personalizado}")
             print(f"   Duración: {duracion_personalizada}")
             print(f"   Precio: {precio_personalizado}")
-            print(f"   Servicios adicionales: {servicios_adicionales}")
-            print(f"   Incluidos por defecto: {incluidos_por_defecto}")
+            print(f"   Descripción: {descripcion}")
+            
+            # Validar datos requeridos
+            if not nombre_personalizado or not duracion_personalizada or not precio_personalizado:
+                flash('Nombre, duración y precio son campos requeridos', 'error')
+                return redirect(f'/profesional/personalizar_servicio/{cita_id}')
             
             # 1. Buscar o crear cliente
             cursor.execute('''
@@ -3414,7 +3415,7 @@ def profesional_personalizar_servicio(cita_id):
                 flash('Error al obtener/crear cliente', 'error')
                 return redirect(f'/profesional/personalizar_servicio/{cita_id}')
             
-            # 2. Crear o actualizar servicio personalizado
+            # 2. Crear o actualizar servicio personalizado (SIN servicios adicionales)
             cursor.execute('''
                 SELECT id FROM servicios_personalizados 
                 WHERE cliente_id = %s AND negocio_id = %s AND profesional_id = %s
@@ -3436,9 +3437,9 @@ def profesional_personalizar_servicio(cita_id):
                         activo = true
                     WHERE id = %s
                 ''', (
-                    nombre_personalizado or f'Personalizado para {cita["cliente_nombre"]}',
-                    duracion_personalizada or cita['duracion'],
-                    precio_personalizado or cita['precio'],
+                    nombre_personalizado,
+                    duracion_personalizada,
+                    precio_personalizado,
                     descripcion or f'Servicio personalizado para {cita["cliente_nombre"]}',
                     cita['servicio_id'],
                     servicio_personalizado_existente['id']
@@ -3457,9 +3458,9 @@ def profesional_personalizar_servicio(cita_id):
                     RETURNING id
                 ''', (
                     cliente_id, negocio_id, profesional_id, cita['servicio_id'],
-                    nombre_personalizado or f'Personalizado para {cita["cliente_nombre"]}',
-                    duracion_personalizada or cita['duracion'],
-                    precio_personalizado or cita['precio'],
+                    nombre_personalizado,
+                    duracion_personalizada,
+                    precio_personalizado,
                     descripcion or f'Servicio personalizado para {cita["cliente_nombre"]}'
                 ))
                 
@@ -3467,14 +3468,15 @@ def profesional_personalizar_servicio(cita_id):
                 servicio_personalizado_id = servicio_personalizado_result['id']
                 print(f"✅ [PERSONALIZAR] Nuevo servicio personalizado creado: ID {servicio_personalizado_id}")
             
-            # 3. Guardar servicios adicionales (si tienes tabla servicios_adicionales_cliente)
-            if servicio_personalizado_id:
-                print(f"✅ [PERSONALIZAR] Servicio personalizado ID: {servicio_personalizado_id}")
+            # 3. ELIMINAR servicios adicionales anteriores si existen
+            # (Ya no manejamos servicios adicionales, pero limpiamos por si acaso)
+            cursor.execute('''
+                DELETE FROM servicios_adicionales_cliente 
+                WHERE servicio_personalizado_id = %s
+            ''', (servicio_personalizado_id,))
             
             conn.commit()
             print("✅ [PERSONALIZAR] Personalización guardada exitosamente")
-            
-            flash(f'✅ Servicio personalizado "{nombre_personalizado}" guardado para {cita["cliente_nombre"]}', 'success')
             
             # Marcar la cita como "personalizada" (opcional)
             cursor.execute('''
@@ -3484,15 +3486,15 @@ def profesional_personalizar_servicio(cita_id):
             ''', (cita_id,))
             conn.commit()
             
-            flash('✅ Servicio personalizado guardado exitosamente', 'success')
+            flash(f'✅ Servicio personalizado "{nombre_personalizado}" guardado exitosamente', 'success')
             return redirect('/profesional')
         
         # ========== GET REQUEST ==========
         print("📋 [PERSONALIZAR] Mostrando formulario (GET)")
         
-        # Obtener servicios disponibles
+        # Obtener servicios disponibles (solo para referencia)
         cursor.execute('''
-            SELECT * FROM servicios 
+            SELECT id, nombre FROM servicios 
             WHERE negocio_id = %s AND activo = true 
             AND id != %s
             ORDER BY nombre
@@ -3532,7 +3534,7 @@ def profesional_personalizar_servicio(cita_id):
         
         return render_template('profesional/personalizar_servicio.html',
                              cita=cita,
-                             servicios=servicios,
+                             servicios=servicios,  # Solo para referencia
                              personalizacion=personalizacion_existente)
         
     except Exception as e:

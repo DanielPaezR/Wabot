@@ -351,51 +351,6 @@
                         </div>
                     </div>
                     
-                    <!-- Servicios Adicionales -->
-                    <div class="form-group">
-                        <h3 style="margin-bottom: 1rem; color: #333;">➕ Servicios Adicionales</h3>
-                        <p style="color: #666; margin-bottom: 1rem;">Selecciona los servicios que pueden ser agregados. Puedes marcar si vienen incluidos por defecto o son opcionales.</p>
-                        
-                        {% if servicios %}
-                        <div class="servicios-list">
-                            {% for servicio in servicios %}
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" 
-                                       id="servicio_{{ servicio.id }}" 
-                                       name="servicios_adicionales[]"
-                                       value="{{ servicio.id }}"
-                                       {% if personalizacion and servicio.id in personalizacion.servicios_adicionales_ids %}checked{% endif %}>
-                                
-                                <label class="form-check-label" for="servicio_{{ servicio.id }}">
-                                    <strong>{{ servicio.nombre }}</strong>
-                                    <div style="color: #666; font-size: 0.9rem; margin-top: 0.3rem;">
-                                        ⏱️ {{ servicio.duracion }} min | 💵 ${{ "{:,.0f}".format(servicio.precio|int) }}
-                                        {% if servicio.descripcion %}<br>{{ servicio.descripcion }}{% endif %}
-                                    </div>
-                                    
-                                    <div style="margin-top: 0.5rem;">
-                                        <div class="form-check" style="padding: 0; border: none;">
-                                            <input class="form-check-input" type="checkbox" 
-                                                   id="incluido_{{ servicio.id }}"
-                                                   name="incluidos_por_defecto[]"
-                                                   value="{{ servicio.id }}"
-                                                   {% if personalizacion and servicio.id in personalizacion.incluidos_default %}checked{% endif %}>
-                                            <label class="form-check-label" for="incluido_{{ servicio.id }}" style="font-size: 0.9rem;">
-                                                ✅ Incluido por defecto
-                                            </label>
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <div class="empty-state">
-                            <p>No hay otros servicios configurados en el negocio.</p>
-                        </div>
-                        {% endif %}
-                    </div>
-                    
                     <div class="form-footer">
                         <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">
                             ↩️ Cancelar y volver al Dashboard

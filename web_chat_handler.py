@@ -732,30 +732,29 @@ def mostrar_profesionales(numero, negocio_id):
         return "❌ Error al cargar profesionales."
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO MEJORADO"""
+    """Mostrar servicios disponibles - VERSIÓN SIMPLIFICADA SIN SERVICIOS ADICIONALES"""
     try:
         print(f"🔍 [SERVICIOS] Mostrando servicios para cliente: {numero}")
         
-        # PRIMERO: Verificar si el cliente tiene teléfono registrado en la conversación
+        # Verificar si el cliente tiene teléfono registrado
         clave_conversacion = f"{numero}_{negocio_id}"
         
         telefono_cliente = None
         if clave_conversacion in conversaciones_activas:
             telefono_cliente = conversaciones_activas[clave_conversacion].get('telefono_cliente')
-            print(f"🔍 [SERVICIOS] Teléfono cliente en conversación: {telefono_cliente}")
         
         servicio_personalizado = None
         tiene_personalizado = False
         
         if telefono_cliente:
-            # Buscar servicio personalizado usando la nueva función
+            # Buscar servicio personalizado
             try:
                 from database import obtener_servicio_personalizado_cliente
                 servicio_personalizado = obtener_servicio_personalizado_cliente(telefono_cliente, negocio_id)
-                print(f"🔍 [SERVICIOS] Servicio personalizado encontrado: {servicio_personalizado is not None}")
                 
                 if servicio_personalizado:
                     tiene_personalizado = True
+                    print(f"✅ [SERVICIOS] Servicio personalizado encontrado para {telefono_cliente}")
             except Exception as e:
                 print(f"⚠️ [SERVICIOS] Error buscando servicio personalizado: {e}")
         
@@ -780,10 +779,6 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         conversaciones_activas[clave_conversacion]['servicios'] = servicios
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
-        conversaciones_activas[clave_conversacion]['tiene_personalizado'] = tiene_personalizado
-        
-        if tiene_personalizado:
-            conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
         
         # Construir mensaje
         mensaje = ""
@@ -793,25 +788,19 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
             mensaje += f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
             mensaje += f"*{servicio_personalizado['nombre_personalizado']}*\n"
             mensaje += f"⏱️ Duración: {servicio_personalizado['duracion_personalizada']} min\n"
-            mensaje += f"💵 Precio: ${servicio_personalizado['precio_personalizado']:,.0f}\n"
+            mensaje += f"💵 Precio: ${float(servicio_personalizado['precio_personalizado']):,.0f}\n"
             
             if servicio_personalizado.get('descripcion'):
                 mensaje += f"📝 {servicio_personalizado['descripcion']}\n"
             
-            # Mostrar servicios adicionales si los hay
-            if servicio_personalizado.get('servicios_adicionales'):
-                mensaje += f"\n📋 *Servicios incluidos:*\n"
-                for adicional in servicio_personalizado['servicios_adicionales']:
-                    if adicional.get('incluido_por_defecto'):
-                        mensaje += f"✅ {adicional.get('nombre', 'Servicio adicional')}\n"
-                    else:
-                        mensaje += f"⚪ {adicional.get('nombre', 'Servicio adicional')} (opcional)\n"
+            # Guardar datos del servicio personalizado
+            conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
             
             mensaje += f"\n🔢 *Selecciona una opción:*\n"
             mensaje += f"*1* - Usar mi servicio personalizado 🌟\n"
             mensaje += f"*2* - Ver todos los servicios disponibles\n\n"
         
-        # Agregar servicios normales (solo si el cliente no eligió opción 1)
+        # Agregar servicios normales
         if not (tiene_personalizado and conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado')):
             if tiene_personalizado:
                 mensaje += f"📋 **Todos los servicios con {profesional_nombre}:**\n\n"
@@ -824,7 +813,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
                 idx = i + offset
                 
                 mensaje += f"*{idx}* - *{servicio['nombre']}*\n"
-                mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}\n"
+                mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${float(servicio['precio']):,.0f}\n"
                 if servicio.get('descripcion'):
                     mensaje += f"   📝 {servicio['descripcion']}\n"
                 mensaje += "\n"
@@ -1328,7 +1317,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
 
 def procesar_confirmacion_directa(numero, negocio_id, conversacion):
-    """Procesar confirmación de cita cuando ya tenemos todos los datos - VERSIÓN COMPLETA CON SERVICIOS ADICIONALES"""
+    """Procesar confirmación de cita - VERSIÓN SIMPLIFICADA SIN SERVICIOS ADICIONALES"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     try:
@@ -1353,26 +1342,12 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         servicio_precio = conversacion['servicio_precio']
         telefono = conversacion['telefono_cliente']
         
-        # ✅ AGREGAR DIAGNÓSTICO ANTES DE CREAR LA CITA
-        print(f"\n🚨 DIAGNÓSTICO DE DUPLICADOS ANTES DE CREAR CITA 🚨")
-        print(f"Fecha: {fecha}")
-        print(f"Hora: {hora}")
-        print(f"Profesional ID: {profesional_id}")
-        print(f"Servicio ID: {servicio_id}")
-        
         # Obtener duración del servicio
         duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
         print(f"Duración servicio: {duracion} minutos")
         
-        # Obtener todas las citas del día
+        # Verificar disponibilidad
         citas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
-        print(f"\n📋 TODAS las citas en BD para este día:")
-        
-        for i, cita in enumerate(citas):
-            print(f"  Cita #{i+1}:")
-            print(f"    Hora: {cita.get('hora')}")
-            print(f"    Duración: {cita.get('duracion')}")
-            print(f"    Estado: {cita.get('estado')}")
         
         # Verificar si ya existe una cita a esa hora
         cita_existente = None
@@ -1382,50 +1357,8 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
                 break
         
         if cita_existente:
-            print(f"\n🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
-            print(f"   Hora: {cita_existente.get('hora')}")
-            print(f"   Duración: {cita_existente.get('duracion')}")
-            print(f"   Estado: {cita_existente.get('estado')}")
-            # ¡ESTE ES EL ERROR! No deberíamos continuar
+            print(f"🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
             return "❌ Error: Ya existe una cita confirmada a esta hora. Por favor, selecciona otro horario."
-        else:
-            print(f"\n✅ No hay citas confirmadas a las {hora}")
-        
-        # Calcular horario propuesto
-        hora_inicio = datetime.strptime(hora, '%H:%M')
-        hora_fin = hora_inicio + timedelta(minutes=duracion)
-        
-        print(f"\n⏰ Horario propuesto: {hora} - {hora_fin.strftime('%H:%M')}")
-        
-        # Verificar solapamientos
-        for cita in citas:
-            if cita.get('estado') == 'confirmado':
-                cita_hora = datetime.strptime(cita.get('hora'), '%H:%M')
-                cita_duracion = cita.get('duracion', 0)
-                cita_fin = cita_hora + timedelta(minutes=int(cita_duracion))
-                
-                if se_solapan(hora_inicio, hora_fin, cita_hora, cita_fin):
-                    print(f"\n🚨 SOLAPAMIENTO CON CITA EXISTENTE:")
-                    print(f"   Cita existente: {cita.get('hora')} - {cita_fin.strftime('%H:%M')}")
-                    print(f"   Nueva cita: {hora} - {hora_fin.strftime('%H:%M')}")
-                    return "❌ Error: Este horario se solapa con una cita existente. Por favor, selecciona otro horario."
-        
-        print(f"\n✅ Diagnóstico completado - No hay conflictos detectados")
-        
-        # Verificar si hay servicios adicionales seleccionados (para servicio personalizado)
-        servicios_adicionales = conversacion.get('servicios_adicionales', [])
-        servicios_adicionales_seleccionados = []
-        
-        # TODO: Aquí puedes agregar lógica para que el cliente seleccione
-        # qué servicios adicionales quiere incluir en esta cita específica
-        # Por ahora, incluimos todos los que están marcados como "incluido_por_defecto"
-        
-        if servicios_adicionales:
-            print(f"🎁 [DEBUG] Servicios adicionales disponibles: {len(servicios_adicionales)}")
-            for adicional in servicios_adicionales:
-                if adicional.get('incluido_por_defecto'):
-                    servicios_adicionales_seleccionados.append(adicional)
-                    print(f"   ✅ Incluido por defecto: {adicional.get('nombre')}")
         
         # Obtener nombre del cliente
         if 'cliente_nombre' not in conversacion:
@@ -1433,19 +1366,10 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         else:
             nombre_cliente = conversacion['cliente_nombre']
         
-        # Validar que el nombre sea válido
         if not nombre_cliente or len(str(nombre_cliente).strip()) < 2:
             nombre_cliente = 'Cliente'
         else:
             nombre_cliente = str(nombre_cliente).strip().title()
-        
-        # Calcular precio total (incluyendo servicios adicionales si los hay)
-        precio_total = servicio_precio
-        duracion_total = duracion
-        
-        for adicional in servicios_adicionales_seleccionados:
-            precio_total += adicional.get('precio', 0)
-            duracion_total += adicional.get('duracion', 0)
         
         print(f"🔧 [DEBUG] Datos para cita:")
         print(f"   - Cliente: {nombre_cliente}")
@@ -1454,10 +1378,10 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         print(f"   - Hora: {hora}")
         print(f"   - Profesional: {profesional_nombre} (ID: {profesional_id})")
         print(f"   - Servicio: {servicio_nombre} (ID: {servicio_id})")
-        print(f"   - Precio total: ${precio_total:,.0f}")
-        print(f"   - Duración total: {duracion_total} min")
+        print(f"   - Precio: ${servicio_precio:,.0f}")
+        print(f"   - Duración: {duracion} min")
         
-        # ✅ Crear la cita en la base de datos
+        # Crear la cita en la base de datos
         print(f"🔧 [DEBUG] Creando cita en BD...")
         cita_id = db.agregar_cita(
             negocio_id=negocio_id,
@@ -1472,73 +1396,11 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         if cita_id and cita_id > 0:
             print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
             
-            # TODO: Aquí puedes guardar en una tabla adicional qué servicios adicionales
-            # fueron incluidos en esta cita específica
-            if servicios_adicionales_seleccionados:
-                print(f"📝 [DEBUG] Guardando servicios adicionales para cita #{cita_id}")
-                # Aquí iría la lógica para guardar en una tabla como 'cita_servicios_adicionales'
-                # conn = get_db_connection()
-                # cursor = conn.cursor()
-                # for adicional in servicios_adicionales_seleccionados:
-                #     cursor.execute('''
-                #         INSERT INTO cita_servicios_adicionales (cita_id, servicio_id, precio)
-                #         VALUES (%s, %s, %s)
-                #     ''', (cita_id, adicional['servicio_id'], adicional['precio']))
-                # conn.commit()
-                # conn.close()
-            
-            # ✅ ENVIAR NOTIFICACIÓN AL PROFESIONAL
-            print(f"📧 [CHAT WEB] Preparando notificación para cita #{cita_id}")
-            try:
-                from scheduler import appointment_scheduler
-                
-                # Crear datos completos para notificación
-                cita_data = {
-                    'id': cita_id,
-                    'cliente_nombre': nombre_cliente,
-                    'cliente_telefono': telefono,
-                    'profesional_id': profesional_id,
-                    'profesional_nombre': profesional_nombre,
-                    'servicio_nombre': servicio_nombre,
-                    'precio': precio_total,  # Usar precio total que incluye adicionales
-                    'fecha': fecha,
-                    'hora': hora,
-                    'negocio_id': negocio_id,
-                    'estado': 'confirmado',
-                    'duracion': duracion_total,
-                    'servicios_adicionales': [sa.get('nombre') for sa in servicios_adicionales_seleccionados]
-                }
-                
-                print(f"📧 [CHAT WEB] Datos para notificación: {cita_data}")
-                
-                # Enviar confirmación inmediata al profesional
-                success = appointment_scheduler.enviar_confirmacion_inmediata(cita_data)
-                
-                if success:
-                    print(f"✅ [CHAT WEB] Notificación ENVIADA al profesional #{profesional_id}")
-                else:
-                    print(f"❌ [CHAT WEB] Error: appointment_scheduler.enviar_confirmacion_inmediata devolvió False")
-                
-            except ImportError as e:
-                print(f"❌ [CHAT WEB] Error importando scheduler: {e}")
-            except Exception as e:
-                print(f"❌ [CHAT WEB] Error enviando notificación: {e}")
-                import traceback
-                traceback.print_exc()
-
-            
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
             
-            precio_formateado = f"${precio_total:,.0f}".replace(',', '.')
+            precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
             fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
-            
-            # Construir mensaje con servicios adicionales si los hay
-            mensaje_servicios_adicionales = ""
-            if servicios_adicionales_seleccionados:
-                mensaje_servicios_adicionales = "\n• **Servicios incluidos:**\n"
-                for adicional in servicios_adicionales_seleccionados:
-                    mensaje_servicios_adicionales += f"   ✅ {adicional.get('nombre')}\n"
             
             mensaje_confirmacion = f'''✅ **Cita Confirmada**
 
@@ -1553,8 +1415,8 @@ Tu cita ha sido agendada exitosamente:
 • **Hora:** {hora}
 • **ID de cita:** #{cita_id}
 • **Teléfono:** {telefono}
-• **Duración:** {duracion_total} minutos
-{mensaje_servicios_adicionales}
+• **Duración:** {duracion} minutos
+
 Recibirás recordatorios por mensaje antes de tu cita.
 
 ¡Te esperamos!'''
@@ -1573,7 +1435,6 @@ Recibirás recordatorios por mensaje antes de tu cita.
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return "❌ Error inesperado al procesar tu cita. Por favor, intenta nuevamente."
-
 
 def diagnostico_citas_duplicadas(negocio_id, profesional_id, fecha, hora, servicio_id):
     """Función para diagnosticar por qué se permiten citas duplicadas"""
