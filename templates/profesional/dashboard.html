@@ -160,6 +160,59 @@
         .action-btn:active {
             transform: scale(0.98);
         }
+
+        .btn-personalizar {
+            background: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 10px;
+        }
+
+        .btn-personalizar:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .cita-item.completed {
+            opacity: 0.8;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-left: 4px solid #27ae60;
+        }
+
+        .cita-item.completed .cita-info h3 {
+            text-decoration: line-through;
+            color: #7f8c8d;
+        }
+
+        .cita-item.completed .cita-meta span {
+            color: #95a5a6;
+        }
+
+        /* Estado para cita ya personalizada */
+        .cita-item.personalizada {
+            border-left: 4px solid #9b59b6;
+            background: linear-gradient(135deg, #f8f9fa, #f0e6f5);
+        }
+
+        .cita-item.personalizada .badge-personalizada {
+            background: #9b59b6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
         
         /* Ajustes para pantallas más grandes */
         @media (min-width: 480px) {
@@ -1024,9 +1077,13 @@
         <div class="citas-list">
             {% if citas %}
                 {% for cita in citas %}
-                <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %}">
+                <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
                     <div class="cita-info">
-                        <h3>{{ cita.cliente_nombre }}</h3>
+                        <h3>{{ cita.cliente_nombre }}
+                            {% if cita.personalizada %}
+                            <span class="badge-personalizada">⭐ Personalizada</span>
+                            {% endif %}
+                        </h3>
                         <div class="cita-meta">
                             <span class="cita-time">⏰ {{ cita.hora }}</span>
                             <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
@@ -1036,11 +1093,21 @@
                     
                     <div class="cita-actions">
                         {% if cita.estado != 'completado' %}
-                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" style="display: inline; width: 100%;">
+                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" style="display: inline;">
                             <button type="submit" class="btn-complete" onclick="mostrarNotificacion()">✅ Completar</button>
                         </form>
                         {% else %}
-                        <span style="color: var(--success); font-size: 0.9rem; font-weight: 600;">✅ Completado</span>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                <span>✅</span> Completado
+                            </span>
+                            
+                            <!-- ✅ BOTÓN DE PERSONALIZAR SOLO PARA CITAS COMPLETADAS -->
+                            <a href="{{ url_for('negocio_personalizar_servicio', cita_id=cita.id) }}" 
+                            class="btn-personalizar">
+                            <span>⚙️</span> Personalizar
+                            </a>
+                        </div>
                         {% endif %}
                         <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
                     </div>
