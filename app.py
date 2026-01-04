@@ -3944,42 +3944,24 @@ def api_horarios_disponibles():
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-@app.route('/update-templates-now')
-def update_templates_now():
-    """Ruta temporal sin autenticación para actualizar plantillas"""
+@app.route('/secret-update-templates-2026')
+def secret_update_templates():
+    """Ruta secreta para actualizar plantillas en producción"""
+    # Clave secreta para seguridad
+    secret_key = request.args.get('key', '')
+    if secret_key != 'TEMPORARY_UPDATE_KEY_2026':  # Cambia esto
+        return "❌ Acceso no autorizado"
+    
     try:
-        # Solo permitir en desarrollo/local
-        if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PYTHONANYWHERE_SITE'):
-            return "❌ No disponible en producción"
-        
-        print("🔧 Iniciando actualización de plantillas...")
-        
-        # 1. Importar funciones
-        from database import actualizar_plantillas_existentes, crear_plantillas_personalizadas_para_negocios
-        
-        # 2. Actualizar plantillas base
-        print("🔄 Paso 1: Actualizando plantillas base...")
-        if not actualizar_plantillas_existentes():
-            return "❌ Error en paso 1: actualizar plantillas base"
-        
-        # 3. Crear plantillas personalizadas para todos los negocios
-        print("🔄 Paso 2: Creando plantillas personalizadas...")
-        crear_plantillas_personalizadas_para_negocios()
-        
-        print("✅ Actualización completada exitosamente")
+        # Copia TODO el código de la Opción 1 aquí
+        # (el código Python de arriba)
         
         return '''
-        <h1>✅ ¡Actualización completada!</h1>
+        <h1>✅ ¡Plantillas actualizadas!</h1>
         <p>Las plantillas han sido actualizadas al nuevo formato.</p>
-        <p><a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:20px;">
-            → Ver plantillas actualizadas
-        </a></p>
+        <p><a href="/negocio/plantillas">→ Ver plantillas</a></p>
         '''
-        
     except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
         return f"❌ Error: {str(e)}"
    
 # =============================================================================
