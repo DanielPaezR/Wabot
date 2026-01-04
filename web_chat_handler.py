@@ -744,7 +744,12 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         servicio_personalizado = None
         tiene_personalizado = False
         
-        if telefono_cliente:
+        # VERIFICAR SI EL CLIENTE YA ELIGIÓ VER TODOS LOS SERVICIOS
+        if clave_conversacion in conversaciones_activas and conversaciones_activas[clave_conversacion].get('mostrar_todos_servicios'):
+            print(f"🔍 Cliente eligió ver todos los servicios, omitiendo servicio personalizado")
+            # Eliminar la bandera después de usarla
+            del conversaciones_activas[clave_conversacion]['mostrar_todos_servicios']
+        elif telefono_cliente:
             # Buscar servicio personalizado usando la nueva función
             try:
                 from database import obtener_servicio_personalizado_cliente
@@ -967,6 +972,9 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
     elif mensaje == '2':
         # Cliente quiere ver todos los servicios
         print(f"📋 [SERVICIO-PERSONALIZADO] Cliente quiere ver todos los servicios")
+        
+        # AGREGAR UNA BANDERA PARA EVITAR QUE SE MUESTRE NUEVAMENTE EL PERSONALIZADO
+        conversaciones_activas[clave_conversacion]['mostrar_todos_servicios'] = True
         
         # Limpiar el servicio personalizado para mostrar todos los servicios
         if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
