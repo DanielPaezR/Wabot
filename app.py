@@ -3944,17 +3944,42 @@ def api_horarios_disponibles():
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-@app.route('/admin/actualizar-plantillas-base')
-@role_required(['superadmin'])
-def admin_actualizar_plantillas_base():
-    """Actualizar solo plantillas base"""
+@app.route('/update-templates-now')
+def update_templates_now():
+    """Ruta temporal sin autenticación para actualizar plantillas"""
     try:
-        from database import actualizar_plantillas_existentes
-        if actualizar_plantillas_existentes():
-            return "✅ Plantillas base actualizadas exitosamente"
-        else:
-            return "❌ Error actualizando plantillas"
+        # Solo permitir en desarrollo/local
+        if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PYTHONANYWHERE_SITE'):
+            return "❌ No disponible en producción"
+        
+        print("🔧 Iniciando actualización de plantillas...")
+        
+        # 1. Importar funciones
+        from database import actualizar_plantillas_existentes, crear_plantillas_personalizadas_para_negocios
+        
+        # 2. Actualizar plantillas base
+        print("🔄 Paso 1: Actualizando plantillas base...")
+        if not actualizar_plantillas_existentes():
+            return "❌ Error en paso 1: actualizar plantillas base"
+        
+        # 3. Crear plantillas personalizadas para todos los negocios
+        print("🔄 Paso 2: Creando plantillas personalizadas...")
+        crear_plantillas_personalizadas_para_negocios()
+        
+        print("✅ Actualización completada exitosamente")
+        
+        return '''
+        <h1>✅ ¡Actualización completada!</h1>
+        <p>Las plantillas han sido actualizadas al nuevo formato.</p>
+        <p><a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:20px;">
+            → Ver plantillas actualizadas
+        </a></p>
+        '''
+        
     except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return f"❌ Error: {str(e)}"
    
 # =============================================================================

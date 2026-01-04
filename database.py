@@ -529,11 +529,15 @@ def actualizar_plantillas_existentes():
     cursor = conn.cursor()
     
     try:
-        # Eliminar solo plantillas base
+        print("🔄 Actualizando plantillas base...")
+        
+        # Eliminar solo plantillas base (NO las personalizadas)
         if is_postgresql():
-            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
+            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE AND negocio_id IS NULL')
         else:
-            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
+            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE AND negocio_id IS NULL')
+        
+        print("✅ Plantillas base eliminadas")
         
         # Llamar a la función que actualizaste
         _insertar_plantillas_base(cursor)
@@ -544,10 +548,12 @@ def actualizar_plantillas_existentes():
     except Exception as e:
         conn.rollback()
         print(f"❌ Error actualizando plantillas: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     finally:
         conn.close()
-        
+
 def _insertar_configuracion_horarios(cursor):
     """Insertar configuración de horarios por día - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()
