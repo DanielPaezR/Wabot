@@ -161,6 +161,7 @@
             transform: scale(0.98);
         }
 
+        /* 🔧 BOTÓN PERSONALIZAR - CORREGIDO */
         .btn-personalizar {
             background: #3498db;
             color: white;
@@ -175,7 +176,8 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            margin-left: 10px;
+            min-height: 44px;
+            min-width: 44px;
         }
 
         .btn-personalizar:hover {
@@ -500,7 +502,6 @@
             font-weight: 600;
             cursor: pointer;
             min-height: 44px;
-            flex: 1;
             transition: all 0.2s ease;
         }
         
@@ -948,7 +949,7 @@
                     
                     <div class="form-group">
                         <label for="current_password" class="form-label">Contraseña Actual *</label>
-                        <div class="password-input-group">
+                        display: block;.password-input-group">
                             <input type="password" class="form-control" id="current_password" 
                                    name="current_password" required>
                             <button type="button" class="toggle-password" onclick="togglePassword('current_password')">
@@ -1092,22 +1093,28 @@
                     </div>
                     
                     <div class="cita-actions">
-                        {% if cita.estado != 'completado' %}
-                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" style="display: inline;">
-                            <button type="submit" class="btn-complete" onclick="mostrarNotificacion()">✅ Completar</button>
-                        </form>
-                        {% else %}
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <!-- 🔥 CORRECCIÓN: AMBOS BOTONES SIEMPRE VISIBLES -->
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <!-- Botón Completar -->
+                            {% if cita.estado != 'completado' %}
+                            <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" style="display: inline;">
+                                <button type="submit" class="btn-complete" onclick="mostrarNotificacion()">
+                                    ✅ Completar
+                                </button>
+                            </form>
+                            {% else %}
                             <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
                                 <span>✅</span> Completado
                             </span>
+                            {% endif %}
                             
+                            <!-- Botón Personalizar - SIEMPRE VISIBLE -->
                             <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
-                                class="btn-personalizar">
-                                <span>⚙️</span> Personalizar
+                               class="btn-personalizar">
+                               <span>⚙️</span> Personalizar
                             </a>
                         </div>
-                        {% endif %}
+                        
                         <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
                     </div>
                 </div>
