@@ -1102,10 +1102,9 @@
                                 <span>✅</span> Completado
                             </span>
                             
-                            <!-- ✅ BOTÓN DE PERSONALIZAR SOLO PARA CITAS COMPLETADAS -->
-                            <a href="{{ url_for('negocio_personalizar_servicio', cita_id=cita.id) }}" 
-                            class="btn-personalizar">
-                            <span>⚙️</span> Personalizar
+                            <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
+                                class="btn-personalizar">
+                                <span>⚙️</span> Personalizar
                             </a>
                         </div>
                         {% endif %}

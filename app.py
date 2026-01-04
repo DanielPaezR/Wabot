@@ -3253,36 +3253,267 @@ def cambiar_password():
     finally:
         conn.close()
 
-@app.route('/profesional/personalizar_servicio/<int:cita_id>')
+@app.route('/profesional/personalizar_servicio/<int:cita_id>', methods=['GET', 'POST'])
 def profesional_personalizar_servicio(cita_id):
-    """Permitir a profesionales personalizar servicios"""
+    """Permitir a profesionales personalizar servicios para sus clientes"""
+    # Verificar sesión
     if 'usuario_id' not in session:
         return redirect('/login')
     
-    # Verificar que el usuario es un profesional
     if session.get('usuario_rol') != 'profesional':
-        return redirect('/negocio/dashboard')
+        flash('Solo los profesionales pueden acceder a esta función', 'error')
+        return redirect('/login')
     
     negocio_id = session.get('negocio_id')
-    profesional_id = session.get('usuario_id')  # O session.get('profesional_id')
+    profesional_id = session.get('profesional_id') or session.get('usuario_id')
     
-    # Verificar que la cita pertenece a este profesional
+    print(f"🔍 [PERSONALIZAR] Cita: {cita_id}, Profesional: {profesional_id}, Negocio: {negocio_id}")
+    
+    # Conectar a la base de datos
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT * FROM citas 
-        WHERE id = %s AND negocio_id = %s AND profesional_id = %s
-    ''', (cita_id, negocio_id, profesional_id))
-    
-    cita = cursor.fetchone()
-    conn.close()
-    
-    if not cita:
-        return "No autorizado o cita no encontrada", 403
-    
-    # Redirigir a la misma función del negocio (puedes crear una vista separada si prefieres)
-    return redirect(f'/negocio/personalizar_servicio/{cita_id}')
+    try:
+        # 1. Verificar que la cita existe y pertenece a este profesional
+        cursor.execute('''
+            SELECT c.*, s.nombre as servicio_nombre, s.duracion, s.precio,
+                   cl.nombre as cliente_nombre, cl.telefono as cliente_telefono
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono AND cl.negocio_id = c.negocio_id
+            WHERE c.id = %s AND c.negocio_id = %s AND c.profesional_id = %s
+        ''', (cita_id, negocio_id, profesional_id))
+        
+        cita = cursor.fetchone()
+        
+        if not cita:
+            flash('Cita no encontrada o no tienes permiso para acceder', 'error')
+            return redirect('/profesional')
+        
+        print(f"✅ [PERSONALIZAR] Cita encontrada: {cita}")
+        
+        # Convertir a diccionario si es necesario
+        if hasattr(cita, 'keys'):
+            cita_dict = dict(cita)
+        else:
+            # Si es tupla, crear diccionario
+            cita_dict = {
+                'id': cita[0],
+                'negocio_id': cita[1],
+                'profesional_id': cita[2],
+                'cliente_telefono': cita[3],
+                'cliente_nombre': cita[4] or 'Cliente',
+                'fecha': cita[5],
+                'hora': cita[6],
+                'servicio_id': cita[7],
+                'estado': cita[8],
+                'servicio_nombre': cita[12] if len(cita) > 12 else 'Servicio',
+                'duracion': cita[13] if len(cita) > 13 else 30,
+                'precio': cita[14] if len(cita) > 14 else 0,
+                'telefono': cita[16] if len(cita) > 16 else cita[3]
+            }
+        
+        if request.method == 'POST':
+            # Procesar formulario de personalización
+            nombre_personalizado = request.form.get('nombre_personalizado', '').strip()
+            duracion_personalizada = request.form.get('duracion', 0)
+            precio_personalizado = request.form.get('precio', 0)
+            descripcion = request.form.get('descripcion', '').strip()
+            
+            # Servicios adicionales seleccionados
+            servicios_adicionales = request.form.getlist('servicios_adicionales[]')
+            incluidos_por_defecto = request.form.getlist('incluidos_por_defecto[]')
+            
+            print(f"📝 [PERSONALIZAR] Datos recibidos:")
+            print(f"   Nombre: {nombre_personalizado}")
+            print(f"   Duración: {duracion_personalizada}")
+            print(f"   Precio: {precio_personalizado}")
+            print(f"   Servicios adicionales: {servicios_adicionales}")
+            print(f"   Incluidos por defecto: {incluidos_por_defecto}")
+            
+            # 1. Buscar o crear cliente en tabla clientes
+            cursor.execute('''
+                SELECT id FROM clientes 
+                WHERE telefono = %s AND negocio_id = %s
+            ''', (cita_dict['cliente_telefono'], negocio_id))
+            
+            cliente_existente = cursor.fetchone()
+            
+            cliente_id = None
+            if cliente_existente:
+                cliente_id = cliente_existente[0] if isinstance(cliente_existente, tuple) else cliente_existente['id']
+                print(f"✅ Cliente existente encontrado: ID {cliente_id}")
+            else:
+                # Crear nuevo cliente
+                cursor.execute('''
+                    INSERT INTO clientes (negocio_id, telefono, nombre, created_at, updated_at)
+                    VALUES (%s, %s, %s, NOW(), NOW())
+                    RETURNING id
+                ''', (negocio_id, cita_dict['cliente_telefono'], cita_dict['cliente_nombre']))
+                
+                cliente_result = cursor.fetchone()
+                cliente_id = cliente_result[0] if cliente_result else None
+                print(f"✅ Nuevo cliente creado: ID {cliente_id}")
+            
+            if not cliente_id:
+                flash('Error al obtener/crear cliente', 'error')
+                return redirect(f'/profesional/personalizar_servicio/{cita_id}')
+            
+            # 2. Crear o actualizar servicio personalizado
+            cursor.execute('''
+                SELECT id FROM servicios_personalizados 
+                WHERE cliente_id = %s AND negocio_id = %s
+            ''', (cliente_id, negocio_id))
+            
+            servicio_personalizado_existente = cursor.fetchone()
+            
+            if servicio_personalizado_existente:
+                # Actualizar existente
+                cursor.execute('''
+                    UPDATE servicios_personalizados 
+                    SET nombre_personalizado = %s,
+                        duracion_personalizada = %s,
+                        precio_personalizado = %s,
+                        descripcion = %s,
+                        servicio_base_id = %s,
+                        fecha_actualizacion = NOW()
+                    WHERE id = %s
+                ''', (
+                    nombre_personalizado or f'Personalizado para {cita_dict["cliente_nombre"]}',
+                    duracion_personalizada or cita_dict['duracion'],
+                    precio_personalizado or cita_dict['precio'],
+                    descripcion or f'Servicio personalizado para {cita_dict["cliente_nombre"]}',
+                    cita_dict['servicio_id'],
+                    servicio_personalizado_existente[0] if isinstance(servicio_personalizado_existente, tuple) else servicio_personalizado_existente['id']
+                ))
+                
+                servicio_personalizado_id = servicio_personalizado_existente[0] if isinstance(servicio_personalizado_existente, tuple) else servicio_personalizado_existente['id']
+                print(f"✅ Servicio personalizado actualizado: ID {servicio_personalizado_id}")
+            else:
+                # Crear nuevo
+                cursor.execute('''
+                    INSERT INTO servicios_personalizados 
+                    (cliente_id, negocio_id, profesional_id, servicio_base_id,
+                     nombre_personalizado, duracion_personalizada, precio_personalizado, descripcion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                ''', (
+                    cliente_id, negocio_id, profesional_id, cita_dict['servicio_id'],
+                    nombre_personalizado or f'Personalizado para {cita_dict["cliente_nombre"]}',
+                    duracion_personalizada or cita_dict['duracion'],
+                    precio_personalizado or cita_dict['precio'],
+                    descripcion or f'Servicio personalizado para {cita_dict["cliente_nombre"]}'
+                ))
+                
+                servicio_personalizado_result = cursor.fetchone()
+                servicio_personalizado_id = servicio_personalizado_result[0] if servicio_personalizado_result else None
+                print(f"✅ Nuevo servicio personalizado creado: ID {servicio_personalizado_id}")
+            
+            # 3. Limpiar servicios adicionales anteriores y agregar nuevos
+            if servicio_personalizado_id:
+                cursor.execute('''
+                    DELETE FROM servicios_adicionales_cliente 
+                    WHERE servicio_personalizado_id = %s
+                ''', (servicio_personalizado_id,))
+                
+                # Agregar nuevos servicios adicionales
+                for servicio_id in servicios_adicionales:
+                    try:
+                        servicio_id_int = int(servicio_id)
+                        incluido = servicio_id in incluidos_por_defecto
+                        
+                        cursor.execute('''
+                            INSERT INTO servicios_adicionales_cliente 
+                            (servicio_personalizado_id, servicio_id, incluido_por_defecto)
+                            VALUES (%s, %s, %s)
+                        ''', (servicio_personalizado_id, servicio_id_int, incluido))
+                        print(f"   ✅ Servicio adicional agregado: {servicio_id_int} (incluido: {incluido})")
+                    except ValueError:
+                        print(f"   ⚠️ ID de servicio inválido: {servicio_id}")
+                        continue
+            
+            conn.commit()
+            flash('✅ Servicio personalizado guardado exitosamente', 'success')
+            
+            # Marcar la cita como "personalizada" (opcional)
+            cursor.execute('''
+                UPDATE citas 
+                SET estado = 'personalizado'
+                WHERE id = %s
+            ''', (cita_id,))
+            conn.commit()
+            
+            return redirect('/profesional')
+        
+        # ========== GET REQUEST: Mostrar formulario ==========
+        
+        # Obtener servicios disponibles del negocio (excluyendo el actual)
+        cursor.execute('''
+            SELECT * FROM servicios 
+            WHERE negocio_id = %s AND activo = true 
+            AND id != %s
+            ORDER BY nombre
+        ''', (negocio_id, cita_dict.get('servicio_id', 0)))
+        
+        servicios = cursor.fetchall()
+        
+        # Verificar si ya existe personalización previa
+        cursor.execute('''
+            SELECT id FROM clientes 
+            WHERE telefono = %s AND negocio_id = %s
+        ''', (cita_dict['cliente_telefono'], negocio_id))
+        
+        cliente = cursor.fetchone()
+        personalizacion_existente = None
+        
+        if cliente:
+            cliente_id = cliente[0] if isinstance(cliente, tuple) else cliente['id']
+            
+            cursor.execute('''
+                SELECT sp.* 
+                FROM servicios_personalizados sp
+                WHERE sp.cliente_id = %s AND sp.negocio_id = %s
+            ''', (cliente_id, negocio_id))
+            
+            personalizacion = cursor.fetchone()
+            
+            if personalizacion:
+                # Obtener servicios adicionales
+                cursor.execute('''
+                    SELECT sac.servicio_id, sac.incluido_por_defecto
+                    FROM servicios_adicionales_cliente sac
+                    WHERE sac.servicio_personalizado_id = %s
+                ''', (personalizacion[0] if isinstance(personalizacion, tuple) else personalizacion['id'],))
+                
+                servicios_adicionales = cursor.fetchall()
+                
+                personalizacion_existente = {
+                    'id': personalizacion[0] if isinstance(personalizacion, tuple) else personalizacion['id'],
+                    'nombre_personalizado': personalizacion[5] if len(personalizacion) > 5 else '',
+                    'duracion_personalizada': personalizacion[6] if len(personalizacion) > 6 else 0,
+                    'precio_personalizado': personalizacion[7] if len(personalizacion) > 7 else 0,
+                    'descripcion': personalizacion[8] if len(personalizacion) > 8 else '',
+                    'servicios_adicionales_ids': [sa[0] for sa in servicios_adicionales] if servicios_adicionales else [],
+                    'incluidos_default': [sa[0] for sa in servicios_adicionales if sa[1]] if servicios_adicionales else []
+                }
+        
+        conn.close()
+        
+        # Renderizar plantilla
+        return render_template('profesional/personalizar_servicio.html',
+                             cita=cita_dict,
+                             servicios=servicios,
+                             personalizacion=personalizacion_existente)
+        
+    except Exception as e:
+        print(f"❌ Error en profesional_personalizar_servicio: {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Error al procesar la solicitud', 'error')
+        return redirect('/profesional')
+    finally:
+        if conn:
+            conn.close()
 
 # =============================================================================
 # API ENDPOINTS
