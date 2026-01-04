@@ -3152,50 +3152,122 @@ def profesional_crear_cita():
 @role_required(['profesional', 'propietario', 'superadmin'])
 def completar_cita(cita_id):
     """Marcar cita como completada desde el panel del profesional"""
+    conn = None
     try:
+        print(f"🔍 [COMPLETAR_CITA] Iniciando para cita #{cita_id}")
+        
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+            print("❌ [COMPLETAR_CITA] CSRF inválido")
             return redirect(url_for('profesional_dashboard'))
         
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
+        print(f"🔍 [COMPLETAR_CITA] profesional_id={profesional_id}, negocio_id={negocio_id}")
+        
         if not profesional_id:
             flash('No se pudo identificar al profesional', 'error')
+            print("❌ [COMPLETAR_CITA] Sin profesional_id")
             return redirect(url_for('profesional_dashboard'))
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Verificar que la cita pertenece al profesional
+        # 1. Primero obtener info de la cita actual
         cursor.execute('''
-            SELECT id FROM citas 
+            SELECT id, cliente_nombre, estado, servicio_id 
+            FROM citas 
             WHERE id = %s AND profesional_id = %s AND negocio_id = %s
         ''', (cita_id, profesional_id, negocio_id))
         
-        if not cursor.fetchone():
+        cita_actual = cursor.fetchone()
+        
+        if not cita_actual:
             flash('❌ Cita no encontrada', 'error')
+            print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada para profesional {profesional_id}")
             conn.close()
             return redirect(url_for('profesional_dashboard'))
         
-        # Actualizar estado a completada
+        print(f"✅ [COMPLETAR_CITA] Cita encontrada: {cita_actual}")
+        print(f"   Estado actual: {cita_actual['estado']}")
+        
+        # 2. Actualizar estado a 'completado' (MASCULINO, no 'completada')
         cursor.execute('''
             UPDATE citas 
-            SET estado = 'completada' 
+            SET estado = 'completado', 
+                updated_at = NOW()
             WHERE id = %s
+            RETURNING id, estado, cliente_nombre
         ''', (cita_id,))
         
-        conn.commit()
-        conn.close()
+        resultado_update = cursor.fetchone()
+        print(f"✅ [COMPLETAR_CITA] Resultado UPDATE: {resultado_update}")
         
-        flash('✅ Cita marcada como completada', 'success')
-        return redirect(url_for('profesional_dashboard') + '?completed=true')
+        if resultado_update:
+            # 3. Opcional: Registrar en historial
+            try:
+                cursor.execute('''
+                    INSERT INTO historial_citas 
+                    (cita_id, negocio_id, profesional_id, accion, detalles)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (
+                    cita_id,
+                    negocio_id,
+                    profesional_id,
+                    'completada',
+                    f'Cita marcada como completada por profesional'
+                ))
+                print(f"📝 [COMPLETAR_CITA] Historial registrado")
+            except Exception as hist_error:
+                print(f"⚠️ [COMPLETAR_CITA] Error en historial (no crítico): {hist_error}")
+            
+            # 4. Crear notificación
+            try:
+                cursor.execute('''
+                    INSERT INTO notificaciones 
+                    (negocio_id, profesional_id, tipo, titulo, mensaje, fecha_creacion, leido)
+                    VALUES (%s, %s, %s, %s, %s, NOW(), false)
+                ''', (
+                    negocio_id, 
+                    profesional_id,
+                    'success',
+                    '✅ Servicio Completado',
+                    f'Has completado el servicio para {resultado_update["cliente_nombre"]}'
+                ))
+                print(f"📢 [COMPLETAR_CITA] Notificación creada")
+            except Exception as notif_error:
+                print(f"⚠️ [COMPLETAR_CITA] Error en notificación (no crítico): {notif_error}")
+            
+            conn.commit()
+            print(f"✅ [COMPLETAR_CITA] Commit exitoso")
+            
+            flash(f'✅ Cita completada para {resultado_update["cliente_nombre"]}', 'success')
+            
+        else:
+            print(f"❌ [COMPLETAR_CITA] UPDATE no devolvió resultado")
+            flash('❌ Error al actualizar la cita', 'error')
+            conn.rollback()
         
     except Exception as e:
-        print(f"❌ Error completando cita: {e}")
+        print(f"❌ [COMPLETAR_CITA] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        if conn:
+            conn.rollback()
+            print("🔄 [COMPLETAR_CITA] Rollback realizado")
+        
         flash('❌ Error al completar la cita', 'error')
-        return redirect(url_for('profesional_dashboard'))
+        
+    finally:
+        if conn:
+            conn.close()
+            print("🔒 [COMPLETAR_CITA] Conexión cerrada")
+    
+    # Redirigir con parámetro para notificación
+    return redirect(url_for('profesional_dashboard', fecha=request.args.get('fecha', ''), completed='true'))
     
 
 @app.route('/profesional/cambiar-password', methods=['POST'])

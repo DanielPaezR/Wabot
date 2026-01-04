@@ -231,6 +231,40 @@
             padding: 2rem;
             color: #666;
         }
+
+        /* Mensajes flash */
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
     </style>
 </head>
 <body>
@@ -243,6 +277,23 @@
     </div>
     
     <div class="container">
+        <!-- Mensajes Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                        <span>
+                            {% if category == 'success' %}✅
+                            {% elif category == 'error' %}❌
+                            {% elif category == 'warning' %}⚠️
+                            {% else %}ℹ️{% endif %}
+                        </span>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
         <div class="card">
             <div class="card-header">
                 <h2>Personalizar servicio para cliente</h2>
@@ -253,14 +304,17 @@
                 <div class="cliente-info">
                     <h3 style="margin-bottom: 0.5rem; color: #333;">📋 Información de la cita</h3>
                     <p><strong>Cliente:</strong> {{ cita.cliente_nombre }}</p>
-                    <p><strong>Teléfono:</strong> {{ cita.telefono }}</p>
+                    <p><strong>Teléfono:</strong> {{ cita.telefono or cita.cliente_telefono }}</p>
                     <p><strong>Servicio actual:</strong> {{ cita.servicio_nombre }}</p>
-                    <p><strong>Precio actual:</strong> ${{ cita.precio|int|format(',') }}</p>
+                    <p><strong>Precio actual:</strong> ${{ "{:,.0f}".format(cita.precio|int) }}</p>
                     <p><strong>Duración actual:</strong> {{ cita.duracion }} minutos</p>
+                    <p><strong>Estado:</strong> {{ cita.estado|title }}</p>
                 </div>
                 {% endif %}
                 
                 <form method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
                     <!-- Configuración Básica -->
                     <div class="form-group">
                         <h3 style="margin-bottom: 1rem; color: #333;">📝 Configuración del Servicio Personalizado</h3>
@@ -307,14 +361,14 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" 
                                        id="servicio_{{ servicio.id }}" 
-                                       name="servicios_adicionales" 
+                                       name="servicios_adicionales[]"
                                        value="{{ servicio.id }}"
                                        {% if personalizacion and servicio.id in personalizacion.servicios_adicionales_ids %}checked{% endif %}>
                                 
                                 <label class="form-check-label" for="servicio_{{ servicio.id }}">
                                     <strong>{{ servicio.nombre }}</strong>
                                     <div style="color: #666; font-size: 0.9rem; margin-top: 0.3rem;">
-                                        ⏱️ {{ servicio.duracion }} min | 💵 ${{ servicio.precio|int|format(',') }}
+                                        ⏱️ {{ servicio.duracion }} min | 💵 ${{ "{:,.0f}".format(servicio.precio|int) }}
                                         {% if servicio.descripcion %}<br>{{ servicio.descripcion }}{% endif %}
                                     </div>
                                     
@@ -322,7 +376,7 @@
                                         <div class="form-check" style="padding: 0; border: none;">
                                             <input class="form-check-input" type="checkbox" 
                                                    id="incluido_{{ servicio.id }}"
-                                                   name="incluidos_por_defecto"
+                                                   name="incluidos_por_defecto[]"
                                                    value="{{ servicio.id }}"
                                                    {% if personalizacion and servicio.id in personalizacion.incluidos_default %}checked{% endif %}>
                                             <label class="form-check-label" for="incluido_{{ servicio.id }}" style="font-size: 0.9rem;">
@@ -342,8 +396,8 @@
                     </div>
                     
                     <div class="form-footer">
-                        <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">
-                            ↩️ Cancelar y volver
+                        <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">
+                            ↩️ Cancelar y volver al Dashboard
                         </a>
                         <button type="submit" class="btn btn-primary">
                             💾 Guardar Personalización
@@ -378,6 +432,11 @@
                 alert('⚠️ El precio debe ser un valor positivo.');
                 return;
             }
+            
+            // Mostrar confirmación
+            if (!confirm('¿Estás seguro de que deseas guardar esta personalización?\n\nEl cliente podrá ver este servicio como "Personalizado para ti" en su chat.')) {
+                e.preventDefault();
+            }
         });
         
         // Mejorar UX de checkboxes
@@ -392,6 +451,16 @@
                     card.style.borderColor = '#eee';
                 }
             });
+        });
+        
+        // CORRECCIÓN: Esta es la parte que tenía error de sintaxis
+        // Verificar si hay personalización previa
+        document.addEventListener('DOMContentLoaded', function() {
+            /* {% if personalizacion %} */
+            console.log('✅ Ya existe una personalización previa para este cliente');
+            /* {% else %} */
+            console.log('ℹ️ No hay personalización previa para este cliente');
+            /* {% endif %} */
         });
     </script>
 </body>
