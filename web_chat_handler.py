@@ -436,11 +436,11 @@ def generar_opciones_confirmacion():
     return opciones
 
 # =============================================================================
-# FUNCIONES DE MENSAJES MODIFICADAS PARA NUEVO FLUJO
+# FUNCIONES DE MENSAJES MODIFICADAS PARA USAR PLANTILLAS
 # =============================================================================
 
 def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - NUEVO FLUJO: Primero pedir teléfono"""
+    """Saludo inicial - USANDO PLANTILLA"""
     try:
         # Crear conversación activa en estado de solicitar teléfono inicial
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -456,20 +456,8 @@ def saludo_inicial(numero, negocio_id):
             'session_id': numero
         }
         
-        # Obtener información del negocio para personalizar mensaje
-        negocio = db.obtener_negocio_por_id(negocio_id)
-        nombre_negocio = negocio['nombre'] if negocio else "nuestro negocio"
-        
-        return f"""¡Hola! 👋 Soy tu asistente virtual de {nombre_negocio}.
-
-📱 **Para identificarte en nuestro sistema, necesitamos tu número de teléfono.**
-
-Tu número de teléfono se usará como identificador durante toda la conversación para:
-• Identificarte en futuras consultas
-• Mantener el historial de tus citas
-• Enviarte recordatorios importantes
-
-**Por favor, ingresa tu número de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):**"""
+        # ✅ USAR PLANTILLA
+        return renderizar_plantilla('saludo_inicial', negocio_id)
             
     except Exception as e:
         print(f"❌ Error en saludo_inicial: {e}")
@@ -485,7 +473,7 @@ Tu número de teléfono se usará como identificador durante toda la conversaci�
         return "¡Hola! 👋 Para comenzar, necesitamos tu número de teléfono como identificador.\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
 
 def procesar_telefono_inicial(numero, mensaje, negocio_id):
-    """Procesar teléfono ingresado al inicio - MEJORADO PARA RECONOCER CLIENTES"""
+    """Procesar teléfono ingresado al inicio - USANDO PLANTILLAS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -519,7 +507,10 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
         conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
-        return f"¡Hola {nombre_cliente}! 👋\n\nHe identificado tu número en nuestro sistema.\n\n¿En qué puedo ayudarte hoy?"
+        # ✅ USAR PLANTILLA PARA CLIENTE EXISTENTE
+        return renderizar_plantilla('telefono_validado_existente', negocio_id, {
+            'nombre_cliente': nombre_cliente
+        })
     else:
         # Cliente nuevo - pedir nombre
         print(f"🔧 [DEBUG] Cliente nuevo - pedir nombre")
@@ -527,7 +518,8 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
         conversaciones_activas[clave_conversacion]['estado'] = 'solicitando_nombre'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
-        return f"✅ Número registrado exitosamente.\n\n📝 **Ahora necesitamos tu nombre para completar tu registro.**\n\nPor favor, ingresa tu nombre completo:"
+        # ✅ USAR PLANTILLA PARA SOLICITAR NOMBRE
+        return renderizar_plantilla('solicitar_nombre_nuevo', negocio_id)
 
 def buscar_cliente_existente(telefono, negocio_id):
     """Buscar cliente existente en múltiples fuentes"""
@@ -617,7 +609,7 @@ def buscar_cliente_existente(telefono, negocio_id):
 
 
 def procesar_nombre_cliente(numero, mensaje, negocio_id):
-    """Procesar nombre del cliente nuevo - NUEVO FLUJO"""
+    """Procesar nombre del cliente nuevo - USANDO PLANTILLA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -687,14 +679,17 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     
     print(f"✅ [DEBUG] Nombre '{nombre_cliente}' guardado y listo para menú principal")
     
-    return f"¡Perfecto {nombre_cliente}! ✅\n\nTu registro se ha completado exitosamente.\n\n¿En qué puedo ayudarte hoy?"
+    # ✅ USAR PLANTILLA PARA NOMBRE REGISTRADO
+    return renderizar_plantilla('nombre_registrado_exitoso', negocio_id, {
+        'nombre_cliente': nombre_cliente
+    })
 
 # =============================================================================
-# EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUAL (PERO ACTUALIZADAS PARA NUEVO FLUJO)
+# EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUAL (PERO ACTUALIZADAS PARA USAR PLANTILLAS)
 # =============================================================================
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - SIN CAMBIOS"""
+    """Mostrar lista de profesionales disponibles - USANDO PLANTILLA"""
     try:
         profesionales = db.obtener_profesionales(negocio_id)
         
@@ -707,7 +702,7 @@ def mostrar_profesionales(numero, negocio_id):
         profesionales = profesionales_activos
         
         if not profesionales:
-            return "❌ No hay profesionales disponibles en este momento."
+            return renderizar_plantilla('error_generico', negocio_id)
         
         clave_conversacion = f"{numero}_{negocio_id}"
         
@@ -725,14 +720,15 @@ def mostrar_profesionales(numero, negocio_id):
             if key not in ['estado', 'profesionales', 'timestamp']:
                 print(f"   - {key}: {value}")
         
-        return "👨‍💼 **Selecciona un profesional:**"
+        # ✅ USAR PLANTILLA PARA LISTA DE PROFESIONALES
+        return renderizar_plantilla('lista_profesionales', negocio_id)
         
     except Exception as e:
         print(f"❌ Error en mostrar_profesionales: {e}")
-        return "❌ Error al cargar profesionales."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO"""
+    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO Y PLANTILLAS"""
     try:
         # PRIMERO: Verificar si el cliente tiene teléfono registrado en la conversación
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -764,27 +760,12 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         if servicio_personalizado:
             print(f"🎯 Mostrando servicio personalizado para cliente")
             
-            # Construir mensaje del servicio personalizado
-            mensaje = f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
-            mensaje += f"*{servicio_personalizado['nombre_personalizado']}*\n"
-            mensaje += f"⏱️ Duración: {servicio_personalizado['duracion_personalizada']} min\n"
-            mensaje += f"💵 Precio: ${servicio_personalizado['precio_personalizado']:,.0f}\n"
-            
-            if servicio_personalizado.get('descripcion'):
-                mensaje += f"📝 {servicio_personalizado['descripcion']}\n"
-            
-            # Mostrar servicios adicionales si los hay
-            if servicio_personalizado.get('servicios_adicionales'):
-                mensaje += f"\n📋 *Servicios incluidos:*\n"
-                for adicional in servicio_personalizado['servicios_adicionales']:
-                    if adicional.get('incluido_por_defecto'):
-                        mensaje += f"✅ {adicional.get('nombre', 'Servicio adicional')}\n"
-                    else:
-                        mensaje += f"⚪ {adicional.get('nombre', 'Servicio adicional')} (opcional)\n"
-            
-            mensaje += f"\n🔢 *Responde con:*\n"
-            mensaje += f"1️⃣ - Seleccionar mi servicio personalizado\n"
-            mensaje += f"2️⃣ - Ver todos los servicios disponibles\n"
+            # ✅ USAR PLANTILLA PARA SERVICIO PERSONALIZADO
+            mensaje = renderizar_plantilla('servicio_personalizado_opciones', negocio_id, {
+                'nombre_personalizado': servicio_personalizado['nombre_personalizado'],
+                'duracion_personalizada': servicio_personalizado['duracion_personalizada'],
+                'precio_personalizado': servicio_personalizado['precio_personalizado']
+            })
             
             # Guardar en conversación activa
             if clave_conversacion not in conversaciones_activas:
@@ -811,7 +792,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         servicios = servicios_activos
         
         if not servicios:
-            return "❌ No hay servicios disponibles en este momento."
+            return renderizar_plantilla('error_generico', negocio_id)
         
         # Guardar en conversación activa
         if clave_conversacion not in conversaciones_activas:
@@ -822,16 +803,19 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         conversaciones_activas[clave_conversacion]['tiene_personalizado'] = False
         
-        # Construir mensaje normal
-        mensaje = f"📋 **Servicios con {profesional_nombre}:**\n\n"
-        for i, servicio in enumerate(servicios, 1):
-            mensaje += f"{i}️⃣ - *{servicio['nombre']}*\n"
-            mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}\n"
-            if servicio.get('descripcion'):
-                mensaje += f"   📝 {servicio['descripcion']}\n"
-            mensaje += "\n"
+        # ✅ USAR PLANTILLA PARA LISTA DE SERVICIOS
+        mensaje = renderizar_plantilla('lista_servicios', negocio_id, {
+            'profesional_nombre': profesional_nombre
+        })
         
-        mensaje += "🔢 *Responde con el número del servicio que deseas*"
+        # Agregar lista de servicios al mensaje
+        for i, servicio in enumerate(servicios, 1):
+            mensaje += f"\n{i}️⃣ - *{servicio['nombre']}*"
+            mensaje += f"\n   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}"
+            if servicio.get('descripcion'):
+                mensaje += f"\n   📝 {servicio['descripcion']}"
+        
+        mensaje += "\n\n🔢 *Responde con el número del servicio que deseas*"
         
         return mensaje
         
@@ -839,7 +823,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         print(f"❌ Error en mostrar_servicios: {e}")
         import traceback
         traceback.print_exc()
-        return "❌ Error al cargar servicios."
+        return renderizar_plantilla('error_generico', negocio_id)
     
 def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     """Procesar selección de servicio"""
@@ -863,7 +847,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
             return "Volviendo al menú principal..."
         
         if 'servicio_personalizado' not in conversaciones_activas[clave_conversacion]:
-            return "❌ Error: No se encontró tu servicio personalizado."
+            return renderizar_plantilla('error_generico', negocio_id)
         
         servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
         
@@ -910,7 +894,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     if 'servicios' not in conversaciones_activas[clave_conversacion]:
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión expirada. Por favor, inicia nuevamente con *1*"
+        return renderizar_plantilla('error_generico', negocio_id)
     
     servicios = conversaciones_activas[clave_conversacion]['servicios']
     
@@ -944,7 +928,7 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
         return "Volviendo al menú principal..."
     
     if 'servicio_personalizado' not in conversaciones_activas[clave_conversacion]:
-        return "❌ Error: No se encontró tu servicio personalizado."
+        return renderizar_plantilla('error_generico', negocio_id)
     
     servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
     
@@ -1038,13 +1022,13 @@ def mostrar_servicios_disponibles(numero_cliente, negocio_id):
         return mensaje, 'servicio_personalizado'
 
 def mostrar_fechas_disponibles(numero, negocio_id):
-    """Mostrar fechas disponibles para agendar - SIN CAMBIOS"""
+    """Mostrar fechas disponibles para agendar - USANDO PLANTILLA"""
     try:
         # Obtener próximas fechas donde el negocio está activo
         fechas_disponibles = obtener_proximas_fechas_disponibles(negocio_id)
         
         if not fechas_disponibles:
-            return "❌ No hay fechas disponibles en los próximos días."
+            return renderizar_plantilla('error_generico', negocio_id)
         
         # Guardar en conversación activa
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -1052,14 +1036,15 @@ def mostrar_fechas_disponibles(numero, negocio_id):
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
-        return "📅 **Selecciona una fecha:**"
+        # ✅ USAR PLANTILLA PARA SELECCIÓN DE FECHA
+        return renderizar_plantilla('seleccion_fecha', negocio_id)
         
     except Exception as e:
         print(f"❌ Error en mostrar_fechas_disponibles: {e}")
-        return "❌ Error al cargar fechas."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
-    """Mostrar horarios disponibles - SIN CAMBIOS"""
+    """Mostrar horarios disponibles - USANDO PLANTILLA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_disponibilidad - fecha_seleccionada: {fecha_seleccionada}")
@@ -1076,7 +1061,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     
     # Obtener datos de la conversación
     if 'profesional_id' not in conversaciones_activas[clave_conversacion]:
-        return "❌ Error: No se encontró información del profesional."
+        return renderizar_plantilla('error_generico', negocio_id)
     
     profesional_id = conversaciones_activas[clave_conversacion]['profesional_id']
     servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
@@ -1097,7 +1082,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
     servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
     servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
-    precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
+    
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
     
     # Guardar datos para paginación
@@ -1106,10 +1091,16 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
-    return f"📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - {precio_formateado}"
+    # ✅ USAR PLANTILLA PARA SELECCIÓN DE HORARIO
+    return renderizar_plantilla('seleccion_horario', negocio_id, {
+        'profesional_nombre': profesional_nombre,
+        'fecha_formateada': fecha_formateada,
+        'servicio_nombre': servicio_nombre,
+        'servicio_precio': servicio_precio
+    })
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - SIN CAMBIOS"""
+    """Mostrar citas del cliente - USANDO PLANTILLA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
@@ -1122,7 +1113,7 @@ def mostrar_mis_citas(numero, negocio_id):
     
     if not telefono_real:
         # En el nuevo flujo, siempre deberíamos tener teléfono
-        return "❌ Error: No se encontró tu número de teléfono. Por favor, reinicia la conversación."
+        return renderizar_plantilla('error_generico', negocio_id)
     
     print(f"🔧 [DEBUG] Buscando citas CONFIRMADAS con teléfono: {telefono_real}")
     
@@ -1156,10 +1147,15 @@ def mostrar_mis_citas(numero, negocio_id):
         
         # Verificar si hay citas confirmadas
         if not citas_confirmadas or len(citas_confirmadas) == 0:
-            return f"📋 **No tienes citas CONFIRMADAS programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*"
+            # ✅ USAR PLANTILLA PARA SIN CITAS
+            return renderizar_plantilla('sin_citas', negocio_id, {
+                'nombre_cliente': nombre_cliente
+            })
         
-        # Construir respuesta
-        respuesta = f"📋 **Tus citas CONFIRMADAS - {nombre_cliente}:**\n\n"
+        # Construir respuesta usando plantilla base
+        respuesta = renderizar_plantilla('mis_citas_lista', negocio_id, {
+            'nombre_cliente': nombre_cliente
+        })
         
         for cita in citas_confirmadas:
             try:
@@ -1182,15 +1178,15 @@ def mostrar_mis_citas(numero, negocio_id):
                 except:
                     fecha_str = str(fecha)
                 
-                respuesta += f"✅ *{fecha_str}* - **{hora}**\n"
-                respuesta += f"   👨‍💼 **{profesional_nombre}** - {servicio}\n"
-                respuesta += f"   🎫 **ID: #{id_cita}**\n\n"
+                respuesta += f"\n\n✅ *{fecha_str}* - **{hora}**"
+                respuesta += f"\n   👨‍💼 **{profesional_nombre}** - {servicio}"
+                respuesta += f"\n   🎫 **ID: #{id_cita}**"
                 
             except Exception as e:
                 print(f"⚠️ [DEBUG] Error procesando cita: {e}")
                 continue
         
-        respuesta += "Para cancelar una cita, selecciona: *3*"
+        respuesta += "\n\nPara cancelar una cita, selecciona: *3*"
         
         # Volver al menú principal
         if clave_conversacion in conversaciones_activas:
@@ -1206,10 +1202,10 @@ def mostrar_mis_citas(numero, negocio_id):
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         
-        return "❌ Error al cargar tus citas. Por favor, intenta más tarde."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_citas_para_cancelar(numero, negocio_id):
-    """Mostrar citas que pueden ser canceladas - SIN CAMBIOS"""
+    """Mostrar citas que pueden ser canceladas"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_citas_para_cancelar - Clave: {clave_conversacion}")
@@ -1221,7 +1217,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         print(f"🔧 [DEBUG] Teléfono en conversación: {telefono_real}")
     
     if not telefono_real:
-        return "❌ Error: No se encontró tu número de teléfono. Por favor, reinicia la conversación."
+        return renderizar_plantilla('error_generico', negocio_id)
     
     print(f"🔧 [DEBUG] Buscando citas para cancelar con teléfono: {telefono_real}")
     
@@ -1324,14 +1320,15 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         traceback.print_exc()
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-        return "❌ Error al cargar tus citas."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_ayuda(negocio_id):
-    """Mostrar mensaje de ayuda - SIN CAMBIOS"""
-    return "ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal."
+    """Mostrar mensaje de ayuda - USANDO PLANTILLA"""
+    # ✅ USAR PLANTILLA DE AYUDA
+    return renderizar_plantilla('ayuda_general', negocio_id)
 
 def procesar_confirmacion_cita(numero, mensaje, negocio_id):
-    """Procesar confirmación de la cita - ACTUALIZADO PARA NUEVO FLUJO"""
+    """Procesar confirmación de la cita - USANDO PLANTILLAS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] procesar_confirmacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
@@ -1339,7 +1336,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
     # Verificar que existe la conversación
     if clave_conversacion not in conversaciones_activas:
         print(f"❌ [DEBUG] No hay conversación activa para {clave_conversacion}")
-        return "❌ Sesión expirada. Por favor, inicia nuevamente."
+        return renderizar_plantilla('error_generico', negocio_id)
     
     conversacion = conversaciones_activas[clave_conversacion]
     estado_actual = conversacion.get('estado', '')
@@ -1407,7 +1404,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             if dato not in conversacion:
                 print(f"❌ [DEBUG] Falta dato: {dato}")
                 del conversaciones_activas[clave_conversacion]
-                return "❌ Error: Datos incompletos. Comienza de nuevo."
+                return renderizar_plantilla('error_generico', negocio_id)
         
         hora = conversacion['hora_seleccionada']
         fecha = conversacion['fecha_seleccionada']
@@ -1434,7 +1431,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         
         if cita_existente:
             print(f"🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
-            return "❌ Error: Ya existe una cita confirmada a esta hora. Por favor, selecciona otro horario."
+            return renderizar_plantilla('error_generico', negocio_id)
         
         # Obtener nombre del cliente
         if 'cliente_nombre' not in conversacion:
@@ -1475,33 +1472,24 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
             
-            precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
             fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
             
-            mensaje_confirmacion = f'''✅ **Cita Confirmada**
-
-Hola *{nombre_cliente}*, 
-
-Tu cita ha sido agendada exitosamente:
-
-• **Profesional:** {profesional_nombre}
-• **Servicio:** {servicio_nombre}  
-• **Precio:** {precio_formateado}
-• **Fecha:** {fecha_formateada}
-• **Hora:** {hora}
-• **ID de cita:** #{cita_id}
-• **Teléfono:** {telefono}
-• **Duración:** {duracion} minutos
-
-Recibirás recordatorios por mensaje antes de tu cita.
-
-¡Te esperamos!'''
-            
-            return mensaje_confirmacion
+            # ✅ USAR PLANTILLA PARA CITA CONFIRMADA
+            return renderizar_plantilla('cita_confirmada_exito', negocio_id, {
+                'nombre_cliente': nombre_cliente,
+                'profesional_nombre': profesional_nombre,
+                'servicio_nombre': servicio_nombre,
+                'servicio_precio': servicio_precio,
+                'fecha_formateada': fecha_formateada,
+                'hora_seleccionada': hora,
+                'cita_id': cita_id,
+                'telefono_cliente': telefono,
+                'duracion_servicio': duracion
+            })
         else:
             print(f"❌ [DEBUG] Error al crear la cita. ID retornado: {cita_id}")
             del conversaciones_activas[clave_conversacion]
-            return "❌ Error al crear la cita en el sistema. Por favor, intenta nuevamente o contacta al negocio directamente."
+            return renderizar_plantilla('error_generico', negocio_id)
             
     except Exception as e:
         print(f"❌ [DEBUG] Error general al crear cita: {e}")
@@ -1510,7 +1498,7 @@ Recibirás recordatorios por mensaje antes de tu cita.
         
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Error inesperado al procesar tu cita. Por favor, intenta nuevamente."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def diagnostico_citas_duplicadas(negocio_id, profesional_id, fecha, hora, servicio_id):
     """Función para diagnosticar por qué se permiten citas duplicadas"""
@@ -1620,7 +1608,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         traceback.print_exc()
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Error al procesar tu solicitud."
+        return renderizar_plantilla('error_generico', negocio_id)
 # =============================================================================
 # EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUAL (SIN MODIFICACIONES)
 # =============================================================================
@@ -1637,7 +1625,7 @@ def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     if 'profesionales' not in conversaciones_activas[clave_conversacion]:
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión expirada. Por favor, inicia nuevamente con *1*"
+        return renderizar_plantilla('error_generico', negocio_id)
     
     profesionales = conversaciones_activas[clave_conversacion]['profesionales']
     
@@ -1672,7 +1660,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
         
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión expirada. Por favor, inicia nuevamente con *1*"
+        return renderizar_plantilla('error_generico', negocio_id)
     
     servicios = conversaciones_activas[clave_conversacion]['servicios']
     
@@ -1710,7 +1698,7 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     if 'fechas_disponibles' not in conversaciones_activas[clave_conversacion]:
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
-        return "❌ Sesión expirada. Por favor, inicia nuevamente con *1*"
+        return renderizar_plantilla('error_generico', negocio_id)
     
     fechas_disponibles = conversaciones_activas[clave_conversacion]['fechas_disponibles']
     
@@ -1795,24 +1783,22 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
     servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
     servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
-    precio_formateado = f"${servicio_precio:,.0f}".replace(',', '.')
+    
     fecha_seleccionada = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
     
-    return f'''✅ **Confirmar cita**
-
-Hola *{nombre_cliente}*, ¿confirmas tu cita?
-
-👨‍💼 **Profesional:** {profesional_nombre}
-💼 **Servicio:** {servicio_nombre}
-💰 **Precio:** {precio_formateado}
-📅 **Fecha:** {fecha_formateada}
-⏰ **Hora:** {hora_seleccionada}
-
-**Selecciona una opción:**'''
+    # ✅ USAR PLANTILLA PARA CONFIRMACIÓN DE CITA
+    return renderizar_plantilla('confirmacion_cita', negocio_id, {
+        'nombre_cliente': nombre_cliente,
+        'profesional_nombre': profesional_nombre,
+        'servicio_nombre': servicio_nombre,
+        'servicio_precio': servicio_precio,
+        'fecha_formateada': fecha_formateada,
+        'hora_seleccionada': hora_seleccionada
+    })
 
 def procesar_cancelacion_cita(numero, mensaje, negocio_id):
-    """Procesar cancelación de cita - SIN CAMBIOS"""
+    """Procesar cancelación de cita"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG-CANCELAR] procesar_cancelacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
@@ -1847,7 +1833,8 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         # Obtener teléfono REAL para la cancelación
         telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
         if not telefono_real:
-            telefono_real = '3174694941'  # Fallback
+            print(f"❌ [DEBUG-CANCELAR] No hay teléfono en conversación para cancelar")
+            return renderizar_plantilla('error_generico', negocio_id)
         
         # Actualizar estado en base de datos
         from database import get_db_connection
@@ -1871,7 +1858,7 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
             print(f"❌ [DEBUG-CANCELAR] No se pudo cancelar la cita. Verificar datos.")
             if clave_conversacion in conversaciones_activas:
                 conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-            return "❌ No se pudo cancelar la cita. Por favor, verifica el ID e intenta nuevamente."
+            return renderizar_plantilla('error_generico', negocio_id)
         
         # Limpiar datos de cancelación pero mantener la conversación
         if clave_conversacion in conversaciones_activas:
@@ -1897,15 +1884,13 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         
         hora = cita_info[2]  # Índice 2 es hora
         
-        return f'''❌ **Cita cancelada exitosamente**
-
-Hola {nombre_cliente}, has cancelado tu cita:
-
-📅 **Fecha:** {fecha_str}
-⏰ **Hora:** {hora}
-🎫 **ID de cita:** #{cita_id}
-
-Esperamos verte pronto en otra ocasión.'''
+        # ✅ USAR PLANTILLA PARA CITA CANCELADA
+        return renderizar_plantilla('cita_cancelada_exito', negocio_id, {
+            'nombre_cliente': nombre_cliente,
+            'fecha_cita': fecha_str,
+            'hora_cita': hora,
+            'cita_id': cita_id
+        })
         
     except Exception as e:
         print(f"❌ [DEBUG-CANCELAR] Error cancelando cita: {e}")
@@ -1915,10 +1900,10 @@ Esperamos verte pronto en otra ocasión.'''
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         
-        return "❌ Error al cancelar la cita. Por favor, intenta nuevamente."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def procesar_cancelacion_directa(numero, cita_id, negocio_id):
-    """Procesar cancelación cuando solo hay una cita - SIN CAMBIOS"""
+    """Procesar cancelación cuando solo hay una cita"""
     print(f"🔧 [DEBUG-CANCELAR-DIRECTO] Cancelando cita ID: {cita_id}")
     
     if cita_id == '0':
@@ -1988,7 +1973,7 @@ Esperamos verte pronto en otra ocasión.'''
         import traceback
         traceback.print_exc()
         
-        return "❌ Error al cancelar la cita."
+        return renderizar_plantilla('error_generico', negocio_id)
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     """Obtener las próximas fechas donde el negocio está activo - SIN CAMBIOS"""
