@@ -392,7 +392,7 @@
                         <th>Servicio</th>
                         <th>Profesional</th>
                         <th>Estado</th>
-                        <!-- ✅ CORRECCIÓN 1: Eliminada columna Acciones -->
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="citas-body">
@@ -468,6 +468,16 @@
                             <span class="status-badge status-${cita.estado}">
                                 ${formatearEstado(cita.estado)}
                             </span>
+                        </td>
+                        <!-- ✅ AGREGAR ESTA CELDA -->
+                        <td>
+                            ${cita.estado === 'completado' ? 
+                                `<a href="/negocio/personalizar_servicio/${cita.id}" 
+                                class="btn-sm" 
+                                style="background: #3498db; color: white; padding: 4px 8px; border-radius: 3px; text-decoration: none; font-size: 0.8rem;">
+                                ⚙️ Personalizar
+                                </a>` : 
+                                ''}
                         </td>
                     </tr>
                 `).join('');
