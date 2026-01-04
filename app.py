@@ -2426,24 +2426,21 @@ def negocio_plantillas():
 @app.route('/negocio/plantillas/<nombre_plantilla>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_plantilla(nombre_plantilla):
-    """Editar plantilla del negocio"""
+    """Editar plantilla del negocio - VERSIÓN CORREGIDA"""
     negocio_id = session['negocio_id']
     
-    # ✅ USAR LA FUNCIÓN CORREGIDA
+    print(f"🔍 [APP] EDITAR PLANTILLA: negocio_id={negocio_id}, nombre={nombre_plantilla}")
+    
+    # Obtener la plantilla actual
     plantilla_actual = db.obtener_plantilla(negocio_id, nombre_plantilla)
     
-    print(f"🔍 EDITAR PLANTILLA - plantilla_actual recibida: {plantilla_actual}")
-    print(f"🔍 EDITAR PLANTILLA - tipo: {type(plantilla_actual)}")
-    
     if not plantilla_actual:
-        flash('❌ Error: Nombre de plantilla inválido. Por favor, contacta al administrador.', 'error')
+        print(f"❌ [APP] Plantilla '{nombre_plantilla}' no encontrada")
+        flash('❌ Plantilla no encontrada', 'error')
         return redirect(url_for('negocio_plantillas'))
     
-    # Verificar que tenemos un diccionario completo
-    if not isinstance(plantilla_actual, dict) or 'plantilla' not in plantilla_actual:
-        print(f"❌ EDITAR PLANTILLA - plantilla_actual no es un diccionario válido: {plantilla_actual}")
-        flash('❌ Error: Estructura de plantilla inválida.', 'error')
-        return redirect(url_for('negocio_plantillas'))
+    print(f"✅ [APP] Plantilla obtenida: {plantilla_actual.get('nombre')}")
+    print(f"✅ [APP] Es personalizada: {plantilla_actual.get('es_personalizada', False)}")
     
     if request.method == 'POST':
         if not validate_csrf_token(request.form.get('csrf_token', '')):
@@ -2453,13 +2450,18 @@ def negocio_editar_plantilla(nombre_plantilla):
         nueva_plantilla = request.form.get('plantilla')
         descripcion = request.form.get('descripcion', '')
         
+        print(f"🔍 [APP] Guardando plantilla '{nombre_plantilla}'")
+        print(f"📝 Contenido recibido (primeros 100 chars): {nueva_plantilla[:100]}")
+        
         # Guardar plantilla personalizada
         if db.guardar_plantilla_personalizada(negocio_id, nombre_plantilla, nueva_plantilla, descripcion):
             flash('✅ Plantilla actualizada exitosamente', 'success')
             return redirect(url_for('negocio_plantillas'))
         else:
             flash('❌ Error al actualizar la plantilla', 'error')
+            return redirect(url_for('negocio_editar_plantilla', nombre_plantilla=nombre_plantilla))
     
+    # Para GET, preparar datos para la template
     return render_template('negocio/editar_plantilla.html',
                          plantilla=plantilla_actual,
                          nombre_plantilla=nombre_plantilla,

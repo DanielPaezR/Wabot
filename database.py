@@ -584,39 +584,59 @@ def _insertar_servicios_por_defecto(cursor):
 # =============================================================================
 
 def obtener_plantilla(negocio_id, nombre_plantilla):
-    """Obtener una plantilla específica"""
+    """Obtener una plantilla específica - VERSIÓN CORREGIDA"""
+    print(f"🔍 [DB] obtener_plantilla: negocio_id={negocio_id}, nombre={nombre_plantilla}")
+    
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
-        # Primero buscar plantilla personalizada
-        sql = '''
-            SELECT * FROM plantillas_mensajes 
-            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+        # PRIMERO: Buscar plantilla personalizada del negocio
+        sql_personalizada = '''
+            SELECT *, TRUE as es_personalizada
+            FROM plantillas_mensajes 
+            WHERE negocio_id = %s 
+            AND nombre = %s 
+            AND es_base = FALSE
         '''
-        plantilla = fetch_one(cursor, sql, (negocio_id, nombre_plantilla))
-        es_personalizada = True
+        cursor.execute(sql_personalizada, (negocio_id, nombre_plantilla))
+        plantilla_personalizada = cursor.fetchone()
         
-        # Si no existe personalizada, usar la base
-        if not plantilla:
-            sql = '''
-                SELECT * FROM plantillas_mensajes 
-                WHERE nombre = ? AND es_base = TRUE
-            '''
-            plantilla = fetch_one(cursor, sql, (nombre_plantilla,))
-            es_personalizada = False
+        if plantilla_personalizada:
+            print(f"✅ [DB] Encontrada plantilla personalizada: {plantilla_personalizada}")
+            conn.close()
+            return dict(plantilla_personalizada)
         
-        if plantilla:
-            plantilla['es_personalizada'] = es_personalizada
-            return plantilla
-        else:
-            return None
-            
+        # SEGUNDO: Si no existe personalizada, buscar plantilla base
+        sql_base = '''
+            SELECT *, FALSE as es_personalizada
+            FROM plantillas_mensajes 
+            WHERE nombre = %s 
+            AND es_base = TRUE
+        '''
+        cursor.execute(sql_base, (nombre_plantilla,))
+        plantilla_base = cursor.fetchone()
+        
+        if plantilla_base:
+            # Convertir plantilla base a formato de plantilla personalizada
+            plantilla_dict = dict(plantilla_base)
+            plantilla_dict['negocio_id'] = negocio_id  # Asignar ID del negocio
+            plantilla_dict['es_personalizada'] = False
+            print(f"✅ [DB] Encontrada plantilla base, convertida: {plantilla_dict}")
+            conn.close()
+            return plantilla_dict
+        
+        # Si no se encuentra ninguna
+        print(f"❌ [DB] No se encontró plantilla: {nombre_plantilla}")
+        conn.close()
+        return None
+        
     except Exception as e:
         print(f"❌ Error en obtener_plantilla: {e}")
-        return None
-    finally:
+        import traceback
+        traceback.print_exc()
         conn.close()
+        return None
 
 
 def obtener_plantillas_base():
@@ -652,80 +672,205 @@ def obtener_plantillas_base():
 
 
 def obtener_plantillas_negocio(negocio_id):
-    """Obtener todas las plantillas disponibles para un negocio"""
+    """Obtener todas las plantillas disponibles para un negocio - VERSIÓN CORREGIDA"""
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)  # ✅ Usar RealDictCursor
     
-    # Obtener nombres únicos de plantillas base
-    sql = 'SELECT DISTINCT nombre FROM plantillas_mensajes WHERE es_base = TRUE'
-    nombres_plantillas = [row['nombre'] for row in fetch_all(cursor, sql)]
-    
-    plantillas_resultado = []
-    
-    # Para cada nombre de plantilla, obtener la versión personalizada si existe
-    for nombre in nombres_plantillas:
-        plantilla = obtener_plantilla(negocio_id, nombre)
-        if plantilla:
-            plantillas_resultado.append(plantilla)
-    
-    conn.close()
-    return plantillas_resultado
+    try:
+        print(f"🔍 [DB] Obteniendo plantillas para negocio {negocio_id}")
+        
+        # PRIMERO: Obtener todas las plantillas base del sistema
+        sql_base = '''
+            SELECT 
+                NULL as negocio_id,
+                nombre,
+                plantilla,
+                descripcion,
+                variables_disponibles,
+                TRUE as es_base,
+                FALSE as es_personalizada,
+                'system' as origen
+            FROM plantillas_mensajes 
+            WHERE es_base = TRUE
+            ORDER BY 
+                CASE nombre
+                    WHEN 'saludo_inicial_nuevo' THEN 1
+                    WHEN 'saludo_inicial_existente' THEN 2
+                    WHEN 'menu_principal' THEN 3
+                    WHEN 'ayuda_general' THEN 4
+                    WHEN 'error_generico' THEN 5
+                    WHEN 'cita_confirmada' THEN 6
+                    WHEN 'sin_citas' THEN 7
+                    WHEN 'cita_cancelada' THEN 8
+                    ELSE 9
+                END
+        '''
+        cursor.execute(sql_base)
+        plantillas_base = cursor.fetchall()
+        print(f"✅ [DB] Plantillas base encontradas: {len(plantillas_base)}")
+        
+        # SEGUNDO: Obtener plantillas personalizadas de este negocio
+        sql_personalizadas = '''
+            SELECT 
+                negocio_id,
+                nombre,
+                plantilla,
+                descripcion,
+                variables_disponibles,
+                FALSE as es_base,
+                TRUE as es_personalizada,
+                'personalized' as origen
+            FROM plantillas_mensajes 
+            WHERE negocio_id = %s 
+            AND es_base = FALSE
+            ORDER BY nombre
+        '''
+        cursor.execute(sql_personalizadas, (negocio_id,))
+        plantillas_personalizadas = cursor.fetchall()
+        print(f"✅ [DB] Plantillas personalizadas encontradas: {len(plantillas_personalizadas)}")
+        
+        conn.close()
+        
+        # Combinar plantillas (prioridad: personalizadas sobre base)
+        plantillas_final = []
+        nombres_agregados = set()
+        
+        # 1. Agregar personalizadas primero
+        for plantilla in plantillas_personalizadas:
+            plantilla_dict = dict(plantilla)
+            plantilla_dict['es_personalizada'] = True
+            plantillas_final.append(plantilla_dict)
+            nombres_agregados.add(plantilla_dict['nombre'])
+        
+        # 2. Agregar base solo si no hay personalizada
+        for plantilla in plantillas_base:
+            plantilla_dict = dict(plantilla)
+            if plantilla_dict['nombre'] not in nombres_agregados:
+                plantilla_dict['es_personalizada'] = False
+                plantilla_dict['negocio_id'] = negocio_id  # Asignar ID para referencia
+                plantillas_final.append(plantilla_dict)
+        
+        print(f"✅ [DB] Total plantillas a mostrar: {len(plantillas_final)}")
+        
+        # DEBUG: mostrar cada plantilla
+        for i, p in enumerate(plantillas_final):
+            print(f"🔍 Plantilla {i}: {p.get('nombre')} (Personalizada: {p.get('es_personalizada')})")
+        
+        return plantillas_final
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo plantillas del negocio: {e}")
+        import traceback
+        traceback.print_exc()
+        conn.close()
+        return []
 
 
 def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, descripcion=''):
-    """Guardar o actualizar plantilla personalizada"""
+    """Guardar o actualizar plantilla personalizada - VERSIÓN CORREGIDA"""
+    print(f"🔍 [DB] Guardando plantilla personalizada: {nombre_plantilla} para negocio {negocio_id}")
+    print(f"📝 Contenido recibido: {contenido[:100]}...")
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         # Verificar si ya existe una personalizada
-        sql = '''
-            SELECT id FROM plantillas_mensajes 
-            WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-        '''
-        existe = fetch_one(cursor, sql, (negocio_id, nombre_plantilla))
+        if is_postgresql():
+            sql_check = '''
+                SELECT id FROM plantillas_mensajes 
+                WHERE negocio_id = %s AND nombre = %s AND es_base = FALSE
+            '''
+            cursor.execute(sql_check, (negocio_id, nombre_plantilla))
+        else:
+            sql_check = '''
+                SELECT id FROM plantillas_mensajes 
+                WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
+            '''
+            cursor.execute(sql_check, (negocio_id, nombre_plantilla))
+        
+        existe = cursor.fetchone()
         
         if existe:
             # Actualizar existente
-            sql = '''
-                UPDATE plantillas_mensajes 
-                SET plantilla = ?, descripcion = ?
-                WHERE negocio_id = ? AND nombre = ? AND es_base = FALSE
-            '''
-            execute_sql(cursor, sql, (contenido, descripcion, negocio_id, nombre_plantilla))
+            print(f"✅ [DB] Actualizando plantilla personalizada existente")
+            if is_postgresql():
+                sql_update = '''
+                    UPDATE plantillas_mensajes 
+                    SET plantilla = %s, descripcion = %s, es_base = FALSE
+                    WHERE negocio_id = %s AND nombre = %s
+                '''
+                cursor.execute(sql_update, (contenido, descripcion, negocio_id, nombre_plantilla))
+            else:
+                sql_update = '''
+                    UPDATE plantillas_mensajes 
+                    SET plantilla = ?, descripcion = ?, es_base = FALSE
+                    WHERE negocio_id = ? AND nombre = ?
+                '''
+                cursor.execute(sql_update, (contenido, descripcion, negocio_id, nombre_plantilla))
         else:
-            # Crear nueva personalizada basada en la plantilla base
-            sql = '''
-                SELECT descripcion, variables_disponibles 
-                FROM plantillas_mensajes 
-                WHERE nombre = ? AND es_base = TRUE
-            '''
-            plantilla_base = fetch_one(cursor, sql, (nombre_plantilla,))
+            # Crear nueva personalizada
+            print(f"✅ [DB] Creando nueva plantilla personalizada")
             
-            descripcion_final = descripcion
+            # Primero obtener datos de la plantilla base para copiar variables
+            if is_postgresql():
+                sql_base = '''
+                    SELECT variables_disponibles 
+                    FROM plantillas_mensajes 
+                    WHERE nombre = %s AND es_base = TRUE
+                    LIMIT 1
+                '''
+                cursor.execute(sql_base, (nombre_plantilla,))
+            else:
+                sql_base = '''
+                    SELECT variables_disponibles 
+                    FROM plantillas_mensajes 
+                    WHERE nombre = ? AND es_base = TRUE
+                    LIMIT 1
+                '''
+                cursor.execute(sql_base, (nombre_plantilla,))
+            
+            base_data = cursor.fetchone()
             variables_disponibles = '[]'
             
-            if plantilla_base:
-                if not descripcion_final:
-                    descripcion_final = plantilla_base['descripcion']
-                variables_disponibles = plantilla_base['variables_disponibles']
+            if base_data:
+                if hasattr(base_data, 'keys'):
+                    variables_disponibles = base_data['variables_disponibles']
+                else:
+                    variables_disponibles = base_data[0]
             
-            sql = '''
-                INSERT INTO plantillas_mensajes 
-                (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                VALUES (?, ?, ?, ?, ?, FALSE)
-            '''
-            execute_sql(cursor, sql, (negocio_id, nombre_plantilla, contenido, descripcion_final, variables_disponibles))
+            # Crear nueva plantilla personalizada
+            if is_postgresql():
+                sql_insert = '''
+                    INSERT INTO plantillas_mensajes 
+                    (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                    VALUES (%s, %s, %s, %s, %s, FALSE)
+                '''
+                cursor.execute(sql_insert, (negocio_id, nombre_plantilla, contenido, descripcion, variables_disponibles))
+            else:
+                sql_insert = '''
+                    INSERT INTO plantillas_mensajes 
+                    (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
+                    VALUES (?, ?, ?, ?, ?, FALSE)
+                '''
+                cursor.execute(sql_insert, (negocio_id, nombre_plantilla, contenido, descripcion, variables_disponibles))
         
         conn.commit()
+        print(f"✅ [DB] Plantilla '{nombre_plantilla}' guardada exitosamente")
         return True
+        
     except Exception as e:
         conn.rollback()
         print(f"❌ Error guardando plantilla: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     finally:
         conn.close()
 
+def obtener_todas_plantillas_negocio(negocio_id):
+    """Obtener todas las plantillas de un negocio (para el panel de admin)"""
+    return obtener_plantillas_negocio(negocio_id)
 
 def crear_plantillas_personalizadas_para_negocios():
     """Crear copias personalizadas de plantillas base para todos los negocios"""
