@@ -732,8 +732,10 @@ def mostrar_profesionales(numero, negocio_id):
         return "❌ Error al cargar profesionales."
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO"""
+    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO MEJORADO"""
     try:
+        print(f"🔍 [SERVICIOS] Mostrando servicios para cliente: {numero}")
+        
         # PRIMERO: Verificar si el cliente tiene teléfono registrado en la conversación
         clave_conversacion = f"{numero}_{negocio_id}"
         
@@ -743,21 +745,52 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
             print(f"🔍 [SERVICIOS] Teléfono cliente en conversación: {telefono_cliente}")
         
         servicio_personalizado = None
+        tiene_personalizado = False
+        
         if telefono_cliente:
             # Buscar servicio personalizado usando la nueva función
             try:
                 from database import obtener_servicio_personalizado_cliente
                 servicio_personalizado = obtener_servicio_personalizado_cliente(telefono_cliente, negocio_id)
                 print(f"🔍 [SERVICIOS] Servicio personalizado encontrado: {servicio_personalizado is not None}")
+                
+                if servicio_personalizado:
+                    tiene_personalizado = True
             except Exception as e:
                 print(f"⚠️ [SERVICIOS] Error buscando servicio personalizado: {e}")
         
-        # Si tiene servicio personalizado, mostrarlo primero
-        if servicio_personalizado:
-            print(f"🎯 [SERVICIOS] Mostrando servicio personalizado para cliente")
+        # Obtener servicios normales del negocio
+        servicios = db.obtener_servicios(negocio_id)
+        
+        # Filtrar servicios activos
+        servicios_activos = []
+        for servicio in servicios:
+            if servicio.get('activo', True):
+                servicios_activos.append(servicio)
+        
+        servicios = servicios_activos
+        
+        if not servicios and not tiene_personalizado:
+            return "❌ No hay servicios disponibles en este momento."
+        
+        # Guardar en conversación activa
+        if clave_conversacion not in conversaciones_activas:
+            conversaciones_activas[clave_conversacion] = {}
             
-            # Construir mensaje del servicio personalizado
-            mensaje = f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
+        conversaciones_activas[clave_conversacion]['servicios'] = servicios
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['tiene_personalizado'] = tiene_personalizado
+        
+        if tiene_personalizado:
+            conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
+        
+        # Construir mensaje
+        mensaje = ""
+        
+        # Si tiene servicio personalizado, mostrarlo primero
+        if tiene_personalizado and servicio_personalizado:
+            mensaje += f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
             mensaje += f"*{servicio_personalizado['nombre_personalizado']}*\n"
             mensaje += f"⏱️ Duración: {servicio_personalizado['duracion_personalizada']} min\n"
             mensaje += f"💵 Precio: ${servicio_personalizado['precio_personalizado']:,.0f}\n"
@@ -774,54 +807,27 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
                     else:
                         mensaje += f"⚪ {adicional.get('nombre', 'Servicio adicional')} (opcional)\n"
             
-            mensaje += f"\n🔢 *Responde con:*\n"
-            mensaje += f"1️⃣ - Seleccionar mi servicio personalizado\n"
-            mensaje += f"2️⃣ - Ver todos los servicios disponibles\n"
+            mensaje += f"\n🔢 *Selecciona una opción:*\n"
+            mensaje += f"*1* - Usar mi servicio personalizado 🌟\n"
+            mensaje += f"*2* - Ver todos los servicios disponibles\n\n"
+        
+        # Agregar servicios normales (solo si el cliente no eligió opción 1)
+        if not (tiene_personalizado and conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado')):
+            if tiene_personalizado:
+                mensaje += f"📋 **Todos los servicios con {profesional_nombre}:**\n\n"
+            else:
+                mensaje += f"📋 **Servicios con {profesional_nombre}:**\n\n"
             
-            # Guardar en conversación activa
-            if clave_conversacion not in conversaciones_activas:
-                conversaciones_activas[clave_conversacion] = {}
-            
-            conversaciones_activas[clave_conversacion]['tiene_personalizado'] = True
-            conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
-            conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio_personalizado'
-            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
-            
-            return mensaje
-        
-        # Si no tiene servicio personalizado, continuar normal
-        print(f"🔍 [SERVICIOS] No hay servicio personalizado, mostrando servicios normales")
-        
-        servicios = db.obtener_servicios(negocio_id)
-        
-        # Filtrar servicios activos
-        servicios_activos = []
-        for servicio in servicios:
-            if servicio.get('activo', True):
-                servicios_activos.append(servicio)
-        
-        servicios = servicios_activos
-        
-        if not servicios:
-            return "❌ No hay servicios disponibles en este momento."
-        
-        # Guardar en conversación activa
-        if clave_conversacion not in conversaciones_activas:
-            conversaciones_activas[clave_conversacion] = {}
-            
-        conversaciones_activas[clave_conversacion]['servicios'] = servicios
-        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
-        conversaciones_activas[clave_conversacion]['tiene_personalizado'] = False
-        
-        # Construir mensaje normal
-        mensaje = f"📋 **Servicios con {profesional_nombre}:**\n\n"
-        for i, servicio in enumerate(servicios, 1):
-            mensaje += f"{i}️⃣ - *{servicio['nombre']}*\n"
-            mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}\n"
-            if servicio.get('descripcion'):
-                mensaje += f"   📝 {servicio['descripcion']}\n"
-            mensaje += "\n"
+            for i, servicio in enumerate(servicios, 1):
+                # Si ya mostró opción personalizada, sumar 2 a los índices
+                offset = 2 if tiene_personalizado else 0
+                idx = i + offset
+                
+                mensaje += f"*{idx}* - *{servicio['nombre']}*\n"
+                mensaje += f"   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}\n"
+                if servicio.get('descripcion'):
+                    mensaje += f"   📝 {servicio['descripcion']}\n"
+                mensaje += "\n"
         
         mensaje += "🔢 *Responde con el número del servicio que deseas*"
         
@@ -833,25 +839,25 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         traceback.print_exc()
         return "❌ Error al cargar servicios."
     
-def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
-    """Procesar selección cuando el cliente tiene servicio personalizado"""
+def procesar_seleccion_servicio(numero, mensaje, negocio_id):
+    """Procesar selección de servicio - MEJORADA PARA PERSONALIZADOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    print(f"🔍 [SERVICIO-PERSONALIZADO] Procesando selección: {mensaje}")
+    print(f"🔍 [SELECCION_SERVICIO] Procesando mensaje: '{mensaje}'")
     
+    # Manejar el comando "0" para volver al menú principal
     if mensaje == '0':
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         return "Volviendo al menú principal..."
     
-    if 'servicio_personalizado' not in conversaciones_activas[clave_conversacion]:
-        return "❌ Error: No se encontró tu servicio personalizado."
+    # Verificar si tiene servicio personalizado y si selecciona opción 1
+    tiene_personalizado = conversaciones_activas[clave_conversacion].get('tiene_personalizado', False)
     
-    servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
-    
-    if mensaje == '1':
-        # Cliente selecciona su servicio personalizado
-        print(f"✅ [SERVICIO-PERSONALIZADO] Cliente seleccionó servicio personalizado")
+    if tiene_personalizado and mensaje == '1':
+        print(f"✅ [SELECCION_SERVICIO] Cliente seleccionó servicio personalizado")
+        
+        servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
         
         # Guardar el servicio personalizado como seleccionado
         conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_personalizado['servicio_base_id']
@@ -859,34 +865,65 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
         conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_personalizado['precio_personalizado']
         conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
         conversaciones_activas[clave_conversacion]['servicios_adicionales'] = servicio_personalizado.get('servicios_adicionales', [])
+        conversaciones_activas[clave_conversacion]['ya_selecciono_personalizado'] = True
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
-        # Limpiar el flag de servicio personalizado para continuar normal
-        if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-            del conversaciones_activas[clave_conversacion]['tiene_personalizado']
-        if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-            del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-        
         return mostrar_fechas_disponibles(numero, negocio_id)
     
-    elif mensaje == '2':
-        # Cliente quiere ver todos los servicios
-        print(f"📋 [SERVICIO-PERSONALIZADO] Cliente quiere ver todos los servicios")
+    elif tiene_personalizado and mensaje == '2':
+        print(f"📋 [SELECCION_SERVICIO] Cliente quiere ver todos los servicios")
         
-        # Limpiar el servicio personalizado para mostrar todos los servicios
-        if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-            del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-        if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-            del conversaciones_activas[clave_conversacion]['tiene_personalizado']
+        # Marcar que ya vio la opción personalizada
+        conversaciones_activas[clave_conversacion]['ya_selecciono_personalizado'] = True
         
-        # Obtener nombre del profesional para mostrar servicios normales
+        # Volver a mostrar servicios (sin la opción personalizada esta vez)
         profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
-        
         return mostrar_servicios(numero, profesional_nombre, negocio_id)
     
+    # Procesar selección de servicios normales
+    if 'servicios' not in conversaciones_activas[clave_conversacion]:
+        if clave_conversacion in conversaciones_activas:
+            del conversaciones_activas[clave_conversacion]
+        return "❌ Sesión expirada. Por favor, inicia nuevamente con *1*"
+    
+    servicios = conversaciones_activas[clave_conversacion]['servicios']
+    
+    # Ajustar índice si tiene personalizado y ya pasó por esa opción
+    if tiene_personalizado and conversaciones_activas[clave_conversacion].get('ya_selecciono_personalizado'):
+        # Convertir el número seleccionado a índice correcto
+        try:
+            idx_seleccionado = int(mensaje)
+            if idx_seleccionado >= 3:  # Porque 1 y 2 ya se usaron para las opciones especiales
+                idx_servicio = idx_seleccionado - 2
+            else:
+                return "❌ Número inválido. Por favor, selecciona un servicio de la lista."
+        except ValueError:
+            return "❌ Por favor, ingresa un número válido."
     else:
-        return "❌ Opción no válida. Responde con *1* para tu servicio personalizado o *2* para ver todos los servicios."
+        idx_servicio = int(mensaje)
+    
+    if idx_servicio < 1 or idx_servicio > len(servicios):
+        return f"❌ Número inválido. Por favor, elige entre 1 y {len(servicios)}"
+    
+    # Guardar servicio seleccionado
+    servicio_index = idx_servicio - 1
+    servicio_seleccionado = servicios[servicio_index]
+    
+    print(f"✅ [SELECCION_SERVICIO] Servicio seleccionado: {servicio_seleccionado['nombre']}")
+    
+    conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_seleccionado['id']
+    conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_seleccionado['nombre']
+    conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
+    conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
+    conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    
+    # Limpiar bandera si existe
+    if 'ya_selecciono_personalizado' in conversaciones_activas[clave_conversacion]:
+        del conversaciones_activas[clave_conversacion]['ya_selecciono_personalizado']
+    
+    return mostrar_fechas_disponibles(numero, negocio_id)
     
 def mostrar_servicios_disponibles(numero_cliente, negocio_id):
     conn = db(negocio_id)

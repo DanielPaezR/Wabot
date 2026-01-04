@@ -2275,88 +2275,74 @@ def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
     finally:
         conn.close()
 
-def obtener_servicio_personalizado_cliente(telefono_cliente, negocio_id):
+def obtener_servicio_personalizado_cliente(telefono, negocio_id):
     """Obtener servicio personalizado de un cliente"""
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
-        # Primero obtener cliente_id
+        # Buscar cliente por teléfono
         cursor.execute('''
             SELECT id FROM clientes 
             WHERE telefono = %s AND negocio_id = %s
-        ''', (telefono_cliente, negocio_id))
+        ''', (telefono, negocio_id))
         
         cliente = cursor.fetchone()
         
         if not cliente:
-            conn.close()
             return None
         
-        cliente_id = cliente[0] if isinstance(cliente, tuple) else cliente['id']
+        cliente_id = cliente['id']
         
-        # Obtener servicio personalizado
+        # Buscar servicio personalizado activo para este cliente
         cursor.execute('''
-            SELECT sp.*, 
-                   s.nombre as servicio_base_nombre,
-                   p.nombre as profesional_nombre
+            SELECT 
+                sp.id,
+                sp.nombre_personalizado,
+                sp.descripcion,
+                sp.precio_personalizado,
+                sp.duracion_personalizada,
+                sp.servicio_base_id,
+                sp.profesional_id,
+                s.nombre as servicio_base_nombre,
+                p.nombre as profesional_nombre
             FROM servicios_personalizados sp
             LEFT JOIN servicios s ON sp.servicio_base_id = s.id
             LEFT JOIN profesionales p ON sp.profesional_id = p.id
-            WHERE sp.cliente_id = %s AND sp.negocio_id = %s AND sp.activo = true
+            WHERE sp.cliente_id = %s 
+            AND sp.negocio_id = %s
+            AND sp.activo = true
+            ORDER BY sp.fecha_actualizacion DESC
+            LIMIT 1
         ''', (cliente_id, negocio_id))
         
         servicio_personalizado = cursor.fetchone()
         
         if not servicio_personalizado:
-            conn.close()
             return None
         
-        # Obtener servicios adicionales
+        # Obtener servicios adicionales si existen
         cursor.execute('''
-            SELECT sac.servicio_id, s.nombre, s.duracion, s.precio, sac.incluido_por_defecto
+            SELECT 
+                s.id as servicio_id,
+                s.nombre,
+                s.descripcion,
+                s.precio,
+                s.duracion,
+                sac.incluido_por_defecto
             FROM servicios_adicionales_cliente sac
             JOIN servicios s ON sac.servicio_id = s.id
             WHERE sac.servicio_personalizado_id = %s
-        ''', (servicio_personalizado[0] if isinstance(servicio_personalizado, tuple) else servicio_personalizado['id'],))
+        ''', (servicio_personalizado['id'],))
         
         servicios_adicionales = cursor.fetchall()
         
-        # Construir diccionario con los datos
-        if hasattr(servicio_personalizado, 'keys'):
-            result = dict(servicio_personalizado)
-        else:
-            result = {
-                'id': servicio_personalizado[0],
-                'cliente_id': servicio_personalizado[1],
-                'negocio_id': servicio_personalizado[2],
-                'profesional_id': servicio_personalizado[3],
-                'servicio_base_id': servicio_personalizado[4],
-                'nombre_personalizado': servicio_personalizado[5],
-                'duracion_personalizada': servicio_personalizado[6],
-                'precio_personalizado': servicio_personalizado[7],
-                'descripcion': servicio_personalizado[8],
-                'servicio_base_nombre': servicio_personalizado[10] if len(servicio_personalizado) > 10 else '',
-                'profesional_nombre': servicio_personalizado[11] if len(servicio_personalizado) > 11 else ''
-            }
+        servicio_personalizado['servicios_adicionales'] = servicios_adicionales
         
-        result['servicios_adicionales'] = []
-        for sa in servicios_adicionales:
-            if hasattr(sa, 'keys'):
-                result['servicios_adicionales'].append(dict(sa))
-            else:
-                result['servicios_adicionales'].append({
-                    'servicio_id': sa[0],
-                    'nombre': sa[1],
-                    'duracion': sa[2],
-                    'precio': sa[3],
-                    'incluido_por_defecto': sa[4]
-                })
-        
-        conn.close()
-        return result
+        return dict(servicio_personalizado)
         
     except Exception as e:
-        print(f"❌ Error en obtener_servicio_personalizado_cliente: {e}")
-        conn.close()
+        print(f"❌ Error obteniendo servicio personalizado: {e}")
         return None
+    finally:
+        conn.close()

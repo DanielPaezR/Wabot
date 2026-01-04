@@ -312,7 +312,8 @@
                 </div>
                 {% endif %}
                 
-                <form method="POST" action="">
+                <!-- FORMULARIO CORREGIDO -->
+                <form method="POST" action="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
                     <!-- Configuración Básica -->
@@ -453,14 +454,21 @@
             });
         });
         
-        // CORRECCIÓN: Esta es la parte que tenía error de sintaxis
-        // Verificar si hay personalización previa
+        // Código JavaScript seguro (sin Jinja2 que cause errores en VS Code)
         document.addEventListener('DOMContentLoaded', function() {
-            /* {% if personalizacion %} */
-            console.log('✅ Ya existe una personalización previa para este cliente');
-            /* {% else %} */
-            console.log('ℹ️ No hay personalización previa para este cliente');
-            /* {% endif %} */
+            console.log('Página de personalización cargada');
+            
+            // Verificar si hay elementos marcados como incluidos
+            const checkboxesIncluidos = document.querySelectorAll('input[name="incluidos_por_defecto[]"]:checked');
+            if (checkboxesIncluidos.length > 0) {
+                console.log(`Hay ${checkboxesIncluidos.length} servicios incluidos por defecto`);
+            }
+            
+            // Verificar si hay servicios adicionales seleccionados
+            const checkboxesServicios = document.querySelectorAll('input[name="servicios_adicionales[]"]:checked');
+            if (checkboxesServicios.length > 0) {
+                console.log(`Hay ${checkboxesServicios.length} servicios adicionales seleccionados`);
+            }
         });
     </script>
 </body>
