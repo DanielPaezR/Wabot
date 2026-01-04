@@ -3733,7 +3733,10 @@ def manifest():
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
-
+@app.route('/test_personalizar')
+def test_personalizar():
+    """Ruta de prueba para verificar que la personalización funciona"""
+    return "✅ Ruta de personalización funciona correctamente"
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
