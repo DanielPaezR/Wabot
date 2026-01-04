@@ -410,7 +410,7 @@ def _insertar_usuarios_por_defecto(cursor):
 
 
 def _insertar_plantillas_base(cursor):
-    """Insertar plantillas base del sistema"""
+    """Insertar plantillas base del sistema - VERSIÓN ACTUALIZADA PARA WEB_CHAT_HANDLER"""
     postgres = is_postgresql()
     
     # Eliminar plantillas base existentes
@@ -420,45 +420,93 @@ def _insertar_plantillas_base(cursor):
         cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
     
     plantillas_base = [
-        ('saludo_inicial_nuevo', 
-         '🤖 *Bienvenido a {nombre_negocio}* {emoji_negocio}\n\n{saludo_personalizado}\n\nPara comenzar, ¿cuál es tu nombre?\n\n💡 *Siempre puedes volver al menú principal con* *0*',
-         'Saludo para clientes nuevos',
-         '["nombre_negocio", "emoji_negocio", "saludo_personalizado"]'),
+        # ============================================
+        # PLANTILLAS PARA EL NUEVO FLUJO (web_chat_handler)
+        # ============================================
+        ('saludo_inicial',
+         '¡Hola! 👋 Soy tu asistente virtual de {nombre_negocio}.\n\n📱 **Para identificarte en nuestro sistema, necesitamos tu número de teléfono.**\n\nTu número de teléfono se usará como identificador durante toda la conversación para:\n• Identificarte en futuras consultas\n• Mantener el historial de tus citas\n• Enviarte recordatorios importantes\n\n**Por favor, ingresa tu número de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):**',
+         'Saludo inicial para pedir teléfono',
+         '["nombre_negocio"]'),
         
-        ('saludo_inicial_existente',
-         '👋 ¡Hola {cliente_nombre}!\n\n*{nombre_negocio}* - ¿En qué te puedo ayudar?\n\n*1* {emoji_servicio} - Agendar cita\n*2* 📋 - Ver mis reservas\n*3* ❌ - Cancelar reserva\n*4* 🆘 - Ayuda\n\n💡 *Siempre puedes volver al menú principal con* *0*',
-         'Saludo para clientes existentes',
-         '["cliente_nombre", "nombre_negocio", "emoji_servicio"]'),
+        ('telefono_validado_existente',
+         '¡Hola {nombre_cliente}! 👋\n\nHe identificado tu número en nuestro sistema.\n\n¿En qué puedo ayudarte hoy?',
+         'Cuando se reconoce un cliente existente',
+         '["nombre_cliente"]'),
+        
+        ('solicitar_nombre_nuevo',
+         '✅ Número registrado exitosamente.\n\n📝 **Ahora necesitamos tu nombre para completar tu registro.**\n\nPor favor, ingresa tu nombre completo:',
+         'Solicitar nombre a cliente nuevo',
+         '[]'),
+        
+        ('nombre_registrado_exitoso',
+         '¡Perfecto {nombre_cliente}! ✅\n\nTu registro se ha completado exitosamente.\n\n¿En qué puedo ayudarte hoy?',
+         'Confirmación de registro exitoso',
+         '["nombre_cliente"]'),
         
         ('menu_principal',
-         '*{nombre_negocio}* - ¿En qué te puedo ayudar?\n\n*1* {emoji_servicio} - Agendar cita\n*2* 📋 - Ver mis reservas\n*3* ❌ - Cancelar reserva\n*4* 🆘 - Ayuda\n\n💡 *Siempre puedes volver al menú principal con* *0*',
+         '¿En qué puedo ayudarte hoy?',
          'Menú principal de opciones',
-         '["nombre_negocio", "emoji_servicio"]'),
+         '[]'),
         
-        ('ayuda_general',
-         '🆘 *AYUDA - {nombre_negocio}*\n\n*1* {emoji_servicio} - Agendar cita con {texto_profesional}\n*2* 📋 - Ver tus reservas activas\n*3* ❌ - Cancelar una reserva\n*4* 🆘 - Mostrar esta ayuda\n\n💡 *Siempre puedes volver al menú principal con* *0*',
-         'Mensaje de ayuda general',
-         '["nombre_negocio", "emoji_servicio", "texto_profesional"]'),
+        ('lista_profesionales',
+         '👨‍💼 **Selecciona un profesional:**',
+         'Lista de profesionales disponibles',
+         '[]'),
         
-        ('error_generico',
-         '❌ Ocurrió un error en {nombre_negocio}\n\nPor favor, intenta nuevamente o contacta a soporte.\n\n💡 *Vuelve al menú principal con* *0*',
-         'Mensaje de error genérico',
-         '["nombre_negocio"]'),
+        ('lista_servicios',
+         '📋 **Servicios con {profesional_nombre}:**',
+         'Lista de servicios disponibles',
+         '["profesional_nombre"]'),
         
-        ('cita_confirmada',
-         '✅ *¡Cita confirmada!*\n\n👤 *Cliente:* {cliente_nombre}\n{emoji_profesional} *{texto_profesional_title}:* {profesional_nombre}\n💼 *Servicio:* {servicio_nombre}\n💰 *Precio:* {precio_formateado}\n📅 *Fecha:* {fecha}\n⏰ *Hora:* {hora}\n🎫 *ID:* #{cita_id}\n\n📍 *Dirección:* {direccion}\n📞 *Contacto:* {telefono_contacto}\n\nTe enviaremos recordatorios 24 horas y 1 hora antes de tu cita.',
-         'Confirmación de cita agendada',
-         '["cliente_nombre", "emoji_profesional", "texto_profesional_title", "profesional_nombre", "servicio_nombre", "precio_formateado", "fecha", "hora", "cita_id", "direccion", "telefono_contacto"]'),
+        ('servicio_personalizado_opciones',
+         '🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n*{nombre_personalizado}*\n⏱️ Duración: {duracion_personalizada} min\n💵 Precio: ${precio_personalizado:,.0f}\n\n🔢 *Responde con:*\n1️⃣ - Seleccionar mi servicio personalizado\n2️⃣ - Ver todos los servicios disponibles',
+         'Opciones para servicio personalizado',
+         '["nombre_personalizado", "duracion_personalizada", "precio_personalizado"]'),
+        
+        ('seleccion_fecha',
+         '📅 **Selecciona una fecha:**',
+         'Selección de fecha para cita',
+         '[]'),
+        
+        ('seleccion_horario',
+         '📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - ${servicio_precio:,.0f}',
+         'Selección de horario para cita',
+         '["profesional_nombre", "fecha_formateada", "servicio_nombre", "servicio_precio"]'),
+        
+        ('confirmacion_cita',
+         '✅ **Confirmar cita**\n\nHola *{nombre_cliente}*, ¿confirmas tu cita?\n\n👨‍💼 **Profesional:** {profesional_nombre}\n💼 **Servicio:** {servicio_nombre}\n💰 **Precio:** ${servicio_precio:,.0f}\n📅 **Fecha:** {fecha_formateada}\n⏰ **Hora:** {hora_seleccionada}\n\n**Selecciona una opción:**',
+         'Confirmación de cita antes de agendar',
+         '["nombre_cliente", "profesional_nombre", "servicio_nombre", "servicio_precio", "fecha_formateada", "hora_seleccionada"]'),
+        
+        ('cita_confirmada_exito',
+         '✅ **Cita Confirmada**\n\nHola *{nombre_cliente}*, \n\nTu cita ha sido agendada exitosamente:\n\n• **Profesional:** {profesional_nombre}\n• **Servicio:** {servicio_nombre}  \n• **Precio:** ${servicio_precio:,.0f}\n• **Fecha:** {fecha_formateada}\n• **Hora:** {hora_seleccionada}\n• **ID de cita:** #{cita_id}\n• **Teléfono:** {telefono_cliente}\n• **Duración:** {duracion_servicio} minutos\n\nRecibirás recordatorios por mensaje antes de tu cita.\n\n¡Te esperamos!',
+         'Confirmación exitosa de cita agendada',
+         '["nombre_cliente", "profesional_nombre", "servicio_nombre", "servicio_precio", "fecha_formateada", "hora_seleccionada", "cita_id", "telefono_cliente", "duracion_servicio"]'),
+        
+        ('mis_citas_lista',
+         '📋 **Tus citas CONFIRMADAS - {nombre_cliente}:**',
+         'Lista de citas del cliente',
+         '["nombre_cliente"]'),
         
         ('sin_citas',
-         '📋 No tienes citas programadas en {nombre_negocio}.\n\n💡 *Vuelve al menú principal con* *0*',
+         '📋 **No tienes citas CONFIRMADAS programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*',
          'Cuando el cliente no tiene citas',
-         '["nombre_negocio"]'),
+         '["nombre_cliente"]'),
         
-        ('cita_cancelada',
-         '❌ *Cita cancelada*\n\nHola {cliente_nombre}, has cancelado tu cita del {fecha} a las {hora} en {nombre_negocio}.\n\nEsperamos verte pronto en otra ocasión.',
-         'Confirmación de cancelación',
-         '["cliente_nombre", "fecha", "hora", "nombre_negocio"]')
+        ('ayuda_general',
+         'ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal.',
+         'Mensaje de ayuda general',
+         '[]'),
+        
+        ('error_generico',
+         '❌ Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.',
+         'Mensaje de error genérico',
+         '[]'),
+        
+        ('cita_cancelada_exito',
+         '❌ **Cita cancelada exitosamente**\n\nHola {nombre_cliente}, has cancelado tu cita:\n\n📅 **Fecha:** {fecha_cita}\n⏰ **Hora:** {hora_cita}\n🎫 **ID de cita:** #{cita_id}\n\nEsperamos verte pronto en otra ocasión.',
+         'Confirmación de cancelación exitosa',
+         '["nombre_cliente", "fecha_cita", "hora_cita", "cita_id"]')
     ]
     
     for nombre, plantilla, descripcion, variables in plantillas_base:
@@ -475,7 +523,31 @@ def _insertar_plantillas_base(cursor):
                 VALUES (NULL, ?, ?, ?, ?, TRUE)
             ''', (nombre, plantilla, descripcion, variables))
 
-
+def actualizar_plantillas_existentes():
+    """Actualizar plantillas base sin perder personalizadas"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Eliminar solo plantillas base
+        if is_postgresql():
+            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
+        else:
+            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE')
+        
+        # Llamar a la función que actualizaste
+        _insertar_plantillas_base(cursor)
+        
+        conn.commit()
+        print("✅ Plantillas base actualizadas exitosamente")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error actualizando plantillas: {e}")
+        return False
+    finally:
+        conn.close()
+        
 def _insertar_configuracion_horarios(cursor):
     """Insertar configuración de horarios por día - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()

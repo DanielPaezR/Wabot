@@ -3943,6 +3943,19 @@ def api_horarios_disponibles():
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
+
+@app.route('/admin/actualizar-plantillas-base')
+@role_required(['superadmin'])
+def admin_actualizar_plantillas_base():
+    """Actualizar solo plantillas base"""
+    try:
+        from database import actualizar_plantillas_existentes
+        if actualizar_plantillas_existentes():
+            return "✅ Plantillas base actualizadas exitosamente"
+        else:
+            return "❌ Error actualizando plantillas"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
    
 # =============================================================================
 # RUTAS DE notificaciones
