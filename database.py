@@ -2276,30 +2276,25 @@ def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
         conn.close()
 
 def obtener_servicio_personalizado_cliente(telefono, negocio_id):
-    """Obtener servicio personalizado de un cliente - VERSIÓN SIMPLE"""
+    """Obtener servicio personalizado de un cliente"""
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
-        print(f"🔍 [DB] Buscando servicio personalizado para teléfono: {telefono}, negocio: {negocio_id}")
-        
-        # 1. Buscar cliente por teléfono
+        # Buscar cliente por teléfono
         cursor.execute('''
-            SELECT id, nombre FROM clientes 
+            SELECT id FROM clientes 
             WHERE telefono = %s AND negocio_id = %s
-            LIMIT 1
         ''', (telefono, negocio_id))
         
         cliente = cursor.fetchone()
         
         if not cliente:
-            print(f"❌ [DB] Cliente no encontrado con teléfono: {telefono}")
             return None
         
         cliente_id = cliente['id']
-        print(f"✅ [DB] Cliente encontrado: ID {cliente_id}, Nombre: {cliente['nombre']}")
         
-        # 2. Buscar servicio personalizado activo
+        # Buscar servicio personalizado activo para este cliente
         cursor.execute('''
             SELECT 
                 sp.id,
@@ -2308,8 +2303,12 @@ def obtener_servicio_personalizado_cliente(telefono, negocio_id):
                 sp.precio_personalizado,
                 sp.duracion_personalizada,
                 sp.servicio_base_id,
-                sp.profesional_id
+                sp.profesional_id,
+                s.nombre as servicio_base_nombre,
+                p.nombre as profesional_nombre
             FROM servicios_personalizados sp
+            LEFT JOIN servicios s ON sp.servicio_base_id = s.id
+            LEFT JOIN profesionales p ON sp.profesional_id = p.id
             WHERE sp.cliente_id = %s 
             AND sp.negocio_id = %s
             AND sp.activo = true
@@ -2320,17 +2319,30 @@ def obtener_servicio_personalizado_cliente(telefono, negocio_id):
         servicio_personalizado = cursor.fetchone()
         
         if not servicio_personalizado:
-            print(f"❌ [DB] No hay servicio personalizado activo para cliente ID {cliente_id}")
             return None
         
-        print(f"✅ [DB] Servicio personalizado encontrado: {servicio_personalizado['nombre_personalizado']}")
+        # Obtener servicios adicionales si existen
+        cursor.execute('''
+            SELECT 
+                s.id as servicio_id,
+                s.nombre,
+                s.descripcion,
+                s.precio,
+                s.duracion,
+                sac.incluido_por_defecto
+            FROM servicios_adicionales_cliente sac
+            JOIN servicios s ON sac.servicio_id = s.id
+            WHERE sac.servicio_personalizado_id = %s
+        ''', (servicio_personalizado['id'],))
+        
+        servicios_adicionales = cursor.fetchall()
+        
+        servicio_personalizado['servicios_adicionales'] = servicios_adicionales
         
         return dict(servicio_personalizado)
         
     except Exception as e:
-        print(f"❌ [DB] Error obteniendo servicio personalizado: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error obteniendo servicio personalizado: {e}")
         return None
     finally:
         conn.close()
