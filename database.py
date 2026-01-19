@@ -469,17 +469,17 @@ def _insertar_plantillas_base(cursor):
          '[]'),
         
         ('seleccion_horario',
-         '📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - ${servicio_precio:,.0f}',
+         '📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - ${servicio_precio}',
          'Selección de horario para cita',
          '["profesional_nombre", "fecha_formateada", "servicio_nombre", "servicio_precio"]'),
         
         ('confirmacion_cita',
-         '✅ **Confirmar cita**\n\nHola *{nombre_cliente}*, ¿confirmas tu cita?\n\n👨‍💼 **Profesional:** {profesional_nombre}\n💼 **Servicio:** {servicio_nombre}\n💰 **Precio:** ${servicio_precio:,.0f}\n📅 **Fecha:** {fecha_formateada}\n⏰ **Hora:** {hora_seleccionada}\n\n**Selecciona una opción:**',
+         '✅ **Confirmar cita**\n\nHola *{nombre_cliente}*, ¿confirmas tu cita?\n\n👨‍💼 **Profesional:** {profesional_nombre}\n💼 **Servicio:** {servicio_nombre}\n💰 **Precio:** ${servicio_precio}\n📅 **Fecha:** {fecha_formateada}\n⏰ **Hora:** {hora_seleccionada}\n\n**Selecciona una opción:**',
          'Confirmación de cita antes de agendar',
          '["nombre_cliente", "profesional_nombre", "servicio_nombre", "servicio_precio", "fecha_formateada", "hora_seleccionada"]'),
         
         ('cita_confirmada_exito',
-         '✅ **Cita Confirmada**\n\nHola *{nombre_cliente}*, \n\nTu cita ha sido agendada exitosamente:\n\n• **Profesional:** {profesional_nombre}\n• **Servicio:** {servicio_nombre}  \n• **Precio:** ${servicio_precio:,.0f}\n• **Fecha:** {fecha_formateada}\n• **Hora:** {hora_seleccionada}\n• **ID de cita:** #{cita_id}\n• **Teléfono:** {telefono_cliente}\n• **Duración:** {duracion_servicio} minutos\n\nRecibirás recordatorios por mensaje antes de tu cita.\n\n¡Te esperamos!',
+         '✅ **Cita Confirmada**\n\nHola *{nombre_cliente}*, \n\nTu cita ha sido agendada exitosamente:\n\n• **Profesional:** {profesional_nombre}\n• **Servicio:** {servicio_nombre}  \n• **Precio:** ${servicio_precio}\n• **Fecha:** {fecha_formateada}\n• **Hora:** {hora_seleccionada}\n• **ID de cita:** #{cita_id}\n• **Teléfono:** {telefono_cliente}\n• **Duración:** {duracion_servicio} minutos\n\nRecibirás recordatorios por mensaje antes de tu cita.\n\n¡Te esperamos!',
          'Confirmación exitosa de cita agendada',
          '["nombre_cliente", "profesional_nombre", "servicio_nombre", "servicio_precio", "fecha_formateada", "hora_seleccionada", "cita_id", "telefono_cliente", "duracion_servicio"]'),
         
