@@ -4209,7 +4209,7 @@ def test_personalizar():
 
 @app.route('/fix-precios-directo')
 def fix_precios_directo():
-    """Corrección DIRECTA y COMPLETA de todas las plantillas"""
+    """Corrección DIRECTA y COMPLETA de todas las plantillas - VERSIÓN CORREGIDA"""
     try:
         import database as db
         from database import get_db_connection
@@ -4218,6 +4218,8 @@ def fix_precios_directo():
         print("🚨 EJECUTANDO CORRECCIÓN DIRECTA DE PRECIOS...")
         
         conn = get_db_connection()
+        
+        # ✅ IMPORTANTE: Usar cursor normal, no RealDictCursor para esta operación
         cursor = conn.cursor()
         
         # PASO 1: Obtener TODAS las plantillas
@@ -4233,9 +4235,15 @@ def fix_precios_directo():
         detalles_correcciones = []
         
         for plantilla in todas_plantillas:
-            plantilla_id = plantilla[0]
-            nombre = plantilla[1]
-            contenido = plantilla[2]
+            # ✅ ACCEDER CORRECTAMENTE SEGÚN EL TIPO DE RESULTADO
+            if isinstance(plantilla, dict):  # Si es diccionario (RealDictCursor)
+                plantilla_id = plantilla['id']
+                nombre = plantilla['nombre']
+                contenido = plantilla['plantilla']
+            else:  # Si es tupla (cursor normal)
+                plantilla_id = plantilla[0]
+                nombre = plantilla[1]
+                contenido = plantilla[2]
             
             if not contenido:
                 continue
@@ -4280,7 +4288,6 @@ def fix_precios_directo():
                     cambios_en_esta.append(f"{viejo} → {nuevo}")
             
             # Método 2: Expresión regular para CUALQUIER variable con formato
-            # Busca patrones como {cualquiercosa:,.0f} o {cualquiercosa:,.2f}
             patron = re.compile(r'\{(\w+):,\.\d+f\}')
             coincidencias = patron.findall(corregido)
             
@@ -4303,7 +4310,7 @@ def fix_precios_directo():
                     cambios_en_esta.append(f"{formato_viejo} → {formato_nuevo}")
             
             # Si hubo cambios, actualizar en BD
-            if corregido != original:
+            if corregido != original and cambios_en_esta:
                 if db.is_postgresql():
                     cursor.execute("""
                         UPDATE plantillas_mensajes 
@@ -4425,11 +4432,109 @@ def fix_precios_directo():
 {error_detalle}
             </pre>
         </div>
-        <p style="margin-top: 20px;">
-            <a href="/" style="background:#6c757d;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
-                ↩️ Volver al inicio
+        
+        <div style="margin-top: 20px; background: #e3f2fd; padding: 15px; border-radius: 5px;">
+            <h4>🔧 Solución alternativa:</h4>
+            <p>Intenta con esta ruta más simple:</p>
+            <a href="/fix-precios-simple" style="background:#2196f3;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">
+                🔄 Corrección Simple
             </a>
-        </p>
+        </div>
+        '''
+
+@app.route('/fix-precios-simple')
+def fix_precios_simple():
+    """Corrección SIMPLE solo para las 4 plantillas principales"""
+    try:
+        import database as db
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        print("🔄 CORRECCIÓN SIMPLE DE PRECIOS...")
+        
+        # Lista específica de plantillas a corregir
+        plantillas_a_corregir = [
+            ('servicio_personalizado_opciones', '{precio_personalizado:,.0f}', '{precio_personalizado}'),
+            ('seleccion_horario', '{servicio_precio:,.0f}', '{servicio_precio}'),
+            ('confirmacion_cita', '{servicio_precio:,.0f}', '{servicio_precio}'),
+            ('cita_confirmada_exito', '{servicio_precio:,.0f}', '{servicio_precio}'),
+            ('servicio_personalizado_opciones', '{servicioprecio:,.0f}', '{servicio_precio}'),
+        ]
+        
+        contador = 0
+        
+        for nombre_plantilla, texto_viejo, texto_nuevo in plantillas_a_corregir:
+            # Obtener TODAS las plantillas con este nombre (base y personalizadas)
+            if db.is_postgresql():
+                cursor.execute("""
+                    SELECT id, plantilla 
+                    FROM plantillas_mensajes 
+                    WHERE nombre = %s AND plantilla LIKE %s
+                """, (nombre_plantilla, f'%{texto_viejo}%'))
+            else:
+                cursor.execute("""
+                    SELECT id, plantilla 
+                    FROM plantillas_mensajes 
+                    WHERE nombre = ? AND plantilla LIKE ?
+                """, (nombre_plantilla, f'%{texto_viejo}%'))
+            
+            plantillas = cursor.fetchall()
+            
+            for plantilla in plantillas:
+                if isinstance(plantilla, dict):
+                    plantilla_id = plantilla['id']
+                    contenido = plantilla['plantilla']
+                else:
+                    plantilla_id = plantilla[0]
+                    contenido = plantilla[1]
+                
+                if texto_viejo in contenido:
+                    contenido_corregido = contenido.replace(texto_viejo, texto_nuevo)
+                    
+                    if db.is_postgresql():
+                        cursor.execute("""
+                            UPDATE plantillas_mensajes 
+                            SET plantilla = %s 
+                            WHERE id = %s
+                        """, (contenido_corregido, plantilla_id))
+                    else:
+                        cursor.execute("""
+                            UPDATE plantillas_mensajes 
+                            SET plantilla = ? 
+                            WHERE id = ?
+                        """, (contenido_corregido, plantilla_id))
+                    
+                    contador += 1
+                    print(f"✅ Corregida plantilla '{nombre_plantilla}' (ID: {plantilla_id})")
+        
+        conn.commit()
+        conn.close()
+        
+        return f'''
+        <h1>✅ CORRECCIÓN SIMPLE COMPLETADA</h1>
+        <p><strong>Total de plantillas actualizadas: {contador}</strong></p>
+        <hr>
+        <p>Se corrigieron las siguientes plantillas:</p>
+        <ul>
+            <li>servicio_personalizado_opciones - {precio_personalizado:,.0f} → {precio_personalizado}</li>
+            <li>seleccion_horario - {servicio_precio:,.0f} → {servicio_precio}</li>
+            <li>confirmacion_cita - {servicio_precio:,.0f} → {servicio_precio}</li>
+            <li>cita_confirmada_exito - {servicio_precio:,.0f} → {servicio_precio}</li>
+        </ul>
+        <hr>
+        <a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;">
+            ✅ Verificar plantillas ahora
+        </a>
+        '''
+        
+    except Exception as e:
+        return f'''
+        <h1>❌ ERROR EN CORRECCIÓN SIMPLE</h1>
+        <p>Error: {str(e)}</p>
+        <hr>
+        <p>Intenta revisar manualmente en <a href="/negocio/plantillas">/negocio/plantillas</a></p>
         '''
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
