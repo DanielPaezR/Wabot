@@ -4207,108 +4207,77 @@ def test_personalizar():
     """Ruta de prueba para verificar que la personalización funciona"""
     return "✅ Ruta de personalización funciona correctamente"
 
-@app.route('/secret-fix-precio-plantillas-2026')
-def secret_fix_precio_plantillas():
-    """Ruta secreta para corregir formato de precios en plantillas"""
-    # Clave de seguridad
-    secret_key = request.args.get('key', '')
-    if secret_key != 'TEMPORARY_UPDATE_KEY_2026':
-        return "❌ Acceso no autorizado"
-    
+@app.route('/fix-precios-urgente')
+def fix_precios_urgente():
+    """Ruta URGENTE para corregir precios - SIN SEGURIDAD"""
     try:
         from database import actualizar_formato_precios_plantillas
         from database import get_db_connection
+        import database as db
+        
+        print("🚨 EJECUTANDO CORRECCIÓN URGENTE DE PRECIOS...")
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        print("🔄 PASO 1: Ejecutando función de corrección de base de datos...")
-        correcciones_db = actualizar_formato_precios_plantillas()
+        # PASO 1: Usar la función existente
+        correcciones = actualizar_formato_precios_plantillas()
         
-        print("🔄 PASO 2: Corrección manual adicional para asegurar...")
+        # PASO 2: Corrección MANUAL EXTRA para estar seguros
+        contador_extra = 0
         
-        # Lista de todas las plantillas que pueden tener el problema
+        # Lista de plantillas problemáticas
         plantillas_problema = [
             'servicio_personalizado_opciones',
             'seleccion_horario', 
             'confirmacion_cita',
-            'cita_confirmada_exito'
+            'cita_confirmada_exito',
+            'menu_principal',
+            'ayuda_general'
         ]
         
-        contador_manual = 0
-        
-        for nombre_plantilla in plantillas_problema:
-            # Obtener plantilla base
+        for nombre in plantillas_problema:
+            # Obtener TODAS las plantillas con este nombre (base y personalizadas)
             if db.is_postgresql():
                 cursor.execute('''
-                    SELECT id, plantilla 
-                    FROM plantillas_mensajes 
-                    WHERE nombre = %s AND es_base = TRUE
-                ''', (nombre_plantilla,))
+                    SELECT id, plantilla FROM plantillas_mensajes 
+                    WHERE nombre = %s
+                ''', (nombre,))
             else:
                 cursor.execute('''
-                    SELECT id, plantilla 
-                    FROM plantillas_mensajes 
-                    WHERE nombre = ? AND es_base = TRUE
-                ''', (nombre_plantilla,))
+                    SELECT id, plantilla FROM plantillas_mensajes 
+                    WHERE nombre = ?
+                ''', (nombre,))
             
-            plantilla_base = cursor.fetchone()
+            plantillas = cursor.fetchall()
             
-            if plantilla_base:
-                plantilla_id = plantilla_base[0]
-                contenido = plantilla_base[1]
+            for plantilla in plantillas:
+                plantilla_id = plantilla[0]
+                contenido = plantilla[1]
                 
-                # Corregir formato manualmente
+                if not contenido:
+                    continue
+                
+                # CORREGIR todos los formatos de precio
                 contenido_corregido = contenido
                 
-                # Reemplazar todos los formatos incorrectos
-                contenido_corregido = contenido_corregido.replace('{precio_personalizado:,.0f}', '{precio_personalizado}')
-                contenido_corregido = contenido_corregido.replace('{servicio_precio:,.0f}', '{servicio_precio}')
-                contenido_corregido = contenido_corregido.replace('{precio:,.0f}', '{precio}')
+                # Reemplazos DIRECTOS
+                reemplazos = [
+                    ('{precio_personalizado:,.0f}', '{precio_personalizado}'),
+                    ('{servicio_precio:,.0f}', '{servicio_precio}'),
+                    ('{precio:,.0f}', '{precio}'),
+                    ('{precio_formateado:,.0f}', '{precio_formateado}'),
+                    ('${servicio_precio:,.0f}', '{servicio_precio}'),
+                    ('${precio:,.0f}', '{precio}'),
+                    ('${precio_personalizado:,.0f}', '{precio_personalizado}')
+                ]
                 
-                if contenido_corregido != contenido:
-                    # Actualizar plantilla base
-                    if db.is_postgresql():
-                        cursor.execute('''
-                            UPDATE plantillas_mensajes 
-                            SET plantilla = %s 
-                            WHERE id = %s
-                        ''', (contenido_corregido, plantilla_id))
-                    else:
-                        cursor.execute('''
-                            UPDATE plantillas_mensajes 
-                            SET plantilla = ? 
-                            WHERE id = ?
-                        ''', (contenido_corregido, plantilla_id))
-                    
-                    contador_manual += 1
-                    print(f"✅ Corregida plantilla base: {nombre_plantilla}")
-            
-            # También corregir plantillas personalizadas de cada negocio
-            if db.is_postgresql():
-                cursor.execute('''
-                    SELECT id, plantilla, negocio_id 
-                    FROM plantillas_mensajes 
-                    WHERE nombre = %s AND es_base = FALSE
-                ''', (nombre_plantilla,))
-            else:
-                cursor.execute('''
-                    SELECT id, plantilla, negocio_id 
-                    FROM plantillas_mensajes 
-                    WHERE nombre = ? AND es_base = FALSE
-                ''', (nombre_plantilla,))
-            
-            plantillas_personalizadas = cursor.fetchall()
-            
-            for plantilla_personalizada in plantillas_personalizadas:
-                plantilla_id = plantilla_personalizada[0]
-                contenido = plantilla_personalizada[1]
+                for viejo, nuevo in reemplazos:
+                    if viejo in contenido_corregido:
+                        contenido_corregido = contenido_corregido.replace(viejo, nuevo)
+                        contador_extra += 1
                 
-                contenido_corregido = contenido
-                contenido_corregido = contenido_corregido.replace('{precio_personalizado:,.0f}', '{precio_personalizado}')
-                contenido_corregido = contenido_corregido.replace('{servicio_precio:,.0f}', '{servicio_precio}')
-                contenido_corregido = contenido_corregido.replace('{precio:,.0f}', '{precio}')
-                
+                # Si hubo cambios, actualizar
                 if contenido_corregido != contenido:
                     if db.is_postgresql():
                         cursor.execute('''
@@ -4322,41 +4291,47 @@ def secret_fix_precio_plantillas():
                             SET plantilla = ? 
                             WHERE id = ?
                         ''', (contenido_corregido, plantilla_id))
-                    
-                    contador_manual += 1
         
         conn.commit()
         conn.close()
         
-        total_correcciones = correcciones_db + contador_manual
+        total = correcciones + contador_extra
         
         return f'''
-        <h1>✅ ¡Corrección de precios completada!</h1>
-        <p><strong>Total de correcciones aplicadas: {total_correcciones}</strong></p>
+        <h1>✅ ¡CORRECCIÓN URGENTE COMPLETADA!</h1>
+        <p><strong>Total correcciones: {total}</strong></p>
+        <p>• Correcciones automáticas: {correcciones}</p>
+        <p>• Correcciones manuales extra: {contador_extra}</p>
+        <hr>
+        <h3>✅ ¿Qué se corrigió?</h3>
+        <p>Todos los formatos <code>:,.0f</code> fueron removidos:</p>
+        <pre>
+        {precio_personalizado:,.0f} → {precio_personalizado}
+        {servicio_precio:,.0f} → {servicio_precio}
+        {precio:,.0f} → {precio}
+        {precio_formateado:,.0f} → {precio_formateado}
+        </pre>
+        <hr>
+        <h3>📋 Plantillas revisadas:</h3>
         <ul>
-            <li>✅ Correcciones automáticas en DB: {correcciones_db}</li>
-            <li>✅ Correcciones manuales adicionales: {contador_manual}</li>
+            <li>servicio_personalizado_opciones</li>
+            <li>seleccion_horario</li>
+            <li>confirmacion_cita</li>
+            <li>cita_confirmada_exito</li>
+            <li>menu_principal</li>
+            <li>ayuda_general</li>
         </ul>
-        <p><strong>Plantillas corregidas:</strong></p>
-        <div style="background:#f8f9fa;padding:15px;border-radius:5px;margin:20px 0;">
-            servicio_personalizado_opciones, seleccion_horario, confirmacion_cita, cita_confirmada_exito
-        </div>
-        <p><strong>Cambios realizados:</strong></p>
-        <ul>
-            <li>❌ <code>{{precio_personalizado:,.0f}}</code> → ✅ <code>{{precio_personalizado}}</code></li>
-            <li>❌ <code>{{servicio_precio:,.0f}}</code> → ✅ <code>{{servicio_precio}}</code></li>
-            <li>❌ <code>{{precio:,.0f}}</code> → ✅ <code>{{precio}}</code></li>
-        </ul>
-        <p><a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:20px;font-weight:bold;">
-            → Ver plantillas corregidas
+        <hr>
+        <p><a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:20px;">
+            → Verificar plantillas ahora
         </a></p>
-        <p style="color:#666;font-size:0.9rem;margin-top:30px;">
-            <strong>Nota:</strong> El formato :,.0f era para Jinja2, pero en las plantillas de texto solo necesitamos las variables simples.
-        </p>
+        <p><a href="/cliente/1" style="background:#3498db;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:10px;">
+            → Probar chat web
+        </a></p>
         '''
         
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ ERROR: {str(e)}"
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
