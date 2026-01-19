@@ -56,7 +56,7 @@ def limpiar_formato_whatsapp(texto):
     return texto
 
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
-    """Motor principal de plantillas - CORREGIDO PARA POSTGRESQL"""
+    """Motor principal de plantillas - CON DIAGNÓSTICO DE PRECIOS"""
     try:
         # Obtener plantilla de la base de datos
         plantilla_data = db.obtener_plantilla(negocio_id, nombre_plantilla)
@@ -118,18 +118,74 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
         # Combinar con variables adicionales
         todas_variables = {**variables_base, **(variables_extra or {})}
         
+        # ✅ DIAGNÓSTICO DE VARIABLES
+        print(f"\n🔍 [DIAG-RENDERIZAR] Plantilla: {nombre_plantilla}")
+        print(f"🔍 [DIAG-RENDERIZAR] Variables disponibles:")
+        for key, value in todas_variables.items():
+            if 'precio' in key.lower():
+                print(f"   {key}: {value} (tipo: {type(value)})")
+        
         # Renderizar plantilla (reemplazar variables)
         mensaje_final = plantilla_texto
         for key, value in todas_variables.items():
             placeholder = f"{{{key}}}"
             if placeholder in mensaje_final:
                 mensaje_final = mensaje_final.replace(placeholder, str(value))
+                print(f"✅ Reemplazado {placeholder} -> {value}")
+        
+        # ✅ VERIFICAR SI QUEDÓ ALGÚN PLACEHOLDER SIN REEMPLAZAR
+        import re
+        placeholders_sin_reemplazar = re.findall(r'\{[^}]+\}', mensaje_final)
+        if placeholders_sin_reemplazar:
+            print(f"⚠️ [DIAG-RENDERIZAR] Placeholders sin reemplazar: {placeholders_sin_reemplazar}")
+        
+        print(f"🔍 [DIAG-RENDERIZAR] Mensaje final (primeros 200 chars): {mensaje_final[:200]}...")
         
         return mensaje_final
         
     except Exception as e:
         print(f"❌ Error en renderizar_plantilla: {e}")
         return f"❌ Error al procesar plantilla '{nombre_plantilla}'"
+    
+def verificar_precio_en_conversacion(clave_conversacion, paso):
+    """Función para verificar el estado del precio en la conversación"""
+    print(f"\n🔍 [VERIFICACIÓN-PRECIO] Paso: {paso}")
+    print(f"   Clave conversación: {clave_conversacion}")
+    
+    if clave_conversacion in conversaciones_activas:
+        datos = conversaciones_activas[clave_conversacion]
+        
+        # Verificar todos los datos relevantes
+        print(f"   Estado actual: {datos.get('estado')}")
+        print(f"   Tiene servicio_personalizado: {'servicio_personalizado' in datos}")
+        print(f"   Tiene servicios: {'servicios' in datos}")
+        
+        # Verificar datos del servicio si existen
+        if 'servicio_personalizado' in datos:
+            sp = datos['servicio_personalizado']
+            print(f"   📦 SERVICIO PERSONALIZADO:")
+            print(f"     Nombre: {sp.get('nombre_personalizado')}")
+            print(f"     Precio: {sp.get('precio_personalizado')} (tipo: {type(sp.get('precio_personalizado'))})")
+            print(f"     Precio base: {sp.get('precio_base')}")
+            print(f"     Servicio base ID: {sp.get('servicio_base_id')}")
+        
+        if 'servicios' in datos:
+            print(f"   📋 LISTA DE SERVICIOS ({len(datos['servicios'])}):")
+            for i, servicio in enumerate(datos['servicios']):
+                print(f"     Servicio #{i+1}:")
+                print(f"       ID: {servicio.get('id')}")
+                print(f"       Nombre: {servicio.get('nombre')}")
+                print(f"       Precio: {servicio.get('precio')} (tipo: {type(servicio.get('precio'))})")
+        
+        # Verificar datos seleccionados actualmente
+        print(f"   🎯 DATOS SELECCIONADOS ACTUALMENTE:")
+        print(f"     Servicio ID: {datos.get('servicio_id')}")
+        print(f"     Servicio nombre: {datos.get('servicio_nombre')}")
+        print(f"     Servicio precio: {datos.get('servicio_precio')} (tipo: {type(datos.get('servicio_precio'))})")
+        print(f"     Profesional ID: {datos.get('profesional_id')}")
+        print(f"     Profesional nombre: {datos.get('profesional_nombre')}")
+    else:
+        print(f"   ❌ NO HAY CONVERSACIÓN ACTIVA")
 
 # =============================================================================
 # FUNCIÓN PRINCIPAL PARA PROCESAR MENSAJES DEL CHAT WEB - MODIFICADA
@@ -728,7 +784,7 @@ def mostrar_profesionales(numero, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO Y PLANTILLAS"""
+    """Mostrar servicios disponibles - CORREGIDO CON MANEJO DE PRECIOS"""
     try:
         # PRIMERO: Verificar si el cliente tiene teléfono registrado en la conversación
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -760,6 +816,10 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         if servicio_personalizado:
             print(f"🎯 Mostrando servicio personalizado para cliente")
             
+            # ✅ DIAGNÓSTICO DEL PRECIO PERSONALIZADO
+            print(f"🔍 [DIAG-PERSONALIZADO] Precio personalizado raw: {servicio_personalizado.get('precio_personalizado')}")
+            print(f"🔍 [DIAG-PERSONALIZADO] Tipo: {type(servicio_personalizado.get('precio_personalizado'))}")
+            
             # ✅ USAR PLANTILLA PARA SERVICIO PERSONALIZADO
             mensaje = renderizar_plantilla('servicio_personalizado_opciones', negocio_id, {
                 'nombre_personalizado': servicio_personalizado['nombre_personalizado'],
@@ -783,6 +843,16 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         
         servicios = db.obtener_servicios(negocio_id)
         
+        if not servicios:
+            return renderizar_plantilla('error_generico', negocio_id)
+        
+        # ✅ DIAGNÓSTICO DE LOS SERVICIOS OBTENIDOS
+        print(f"\n🔍 [DIAG-SERVICIOS] Servicios obtenidos de BD: {len(servicios)}")
+        for i, servicio in enumerate(servicios):
+            print(f"   Servicio #{i+1}: {servicio.get('nombre', 'Sin nombre')}")
+            print(f"     Precio: {servicio.get('precio')} (tipo: {type(servicio.get('precio'))})")
+            print(f"     ID: {servicio.get('id')}")
+        
         # Filtrar servicios activos
         servicios_activos = []
         for servicio in servicios:
@@ -791,27 +861,58 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         
         servicios = servicios_activos
         
-        if not servicios:
-            return renderizar_plantilla('error_generico', negocio_id)
+        # ✅ CORRECCIÓN: Asegurar que los precios sean números
+        for servicio in servicios:
+            if 'precio' in servicio:
+                try:
+                    # Convertir el precio a float/int si es string
+                    precio_raw = servicio['precio']
+                    if isinstance(precio_raw, str):
+                        # Remover símbolos de moneda y separadores
+                        precio_limpio = precio_raw.replace('$', '').replace(',', '').replace('.', '')
+                        servicio['precio'] = float(precio_limpio)
+                        print(f"✅ Convertido precio de string: '{precio_raw}' -> {servicio['precio']}")
+                    elif isinstance(precio_raw, (int, float)):
+                        # Ya es número, mantenerlo
+                        servicio['precio'] = float(precio_raw)
+                    else:
+                        # Tipo desconocido, usar 0
+                        print(f"⚠️ Tipo de precio desconocido: {type(precio_raw)}")
+                        servicio['precio'] = 0.0
+                except Exception as e:
+                    print(f"❌ Error convirtiendo precio {servicio.get('precio')}: {e}")
+                    servicio['precio'] = 0.0
+        
+        print(f"\n🔍 [DIAG-SERVICIOS] Servicios después de conversión:")
+        for i, servicio in enumerate(servicios):
+            print(f"   Servicio #{i+1}: {servicio.get('nombre')}")
+            print(f"     Precio convertido: {servicio.get('precio')} (tipo: {type(servicio.get('precio'))})")
         
         # Guardar en conversación activa
         if clave_conversacion not in conversaciones_activas:
             conversaciones_activas[clave_conversacion] = {}
             
         conversaciones_activas[clave_conversacion]['servicios'] = servicios
-        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_ervicio'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         conversaciones_activas[clave_conversacion]['tiene_personalizado'] = False
         
-        # ✅ USAR PLANTILLA PARA LISTA DE SERVICIOS
+        # ✅ USAR PLANTILLA PARA LISTA DE SERVICIOS (REVISADA)
         mensaje = renderizar_plantilla('lista_servicios', negocio_id, {
             'profesional_nombre': profesional_nombre
         })
         
         # Agregar lista de servicios al mensaje
         for i, servicio in enumerate(servicios, 1):
+            precio_servicio = servicio.get('precio', 0)
+            # Formatear el precio para mostrar
+            try:
+                precio_formateado = f"${int(precio_servicio):,}".replace(',', '.')
+            except:
+                precio_formateado = f"${precio_servicio}"
+            
             mensaje += f"\n{i}️⃣ - *{servicio['nombre']}*"
-            mensaje += f"\n   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}"
+            mensaje += f"\n   ⏱️ {servicio['duracion']} min | 💵 {precio_formateado}"
             if servicio.get('descripcion'):
                 mensaje += f"\n   📝 {servicio['descripcion']}"
         
@@ -826,10 +927,11 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
     
 def procesar_seleccion_servicio(numero, mensaje, negocio_id):
-    """Procesar selección de servicio"""
+    """Procesar selección de servicio - CON VERIFICACIÓN EXTENDIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    print(f"🔍 [SELECCION_SERVICIO] Procesando mensaje: '{mensaje}'")
+    print(f"\n🔍 [SELECCION_SERVICIO] INICIO - Mensaje: '{mensaje}'")
+    verificar_precio_en_conversacion(clave_conversacion, "ANTES de procesar selección")
     
     # Manejar el comando "0" para volver al menú principal
     if mensaje == '0':
@@ -838,60 +940,13 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
         return "Volviendo al menú principal..."
     
     # Verificar si está en modo servicio personalizado
-    if conversaciones_activas[clave_conversacion].get('tiene_personalizado'):
-        print(f"🔍 [SERVICIO-PERSONALIZADO] Procesando selección: {mensaje}")
-        
-        if mensaje == '0':
-            if clave_conversacion in conversaciones_activas:
-                conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-            return "Volviendo al menú principal..."
-        
-        if 'servicio_personalizado' not in conversaciones_activas[clave_conversacion]:
-            return renderizar_plantilla('error_generico', negocio_id)
-        
-        servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
-        
-        if mensaje == '1':
-            # Cliente selecciona su servicio personalizado
-            print(f"✅ [SERVICIO-PERSONALIZADO] Cliente seleccionó servicio personalizado")
-            
-            # Guardar el servicio personalizado como seleccionado
-            conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_personalizado['servicio_base_id']
-            conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_personalizado['nombre_personalizado']
-            conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_personalizado['precio_personalizado']
-            conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
-            conversaciones_activas[clave_conversacion]['servicios_adicionales'] = servicio_personalizado.get('servicios_adicionales', [])
-            conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
-            
-            # Limpiar el flag de servicio personalizado para continuar normal
-            if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['tiene_personalizado']
-            if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-            
-            return mostrar_fechas_disponibles(numero, negocio_id)
-        
-        elif mensaje == '2':
-            # Cliente quiere ver todos los servicios
-            print(f"📋 [SERVICIO-PERSONALIZADO] Cliente quiere ver todos los servicios")
-            
-            # Limpiar el servicio personalizado para mostrar todos los servicios
-            if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-            if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['tiene_personalizado']
-            
-            # Obtener nombre del profesional para mostrar servicios normales
-            profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
-            
-            return mostrar_servicios(numero, profesional_nombre, negocio_id)
-        
-        else:
-            return "❌ Opción no válida. Responde con *1* para tu servicio personalizado o *2* para ver todos los servicios."
+    if clave_conversacion in conversaciones_activas and conversaciones_activas[clave_conversacion].get('tiene_personalizado'):
+        print(f"🔍 [SERVICIO-PERSONALIZADO] Procesando selección de servicio personalizado: {mensaje}")
+        return procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id)
     
     # Procesar selección de servicios normales
     if 'servicios' not in conversaciones_activas[clave_conversacion]:
+        print(f"❌ [SELECCION_SERVICIO] No hay servicios en la conversación")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return renderizar_plantilla('error_generico', negocio_id)
@@ -905,14 +960,53 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     servicio_index = int(mensaje) - 1
     servicio_seleccionado = servicios[servicio_index]
     
-    print(f"✅ [SELECCION_SERVICIO] Servicio seleccionado: {servicio_seleccionado['nombre']}")
+    print(f"\n✅ [SELECCION_SERVICIO] Servicio seleccionado:")
+    print(f"   Índice: {servicio_index}")
+    print(f"   Nombre: {servicio_seleccionado['nombre']}")
+    print(f"   Precio raw: {servicio_seleccionado.get('precio')}")
+    print(f"   Tipo precio: {type(servicio_seleccionado.get('precio'))}")
+    print(f"   ID: {servicio_seleccionado.get('id')}")
     
+    # ✅ CORRECCIÓN DEFINITIVA: Manejo robusto del precio
+    precio_servicio = None
+    try:
+        precio_raw = servicio_seleccionado.get('precio')
+        
+        if precio_raw is None:
+            print(f"⚠️ [SELECCION_SERVICIO] Precio es None, usando 0")
+            precio_servicio = 0
+        elif isinstance(precio_raw, (int, float)):
+            precio_servicio = float(precio_raw)
+            print(f"✅ [SELECCION_SERVICIO] Precio ya es número: {precio_servicio}")
+        elif isinstance(precio_raw, str):
+            # Limpiar y convertir string
+            precio_limpio = precio_raw.replace('$', '').replace(',', '').replace('.', '')
+            if precio_limpio.isdigit():
+                precio_servicio = float(precio_limpio)
+                print(f"✅ [SELECCION_SERVICIO] Precio convertido de string: '{precio_raw}' -> {precio_servicio}")
+            else:
+                print(f"⚠️ [SELECCION_SERVICIO] String no convertible a número: '{precio_raw}'")
+                precio_servicio = 0
+        else:
+            print(f"⚠️ [SELECCION_SERVICIO] Tipo de precio desconocido: {type(precio_raw)}")
+            precio_servicio = 0
+    except Exception as e:
+        print(f"❌ [SELECCION_SERVICIO] Error procesando precio: {e}")
+        precio_servicio = 0
+    
+    # Guardar datos en la conversación
     conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_seleccionado['id']
     conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_seleccionado['nombre']
-    conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
+    conversaciones_activas[clave_conversacion]['servicio_precio'] = precio_servicio
     conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
     conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    
+    print(f"\n✅ [SELECCION_SERVICIO] Datos guardados en conversación:")
+    print(f"   servicio_precio guardado: {conversaciones_activas[clave_conversacion]['servicio_precio']}")
+    print(f"   tipo: {type(conversaciones_activas[clave_conversacion]['servicio_precio'])}")
+    
+    verificar_precio_en_conversacion(clave_conversacion, "DESPUÉS de procesar selección")
     
     return mostrar_fechas_disponibles(numero, negocio_id)
 
