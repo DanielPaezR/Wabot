@@ -459,7 +459,7 @@ def _insertar_plantillas_base(cursor):
          '["profesional_nombre"]'),
         
         ('servicio_personalizado_opciones',
-         '🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n*{nombre_personalizado}*\n⏱️ Duración: {duracion_personalizada} min\n💵 Precio: ${precio_personalizado:,.0f}\n\n🔢 *Responde con:*\n1️⃣ - Seleccionar mi servicio personalizado\n2️⃣ - Ver todos los servicios disponibles',
+         '🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n*{nombre_personalizado}*\n⏱️ Duración: {duracion_personalizada} min\n💵 Precio: ${precio_personalizado}\n\n🔢 *Responde con:*\n1️⃣ - Seleccionar mi servicio personalizado\n2️⃣ - Ver todos los servicios disponibles',
          'Opciones para servicio personalizado',
          '["nombre_personalizado", "duracion_personalizada", "precio_personalizado"]'),
         
@@ -2567,5 +2567,98 @@ def obtener_servicio_personalizado_cliente(telefono, negocio_id):
     except Exception as e:
         print(f"❌ Error obteniendo servicio personalizado: {e}")
         return None
+    finally:
+        conn.close()
+
+def actualizar_formato_precios_plantillas():
+    """Actualizar el formato de precios en TODAS las plantillas (remover :,.0f y otros formatos)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        print("🔄 Actualizando formato de precios en TODAS las plantillas...")
+        
+        # Para PostgreSQL
+        if is_postgresql():
+            # Obtener TODAS las plantillas
+            cursor.execute("SELECT id, plantilla FROM plantillas_mensajes")
+        else:
+            # Para SQLite
+            cursor.execute("SELECT id, plantilla FROM plantillas_mensajes")
+        
+        todas_plantillas = cursor.fetchall()
+        print(f"📋 Total de plantillas a verificar: {len(todas_plantillas)}")
+        
+        contador = 0
+        for plantilla in todas_plantillas:
+            plantilla_id = plantilla[0]
+            plantilla_texto = plantilla[1]
+            
+            if not plantilla_texto:
+                continue
+            
+            # Hacer una copia para comparar después
+            plantilla_original = plantilla_texto
+            plantilla_corregida = plantilla_texto
+            
+            # LISTA COMPLETA de formatos a corregir
+            formatos_a_corregir = [
+                ('{precio_personalizado:,.0f}', '{precio_personalizado}'),
+                ('{servicio_precio:,.0f}', '{servicio_precio}'),
+                ('{precio:,.0f}', '{precio}'),
+                ('{precio_formateado:,.0f}', '{precio_formateado}'),
+                ('{servicio_precio_formateado:,.0f}', '{servicio_precio_formateado}'),
+                ('{servicioprecio:,.0f}', '{servicio_precio}'),
+                ('{precio_personalizado_formateado:,.0f}', '{precio_personalizado}'),
+                ('${servicio_precio:,.0f}', '{servicio_precio}'),
+                ('${precio:,.0f}', '{precio}'),
+                ('${precio_personalizado:,.0f}', '{precio_personalizado}')
+            ]
+            
+            # Aplicar todas las correcciones
+            for formato_viejo, formato_nuevo in formatos_a_corregir:
+                if formato_viejo in plantilla_corregida:
+                    plantilla_corregida = plantilla_corregida.replace(formato_viejo, formato_nuevo)
+            
+            # También corregir si está dentro de strings más largas
+            import re
+            
+            # Patrón para encontrar cualquier variable con formato :,.0f
+            patron = re.compile(r'\{(\w+):,\.0f\}')
+            coincidencias = patron.findall(plantilla_corregida)
+            
+            for variable in coincidencias:
+                formato_viejo = f'{{{variable}:,.0f}}'
+                formato_nuevo = f'{{{variable}}}'
+                plantilla_corregida = plantilla_corregida.replace(formato_viejo, formato_nuevo)
+            
+            # Si hubo cambios, actualizar en la BD
+            if plantilla_corregida != plantilla_original:
+                if is_postgresql():
+                    cursor.execute("""
+                        UPDATE plantillas_mensajes 
+                        SET plantilla = %s 
+                        WHERE id = %s
+                    """, (plantilla_corregida, plantilla_id))
+                else:
+                    cursor.execute("""
+                        UPDATE plantillas_mensajes 
+                        SET plantilla = ? 
+                        WHERE id = ?
+                    """, (plantilla_corregida, plantilla_id))
+                
+                contador += 1
+                print(f"✅ Plantilla ID {plantilla_id} actualizada")
+        
+        conn.commit()
+        print(f"🎯 Total plantillas corregidas: {contador}")
+        return contador
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error actualizando plantillas: {e}")
+        import traceback
+        traceback.print_exc()
+        return 0
     finally:
         conn.close()
