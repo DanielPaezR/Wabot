@@ -4207,131 +4207,230 @@ def test_personalizar():
     """Ruta de prueba para verificar que la personalización funciona"""
     return "✅ Ruta de personalización funciona correctamente"
 
-@app.route('/fix-precios-urgente')
-def fix_precios_urgente():
-    """Ruta URGENTE para corregir precios - SIN SEGURIDAD"""
+@app.route('/fix-precios-directo')
+def fix_precios_directo():
+    """Corrección DIRECTA y COMPLETA de todas las plantillas"""
     try:
-        from database import actualizar_formato_precios_plantillas
-        from database import get_db_connection
         import database as db
+        from database import get_db_connection
+        import re
         
-        print("🚨 EJECUTANDO CORRECCIÓN URGENTE DE PRECIOS...")
+        print("🚨 EJECUTANDO CORRECCIÓN DIRECTA DE PRECIOS...")
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # PASO 1: Usar la función existente
-        correcciones = actualizar_formato_precios_plantillas()
+        # PASO 1: Obtener TODAS las plantillas
+        if db.is_postgresql():
+            cursor.execute("SELECT id, nombre, plantilla FROM plantillas_mensajes")
+        else:
+            cursor.execute("SELECT id, nombre, plantilla FROM plantillas_mensajes")
         
-        # PASO 2: Corrección MANUAL EXTRA para estar seguros
-        contador_extra = 0
+        todas_plantillas = cursor.fetchall()
+        print(f"🔍 Encontradas {len(todas_plantillas)} plantillas en total")
         
-        # Lista de plantillas problemáticas
-        plantillas_problema = [
-            'servicio_personalizado_opciones',
-            'seleccion_horario', 
-            'confirmacion_cita',
-            'cita_confirmada_exito',
-            'menu_principal',
-            'ayuda_general'
-        ]
+        contador_total = 0
+        detalles_correcciones = []
         
-        for nombre in plantillas_problema:
-            # Obtener TODAS las plantillas con este nombre (base y personalizadas)
-            if db.is_postgresql():
-                cursor.execute('''
-                    SELECT id, plantilla FROM plantillas_mensajes 
-                    WHERE nombre = %s
-                ''', (nombre,))
-            else:
-                cursor.execute('''
-                    SELECT id, plantilla FROM plantillas_mensajes 
-                    WHERE nombre = ?
-                ''', (nombre,))
+        for plantilla in todas_plantillas:
+            plantilla_id = plantilla[0]
+            nombre = plantilla[1]
+            contenido = plantilla[2]
             
-            plantillas = cursor.fetchall()
+            if not contenido:
+                continue
             
-            for plantilla in plantillas:
-                plantilla_id = plantilla[0]
-                contenido = plantilla[1]
+            # Guardar original para comparar
+            original = contenido
+            corregido = contenido
+            
+            # 🔍 DEBUG: Mostrar si esta plantilla tiene problemas
+            tiene_formato = any(x in contenido for x in [':,.0f', ':,.2f', ':,.1f'])
+            if tiene_formato:
+                print(f"⚠️  Plantilla '{nombre}' tiene formato a corregir")
+            
+            # Método 1: Reemplazos DIRECTOS de los patrones específicos
+            reemplazos_directos = [
+                # Patrones con {variable:,.0f}
+                ('{precio_personalizado:,.0f}', '{precio_personalizado}'),
+                ('{servicio_precio:,.0f}', '{servicio_precio}'),
+                ('{precio:,.0f}', '{precio}'),
+                ('{precio_formateado:,.0f}', '{precio_formateado}'),
+                ('{servicio_precio_formateado:,.0f}', '{servicio_precio_formateado}'),
+                ('{precio_personalizado_formateado:,.0f}', '{precio_personalizado}'),
                 
-                if not contenido:
-                    continue
+                # Patrones con $ antes
+                ('${precio_personalizado:,.0f}', '{precio_personalizado}'),
+                ('${servicio_precio:,.0f}', '{servicio_precio}'),
+                ('${precio:,.0f}', '{precio}'),
+                ('${precio_formateado:,.0f}', '{precio_formateado}'),
                 
-                # CORREGIR todos los formatos de precio
-                contenido_corregido = contenido
+                # Otros formatos posibles
+                ('{precio_personalizado:,.2f}', '{precio_personalizado}'),
+                ('{servicio_precio:,.2f}', '{servicio_precio}'),
+                ('{precio:,.2f}', '{precio}'),
+                ('{precio_personalizado:,.1f}', '{precio_personalizado}'),
+                ('{servicio_precio:,.1f}', '{servicio_precio}'),
+            ]
+            
+            cambios_en_esta = []
+            for viejo, nuevo in reemplazos_directos:
+                if viejo in corregido:
+                    corregido = corregido.replace(viejo, nuevo)
+                    cambios_en_esta.append(f"{viejo} → {nuevo}")
+            
+            # Método 2: Expresión regular para CUALQUIER variable con formato
+            # Busca patrones como {cualquiercosa:,.0f} o {cualquiercosa:,.2f}
+            patron = re.compile(r'\{(\w+):,\.\d+f\}')
+            coincidencias = patron.findall(corregido)
+            
+            for variable in coincidencias:
+                formato_viejo = f'{{{variable}:,.0f}}'
+                formato_nuevo = f'{{{variable}}}'
+                if formato_viejo in corregido:
+                    corregido = corregido.replace(formato_viejo, formato_nuevo)
+                    cambios_en_esta.append(f"{formato_viejo} → {formato_nuevo}")
+            
+            # Método 3: También para formato :.0f (sin la coma)
+            patron2 = re.compile(r'\{(\w+):\.\d+f\}')
+            coincidencias2 = patron2.findall(corregido)
+            
+            for variable in coincidencias2:
+                formato_viejo = f'{{{variable}:.0f}}'
+                formato_nuevo = f'{{{variable}}}'
+                if formato_viejo in corregido:
+                    corregido = corregido.replace(formato_viejo, formato_nuevo)
+                    cambios_en_esta.append(f"{formato_viejo} → {formato_nuevo}")
+            
+            # Si hubo cambios, actualizar en BD
+            if corregido != original:
+                if db.is_postgresql():
+                    cursor.execute("""
+                        UPDATE plantillas_mensajes 
+                        SET plantilla = %s 
+                        WHERE id = %s
+                    """, (corregido, plantilla_id))
+                else:
+                    cursor.execute("""
+                        UPDATE plantillas_mensajes 
+                        SET plantilla = ? 
+                        WHERE id = ?
+                    """, (corregido, plantilla_id))
                 
-                # Reemplazos DIRECTOS
-                reemplazos = [
-                    ('{precio_personalizado:,.0f}', '{precio_personalizado}'),
-                    ('{servicio_precio:,.0f}', '{servicio_precio}'),
-                    ('{precio:,.0f}', '{precio}'),
-                    ('{precio_formateado:,.0f}', '{precio_formateado}'),
-                    ('${servicio_precio:,.0f}', '{servicio_precio}'),
-                    ('${precio:,.0f}', '{precio}'),
-                    ('${precio_personalizado:,.0f}', '{precio_personalizado}')
-                ]
+                contador_total += 1
+                detalles_correcciones.append({
+                    'nombre': nombre,
+                    'id': plantilla_id,
+                    'cambios': cambios_en_esta,
+                    'antes': original[:100] + "..." if len(original) > 100 else original,
+                    'despues': corregido[:100] + "..." if len(corregido) > 100 else corregido
+                })
                 
-                for viejo, nuevo in reemplazos:
-                    if viejo in contenido_corregido:
-                        contenido_corregido = contenido_corregido.replace(viejo, nuevo)
-                        contador_extra += 1
-                
-                # Si hubo cambios, actualizar
-                if contenido_corregido != contenido:
-                    if db.is_postgresql():
-                        cursor.execute('''
-                            UPDATE plantillas_mensajes 
-                            SET plantilla = %s 
-                            WHERE id = %s
-                        ''', (contenido_corregido, plantilla_id))
-                    else:
-                        cursor.execute('''
-                            UPDATE plantillas_mensajes 
-                            SET plantilla = ? 
-                            WHERE id = ?
-                        ''', (contenido_corregido, plantilla_id))
+                print(f"✅ Corregida: {nombre} (ID: {plantilla_id})")
+                for cambio in cambios_en_esta:
+                    print(f"   ↳ {cambio}")
         
         conn.commit()
         conn.close()
         
-        total = correcciones + contador_extra
-        
-        return f'''
-        <h1>✅ ¡CORRECCIÓN URGENTE COMPLETADA!</h1>
-        <p><strong>Total correcciones: {total}</strong></p>
-        <p>• Correcciones automáticas: {correcciones}</p>
-        <p>• Correcciones manuales extra: {contador_extra}</p>
-        <hr>
-        <h3>✅ ¿Qué se corrigió?</h3>
-        <p>Todos los formatos <code>:,.0f</code> fueron removidos:</p>
-        <pre>
-        {precio_personalizado:,.0f} → {precio_personalizado}
-        {servicio_precio:,.0f} → {servicio_precio}
-        {precio:,.0f} → {precio}
-        {precio_formateado:,.0f} → {precio_formateado}
-        </pre>
-        <hr>
-        <h3>📋 Plantillas revisadas:</h3>
-        <ul>
-            <li>servicio_personalizado_opciones</li>
-            <li>seleccion_horario</li>
-            <li>confirmacion_cita</li>
-            <li>cita_confirmada_exito</li>
-            <li>menu_principal</li>
-            <li>ayuda_general</li>
-        </ul>
-        <hr>
-        <p><a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:20px;">
-            → Verificar plantillas ahora
-        </a></p>
-        <p><a href="/cliente/1" style="background:#3498db;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:10px;">
-            → Probar chat web
-        </a></p>
+        # Generar reporte HTML
+        reporte_html = f'''
+        <h1>🔧 CORRECCIÓN DIRECTA DE PLANTILLAS</h1>
+        <p><strong>Total plantillas corregidas: {contador_total} de {len(todas_plantillas)}</strong></p>
         '''
         
+        if contador_total > 0:
+            reporte_html += '''
+            <hr>
+            <h3>📋 Detalles de las correcciones:</h3>
+            <div style="max-height: 500px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 5px;">
+            '''
+            
+            for detalle in detalles_correcciones:
+                reporte_html += f'''
+                <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 5px; border-left: 4px solid #27ae60;">
+                    <h4 style="margin-top: 0;">{detalle['nombre']} (ID: {detalle['id']})</h4>
+                    <p><strong>Cambios realizados:</strong></p>
+                    <ul>
+                '''
+                for cambio in detalle['cambios']:
+                    reporte_html += f'<li><code>{cambio}</code></li>'
+                
+                reporte_html += f'''
+                    </ul>
+                    <details>
+                        <summary>Ver contenido (antes/después)</summary>
+                        <div style="display: flex; gap: 20px; margin-top: 10px;">
+                            <div style="flex: 1; background: #ffeaea; padding: 10px; border-radius: 5px;">
+                                <strong>ANTES:</strong><br>
+                                <pre style="white-space: pre-wrap; font-size: 12px;">{detalle['antes']}</pre>
+                            </div>
+                            <div style="flex: 1; background: #eaffea; padding: 10px; border-radius: 5px;">
+                                <strong>DESPUÉS:</strong><br>
+                                <pre style="white-space: pre-wrap; font-size: 12px;">{detalle['despues']}</pre>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                '''
+            
+            reporte_html += '</div>'
+        else:
+            reporte_html += '''
+            <div style="background: #fff3cd; padding: 20px; border-radius: 5px; border-left: 4px solid #ffc107;">
+                <h3>⚠️ No se encontraron correcciones necesarias</h3>
+                <p>Puede que:</p>
+                <ul>
+                    <li>Las plantillas ya están correctas</li>
+                    <li>El formato de precio es diferente al esperado</li>
+                    <li>Necesitas revisar manualmente las plantillas</li>
+                </ul>
+            </div>
+            '''
+        
+        reporte_html += f'''
+        <hr>
+        <div style="margin-top: 30px;">
+            <a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-right:10px;">
+                ✅ Ver plantillas
+            </a>
+            <a href="/cliente/1" style="background:#3498db;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;">
+                🔄 Probar chat
+            </a>
+        </div>
+        
+        <div style="margin-top: 30px; background: #f8f9fa; padding: 15px; border-radius: 5px;">
+            <h4>🔍 Para verificar MANUALMENTE las plantillas problemáticas:</h4>
+            <p>Visita <a href="/negocio/plantillas">/negocio/plantillas</a> y revisa:</p>
+            <ol>
+                <li><strong>servicio_personalizado_opciones</strong> - Buscar "{'{precio_personalizado}'}"</li>
+                <li><strong>seleccion_horario</strong> - Buscar "{'{servicio_precio}'}"</li>
+                <li><strong>confirmacion_cita</strong> - Buscar "{'{servicio_precio}'}"</li>
+                <li><strong>cita_confirmada_exito</strong> - Buscar "{'{servicio_precio}'}"</li>
+            </ol>
+            <p>Si ves <code>:,.0f</code> después de alguna variable, la corrección no funcionó.</p>
+        </div>
+        '''
+        
+        return reporte_html
+        
     except Exception as e:
-        return f"❌ ERROR: {str(e)}"
+        import traceback
+        error_detalle = traceback.format_exc()
+        return f'''
+        <h1>❌ ERROR EN CORRECCIÓN</h1>
+        <div style="background: #ffeaea; padding: 20px; border-radius: 5px; border-left: 4px solid #dc3545;">
+            <h3>Error: {str(e)}</h3>
+            <pre style="white-space: pre-wrap; background: #2d2d2d; color: white; padding: 15px; border-radius: 5px; overflow-x: auto;">
+{error_detalle}
+            </pre>
+        </div>
+        <p style="margin-top: 20px;">
+            <a href="/" style="background:#6c757d;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
+                ↩️ Volver al inicio
+            </a>
+        </p>
+        '''
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
