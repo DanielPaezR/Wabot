@@ -1390,7 +1390,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
 
 def procesar_confirmacion_directa(numero, negocio_id, conversacion):
-    """Procesar confirmación de cita - VERSIÓN SIMPLIFICADA SIN SERVICIOS ADICIONALES"""
+    """Procesar confirmación de cita - VERSIÓN CORREGIDA CON FORMATO DE PRECIO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     try:
@@ -1414,6 +1414,20 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         servicio_nombre = conversacion['servicio_nombre']
         servicio_precio = conversacion['servicio_precio']
         telefono = conversacion['telefono_cliente']
+        
+        # ✅ CORRECCIÓN: Formatear el precio para el mensaje final
+        try:
+            # Convertir el precio a entero si es float
+            if isinstance(servicio_precio, float):
+                precio_formateado = f"${int(servicio_precio):,}".replace(',', '.')
+            elif isinstance(servicio_precio, (int, str)):
+                precio_valor = int(float(servicio_precio))
+                precio_formateado = f"${precio_valor:,}".replace(',', '.')
+            else:
+                precio_formateado = f"${servicio_precio}"
+        except (ValueError, TypeError) as e:
+            print(f"⚠️ Error formateando precio final: {e}, valor: {servicio_precio}")
+            precio_formateado = f"${servicio_precio}"
         
         # Obtener duración del servicio
         duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
@@ -1474,12 +1488,12 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             
             fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
             
-            # ✅ USAR PLANTILLA PARA CITA CONFIRMADA
+            # ✅ USAR PLANTILLA PARA CITA CONFIRMADA CON PRECIO FORMATEADO
             return renderizar_plantilla('cita_confirmada_exito', negocio_id, {
                 'nombre_cliente': nombre_cliente,
                 'profesional_nombre': profesional_nombre,
                 'servicio_nombre': servicio_nombre,
-                'servicio_precio': servicio_precio,
+                'servicio_precio': precio_formateado,  # ✅ YA FORMATEADO
                 'fecha_formateada': fecha_formateada,
                 'hora_seleccionada': hora,
                 'cita_id': cita_id,
@@ -1720,7 +1734,7 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     return mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada)
 
 def procesar_seleccion_hora(numero, mensaje, negocio_id):
-    """Procesar selección de horario - ACTUALIZADO"""
+    """Procesar selección de horario - ACTUALIZADO CON FORMATO DE PRECIO CORREGIDO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -1784,15 +1798,29 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
     servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
     
+    # ✅ CORRECCIÓN CRÍTICA: Formatear el precio correctamente
+    try:
+        # Convertir el precio a entero si es float
+        if isinstance(servicio_precio, float):
+            precio_formateado = f"${int(servicio_precio):,}".replace(',', '.')
+        elif isinstance(servicio_precio, (int, str)):
+            precio_valor = int(float(servicio_precio))
+            precio_formateado = f"${precio_valor:,}".replace(',', '.')
+        else:
+            precio_formateado = f"${servicio_precio}"
+    except (ValueError, TypeError) as e:
+        print(f"⚠️ Error formateando precio: {e}, valor: {servicio_precio}")
+        precio_formateado = f"${servicio_precio}"
+    
     fecha_seleccionada = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
     
-    # ✅ USAR PLANTILLA PARA CONFIRMACIÓN DE CITA
+    # ✅ USAR PLANTILLA PARA CONFIRMACIÓN DE CITA CON PRECIO FORMATEADO
     return renderizar_plantilla('confirmacion_cita', negocio_id, {
         'nombre_cliente': nombre_cliente,
         'profesional_nombre': profesional_nombre,
         'servicio_nombre': servicio_nombre,
-        'servicio_precio': servicio_precio,
+        'servicio_precio': precio_formateado, 
         'fecha_formateada': fecha_formateada,
         'hora_seleccionada': hora_seleccionada
     })

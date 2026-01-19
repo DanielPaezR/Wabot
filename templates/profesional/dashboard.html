@@ -627,7 +627,8 @@
             font-weight: 600;
         }
 
-        /* MODAL STYLES */
+        /* ==================== MODAL RESPONSIVE ==================== */
+        /* Overlay para móviles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -635,24 +636,57 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.7);
             z-index: 2000;
-            align-items: center;
+            align-items: flex-end; /* Para móviles: modal sale desde abajo */
             justify-content: center;
-            padding: 1rem;
+            padding: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        
+
+        /* Para tablets y escritorio */
+        @media (min-width: 768px) {
+            .modal-overlay {
+                align-items: center; /* Centrado vertical en pantallas grandes */
+                padding: 1rem;
+            }
+        }
+
+        /* Contenido del modal - Mobile First */
         .modal-content {
             background: var(--white);
-            border-radius: var(--radius);
+            border-radius: var(--radius) var(--radius) 0 0; /* Redondeado solo arriba en móviles */
             width: 100%;
-            max-width: 400px;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            animation: modalSlideIn 0.3s ease;
+            animation: modalSlideUp 0.3s ease-out;
+            position: relative;
+            margin-top: auto; /* Empuja el modal hacia abajo en móviles */
         }
-        
+
+        /* Para pantallas más grandes */
+        @media (min-width: 768px) {
+            .modal-content {
+                max-width: 400px;
+                border-radius: var(--radius); /* Redondeado completo */
+                animation: modalSlideIn 0.3s ease;
+                margin-top: 0; /* Reset para centrado */
+            }
+        }
+
+        /* Animaciones específicas para móviles */
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         @keyframes modalSlideIn {
             from {
                 opacity: 0;
@@ -663,138 +697,253 @@
                 transform: translateY(0);
             }
         }
-        
+
+        /* Cabecera del modal mejorada para móviles */
         .modal-header {
-            padding: 1.5rem;
+            padding: 1.2rem 1rem;
             border-bottom: 1px solid #f0f0f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            z-index: 10;
         }
-        
+
+        @media (min-width: 768px) {
+            .modal-header {
+                padding: 1.5rem;
+            }
+        }
+
         .modal-title {
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             font-weight: 600;
             color: var(--dark);
         }
-        
+
+        @media (min-width: 768px) {
+            .modal-title {
+                font-size: 1.3rem;
+            }
+        }
+
+        /* Botón cerrar optimizado para touch */
         .modal-close {
             background: none;
             border: none;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             color: var(--text-light);
             cursor: pointer;
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
-        
-        .modal-close:hover {
+
+        .modal-close:active {
             background: #f5f5f5;
+            transform: scale(0.95);
         }
-        
+
+        /* Cuerpo del modal con padding seguro para móviles */
         .modal-body {
-            padding: 1.5rem;
+            padding: 1.2rem 1rem;
         }
-        
+
+        @media (min-width: 768px) {
+            .modal-body {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Mejoras en formularios para móviles */
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.2rem;
         }
-        
+
         .form-label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: var(--dark);
+            font-size: 0.95rem;
         }
-        
+
+        /* Inputs más grandes para touch en móviles */
         .form-control {
             width: 100%;
-            padding: 12px;
+            padding: 14px 12px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 1rem;
             transition: border-color 0.2s ease;
+            -webkit-appearance: none;
+            min-height: 48px; /* Altura mínima para fácil touch */
         }
-        
+
         .form-control:focus {
             outline: none;
             border-color: var(--primary);
         }
-        
+
+        /* Grupo de contraseña optimizado para móviles */
         .password-input-group {
             position: relative;
+            display: flex;
+            align-items: center;
         }
-        
+
+        .password-input-group .form-control {
+            padding-right: 50px; /* Espacio para el botón de mostrar */
+        }
+
+        /* Botón mostrar/ocultar contraseña mejorado */
         .toggle-password {
             position: absolute;
             right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
             background: none;
             border: none;
             color: var(--text-light);
             cursor: pointer;
-            padding: 5px;
+            padding: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            min-width: 44px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
         }
-        
+
+        .toggle-password:active {
+            background: rgba(0, 0, 0, 0.05);
+            transform: scale(0.95);
+        }
+
+        /* Indicador de fuerza de contraseña */
         .password-strength {
             height: 4px;
             border-radius: 2px;
-            margin-top: 5px;
+            margin-top: 8px;
             transition: all 0.3s ease;
+            background: #e0e0e0;
         }
-        
+
         .strength-weak { background: var(--danger); width: 25%; }
         .strength-medium { background: var(--warning); width: 50%; }
         .strength-strong { background: var(--success); width: 75%; }
         .strength-very-strong { background: var(--success); width: 100%; }
-        
+
         .form-text {
             font-size: 0.8rem;
             color: var(--text-light);
-            margin-top: 0.25rem;
+            margin-top: 0.3rem;
+            line-height: 1.4;
         }
-        
+
         .password-match {
             color: var(--success);
             font-weight: 500;
         }
-        
+
         .password-mismatch {
             color: var(--danger);
             font-weight: 500;
         }
-        
+
+        /* Alertas mejoradas para móviles */
+        .alert {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-top: 1.2rem;
+            line-height: 1.5;
+        }
+
+        .alert strong {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+        /* Footer del modal optimizado para móviles */
         .modal-footer {
-            padding: 1.5rem;
+            padding: 1rem;
             border-top: 1px solid #f0f0f0;
             display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
+            justify-content: space-between;
+            gap: 0.8rem;
+            position: sticky;
+            bottom: 0;
+            background: var(--white);
+            z-index: 10;
         }
-        
+
+        @media (min-width: 768px) {
+            .modal-footer {
+                padding: 1.5rem;
+                gap: 1rem;
+                justify-content: flex-end;
+            }
+        }
+
+        /* Botones del modal mejorados para touch */
         .btn-modal {
-            padding: 12px 24px;
+            padding: 14px 20px;
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             border: none;
             transition: all 0.2s ease;
+            font-size: 0.95rem;
+            flex: 1;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
+
+        @media (min-width: 768px) {
+            .btn-modal {
+                flex: 0 1 auto;
+                padding: 12px 24px;
+            }
+        }
+
         .btn-modal-primary {
             background: var(--primary);
             color: var(--white);
         }
-        
+
+        .btn-modal-primary:active {
+            background: color-mix(in srgb, var(--primary) 90%, black);
+            transform: scale(0.98);
+        }
+
         .btn-modal-secondary {
             background: #e0e0e0;
             color: var(--text);
+        }
+
+        .btn-modal-secondary:active {
+            background: #d0d0d0;
+            transform: scale(0.98);
+        }
+
+        /* Estado deshabilitado */
+        .btn-modal:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
         }
 
         /* LOADING STATES */
@@ -886,6 +1035,28 @@
             .notification-item {
                 background: #3d3d3d;
             }
+            
+            .modal-close:active {
+                background: #444;
+            }
+            
+            .toggle-password:active {
+                background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .btn-modal-secondary {
+                background: #444;
+                color: var(--text);
+            }
+            
+            .btn-modal-secondary:active {
+                background: #555;
+            }
+            
+            .alert {
+                background: #2c5282;
+                color: #90cdf4;
+            }
         }
 
         /* ORIENTATION LANDSCAPE */
@@ -897,7 +1068,17 @@
             .stats {
                 grid-template-columns: repeat(4, 1fr);
             }
+            
+            .modal-content {
+                max-height: 95vh;
+                margin-top: 0.5rem;
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
         }
+        
         @media (max-width: 360px) {
             .container {
                 padding: 0.5rem;
@@ -919,12 +1100,64 @@
             .welcome p {
                 font-size: 0.8rem;
             }
+            
+            .modal-header {
+                padding: 1rem 0.8rem;
+            }
+            
+            .modal-title {
+                font-size: 1.1rem;
+            }
+            
+            .modal-body {
+                padding: 1rem 0.8rem;
+            }
+            
+            .form-control {
+                padding: 12px 10px;
+                min-height: 44px;
+            }
+            
+            .btn-modal {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Pequeños ajustes para pantallas muy pequeñas */
+        @media (max-width: 320px) {
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .btn-modal {
+                width: 100%;
+            }
         }
 
         /* Prevenir zoom en inputs en iOS */
         @media (max-width: 768px) {
             input, select, textarea {
                 font-size: 16px;
+            }
+            
+            /* Para iOS Safari */
+            @supports (-webkit-touch-callout: none) {
+                .modal-content {
+                    max-height: -webkit-fill-available;
+                }
+            }
+        }
+
+        /* Mejoras de accesibilidad */
+        @media (prefers-reduced-motion: reduce) {
+            .modal-content,
+            .btn-modal,
+            .toggle-password,
+            .modal-close {
+                animation: none;
+                transition: none;
             }
         }
     </style>
@@ -935,12 +1168,12 @@
         ✅ Cita marcada como completada
     </div>
 
-    <!-- Modal para cambiar contraseña -->
+    <!-- Modal para cambiar contraseña - RESPONSIVE -->
     <div id="passwordModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title">🔐 Cambiar Contraseña</h3>
-                <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+                <button class="modal-close" onclick="closePasswordModal()" aria-label="Cerrar">&times;</button>
             </div>
             
             <form id="passwordForm" onsubmit="submitPasswordChange(event)">
@@ -949,10 +1182,11 @@
                     
                     <div class="form-group">
                         <label for="current_password" class="form-label">Contraseña Actual *</label>
-                        display: block;.password-input-group">
+                        <div class="password-input-group">
                             <input type="password" class="form-control" id="current_password" 
-                                   name="current_password" required>
-                            <button type="button" class="toggle-password" onclick="togglePassword('current_password')">
+                                   name="current_password" required aria-describedby="currentPasswordHelp">
+                            <button type="button" class="toggle-password" onclick="togglePassword('current_password')"
+                                    aria-label="Mostrar/ocultar contraseña">
                                 👁️
                             </button>
                         </div>
@@ -962,13 +1196,17 @@
                         <label for="new_password" class="form-label">Nueva Contraseña *</label>
                         <div class="password-input-group">
                             <input type="password" class="form-control" id="new_password" 
-                                   name="new_password" required minlength="6" oninput="checkPasswordStrength()">
-                            <button type="button" class="toggle-password" onclick="togglePassword('new_password')">
+                                   name="new_password" required minlength="6" 
+                                   oninput="checkPasswordStrength()"
+                                   aria-describedby="passwordStrengthText">
+                            <button type="button" class="toggle-password" onclick="togglePassword('new_password')"
+                                    aria-label="Mostrar/ocultar contraseña">
                                 👁️
                             </button>
                         </div>
-                        <div class="password-strength" id="passwordStrength"></div>
-                        <div class="form-text">
+                        <div class="password-strength" id="passwordStrength" role="progressbar" 
+                             aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="form-text" id="passwordStrengthText">
                             Mínimo 6 caracteres. Fuerza: <span id="strengthText">-</span>
                         </div>
                     </div>
@@ -977,17 +1215,19 @@
                         <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña *</label>
                         <div class="password-input-group">
                             <input type="password" class="form-control" id="confirm_password" 
-                                   name="confirm_password" required oninput="checkPasswordMatch()">
-                            <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
+                                   name="confirm_password" required oninput="checkPasswordMatch()"
+                                   aria-describedby="passwordMatchText">
+                            <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')"
+                                    aria-label="Mostrar/ocultar contraseña">
                                 👁️
                             </button>
                         </div>
                         <div class="form-text">
-                            <span id="passwordMatchText"></span>
+                            <span id="passwordMatchText" aria-live="polite"></span>
                         </div>
                     </div>
                     
-                    <div class="alert alert-info" style="background: #e3f2fd; color: #1976d2; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; margin-top: 1rem;">
+                    <div class="alert" role="alert">
                         <strong>💡 Recomendaciones:</strong><br>
                         • Usa una contraseña de al menos 8 caracteres<br>
                         • Combina letras, números y símbolos<br>
@@ -1014,9 +1254,9 @@
                 <h1>👋 Hola, {{ session.usuario_nombre }}</h1>
                 <p>{{ session.negocio_nombre }} - Tu agenda para hoy</p>
             </div>
-            <button class="notification-header-btn" onclick="toggleNotifications()">
+            <button class="notification-header-btn" onclick="toggleNotifications()" aria-label="Notificaciones">
                 🔔
-                <span id="notificationBadge" class="notification-header-badge" style="display: none;">0</span>
+                <span id="notificationBadge" class="notification-header-badge" style="display: none;" aria-live="polite">0</span>
             </button>
         </div>
         
@@ -1313,28 +1553,71 @@
             setInterval(loadNotifications, 30000);
         });
         
-        // ==================== FUNCIONES EXISTENTES ====================
+        // ==================== FUNCIONES DEL MODAL RESPONSIVE ====================
         
-        // Funciones para el modal de contraseña
+        // Funciones para el modal de contraseña - MEJORADAS PARA MÓVILES
         function openPasswordModal() {
-            document.getElementById('passwordModal').style.display = 'flex';
+            const modal = document.getElementById('passwordModal');
+            modal.style.display = 'flex';
             document.body.style.overflow = 'hidden'; // Previene scroll en el fondo
+            
+            // Enfoque seguro para móviles (con retraso para evitar problemas de animación)
+            setTimeout(() => {
+                const firstInput = document.getElementById('current_password');
+                if (firstInput) {
+                    firstInput.focus({ preventScroll: true });
+                }
+            }, 300);
+            
             // Resetear formulario
             document.getElementById('passwordForm').reset();
             document.getElementById('passwordStrength').style.width = '0%';
             document.getElementById('strengthText').textContent = '-';
             document.getElementById('passwordMatchText').textContent = '';
+            
+            // Para iOS: ajustar viewport
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.documentElement.style.height = '100%';
+                document.documentElement.style.overflow = 'hidden';
+            }
         }
 
         function closePasswordModal() {
-            document.getElementById('passwordModal').style.display = 'none';
+            const modal = document.getElementById('passwordModal');
+            modal.style.display = 'none';
             document.body.style.overflow = 'auto';
+            
+            // Para iOS: restaurar viewport
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.documentElement.style.height = '';
+                document.documentElement.style.overflow = '';
+            }
+            
+            // Cerrar teclado virtual si está abierto
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
         }
 
         function togglePassword(fieldId) {
             const field = document.getElementById(fieldId);
             const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
             field.setAttribute('type', type);
+            
+            // Cambiar ícono para mejor UX
+            const toggleBtn = field.parentElement.querySelector('.toggle-password');
+            if (type === 'text') {
+                toggleBtn.innerHTML = '🙈';
+                toggleBtn.setAttribute('aria-label', 'Ocultar contraseña');
+            } else {
+                toggleBtn.innerHTML = '👁️';
+                toggleBtn.setAttribute('aria-label', 'Mostrar contraseña');
+            }
+            
+            // Vibración táctil si está disponible
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
         }
 
         function checkPasswordStrength() {
@@ -1344,11 +1627,13 @@
             
             if (!password) {
                 strengthBar.style.width = '0%';
+                strengthBar.setAttribute('aria-valuenow', '0');
                 strengthText.textContent = '-';
                 return;
             }
 
             let strength = 0;
+            let score = 0;
             
             // Longitud mínima
             if (password.length >= 6) strength += 1;
@@ -1367,21 +1652,28 @@
                 case 1:
                     strengthBar.className = 'password-strength strength-weak';
                     strengthText.textContent = 'Débil';
+                    score = 25;
                     break;
                 case 2:
                     strengthBar.className = 'password-strength strength-medium';
                     strengthText.textContent = 'Media';
+                    score = 50;
                     break;
                 case 3:
                     strengthBar.className = 'password-strength strength-strong';
                     strengthText.textContent = 'Fuerte';
+                    score = 75;
                     break;
                 case 4:
                 case 5:
                     strengthBar.className = 'password-strength strength-very-strong';
                     strengthText.textContent = 'Muy Fuerte';
+                    score = 100;
                     break;
             }
+            
+            // Actualizar atributos de accesibilidad
+            strengthBar.setAttribute('aria-valuenow', score);
         }
 
         function checkPasswordMatch() {
@@ -1415,23 +1707,26 @@
             
             // Validaciones
             if (!currentPassword) {
-                alert('❌ Por favor, ingresa tu contraseña actual');
+                showModalAlert('❌ Por favor, ingresa tu contraseña actual');
+                document.getElementById('current_password').focus();
                 return;
             }
             
             if (newPassword.length < 6) {
-                alert('❌ La nueva contraseña debe tener al menos 6 caracteres');
+                showModalAlert('❌ La nueva contraseña debe tener al menos 6 caracteres');
+                document.getElementById('new_password').focus();
                 return;
             }
             
             if (newPassword !== confirmPassword) {
-                alert('❌ Las contraseñas no coinciden');
+                showModalAlert('❌ Las contraseñas no coinciden');
+                document.getElementById('confirm_password').focus();
                 return;
             }
             
             // Deshabilitar botón mientras se procesa
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Procesando...';
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
             
             try {
                 const response = await fetch('/profesional/cambiar-password', {
@@ -1449,16 +1744,21 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Contraseña cambiada exitosamente');
-                    closePasswordModal();
-                    // Mostrar notificación
-                    showNotification('✅ Contraseña actualizada correctamente');
+                    showModalAlert('✅ Contraseña cambiada exitosamente', 'success');
+                    setTimeout(() => {
+                        closePasswordModal();
+                        showNotification('✅ Contraseña actualizada correctamente');
+                    }, 1500);
                 } else {
-                    alert(`❌ Error: ${result.message || 'No se pudo cambiar la contraseña'}`);
+                    showModalAlert(`❌ Error: ${result.message || 'No se pudo cambiar la contraseña'}`);
+                    // Vibración de error
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('❌ Error de conexión. Intenta nuevamente.');
+                showModalAlert('❌ Error de conexión. Intenta nuevamente.');
             } finally {
                 // Rehabilitar botón
                 submitBtn.disabled = false;
@@ -1466,7 +1766,46 @@
             }
         }
 
-        // Funciones existentes
+        // Función auxiliar para mostrar alertas en el modal
+        function showModalAlert(message, type = 'error') {
+            // Remover alertas previas
+            const existingAlert = document.querySelector('.modal-alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `modal-alert alert ${type === 'success' ? 'alert-success' : 'alert-danger'}`;
+            alertDiv.innerHTML = message;
+            alertDiv.style.marginTop = '1rem';
+            alertDiv.style.animation = 'fadeIn 0.3s ease';
+            
+            // Insertar después del último form-group
+            const formGroups = document.querySelectorAll('.form-group');
+            const lastFormGroup = formGroups[formGroups.length - 1];
+            lastFormGroup.parentNode.insertBefore(alertDiv, lastFormGroup.nextSibling);
+            
+            // Auto-remover después de 5 segundos para éxito
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.style.opacity = '0';
+                        alertDiv.style.transition = 'opacity 0.5s ease';
+                        setTimeout(() => alertDiv.remove(), 500);
+                    }
+                }, 5000);
+            }
+            
+            // Scroll a la alerta en móviles
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        }
+
+        // ==================== FUNCIONES EXISTENTES ====================
+        
         function cambiarFecha(fecha) {
             window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
         }
@@ -1540,12 +1879,47 @@
             }
         });
 
+        // Cerrar teclado virtual al hacer scroll en móviles
+        document.addEventListener('scroll', function() {
+            if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName)) {
+                document.activeElement.blur();
+            }
+        });
+
+        // Manejar cambios de orientación en móviles
+        let originalHeight = window.innerHeight;
+        window.addEventListener('resize', function() {
+            if (window.innerHeight !== originalHeight) {
+                // El teclado virtual se abrió/cerró
+                if (document.getElementById('passwordModal').style.display === 'flex') {
+                    // Ajustar posición del modal si es necesario
+                    setTimeout(() => {
+                        const modalContent = document.querySelector('.modal-content');
+                        if (modalContent) {
+                            modalContent.style.maxHeight = window.innerHeight * 0.85 + 'px';
+                        }
+                    }, 300);
+                }
+            }
+            originalHeight = window.innerHeight;
+        });
+
         // Load animations
         document.addEventListener('DOMContentLoaded', function() {
             const items = document.querySelectorAll('.cita-item');
             items.forEach((item, index) => {
                 item.style.animationDelay = `${index * 0.1}s`;
             });
+            
+            // Añadir CSS para animación de fadeIn
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `;
+            document.head.appendChild(style);
         });
     </script>
 </body>
