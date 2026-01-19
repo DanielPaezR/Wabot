@@ -917,10 +917,11 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     return mostrar_fechas_disponibles(numero, negocio_id)
 
 def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
-    """Procesar selección cuando el cliente tiene servicio personalizado"""
+    """Procesar selección cuando el cliente tiene servicio personalizado - CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔍 [SERVICIO-PERSONALIZADO] Procesando selección: {mensaje}")
+    print(f"🔍 [SERVICIO-PERSONALIZADO] Datos conversación: {clave_conversacion in conversaciones_activas}")
     
     if mensaje == '0':
         if clave_conversacion in conversaciones_activas:
@@ -928,6 +929,7 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
         return "Volviendo al menú principal..."
     
     if 'servicio_personalizado' not in conversaciones_activas[clave_conversacion]:
+        print(f"❌ [SERVICIO-PERSONALIZADO] No hay servicio personalizado en la conversación")
         return renderizar_plantilla('error_generico', negocio_id)
     
     servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
@@ -935,15 +937,28 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
     if mensaje == '1':
         # Cliente selecciona su servicio personalizado
         print(f"✅ [SERVICIO-PERSONALIZADO] Cliente seleccionó servicio personalizado")
+        print(f"✅ [SERVICIO-PERSONALIZADO] Datos servicio: {servicio_personalizado}")
+        
+        # ✅ CORRECCIÓN: Asegurar que el precio sea un número
+        try:
+            precio_personalizado = float(servicio_personalizado['precio_personalizado'])
+        except (ValueError, TypeError):
+            precio_personalizado = 0
+            print(f"⚠️ [SERVICIO-PERSONALIZADO] No se pudo convertir precio personalizado a número: {servicio_personalizado['precio_personalizado']}")
         
         # Guardar el servicio personalizado como seleccionado
         conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_personalizado['servicio_base_id']
         conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_personalizado['nombre_personalizado']
-        conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_personalizado['precio_personalizado']
+        conversaciones_activas[clave_conversacion]['servicio_precio'] = precio_personalizado  # ✅ Guardar como número
         conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
         conversaciones_activas[clave_conversacion]['servicios_adicionales'] = servicio_personalizado.get('servicios_adicionales', [])
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        
+        print(f"✅ [SERVICIO-PERSONALIZADO] Datos guardados:")
+        print(f"   - servicio_id: {conversaciones_activas[clave_conversacion]['servicio_id']}")
+        print(f"   - servicio_nombre: {conversaciones_activas[clave_conversacion]['servicio_nombre']}")
+        print(f"   - servicio_precio: {conversaciones_activas[clave_conversacion]['servicio_precio']} (tipo: {type(conversaciones_activas[clave_conversacion]['servicio_precio'])})")
         
         # Limpiar el flag de servicio personalizado para continuar normal
         if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
@@ -1657,8 +1672,12 @@ def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     return mostrar_servicios(numero, profesional_seleccionado['nombre'], negocio_id)
 
 def procesar_seleccion_servicio(numero, mensaje, negocio_id):
-    """Procesar selección de servicio - ACTUALIZADO"""
+    """Procesar selección de servicio - CON CORRECCIÓN PARA PRECIOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
+    
+    print(f"🔍 [SELECCION_SERVICIO] Procesando mensaje: '{mensaje}'")
+    print(f"🔍 [SELECCION_SERVICIO] Estado conversación: {conversaciones_activas[clave_conversacion].get('estado') if clave_conversacion in conversaciones_activas else 'NO HAY CONVERSACIÓN'}")
+    print(f"🔍 [SELECCION_SERVICIO] Tiene personalizado?: {conversaciones_activas.get(clave_conversacion, {}).get('tiene_personalizado', False)}")
     
     # Manejar el comando "0" para volver al menú principal
     if mensaje == '0':
@@ -1666,12 +1685,14 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         return "Volviendo al menú principal..."
     
-    # Verificar si hay servicios normales
+    # Verificar si está en modo servicio personalizado
+    if clave_conversacion in conversaciones_activas and conversaciones_activas[clave_conversacion].get('tiene_personalizado'):
+        print(f"🔍 [SERVICIO-PERSONALIZADO] Procesando selección de servicio personalizado: {mensaje}")
+        return procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id)
+    
+    # Procesar selección de servicios normales
     if 'servicios' not in conversaciones_activas[clave_conversacion]:
-        # Verificar si estamos en modo servicio personalizado
-        if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-            return procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id)
-        
+        print(f"❌ [SELECCION_SERVICIO] No hay servicios en la conversación")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return renderizar_plantilla('error_generico', negocio_id)
@@ -1685,18 +1706,27 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     servicio_index = int(mensaje) - 1
     servicio_seleccionado = servicios[servicio_index]
     
+    print(f"✅ [SELECCION_SERVICIO] Servicio seleccionado: {servicio_seleccionado['nombre']}")
+    print(f"✅ [SELECCION_SERVICIO] Precio del servicio: {servicio_seleccionado['precio']} (tipo: {type(servicio_seleccionado['precio'])})")
+    
+    # ✅ CORRECCIÓN: Asegurar que el precio sea un número
+    try:
+        precio_servicio = float(servicio_seleccionado['precio'])
+    except (ValueError, TypeError):
+        precio_servicio = 0
+        print(f"⚠️ [SELECCION_SERVICIO] No se pudo convertir precio a número: {servicio_seleccionado['precio']}")
+    
     conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_seleccionado['id']
     conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_seleccionado['nombre']
-    conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
+    conversaciones_activas[clave_conversacion]['servicio_precio'] = precio_servicio  # ✅ Guardar como número
     conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
     conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
-    # Limpiar servicio personalizado si existe
-    if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-        del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-    if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-        del conversaciones_activas[clave_conversacion]['tiene_personalizado']
+    print(f"✅ [SELECCION_SERVICIO] Datos guardados:")
+    print(f"   - servicio_id: {conversaciones_activas[clave_conversacion]['servicio_id']}")
+    print(f"   - servicio_nombre: {conversaciones_activas[clave_conversacion]['servicio_nombre']}")
+    print(f"   - servicio_precio: {conversaciones_activas[clave_conversacion]['servicio_precio']} (tipo: {type(conversaciones_activas[clave_conversacion]['servicio_precio'])})")
     
     return mostrar_fechas_disponibles(numero, negocio_id)
 
@@ -1734,8 +1764,11 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     return mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada)
 
 def procesar_seleccion_hora(numero, mensaje, negocio_id):
-    """Procesar selección de horario - ACTUALIZADO CON FORMATO DE PRECIO CORREGIDO"""
+    """Procesar selección de horario - CON DIAGNÓSTICO Y CORRECCIÓN DE PRECIO"""
     clave_conversacion = f"{numero}_{negocio_id}"
+    
+    # ✅ LLAMAR DIAGNÓSTICO ANTES DE PROCESAR
+    diagnosticar_datos_conversacion(clave_conversacion, "procesar_seleccion_hora INICIO")
     
     if mensaje == '0':
         if clave_conversacion in conversaciones_activas:
@@ -1791,36 +1824,54 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
-    # Obtener nombre del cliente
+    # Obtener datos de la conversación
     nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
-    
     profesional_nombre = conversaciones_activas[clave_conversacion]['profesional_nombre']
     servicio_nombre = conversaciones_activas[clave_conversacion]['servicio_nombre']
     servicio_precio = conversaciones_activas[clave_conversacion]['servicio_precio']
     
+    # ✅ DIAGNÓSTICO DEL PRECIO
+    print(f"\n🔍 [DIAGNÓSTICO-PRECIO] En procesar_seleccion_hora:")
+    print(f"   servicio_precio raw: {servicio_precio}")
+    print(f"   tipo: {type(servicio_precio)}")
+    
     # ✅ CORRECCIÓN CRÍTICA: Formatear el precio correctamente
     try:
-        # Convertir el precio a entero si es float
-        if isinstance(servicio_precio, float):
+        if servicio_precio is None:
+            print(f"⚠️ [DIAGNÓSTICO-PRECIO] servicio_precio es None")
+            precio_formateado = "$0"
+        elif isinstance(servicio_precio, (int, float)):
+            # Es un número, formatearlo
             precio_formateado = f"${int(servicio_precio):,}".replace(',', '.')
-        elif isinstance(servicio_precio, (int, str)):
-            precio_valor = int(float(servicio_precio))
-            precio_formateado = f"${precio_valor:,}".replace(',', '.')
+            print(f"✅ [DIAGNÓSTICO-PRECIO] Precio formateado desde número: {precio_formateado}")
+        elif isinstance(servicio_precio, str):
+            # Es string, intentar convertirlo
+            try:
+                precio_num = float(servicio_precio)
+                precio_formateado = f"${int(precio_num):,}".replace(',', '.')
+                print(f"✅ [DIAGNÓSTICO-PRECIO] Precio formateado desde string: {precio_formateado}")
+            except ValueError:
+                print(f"⚠️ [DIAGNÓSTICO-PRECIO] No se pudo convertir string a número: {servicio_precio}")
+                precio_formateado = f"${servicio_precio}"
         else:
+            print(f"⚠️ [DIAGNÓSTICO-PRECIO] Tipo desconocido: {type(servicio_precio)}")
             precio_formateado = f"${servicio_precio}"
-    except (ValueError, TypeError) as e:
-        print(f"⚠️ Error formateando precio: {e}, valor: {servicio_precio}")
-        precio_formateado = f"${servicio_precio}"
+    except Exception as e:
+        print(f"❌ [DIAGNÓSTICO-PRECIO] Error formateando precio: {e}")
+        precio_formateado = "$0"
     
     fecha_seleccionada = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
+    
+    # ✅ DIAGNÓSTICO FINAL
+    diagnosticar_datos_conversacion(clave_conversacion, "procesar_seleccion_hora FINAL")
     
     # ✅ USAR PLANTILLA PARA CONFIRMACIÓN DE CITA CON PRECIO FORMATEADO
     return renderizar_plantilla('confirmacion_cita', negocio_id, {
         'nombre_cliente': nombre_cliente,
         'profesional_nombre': profesional_nombre,
         'servicio_nombre': servicio_nombre,
-        'servicio_precio': precio_formateado, 
+        'servicio_precio': precio_formateado,  # ✅ YA FORMATEADO
         'fecha_formateada': fecha_formateada,
         'hora_seleccionada': hora_seleccionada
     })
@@ -2396,3 +2447,21 @@ def limpiar_formato_whatsapp(texto):
     texto = texto.replace('_', '')  # Quitar guiones bajos de cursiva
     
     return texto
+
+def diagnosticar_datos_conversacion(clave_conversacion, paso):
+    """Función para diagnosticar qué datos hay en la conversación"""
+    print(f"\n🔍 [DIAGNÓSTICO] Datos en paso: {paso}")
+    print(f"   Clave: {clave_conversacion}")
+    
+    if clave_conversacion in conversaciones_activas:
+        datos = conversaciones_activas[clave_conversacion]
+        print(f"   Estado: {datos.get('estado', 'NO DEFINIDO')}")
+        print(f"   Cliente nombre: {datos.get('cliente_nombre', 'NO DEFINIDO')}")
+        print(f"   Profesional: {datos.get('profesional_nombre', 'NO DEFINIDO')}")
+        print(f"   Servicio nombre: {datos.get('servicio_nombre', 'NO DEFINIDO')}")
+        print(f"   Servicio precio: {datos.get('servicio_precio', 'NO DEFINIDO')} (tipo: {type(datos.get('servicio_precio'))})")
+        print(f"   Servicio ID: {datos.get('servicio_id', 'NO DEFINIDO')}")
+        print(f"   Fecha seleccionada: {datos.get('fecha_seleccionada', 'NO DEFINIDO')}")
+        print(f"   Hora seleccionada: {datos.get('hora_seleccionada', 'NO DEFINIDO')}")
+    else:
+        print(f"   ❌ NO HAY CONVERSACIÓN ACTIVA")
