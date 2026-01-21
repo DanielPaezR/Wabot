@@ -4007,11 +4007,6 @@ def mark_all_notifications_read():
         if conn:
             conn.close()
 
-@app.route('/manifest.json')
-def manifest():
-    """Genera el manifest.json dinámicamente para PWA"""
-    return send_from_directory('static', 'manifest.json')
-
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
@@ -4175,6 +4170,109 @@ def manifest_panel():
                 ]
             }
         ]
+    }
+    
+    response = jsonify(manifest)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
+
+@app.route('/manifest-<int:negocio_id>.json')
+def manifest_cliente(negocio_id):
+    """Manifest específico para cada negocio de clientes"""
+    # Verificar que el negocio existe
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT id, nombre, emoji FROM negocios WHERE id = %s AND activo = TRUE', (negocio_id,))
+    negocio = cursor.fetchone()
+    conn.close()
+    
+    if not negocio:
+        return jsonify({"error": "Negocio no encontrado"}), 404
+    
+    # URL base
+    base_url = request.host_url.rstrip('/')
+    
+    manifest = {
+        "name": f"WaBot - {negocio['nombre']}",
+        "short_name": "WaBot",
+        "description": f"Agendar citas en {negocio['nombre']}",
+        "start_url": f"{base_url}/cliente/{negocio_id}",  # ¡URL ESPECÍFICA!
+        "display": "standalone",
+        "background_color": "#007bff",
+        "theme_color": "#007bff",
+        "orientation": "portrait-primary",
+        "scope": "/",
+        "lang": "es",
+        "icons": [
+            {
+                "src": "/static/icons/icon-72x72.png",
+                "sizes": "72x72",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-96x96.png",
+                "sizes": "96x96",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-128x128.png",
+                "sizes": "128x128",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-144x144.png",
+                "sizes": "144x144",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-152x152.png",
+                "sizes": "152x152",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-192x192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/icons/icon-384x384.png",
+                "sizes": "384x384",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-512x512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ],
+        "categories": ["business", "productivity", "utilities"],
+        "shortcuts": [
+            {
+                "name": f"Agendar - {negocio['nombre']}",
+                "short_name": "Agendar",
+                "description": f"Agendar cita en {negocio['nombre']}",
+                "url": f"{base_url}/cliente/{negocio_id}",
+                "icons": [
+                    {
+                        "src": "/static/icons/icon-96x96.png",
+                        "sizes": "96x96",
+                        "type": "image/png"
+                    }
+                ]
+            }
+        ],
+        # Metadata para debug
+        "_negocio_id": negocio_id,
+        "_negocio_nombre": negocio['nombre'],
+        "_timestamp": datetime.now().isoformat()
     }
     
     response = jsonify(manifest)
