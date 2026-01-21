@@ -2,26 +2,18 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WaBot - {{ negocio.nombre }}</title>
 
-    <!-- ✅ MANIFEST ÚNICO con timestamp -->
-    <link rel="manifest" href="/manifest.json?t={{ range(1, 1000000) | random }}">
+    <!-- SOLO ESTO -->
+    <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
+    <link rel="icon" href="/static/favicon.ico">
 
-    <!-- ✅ Theme color (solo este) -->
-    <meta name="theme-color" content="#007bff">
-
-    <!-- ✅ Apple tags MÍNIMOS -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-180x180.png') }}">
-
-    <!-- ✅ Favicon simple -->
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-
-    <!-- ✅ Estilos -->
+    <!-- Estilos -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    
     <style>
         :root {
             --primary-color: #007bff;
@@ -753,37 +745,48 @@
         });
     </script>
     <script>
-    // Verificar que el manifest se cargue correctamente
-    window.addEventListener('load', function() {
-        console.log('🔍 Verificando manifest...');
+    // Debug simple - verificar manifest e iconos
+    setTimeout(function() {
+        console.log("🔍 Debug acceso directo:");
         
-        // Forzar recarga del manifest cada vez
-        setTimeout(function() {
-            const manifestLink = document.querySelector('link[rel="manifest"]');
-            if (manifestLink) {
-                const newUrl = manifestLink.href.split('?')[0] + '?force=' + Date.now();
-                manifestLink.href = newUrl;
-                console.log('🔄 Manifest actualizado:', newUrl);
-            }
-            
-            // Verificar iconos
-            const iconUrls = [
-                '{{ url_for("static", filename="icons/icon-180x180.png") }}',
-                '{{ url_for("static", filename="favicon.ico") }}'
-            ];
-            
-            iconUrls.forEach(function(url) {
-                const img = new Image();
-                img.onload = function() {
-                    console.log('✅ Icono cargado:', url);
-                };
-                img.onerror = function() {
-                    console.warn('⚠️ Icono no encontrado:', url);
-                };
-                img.src = url;
+        // 1. Ver manifest
+        fetch('/manifest.json')
+            .then(r => r.json())
+            .then(data => {
+                console.log("📄 Manifest cargado:");
+                console.log("- Start URL:", data.start_url);
+                console.log("- Iconos:", data.icons ? data.icons.length : 0);
+                
+                if (data.icons) {
+                    data.icons.forEach(function(icon, i) {
+                        console.log("  Icono " + i + ":", icon.src);
+                        
+                        // Verificar si el icono se carga
+                        var img = new Image();
+                        img.onload = function() {
+                            console.log("    ✅ Se carga OK");
+                        };
+                        img.onerror = function() {
+                            console.log("    ❌ NO se carga");
+                        };
+                        img.src = icon.src;
+                    });
+                }
+            })
+            .catch(function(err) {
+                console.log("❌ Error cargando manifest:", err);
             });
-        }, 500);
-    });
+        
+        // 2. Ver iconos directos
+        console.log("🖼️ Iconos directos:");
+        var iconos = ['/static/icons/icon-192x192.png', '/static/favicon.ico'];
+        iconos.forEach(function(url) {
+            var img = new Image();
+            img.onload = function() { console.log("✅ " + url); };
+            img.onerror = function() { console.log("❌ " + url); };
+            img.src = url;
+        });
+    }, 1000);
     </script>
 </body>
 </html>

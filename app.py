@@ -4022,68 +4022,38 @@ def test_personalizar():
 
 @app.route('/manifest.json')
 def manifest_solo_clientes():
-    """Manifest SOLO para clientes, detecta negocio desde referer"""
     referer = request.headers.get('Referer', '')
     
-    # SOLO procesar si viene de /cliente/
     if not referer or '/cliente/' not in referer:
-        # Si NO viene de cliente, devolver manifest VACÍO (sin start_url)
-        manifest = {
-            "name": "No PWA",
-            "short_name": "No",
-            "description": "No disponible",
-            "icons": []
-        }
-        response = jsonify(manifest)
-        response.headers['Cache-Control'] = 'no-store'
-        return response
+        return jsonify({"error": "No PWA"}), 404
     
-    # Extraer negocio_id del referer
     import re
     match = re.search(r'/cliente/(\d+)', referer)
     if not match:
-        return jsonify({"error": "URL no válida"}), 400
+        return jsonify({"error": "URL inválida"}), 400
     
     negocio_id = match.group(1)
     
-    # Obtener nombre del negocio
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT nombre FROM negocios WHERE id = %s', (negocio_id,))
-    negocio = cursor.fetchone()
-    conn.close()
-    
-    nombre_negocio = negocio['nombre'] if negocio else f"Negocio {negocio_id}"
-    
-    # URL base
-    base_url = request.host_url.rstrip('/')
-    
     manifest = {
-        "name": f"WaBot - {nombre_negocio}",
+        "name": f"WaBot - Negocio {negocio_id}",
         "short_name": "WaBot",
-        "description": f"Agendar citas en {nombre_negocio}",
-        
-        # URL RELATIVA
+        "description": "Agendar citas",
         "start_url": f"/cliente/{negocio_id}",
-        
         "display": "standalone",
         "background_color": "#007bff",
         "theme_color": "#007bff",
-        "orientation": "portrait",
         
-        # ✅ ICONOS CORREGIDOS (usa la carpeta /static/icons/)
+        # 🔥 RUTAS RELATIVAS SIMPLES (las que SIEMPRE funcionan)
         "icons": [
             {
-                "src": f"{base_url}/static/icons/icon-192x192.png",  # ← CORREGIDO
+                "src": "/static/icons/icon-192x192.png",  # Relativa desde la raíz
                 "sizes": "192x192",
-                "type": "image/png",
-                "purpose": "any"
+                "type": "image/png"
             },
             {
-                "src": f"{base_url}/static/icons/icon-512x512.png",  # ← CORREGIDO
+                "src": "/static/icons/icon-512x512.png",  # Relativa desde la raíz
                 "sizes": "512x512",
-                "type": "image/png",
-                "purpose": "any"
+                "type": "image/png"
             }
         ],
         
@@ -4091,11 +4061,11 @@ def manifest_solo_clientes():
             {
                 "name": "Agendar Cita",
                 "short_name": "Agendar",
-                "description": f"Agendar en {nombre_negocio}",
+                "description": "Agendar cita",
                 "url": f"/cliente/{negocio_id}",
                 "icons": [
                     {
-                        "src": f"{base_url}/static/icons/icon-96x96.png",  # ← CORREGIDO
+                        "src": "/static/icons/icon-96x96.png",  # Relativa desde la raíz
                         "sizes": "96x96",
                         "type": "image/png"
                     }
@@ -4105,7 +4075,7 @@ def manifest_solo_clientes():
     }
     
     response = jsonify(manifest)
-    response.headers['Cache-Control'] = 'no-store, no-cache'
+    response.headers['Cache-Control'] = 'no-store'
     return response
 
 def crear_manifest_default():
