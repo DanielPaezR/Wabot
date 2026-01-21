@@ -4017,87 +4017,67 @@ def test_personalizar():
 
 
 # =============================================================================
-# RUTA DE REDIRECCIÓN INTELIGENTE PARA ACCESOS DIRECTOS
+# MANIFEST ÚNICO - DETECTA AUTOMÁTICAMENTE
 # =============================================================================
 
-@app.route('/cliente/redirect')
-def cliente_redirect_smart():
-    """Redirección inteligente para accesos directos de clientes"""
-    # Obtener el ID del negocio de varias formas posibles:
+@app.route('/manifest.json')
+def manifest_unico():
+    """Manifest ÚNICO que detecta automáticamente qué mostrar"""
+    # DEBUG
+    print(f"🔍 Manifest solicitado desde: {request.headers.get('Referer', 'Directo')}")
     
-    # 1. Desde parámetro en la URL
-    negocio_id = request.args.get('negocio')
+    # URL base
+    base_url = request.host_url.rstrip('/')
     
-    # Si es 'auto', intentar detectar automáticamente
-    if negocio_id == 'auto':
-        # 2. Intentar obtener de referer (si viene de un enlace compartido)
-        referer = request.headers.get('Referer')
-        if referer and '/cliente/' in referer:
-            # Extraer negocio_id del referer
-            import re
-            match = re.search(r'/cliente/(\d+)', referer)
-            if match:
-                negocio_id = match.group(1)
-        
-        # 3. Si no se pudo detectar, usar un valor por defecto
-        if not negocio_id or negocio_id == 'auto':
-            # Obtener el primer negocio activo
-            conn = get_db_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute('SELECT id FROM negocios WHERE activo = TRUE LIMIT 1')
-            negocio = cursor.fetchone()
-            conn.close()
-            
-            negocio_id = negocio['id'] if negocio else 1
+    # 1. Si viene del PANEL (login, dashboard, etc.)
+    referer = request.headers.get('Referer', '')
+    if any(x in referer for x in ['/login', '/admin', '/negocio', '/profesional', '/dashboard']):
+        print("🎯 Manifest para PANEL detectado")
+        manifest = {
+            "name": "WaBot - Panel",
+            "short_name": "WaBot Panel",
+            "description": "Panel de administración",
+            "start_url": "/app",  # Ruta inteligente
+            "display": "standalone",
+            # ... (iconos igual)
+        }
     
-    # Convertir a entero
-    try:
-        negocio_id = int(negocio_id)
-    except:
-        negocio_id = 1
-    
-    print(f"🔍 REDIRECCIÓN: Acceso directo detectado -> Negocio ID: {negocio_id}")
-    
-    # Redirigir a la página del cliente con el negocio correcto
-    return redirect(url_for('chat_index', negocio_id=negocio_id))
-
-@app.route('/app')
-def app_redirect():
-    """Redirección inteligente según el tipo de usuario"""
-    # Verificar si hay sesión de trabajador
-    if 'usuario_id' in session:
-        # Es trabajador, redirigir al dashboard correspondiente
-        rol = session.get('usuario_rol')
-        if rol == 'superadmin':
-            return redirect(url_for('admin_dashboard'))
-        elif rol == 'propietario':
-            return redirect(url_for('negocio_dashboard'))
-        elif rol == 'profesional':
-            return redirect(url_for('profesional_dashboard'))
+    # 2. Si viene de un CLIENTE específico (/cliente/456)
+    elif '/cliente/' in referer:
+        import re
+        match = re.search(r'/cliente/(\d+)', referer)
+        if match:
+            negocio_id = match.group(1)
+            print(f"🎯 Manifest para CLIENTE negocio {negocio_id} detectado")
+            manifest = {
+                "name": f"WaBot - Negocio {negocio_id}",
+                "short_name": "WaBot",
+                "description": "Agendar citas",
+                "start_url": f"{base_url}/cliente/{negocio_id}",  # URL ESPECÍFICA
+                "display": "standalone",
+                # ... (iconos igual)
+            }
         else:
-            return redirect(url_for('login'))
+            # Fallback
+            manifest = crear_manifest_default()
+    
+    # 3. Por defecto (acceso directo sin referer)
     else:
-        # Es cliente, redirigir al negocio por defecto
-        return redirect(url_for('cliente_redirect_smart'))
+        print("🎯 Manifest POR DEFECTO (sin referer)")
+        manifest = crear_manifest_default()
+    
+    # Headers anti-caché
+    response = jsonify(manifest)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
 
-@app.route('/chat')
-def chat_universal():
-    """Ruta principal para clientes"""
-    negocio_id = request.args.get('negocio', 1)
-    return redirect(url_for('chat_index', negocio_id=negocio_id))
-
-# =============================================================================
-# MANIFEST PARA EL PANEL DE TRABAJADORES
-# =============================================================================
-
-@app.route('/manifest-panel.json')
-def manifest_panel():
-    """Manifest específico para el panel de trabajadores"""
-    manifest = {
-        "name": "WaBot - Panel",
-        "short_name": "WaBot Panel",
-        "description": "Panel de administración de WaBot",
-        "start_url": "/app",
+def crear_manifest_default():
+    """Manifest por defecto (redirige a /app que decide inteligentemente)"""
+    return {
+        "name": "WaBot",
+        "short_name": "WaBot",
+        "description": "Sistema de agendamiento",
+        "start_url": "/app",  # Ruta INTELIGENTE que decide
         "display": "standalone",
         "background_color": "#007bff",
         "theme_color": "#007bff",
@@ -4157,9 +4137,9 @@ def manifest_panel():
         "categories": ["business", "productivity", "utilities"],
         "shortcuts": [
             {
-                "name": "Panel WaBot",
-                "short_name": "Panel",
-                "description": "Acceder al panel de administración",
+                "name": "WaBot",
+                "short_name": "WaBot",
+                "description": "Sistema de agendamiento",
                 "url": "/app",
                 "icons": [
                     {
@@ -4171,113 +4151,40 @@ def manifest_panel():
             }
         ]
     }
-    
-    response = jsonify(manifest)
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    return response
 
-@app.route('/manifest-<int:negocio_id>.json')
-def manifest_cliente(negocio_id):
-    """Manifest específico para cada negocio de clientes"""
-    # Verificar que el negocio existe
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT id, nombre, emoji FROM negocios WHERE id = %s AND activo = TRUE', (negocio_id,))
-    negocio = cursor.fetchone()
-    conn.close()
+@app.route('/app')
+def app_redirect():
+    """Redirección inteligente según el tipo de usuario"""
+    # 1. Si hay sesión de trabajador
+    if 'usuario_id' in session:
+        rol = session.get('usuario_rol')
+        if rol == 'superadmin':
+            return redirect(url_for('admin_dashboard'))
+        elif rol == 'propietario':
+            return redirect(url_for('negocio_dashboard'))
+        elif rol == 'profesional':
+            return redirect(url_for('profesional_dashboard'))
+        else:
+            return redirect(url_for('login'))
     
-    if not negocio:
-        return jsonify({"error": "Negocio no encontrado"}), 404
-    
-    # URL base
-    base_url = request.host_url.rstrip('/')
-    
-    manifest = {
-        "name": f"WaBot - {negocio['nombre']}",
-        "short_name": "WaBot",
-        "description": f"Agendar citas en {negocio['nombre']}",
-        "start_url": f"{base_url}/cliente/{negocio_id}",  # ¡URL ESPECÍFICA!
-        "display": "standalone",
-        "background_color": "#007bff",
-        "theme_color": "#007bff",
-        "orientation": "portrait-primary",
-        "scope": "/",
-        "lang": "es",
-        "icons": [
-            {
-                "src": "/static/icons/icon-72x72.png",
-                "sizes": "72x72",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-96x96.png",
-                "sizes": "96x96",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-128x128.png",
-                "sizes": "128x128",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-144x144.png",
-                "sizes": "144x144",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-152x152.png",
-                "sizes": "152x152",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-192x192.png",
-                "sizes": "192x192",
-                "type": "image/png",
-                "purpose": "any maskable"
-            },
-            {
-                "src": "/static/icons/icon-384x384.png",
-                "sizes": "384x384",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-512x512.png",
-                "sizes": "512x512",
-                "type": "image/png",
-                "purpose": "any maskable"
-            }
-        ],
-        "categories": ["business", "productivity", "utilities"],
-        "shortcuts": [
-            {
-                "name": f"Agendar - {negocio['nombre']}",
-                "short_name": "Agendar",
-                "description": f"Agendar cita en {negocio['nombre']}",
-                "url": f"{base_url}/cliente/{negocio_id}",
-                "icons": [
-                    {
-                        "src": "/static/icons/icon-96x96.png",
-                        "sizes": "96x96",
-                        "type": "image/png"
-                    }
-                ]
-            }
-        ],
-        # Metadata para debug
-        "_negocio_id": negocio_id,
-        "_negocio_nombre": negocio['nombre'],
-        "_timestamp": datetime.now().isoformat()
-    }
-    
-    response = jsonify(manifest)
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    return response
+    # 2. Si NO hay sesión (cliente)
+    else:
+        # Intentar detectar de dónde venía
+        referer = request.headers.get('Referer', '')
+        if '/cliente/' in referer:
+            import re
+            match = re.search(r'/cliente/(\d+)', referer)
+            if match:
+                return redirect(url_for('chat_index', negocio_id=match.group(1)))
+        
+        # Por defecto: primer negocio activo
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT id FROM negocios WHERE activo = TRUE LIMIT 1')
+        negocio = cursor.fetchone()
+        conn.close()
+        
+        return redirect(url_for('chat_index', negocio_id=negocio['id'] if negocio else 1))
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE

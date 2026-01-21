@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - WaBot</title>
     <!-- PWA Meta Tags -->
-    <link rel="manifest" href="/manifest-panel.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#007bff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -202,5 +202,19 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Forzar manifest fresco cada vez
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const links = document.querySelectorAll('link[rel="manifest"]');
+                links.forEach(link => {
+                    const newHref = link.href.split('?')[0] + '?v=' + Date.now();
+                    link.href = newHref;
+                    console.log('🔄 Manifest actualizado:', newHref);
+                });
+            }, 1000);
+        });
+    </script>
 </body>
 </html>
