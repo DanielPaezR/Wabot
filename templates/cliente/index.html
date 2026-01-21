@@ -423,142 +423,132 @@
             
             console.log("✅ Chat inicializado para negocio ID:", negocioId);
             
-            // AUTODETECCIÓN DEL ACCESO DIRECTO - SOLUCIÓN 3+4 SIMPLIFICADA
-            // Cuando la página se carga, si es un PWA, actualizamos automáticamente el shortcut
-            function actualizarAccesoDirectoAutomatico() {
-                // Solo ejecutar si es un PWA instalado
-                if ('serviceWorker' in navigator && window.matchMedia('(display-mode: standalone)').matches) {
-                    console.log("📱 PWA detectado - Actualizando acceso directo...");
-                    
-                    // Obtener el negocio_id actual de la URL
-                    const urlActual = window.location.href;
-                    console.log("🔗 URL actual:", urlActual);
-                    
-                    // Extraer negocio_id de la URL (formato: /cliente/123)
-                    const pathSegments = window.location.pathname.split('/');
-                    const negocioIdUrl = pathSegments[2] || negocioId;
-                    
-                    // Crear la URL específica para este negocio
-                    const urlEspecifica = window.location.origin + '/cliente/' + negocioIdUrl;
-                    console.log("🎯 URL específica para acceso directo:", urlEspecifica);
-                    
-                    // Intentar actualizar el shortcut del PWA si la API está disponible
-                    if ('shortcuts' in navigator && navigator.shortcuts) {
-                        try {
-                            navigator.shortcuts.update({
-                                name: "Agendar Cita - " + negocioNombre,
-                                url: urlEspecifica
-                            }).then(() => {
-                                console.log('✅ Acceso directo actualizado para negocio:', negocioIdUrl);
-                            }).catch(err => {
-                                console.log('⚠️ Error actualizando shortcut:', err);
-                            });
-                        } catch (e) {
-                            console.log('⚠️ API shortcuts no disponible:', e);
-                        }
-                    }
-                    
-                    // Actualizar el manifest dinámicamente para futuras instalaciones
-                    actualizarManifestDinamico(urlEspecifica);
+            // SOLUCIÓN SIMPLE: Actualizar el manifest con la URL actual
+            function actualizarManifestConUrlActual() {
+                // Obtener la URL actual COMPLETA
+                const urlActual = window.location.href;
+                console.log("🔗 URL actual del cliente:", urlActual);
+                
+                // Extraer el negocio_id de la URL (formato: /cliente/123)
+                const pathSegments = window.location.pathname.split('/');
+                const negocioIdActual = pathSegments[2];
+                
+                if (!negocioIdActual) {
+                    console.log("⚠️ No se pudo extraer negocio_id de la URL");
+                    return;
                 }
-            }
-            
-            // Actualizar el manifest.json dinámicamente
-            function actualizarManifestDinamico(urlCliente) {
-                // Solo si estamos en modo PWA o la página puede ser añadida a inicio
-                if (window.matchMedia('(display-mode: standalone)').matches || 
-                    window.navigator.standalone) {
-                    
-                    // Crear un nuevo manifest con la URL correcta
-                    const nuevoManifest = {
-                        name: "WaBot - " + negocioNombre,
-                        short_name: "WaBot",
-                        description: "Sistema de agendamiento de citas para " + negocioNombre,
-                        start_url: urlCliente, // ¡IMPORTANTE! URL específica del negocio
-                        display: "standalone",
-                        background_color: "#007bff",
-                        theme_color: "#007bff",
-                        orientation: "portrait-primary",
-                        scope: "/",
-                        lang: "es",
-                        icons: [
-                            {
-                                src: "/static/icons/icon-72x72.png",
-                                sizes: "72x72",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-96x96.png",
-                                sizes: "96x96",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-128x128.png",
-                                sizes: "128x128",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-144x144.png",
-                                sizes: "144x144",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-152x152.png",
-                                sizes: "152x152",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-192x192.png",
-                                sizes: "192x192",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-384x384.png",
-                                sizes: "384x384",
-                                type: "image/png"
-                            },
-                            {
-                                src: "/static/icons/icon-512x512.png",
-                                sizes: "512x512",
-                                type: "image/png"
-                            }
-                        ],
-                        shortcuts: [
-                            {
-                                name: "Agendar Cita",
-                                short_name: "Agendar",
-                                description: "Agendar una nueva cita",
-                                url: urlCliente, // ¡IMPORTANTE! URL específica del negocio
-                                icons: [
-                                    {
-                                        src: "/static/icons/icon-96x96.png",
-                                        sizes: "96x96",
-                                        type: "image/png"
-                                    }
-                                ]
-                            }
-                        ]
-                    };
-                    
-                    // Actualizar el link del manifest
-                    const manifestLink = document.querySelector('link[rel="manifest"]');
-                    if (manifestLink) {
-                        // Crear un Blob con el nuevo manifest
+                
+                console.log("🎯 Negocio ID detectado en URL:", negocioIdActual);
+                
+                // Crear URL específica para el acceso directo
+                const urlParaAccesoDirecto = window.location.origin + '/cliente/' + negocioIdActual;
+                console.log("📱 URL para acceso directo:", urlParaAccesoDirecto);
+                
+                // Actualizar dinámicamente el manifest
+                const manifestLink = document.querySelector('link[rel="manifest"]');
+                if (manifestLink) {
+                    try {
+                        // Crear un nuevo manifest con la URL específica
+                        const nuevoManifest = {
+                            "name": "WaBot - " + negocioNombre,
+                            "short_name": "WaBot",
+                            "description": "Agendar citas en " + negocioNombre,
+                            "start_url": urlParaAccesoDirecto,  // ¡URL ESPECÍFICA!
+                            "display": "standalone",
+                            "background_color": "#007bff",
+                            "theme_color": "#007bff",
+                            "orientation": "portrait-primary",
+                            "scope": "/",
+                            "lang": "es",
+                            "icons": [
+                                {
+                                    "src": "/static/icons/icon-72x72.png",
+                                    "sizes": "72x72",
+                                    "type": "image/png",
+                                    "purpose": "any"
+                                },
+                                {
+                                    "src": "/static/icons/icon-96x96.png",
+                                    "sizes": "96x96",
+                                    "type": "image/png",
+                                    "purpose": "any"
+                                },
+                                {
+                                    "src": "/static/icons/icon-128x128.png",
+                                    "sizes": "128x128",
+                                    "type": "image/png",
+                                    "purpose": "any"
+                                },
+                                {
+                                    "src": "/static/icons/icon-144x144.png",
+                                    "sizes": "144x144",
+                                    "type": "image/png",
+                                    "purpose": "any"
+                                },
+                                {
+                                    "src": "/static/icons/icon-152x152.png",
+                                    "sizes": "152x152",
+                                    "type": "image/png",
+                                    "purpose": "any"
+                                },
+                                {
+                                    "src": "/static/icons/icon-192x192.png",
+                                    "sizes": "192x192",
+                                    "type": "image/png",
+                                    "purpose": "any maskable"
+                                },
+                                {
+                                    "src": "/static/icons/icon-384x384.png",
+                                    "sizes": "384x384",
+                                    "type": "image/png",
+                                    "purpose": "any"
+                                },
+                                {
+                                    "src": "/static/icons/icon-512x512.png",
+                                    "sizes": "512x512",
+                                    "type": "image/png",
+                                    "purpose": "any maskable"
+                                }
+                            ],
+                            "categories": ["business", "productivity", "utilities"],
+                            "shortcuts": [
+                                {
+                                    "name": "Agendar Cita",
+                                    "short_name": "Agendar",
+                                    "description": "Agendar una nueva cita en " + negocioNombre,
+                                    "url": urlParaAccesoDirecto,  // ¡URL ESPECÍFICA!
+                                    "icons": [
+                                        {
+                                            "src": "/static/icons/icon-96x96.png",
+                                            "sizes": "96x96",
+                                            "type": "image/png"
+                                        }
+                                    ]
+                                }
+                            ]
+                        };
+                        
+                        // Convertir a Blob y actualizar el manifest
                         const blob = new Blob([JSON.stringify(nuevoManifest)], {type: 'application/json'});
-                        const url = URL.createObjectURL(blob);
+                        const urlBlob = URL.createObjectURL(blob);
                         
-                        // Actualizar el href del manifest
-                        manifestLink.href = url;
-                        console.log('🔧 Manifest actualizado dinámicamente con URL:', urlCliente);
+                        // Reemplazar el manifest antiguo
+                        manifestLink.href = urlBlob;
+                        console.log("✅ Manifest actualizado con URL específica del negocio");
                         
-                        // Forzar recarga del manifest (opcional)
+                        // Forzar a que los navegadores detecten el cambio
                         setTimeout(() => {
-                            const newLink = document.createElement('link');
-                            newLink.rel = 'manifest';
-                            newLink.href = url;
-                            document.head.appendChild(newLink);
-                        }, 1000);
+                            const nuevoLink = document.createElement('link');
+                            nuevoLink.rel = 'manifest';
+                            nuevoLink.href = urlParaAccesoDirecto + '.json'; // Nombre diferente
+                            document.head.appendChild(nuevoLink);
+                        }, 500);
+                        
+                    } catch (error) {
+                        console.error("❌ Error actualizando manifest:", error);
                     }
+                } else {
+                    console.log("⚠️ No se encontró el link del manifest");
                 }
             }
             
@@ -723,8 +713,8 @@
             // Verificar scroll inicial
             setTimeout(checkScroll, 1000);
             
-            // Ejecutar la actualización automática del acceso directo
-            setTimeout(actualizarAccesoDirectoAutomatico, 2000);
+            // Actualizar el manifest con la URL actual (SOLUCIÓN SIMPLE)
+            setTimeout(actualizarManifestConUrlActual, 1500);
         });
     </script>
 </body>

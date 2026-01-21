@@ -3944,194 +3944,7 @@ def api_horarios_disponibles():
         traceback.print_exc()
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-@app.route('/secret-update-templates-2026')
-def secret_update_templates():
-    """Ruta secreta para actualizar plantillas en producción"""
-    # Clave secreta para seguridad
-    secret_key = request.args.get('key', '')
-    if secret_key != 'TEMPORARY_UPDATE_KEY_2026':  # Cambia esto
-        return "❌ Acceso no autorizado"
-    
-    try:
-        # Copia TODO el código de la Opción 1 aquí
-        # (el código Python de arriba)
-        
-        return '''
-        <h1>✅ ¡Plantillas actualizadas!</h1>
-        <p>Las plantillas han sido actualizadas al nuevo formato.</p>
-        <p><a href="/negocio/plantillas">→ Ver plantillas</a></p>
-        '''
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
-@app.route('/secret-update-all-templates-2026')
-def secret_update_all_templates():
-    """Ruta secreta para ACTUALIZAR TODAS las plantillas en producción"""
-    secret_key = request.args.get('key', '')
-    if secret_key != 'TEMPORARY_UPDATE_KEY_2026':
-        return "❌ Acceso no autorizado"
-    
-    try:
-        import psycopg2
-        from psycopg2.extras import RealDictCursor
-        import os
-        
-        database_url = os.getenv('DATABASE_URL')
-        if database_url.startswith('postgresql://'):
-            database_url = database_url.replace('postgresql://', 'postgres://')
-        
-        conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-        cursor = conn.cursor()
-        
-        print("🔄 Paso 1: Eliminando TODAS las plantillas viejas...")
-        
-        # 1. Eliminar TODAS las plantillas (base y personalizadas)
-        cursor.execute('DELETE FROM plantillas_mensajes')
-        print("✅ Todas las plantillas eliminadas")
-        
-        # 2. Insertar NUEVAS plantillas base
-        print("🔄 Paso 2: Insertando nuevas plantillas base...")
-        
-        plantillas_base = [
-            ('saludo_inicial',
-             '¡Hola! 👋 Soy tu asistente virtual de {nombre_negocio}.\n\n📱 **Para identificarte en nuestro sistema, necesitamos tu número de teléfono.**\n\nTu número de teléfono se usará como identificador durante toda la conversación para:\n• Identificarte en futuras consultas\n• Mantener el historial de tus citas\n• Enviarte recordatorios importantes\n\n**Por favor, ingresa tu número de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):**',
-             'Saludo inicial para pedir teléfono',
-             '["nombre_negocio"]'),
-            
-            ('telefono_validado_existente',
-             '¡Hola {nombre_cliente}! 👋\n\nHe identificado tu número en nuestro sistema.\n\n¿En qué puedo ayudarte hoy?',
-             'Cuando se reconoce un cliente existente',
-             '["nombre_cliente"]'),
-            
-            ('solicitar_nombre_nuevo',
-             '✅ Número registrado exitosamente.\n\n📝 **Ahora necesitamos tu nombre para completar tu registro.**\n\nPor favor, ingresa tu nombre completo:',
-             'Solicitar nombre a cliente nuevo',
-             '[]'),
-            
-            ('nombre_registrado_exitoso',
-             '¡Perfecto {nombre_cliente}! ✅\n\nTu registro se ha completado exitosamente.\n\n¿En qué puedo ayudarte hoy?',
-             'Confirmación de registro exitoso',
-             '["nombre_cliente"]'),
-            
-            ('menu_principal',
-             '¿En qué puedo ayudarte hoy?',
-             'Menú principal de opciones',
-             '[]'),
-            
-            ('lista_profesionales',
-             '👨‍💼 **Selecciona un profesional:**',
-             'Lista de profesionales disponibles',
-             '[]'),
-            
-            ('lista_servicios',
-             '📋 **Servicios con {profesional_nombre}:**',
-             'Lista de servicios disponibles',
-             '["profesional_nombre"]'),
-            
-            ('servicio_personalizado_opciones',
-             '🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n*{nombre_personalizado}*\n⏱️ Duración: {duracion_personalizada} min\n💵 Precio: ${precio_personalizado:,.0f}\n\n🔢 *Responde con:*\n1️⃣ - Seleccionar mi servicio personalizado\n2️⃣ - Ver todos los servicios disponibles',
-             'Opciones para servicio personalizado',
-             '["nombre_personalizado", "duracion_personalizada", "precio_personalizado"]'),
-            
-            ('seleccion_fecha',
-             '📅 **Selecciona una fecha:**',
-             'Selección de fecha para cita',
-             '[]'),
-            
-            ('seleccion_horario',
-             '📅 **Horarios disponibles con {profesional_nombre} ({fecha_formateada}):**\n💼 Servicio: {servicio_nombre} - ${servicio_precio:,.0f}',
-             'Selección de horario para cita',
-             '["profesional_nombre", "fecha_formateada", "servicio_nombre", "servicio_precio"]'),
-            
-            ('confirmacion_cita',
-             '✅ **Confirmar cita**\n\nHola *{nombre_cliente}*, ¿confirmas tu cita?\n\n👨‍💼 **Profesional:** {profesional_nombre}\n💼 **Servicio:** {servicio_nombre}\n💰 **Precio:** ${servicio_precio:,.0f}\n📅 **Fecha:** {fecha_formateada}\n⏰ **Hora:** {hora_seleccionada}\n\n**Selecciona una opción:**',
-             'Confirmación de cita antes de agendar',
-             '["nombre_cliente", "profesional_nombre", "servicio_nombre", "servicio_precio", "fecha_formateada", "hora_seleccionada"]'),
-            
-            ('cita_confirmada_exito',
-             '✅ **Cita Confirmada**\n\nHola *{nombre_cliente}*, \n\nTu cita ha sido agendada exitosamente:\n\n• **Profesional:** {profesional_nombre}\n• **Servicio:** {servicio_nombre}  \n• **Precio:** ${servicio_precio:,.0f}\n• **Fecha:** {fecha_formateada}\n• **Hora:** {hora_seleccionada}\n• **ID de cita:** #{cita_id}\n• **Teléfono:** {telefono_cliente}\n• **Duración:** {duracion_servicio} minutos\n\nRecibirás recordatorios por mensaje antes de tu cita.\n\n¡Te esperamos!',
-             'Confirmación exitosa de cita agendada',
-             '["nombre_cliente", "profesional_nombre", "servicio_nombre", "servicio_precio", "fecha_formateada", "hora_seleccionada", "cita_id", "telefono_cliente", "duracion_servicio"]'),
-            
-            ('mis_citas_lista',
-             '📋 **Tus citas CONFIRMADAS - {nombre_cliente}:**',
-             'Lista de citas del cliente',
-             '["nombre_cliente"]'),
-            
-            ('sin_citas',
-             '📋 **No tienes citas CONFIRMADAS programadas, {nombre_cliente}.**\n\nPara agendar una nueva cita, selecciona: *1*',
-             'Cuando el cliente no tiene citas',
-             '["nombre_cliente"]'),
-            
-            ('ayuda_general',
-             'ℹ️ **Ayuda:**\n\nPara agendar una cita, responde: *1*\nPara ver tus citas, responde: *2*\nPara cancelar una cita, responde: *3*\n\nEn cualquier momento puedes escribir *0* para volver al menú principal.',
-             'Mensaje de ayuda general',
-             '[]'),
-            
-            ('error_generico',
-             '❌ Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente.',
-             'Mensaje de error genérico',
-             '[]'),
-            
-            ('cita_cancelada_exito',
-             '❌ **Cita cancelada exitosamente**\n\nHola {nombre_cliente}, has cancelado tu cita:\n\n📅 **Fecha:** {fecha_cita}\n⏰ **Hora:** {hora_cita}\n🎫 **ID de cita:** #{cita_id}\n\nEsperamos verte pronto en otra ocasión.',
-             'Confirmación de cancelación exitosa',
-             '["nombre_cliente", "fecha_cita", "hora_cita", "cita_id"]')
-        ]
-        
-        for nombre, plantilla, descripcion, variables in plantillas_base:
-            cursor.execute('''
-                INSERT INTO plantillas_mensajes 
-                (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                VALUES (NULL, %s, %s, %s, %s, TRUE)
-            ''', (nombre, plantilla, descripcion, variables))
-        
-        print("✅ Plantillas base creadas: 17 plantillas")
-        
-        # 3. Crear plantillas personalizadas para todos los negocios
-        print("🔄 Paso 3: Creando plantillas personalizadas para negocios...")
-        
-        cursor.execute('SELECT id FROM negocios WHERE activo = TRUE')
-        negocios = cursor.fetchall()
-        
-        for negocio in negocios:
-            negocio_id = negocio['id']
-            print(f"  - Creando para negocio ID: {negocio_id}")
-            
-            for nombre, plantilla, descripcion, variables in plantillas_base:
-                cursor.execute('''
-                    INSERT INTO plantillas_mensajes 
-                    (negocio_id, nombre, plantilla, descripcion, variables_disponibles, es_base)
-                    VALUES (%s, %s, %s, %s, %s, FALSE)
-                ''', (negocio_id, nombre, plantilla, descripcion, variables))
-        
-        conn.commit()
-        conn.close()
-        
-        return '''
-        <h1>✅ ¡TODAS las plantillas han sido actualizadas!</h1>
-        <p><strong>Se eliminaron todas las plantillas viejas y se crearon:</strong></p>
-        <ul>
-            <li>✅ 17 plantillas base NUEVAS</li>
-            <li>✅ 17 plantillas personalizadas para cada negocio activo</li>
-        </ul>
-        <p><strong>Nombres de las nuevas plantillas:</strong></p>
-        <div style="background:#f8f9fa;padding:15px;border-radius:5px;margin:20px 0;">
-            saludo_inicial, telefono_validado_existente, solicitar_nombre_nuevo, nombre_registrado_exitoso, menu_principal, 
-            lista_profesionales, lista_servicios, servicio_personalizado_opciones, seleccion_fecha, seleccion_horario, 
-            confirmacion_cita, cita_confirmada_exito, mis_citas_lista, sin_citas, ayuda_general, error_generico, cita_cancelada_exito
-        </div>
-        <p><a href="/negocio/plantillas" style="background:#27ae60;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:20px;font-weight:bold;">
-            → Ver plantillas actualizadas ahora
-        </a></p>
-        <p style="color:#666;font-size:0.9rem;margin-top:30px;">
-            <strong>Nota:</strong> Esta acción eliminó todas las plantillas existentes y creó nuevas. 
-            Las personalizaciones anteriores se perdieron, pero ahora coinciden con el web_chat_handler.
-        </p>
-        '''
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
    
 # =============================================================================
 # RUTAS DE notificaciones
@@ -4207,238 +4020,52 @@ def test_personalizar():
     """Ruta de prueba para verificar que la personalización funciona"""
     return "✅ Ruta de personalización funciona correctamente"
 
-@app.route('/fix-precios-final')
-def fix_precios_final():
-    """CORRECCIÓN FINAL - Sin f-strings problemáticas"""
-    try:
-        import database as db
-        from database import get_db_connection
+
+# =============================================================================
+# RUTA DE REDIRECCIÓN INTELIGENTE PARA ACCESOS DIRECTOS
+# =============================================================================
+
+@app.route('/cliente/redirect')
+def cliente_redirect_smart():
+    """Redirección inteligente para accesos directos de clientes"""
+    # Obtener el ID del negocio de varias formas posibles:
+    
+    # 1. Desde parámetro en la URL
+    negocio_id = request.args.get('negocio')
+    
+    # Si es 'auto', intentar detectar automáticamente
+    if negocio_id == 'auto':
+        # 2. Intentar obtener de referer (si viene de un enlace compartido)
+        referer = request.headers.get('Referer')
+        if referer and '/cliente/' in referer:
+            # Extraer negocio_id del referer
+            import re
+            match = re.search(r'/cliente/(\d+)', referer)
+            if match:
+                negocio_id = match.group(1)
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        print("🚨 CORRECCIÓN FINAL EJECUTANDOSE...")
-        
-        # ✅ MÉTODO 1: SQL DIRECTO para PostgreSQL
-        if db.is_postgresql():
-            sql_commands = [
-                # Corregir servicio_personalizado_opciones
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{precio_personalizado:,.0f}', '{precio_personalizado}')
-                   WHERE plantilla LIKE '%{precio_personalizado:,.0f}%'""",
-                
-                # Corregir seleccion_horario
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{servicio_precio:,.0f}', '{servicio_precio}')
-                   WHERE plantilla LIKE '%{servicio_precio:,.0f}%'""",
-                
-                # Corregir confirmacion_cita
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{servicio_precio:,.0f}', '{servicio_precio}')
-                   WHERE plantilla LIKE '%{servicio_precio:,.0f}%'""",
-                
-                # Corregir cita_confirmada_exito
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{servicio_precio:,.0f}', '{servicio_precio}')
-                   WHERE plantilla LIKE '%{servicio_precio:,.0f}%'""",
-                
-                # Corregir variantes
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{precio:,.0f}', '{precio}')
-                   WHERE plantilla LIKE '%{precio:,.0f}%'""",
-                
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{precio_formateado:,.0f}', '{precio_formateado}')
-                   WHERE plantilla LIKE '%{precio_formateado:,.0f}%'""",
-                
-                # Corregir con signo $
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '${servicio_precio:,.0f}', '{servicio_precio}')
-                   WHERE plantilla LIKE '%${servicio_precio:,.0f}%'""",
-            ]
-        else:
-            # Para SQLite
-            sql_commands = [
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{precio_personalizado:,.0f}', '{precio_personalizado}')
-                   WHERE plantilla LIKE '%{precio_personalizado:,.0f}%'""",
-                
-                """UPDATE plantillas_mensajes 
-                   SET plantilla = REPLACE(plantilla, '{servicio_precio:,.0f}', '{servicio_precio}')
-                   WHERE plantilla LIKE '%{servicio_precio:,.0f}%'""",
-            ]
-        
-        total_correcciones = 0
-        detalles = []
-        
-        for sql in sql_commands:
-            cursor.execute(sql)
-            filas_afectadas = cursor.rowcount
-            if filas_afectadas > 0:
-                total_correcciones += filas_afectadas
-                detalles.append(f"Corregidas {filas_afectadas} filas con: {sql[:50]}...")
-        
-        conn.commit()
-        
-        # ✅ MÉTODO 2: Verificar contenido específico
-        cursor.execute("SELECT nombre, plantilla FROM plantillas_mensajes WHERE nombre IN ('servicio_personalizado_opciones', 'seleccion_horario', 'confirmacion_cita', 'cita_confirmada_exito')")
-        plantillas_verificadas = cursor.fetchall()
-        
-        verificacion = []
-        for plantilla in plantillas_verificadas:
-            if isinstance(plantilla, dict):
-                nombre = plantilla['nombre']
-                contenido = plantilla['plantilla']
-            else:
-                nombre = plantilla[0]
-                contenido = plantilla[1]
+        # 3. Si no se pudo detectar, usar un valor por defecto
+        if not negocio_id or negocio_id == 'auto':
+            # Obtener el primer negocio activo
+            conn = get_db_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute('SELECT id FROM negocios WHERE activo = TRUE LIMIT 1')
+            negocio = cursor.fetchone()
+            conn.close()
             
-            tiene_formato_viejo = ':,.0f' in contenido if contenido else False
-            verificacion.append({
-                'nombre': nombre,
-                'tiene_problema': tiene_formato_viejo,
-                'contenido_ejemplo': contenido[:100] + "..." if contenido and len(contenido) > 100 else contenido
-            })
-        
-        conn.close()
-        
-        # Generar HTML de respuesta
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>✅ Corrección de Plantillas</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
-                .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-                .success {{ background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; border-left: 5px solid #28a745; margin: 20px 0; }}
-                .warning {{ background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; border-left: 5px solid #ffc107; margin: 20px 0; }}
-                .error {{ background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; border-left: 5px solid #dc3545; margin: 20px 0; }}
-                .info {{ background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 5px; border-left: 5px solid #17a2b8; margin: 20px 0; }}
-                .btn {{ display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 5px; }}
-                .btn-success {{ background: #28a745; }}
-                .btn-warning {{ background: #ffc107; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-                th {{ background: #f8f9fa; }}
-                .good {{ color: #28a745; }}
-                .bad {{ color: #dc3545; }}
-                pre {{ background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>🔧 Corrección de Plantillas - Resultado</h1>
-                
-                <div class="{'success' if total_correcciones > 0 else 'warning'}">
-                    <h3>{'✅ CORRECCIÓN EXITOSA' if total_correcciones > 0 else '⚠️ RESULTADO'}</h3>
-                    <p><strong>Total de correcciones aplicadas:</strong> {total_correcciones}</p>
-                </div>
-                
-                <div class="info">
-                    <h3>📋 Detalles de las correcciones:</h3>
-                    <ul>
-        """
-        
-        for detalle in detalles:
-            html += f"<li>{detalle}</li>"
-        
-        if not detalles:
-            html += "<li>No se realizaron correcciones automáticas</li>"
-        
-        html += f"""
-                    </ul>
-                </div>
-                
-                <div class="{'success' if all(not v['tiene_problema'] for v in verificacion) else 'warning'}">
-                    <h3>🔍 Verificación de Plantillas Clave:</h3>
-                    <table>
-                        <tr>
-                            <th>Plantilla</th>
-                            <th>Estado</th>
-                            <th>Ejemplo de contenido</th>
-                        </tr>
-        """
-        
-        for ver in verificacion:
-            estado = "✅ CORRECTO" if not ver['tiene_problema'] else "❌ CON PROBLEMAS"
-            clase = "good" if not ver['tiene_problema'] else "bad"
-            html += f"""
-                        <tr>
-                            <td><strong>{ver['nombre']}</strong></td>
-                            <td class="{clase}">{estado}</td>
-                            <td><pre>{ver['contenido_ejemplo'] or 'Sin contenido'}</pre></td>
-                        </tr>
-            """
-        
-        html += f"""
-                    </table>
-                </div>
-                
-                <h3>📝 Para verificar manualmente:</h3>
-                <ol>
-                    <li>Ve a <a href="/negocio/plantillas">/negocio/plantillas</a></li>
-                    <li>Edita la plantilla <strong>servicio_personalizado_opciones</strong></li>
-                    <li>Busca en el texto: <code>{{precio_personalizado}}</code></li>
-                    <li>Si NO ves <code>:,.0f</code> después, está corregido</li>
-                </ol>
-                
-                <div class="info">
-                    <h3>🔍 ¿Qué se corrigió?</h3>
-                    <p>Se buscaron y reemplazaron estos patrones:</p>
-                    <ul>
-                        <li><code>{{precio_personalizado:,.0f}}</code> → <code>{{precio_personalizado}}</code></li>
-                        <li><code>{{servicio_precio:,.0f}}</code> → <code>{{servicio_precio}}</code></li>
-                        <li><code>{{precio:,.0f}}</code> → <code>{{precio}}</code></li>
-                        <li><code>{{precio_formateado:,.0f}}</code> → <code>{{precio_formateado}}</code></li>
-                        <li><code>${{servicio_precio:,.0f}}</code> → <code>{{servicio_precio}}</code></li>
-                    </ul>
-                </div>
-                
-                <div style="margin-top: 30px; text-align: center;">
-                    <a href="/negocio/plantillas" class="btn btn-success">✅ Ver Plantillas</a>
-                    <a href="/cliente/1" class="btn">🔄 Probar Chat</a>
-                    <a href="/" class="btn btn-warning">🏠 Volver al Inicio</a>
-                </div>
-                
-                <hr>
-                
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px;">
-                    <h4>⚠️ Si todavía hay problemas:</h4>
-                    <p>1. Ve manualmente a <a href="/negocio/plantillas">/negocio/plantillas</a></p>
-                    <p>2. Edita cada plantilla y busca <code>:,.0f</code></p>
-                    <p>3. Si lo encuentras, elimínalo manualmente</p>
-                    <p>4. Guarda los cambios</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return html
-        
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head><title>❌ Error</title><style>body {{ font-family: Arial; margin: 40px; }} .error {{ background: #f8d7da; padding: 20px; border-radius: 5px; }}</style></head>
-        <body>
-            <h1>❌ ERROR EN LA CORRECCIÓN</h1>
-            <div class="error">
-                <h3>Error: {str(e)}</h3>
-                <pre>{error_trace}</pre>
-            </div>
-            <p style="margin-top: 20px;">
-                <a href="/negocio/plantillas" style="background: #6c757d; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                    🔍 Revisar Plantillas Manualmente
-                </a>
-            </p>
-        </body>
-        </html>
-        """
+            negocio_id = negocio['id'] if negocio else 1
+    
+    # Convertir a entero
+    try:
+        negocio_id = int(negocio_id)
+    except:
+        negocio_id = 1
+    
+    print(f"🔍 REDIRECCIÓN: Acceso directo detectado -> Negocio ID: {negocio_id}")
+    
+    # Redirigir a la página del cliente con el negocio correcto
+    return redirect(url_for('chat_index', negocio_id=negocio_id))
+
 
 @app.route('/chat')
 def chat_universal():
