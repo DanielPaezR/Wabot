@@ -1376,6 +1376,9 @@
                                 <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
                                     class="completar-cita-form" 
                                     style="display: inline;">
+
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    
                                     <button type="submit" 
                                             class="btn-complete completar-btn"
                                             data-cita-id="{{ cita.id }}"
