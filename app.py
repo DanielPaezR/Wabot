@@ -4021,72 +4021,53 @@ def test_personalizar():
 # =============================================================================
 
 @app.route('/manifest.json')
-def manifest_solo_clientes():
-    """Manifest SOLO para clientes"""
+def manifest_garantizado():
+    """Manifest con URLs ABSOLUTAS que SI funcionan"""
     referer = request.headers.get('Referer', '')
     
-    # SOLO procesar si viene de /cliente/
-    if not referer or '/cliente/' not in referer:
-        return jsonify({"error": "No PWA disponible"}), 404
+    # Detectar negocio
+    negocio_id = 1
+    if referer and '/cliente/' in referer:
+        import re
+        match = re.search(r'/cliente/(\d+)', referer)
+        if match:
+            negocio_id = match.group(1)
     
-    # Extraer negocio_id
-    import re
-    match = re.search(r'/cliente/(\d+)', referer)
-    if not match:
-        return jsonify({"error": "URL inválida"}), 400
+    # 🔥 URL BASE ABSOLUTA
+    base_url = request.host_url.rstrip('/')
     
-    negocio_id = match.group(1)
-    
-    # 🔥 PRIMERO obtener nombre_negocio, ANTES de usarlo
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute('SELECT nombre FROM negocios WHERE id = %s', (negocio_id,))
-    negocio = cursor.fetchone()
-    conn.close()
-    
-    # 🔥 DEFINIR nombre_negocio aquí
-    nombre_negocio = negocio['nombre'] if negocio else f"Negocio {negocio_id}"
-    
-    # Ahora SÍ puedes usarlo
+    # 🔥 Manifest con URLs ABSOLUTAS
     manifest = {
-        "name": f"WaBot - {nombre_negocio}",
+        "name": "WaBot",
         "short_name": "WaBot",
-        "description": f"Agendar citas en {nombre_negocio}",
-        "start_url": f"/cliente/{negocio_id}",
+        "description": "Agendar citas",
+        
+        # 🔥 start_url ABSOLUTA
+        "start_url": f"{base_url}/cliente/{negocio_id}",
+        
         "display": "standalone",
         "background_color": "#007bff",
         "theme_color": "#007bff",
-        "orientation": "portrait-primary",
-        "scope": "/",
+        "orientation": "portrait",
+        
+        # 🔥 scope ABSOLUTO
+        "scope": f"{base_url}/",
+        
         "lang": "es",
+        
+        # 🔥 iconos con URLs ABSOLUTAS
         "icons": [
             {
-                "src": "/static/icons/icon-192x192.png",
+                "src": f"{base_url}static/icons/icon-192x192.png",  # 🔥 ABSOLUTA
                 "sizes": "192x192",
                 "type": "image/png",
-                "purpose": "any maskable"
+                "purpose": "any"
             },
             {
-                "src": "/static/icons/icon-512x512.png",
+                "src": f"{base_url}static/icons/icon-512x512.png",  # 🔥 ABSOLUTA
                 "sizes": "512x512",
                 "type": "image/png",
-                "purpose": "any maskable"
-            }
-        ],
-        "categories": ["business", "productivity"],
-        "shortcuts": [
-            {
-                "name": "Agendar Cita",
-                "short_name": "Agendar",
-                "description": f"Agendar en {nombre_negocio}",
-                "url": f"/cliente/{negocio_id}",
-                "icons": [
-                    {
-                        "src": "/static/icons/icon-96x96.png",
-                        "sizes": "96x96",
-                        "type": "image/png"
-                    }
-                ]
+                "purpose": "any"
             }
         ]
     }
