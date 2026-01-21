@@ -4034,38 +4034,53 @@ def manifest_solo_clientes():
     
     negocio_id = match.group(1)
     
+    # Base URL para asegurar rutas absolutas
+    base_url = request.host_url.rstrip('/')
+    
     manifest = {
-        "name": f"WaBot - Negocio {negocio_id}",
-        "short_name": "WaBot",
-        "description": "Agendar citas",
+        "name": f"WaBot - {nombre_negocio}",
+        "short_name": "WaBot",  # ← MÁXIMO 12 caracteres
+        "description": f"Agendar citas en {nombre_negocio}",
         "start_url": f"/cliente/{negocio_id}",
-        "display": "standalone",
-        "background_color": "#007bff",
-        "theme_color": "#007bff",
         
-        # 🔥 RUTAS RELATIVAS SIMPLES (las que SIEMPRE funcionan)
+        # 🔥 ESTO ES CLAVE para accesos directos:
+        "display": "standalone",
+        "background_color": "#007bff",  # Color mientras carga
+        "theme_color": "#007bff",       # Color de la barra
+        
+        # 🔥 AGREGAR scope (importante):
+        "scope": "/",
+        
+        # 🔥 ORIENTACIÓN fija:
+        "orientation": "portrait-primary",
+        
         "icons": [
             {
-                "src": "/static/icons/icon-192x192.png",  # Relativa desde la raíz
+                "src": "/static/icons/icon-192x192.png",
                 "sizes": "192x192",
-                "type": "image/png"
+                "type": "image/png",
+                "purpose": "any maskable"  # ← AGREGAR ESTO
             },
             {
-                "src": "/static/icons/icon-512x512.png",  # Relativa desde la raíz
+                "src": "/static/icons/icon-512x512.png",
                 "sizes": "512x512",
-                "type": "image/png"
+                "type": "image/png",
+                "purpose": "any maskable"  # ← AGREGAR ESTO
             }
         ],
+        
+        # 🔥 AGREGAR categories (opcional pero ayuda):
+        "categories": ["business", "productivity"],
         
         "shortcuts": [
             {
                 "name": "Agendar Cita",
                 "short_name": "Agendar",
-                "description": "Agendar cita",
+                "description": f"Agendar en {nombre_negocio}",
                 "url": f"/cliente/{negocio_id}",
                 "icons": [
                     {
-                        "src": "/static/icons/icon-96x96.png",  # Relativa desde la raíz
+                        "src": "/static/icons/icon-96x96.png",
                         "sizes": "96x96",
                         "type": "image/png"
                     }
@@ -4075,7 +4090,8 @@ def manifest_solo_clientes():
     }
     
     response = jsonify(manifest)
-    response.headers['Cache-Control'] = 'no-store'
+    # Cache más flexible para PWA
+    response.headers['Cache-Control'] = 'public, max-age=86400'  # 24 horas
     return response
 
 def crear_manifest_default():
