@@ -4156,6 +4156,49 @@ def crear_manifest_default():
         ]
     }
 
+@app.route('/manifest-login.json')
+def manifest_login():
+    """Manifest específico para la página de login"""
+    
+    base_url = 'https://wabot-production-d544.up.railway.app'
+    
+    manifest = {
+        "name": "WaBot Login",
+        "short_name": "WaBot Login",
+        "description": "Acceso a la plataforma WaBot",
+        "start_url": f"{base_url}/login",
+        "display": "standalone",
+        "background_color": "#667eea",
+        "theme_color": "#667eea",
+        "orientation": "portrait",
+        "scope": f"{base_url}/",
+        "lang": "es",
+        "icons": [
+            {
+                "src": f"{base_url}/static/icons/icon-login-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": f"{base_url}/static/icons/icon-login-512.png",
+                "sizes": "512x512",
+                "type": "image/png", 
+                "purpose": "any maskable"
+            }
+        ],
+        "shortcuts": [
+            {
+                "name": "Iniciar Sesión",
+                "url": f"{base_url}/login"
+            }
+        ]
+    }
+    
+    response = jsonify(manifest)
+    response.headers['Cache-Control'] = 'no-store, no-cache'
+    return response
+
 @app.route('/app')
 def app_redirect():
     """Redirección inteligente según el tipo de usuario"""

@@ -2,17 +2,23 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Login - WaBot</title>
 
+    <!-- 🔥 PWA HABILITADO -->
     <meta name="theme-color" content="#007bff">
-    <meta name="mobile-web-app-capable" content="no"> 
-    <meta name="apple-mobile-web-app-capable" content="no"> 
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/icon-16x16.png') }}">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='icons/favicon.ico') }}">
+    <!-- 🔥 Manifest para el login -->
+    <link rel="manifest" href="/manifest-login.json">
+
+    <!-- Favicon para PWA -->
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-login-192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-login-512.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-login-192.png') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='icons/favicon-login.ico') }}">
 
     <style>
         * {
@@ -155,6 +161,24 @@
             margin-bottom: 0.3rem;
             font-family: monospace;
         }
+
+        /* 🔥 Botón para instalar como app */
+        .install-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+            display: none;
+            width: 100%;
+            font-size: 0.9rem;
+        }
+        
+        .install-btn:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body>
@@ -162,6 +186,11 @@
         <div class="logo">
             <h1>💼 Wabot</h1>
             <p>Plataforma Multi-Negocio - Acceso Unificado</p>
+            
+            <!-- 🔥 Botón para instalar PWA -->
+            <button id="installBtn" class="install-btn">
+                📲 Instalar como App
+            </button>
         </div>
         
         <div class="flash-messages">
@@ -199,45 +228,74 @@
 
     <script>
     // =============================================================================
-    // BLOQUEAR COMPLETAMENTE PWA EN EL PANEL
+    // HABILITAR PWA PARA EL LOGIN
     // =============================================================================
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('🚫 PWA bloqueado para el panel');
+        console.log('✅ PWA habilitado para el login');
         
-        // 1. Eliminar cualquier service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for (let registration of registrations) {
-                    console.log('🔥 Eliminando ServiceWorker:', registration.scope);
-                    registration.unregister();
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        
+        // 1. Mostrar botón de instalación cuando esté disponible
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 beforeinstallprompt disponible para login');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Mostrar botón
+            installBtn.style.display = 'block';
+            
+            installBtn.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('✅ Usuario instaló el login como app');
+                    } else {
+                        console.log('❌ Usuario canceló instalación');
+                    }
+                    deferredPrompt = null;
+                    installBtn.style.display = 'none';
+                });
+            });
+        });
+        
+        // 2. Si ya está instalado como PWA, ocultar botón
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('📱 Login ya está en modo PWA');
+            installBtn.style.display = 'none';
+        }
+        
+        // 3. Verificar y registrar Service Worker si no existe
+        if ('serviceWorker' in navigator && !window.location.hostname.includes('localhost')) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                if (registrations.length === 0) {
+                    navigator.serviceWorker.register('/static/sw-login.js')
+                        .then(registration => {
+                            console.log('✅ Service Worker registrado para login:', registration.scope);
+                        })
+                        .catch(error => {
+                            console.log('❌ Error registrando SW:', error);
+                        });
                 }
             });
         }
         
-        // 2. Bloquear beforeinstallprompt
-        window.addEventListener('beforeinstallprompt', function(e) {
-            console.log('🚫 beforeinstallprompt bloqueado');
-            e.preventDefault();
-            return false;
-        }, {once: true});
-        
-        // 3. Verificar que NO hay manifest
-        const manifestLinks = document.querySelectorAll('link[rel="manifest"]');
-        if (manifestLinks.length > 0) {
-            console.log('⚠️ Se encontraron manifests, eliminando...');
-            manifestLinks.forEach(link => link.remove());
-        }
-        
-        // 4. Forzar recarga si se detecta intento de instalación
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('📱 Está en modo PWA, redirigiendo...');
-            // Si por algún error está en modo PWA, redirigir
-            window.location.href = window.location.href + '?no-pwa=1';
+        // 4. Forzar actualización del manifest
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink) {
+            const newHref = '/manifest-login.json?t=' + Date.now();
+            manifestLink.href = newHref;
         }
     });
 
-    // También bloquear clic derecho en ícono si es iOS
+    // 5. Detectar si es iOS para añadir icono específico
     if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        const appleIcon = document.createElement('link');
+        appleIcon.rel = 'apple-touch-icon';
+        appleIcon.href = '{{ url_for("static", filename="icons/icon-login-192.png") }}';
+        document.head.appendChild(appleIcon);
+        
+        // Evitar zoom en inputs
         document.addEventListener('touchstart', function(e) {
             if (e.touches.length > 1) {
                 e.preventDefault();
