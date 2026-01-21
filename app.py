@@ -4066,12 +4066,120 @@ def cliente_redirect_smart():
     # Redirigir a la página del cliente con el negocio correcto
     return redirect(url_for('chat_index', negocio_id=negocio_id))
 
+@app.route('/app')
+def app_redirect():
+    """Redirección inteligente según el tipo de usuario"""
+    # Verificar si hay sesión de trabajador
+    if 'usuario_id' in session:
+        # Es trabajador, redirigir al dashboard correspondiente
+        rol = session.get('usuario_rol')
+        if rol == 'superadmin':
+            return redirect(url_for('admin_dashboard'))
+        elif rol == 'propietario':
+            return redirect(url_for('negocio_dashboard'))
+        elif rol == 'profesional':
+            return redirect(url_for('profesional_dashboard'))
+        else:
+            return redirect(url_for('login'))
+    else:
+        # Es cliente, redirigir al negocio por defecto
+        return redirect(url_for('cliente_redirect_smart'))
 
 @app.route('/chat')
 def chat_universal():
     """Ruta principal para clientes"""
     negocio_id = request.args.get('negocio', 1)
     return redirect(url_for('chat_index', negocio_id=negocio_id))
+
+# =============================================================================
+# MANIFEST PARA EL PANEL DE TRABAJADORES
+# =============================================================================
+
+@app.route('/manifest-panel.json')
+def manifest_panel():
+    """Manifest específico para el panel de trabajadores"""
+    manifest = {
+        "name": "WaBot - Panel",
+        "short_name": "WaBot Panel",
+        "description": "Panel de administración de WaBot",
+        "start_url": "/app",
+        "display": "standalone",
+        "background_color": "#007bff",
+        "theme_color": "#007bff",
+        "orientation": "portrait-primary",
+        "scope": "/",
+        "lang": "es",
+        "icons": [
+            {
+                "src": "/static/icons/icon-72x72.png",
+                "sizes": "72x72",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-96x96.png",
+                "sizes": "96x96",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-128x128.png",
+                "sizes": "128x128",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-144x144.png",
+                "sizes": "144x144",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-152x152.png",
+                "sizes": "152x152",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-192x192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/icons/icon-384x384.png",
+                "sizes": "384x384",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "/static/icons/icon-512x512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ],
+        "categories": ["business", "productivity", "utilities"],
+        "shortcuts": [
+            {
+                "name": "Panel WaBot",
+                "short_name": "Panel",
+                "description": "Acceder al panel de administración",
+                "url": "/app",
+                "icons": [
+                    {
+                        "src": "/static/icons/icon-96x96.png",
+                        "sizes": "96x96",
+                        "type": "image/png"
+                    }
+                ]
+            }
+        ]
+    }
+    
+    response = jsonify(manifest)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
