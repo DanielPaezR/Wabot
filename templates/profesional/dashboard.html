@@ -1378,7 +1378,7 @@
                                     style="display: inline;">
 
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    
+
                                     <button type="submit" 
                                             class="btn-complete completar-btn"
                                             data-cita-id="{{ cita.id }}"
@@ -1467,6 +1467,37 @@
                 }, 3000);
             }
         }
+
+        function manejarCompletarCita(event, boton) {
+            event.preventDefault();
+            
+            const formulario = boton.closest('form');
+            const botonOriginal = boton.innerHTML;
+            
+            // Verificar que el formulario tenga CSRF token
+            const csrfInput = formulario.querySelector('input[name="csrf_token"]');
+            if (!csrfInput || !csrfInput.value) {
+                mostrarNotificacion('❌ Error de seguridad. Recarga la página.');
+                return false;
+            }
+            
+            // Deshabilitar botón
+            boton.disabled = true;
+            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+            boton.style.opacity = '0.7';
+            boton.style.cursor = 'not-allowed';
+            
+            // Mostrar notificación
+            mostrarNotificacion('✅ Completando cita...');
+            
+            // Enviar formulario después de breve pausa
+            setTimeout(() => {
+                formulario.submit();
+            }, 800);
+            
+            return false;
+        }
+
         // ==================== FUNCIONES DE NOTIFICACIONES WEB ====================
         
         let notificationsOpen = false;
