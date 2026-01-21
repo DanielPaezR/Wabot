@@ -4022,11 +4022,14 @@ def test_personalizar():
 
 @app.route('/manifest.json')
 def manifest_solo_clientes():
+    """Manifest SOLO para clientes"""
     referer = request.headers.get('Referer', '')
     
+    # SOLO procesar si viene de /cliente/
     if not referer or '/cliente/' not in referer:
-        return jsonify({"error": "No PWA"}), 404
+        return jsonify({"error": "No PWA disponible"}), 404
     
+    # Extraer negocio_id
     import re
     match = re.search(r'/cliente/(\d+)', referer)
     if not match:
@@ -4034,44 +4037,43 @@ def manifest_solo_clientes():
     
     negocio_id = match.group(1)
     
-    # Base URL para asegurar rutas absolutas
-    base_url = request.host_url.rstrip('/')
+    # 🔥 PRIMERO obtener nombre_negocio, ANTES de usarlo
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT nombre FROM negocios WHERE id = %s', (negocio_id,))
+    negocio = cursor.fetchone()
+    conn.close()
     
+    # 🔥 DEFINIR nombre_negocio aquí
+    nombre_negocio = negocio['nombre'] if negocio else f"Negocio {negocio_id}"
+    
+    # Ahora SÍ puedes usarlo
     manifest = {
         "name": f"WaBot - {nombre_negocio}",
-        "short_name": "WaBot",  # ← MÁXIMO 12 caracteres
+        "short_name": "WaBot",
         "description": f"Agendar citas en {nombre_negocio}",
         "start_url": f"/cliente/{negocio_id}",
-        
-        # 🔥 ESTO ES CLAVE para accesos directos:
         "display": "standalone",
-        "background_color": "#007bff",  # Color mientras carga
-        "theme_color": "#007bff",       # Color de la barra
-        
-        # 🔥 AGREGAR scope (importante):
-        "scope": "/",
-        
-        # 🔥 ORIENTACIÓN fija:
+        "background_color": "#007bff",
+        "theme_color": "#007bff",
         "orientation": "portrait-primary",
-        
+        "scope": "/",
+        "lang": "es",
         "icons": [
             {
                 "src": "/static/icons/icon-192x192.png",
                 "sizes": "192x192",
                 "type": "image/png",
-                "purpose": "any maskable"  # ← AGREGAR ESTO
+                "purpose": "any maskable"
             },
             {
                 "src": "/static/icons/icon-512x512.png",
                 "sizes": "512x512",
                 "type": "image/png",
-                "purpose": "any maskable"  # ← AGREGAR ESTO
+                "purpose": "any maskable"
             }
         ],
-        
-        # 🔥 AGREGAR categories (opcional pero ayuda):
         "categories": ["business", "productivity"],
-        
         "shortcuts": [
             {
                 "name": "Agendar Cita",
@@ -4090,8 +4092,7 @@ def manifest_solo_clientes():
     }
     
     response = jsonify(manifest)
-    # Cache más flexible para PWA
-    response.headers['Cache-Control'] = 'public, max-age=86400'  # 24 horas
+    response.headers['Cache-Control'] = 'no-store, no-cache'
     return response
 
 def crear_manifest_default():
