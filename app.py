@@ -4021,86 +4021,81 @@ def test_personalizar():
 # =============================================================================
 
 @app.route('/manifest.json')
-def manifest_unico():
-    """Manifest SOLO para accesos directos, NO para PWA instalable"""
+def manifest_solo_clientes():
+    """Manifest SOLO para clientes, detecta negocio desde referer"""
+    referer = request.headers.get('Referer', '')
+    
+    # SOLO procesar si viene de /cliente/
+    if not referer or '/cliente/' not in referer:
+        # Si NO viene de cliente, devolver manifest VACÍO (sin start_url)
+        manifest = {
+            "name": "No PWA",
+            "short_name": "No",
+            "description": "No disponible",
+            "icons": []
+        }
+        response = jsonify(manifest)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    
+    # Extraer negocio_id del referer
+    import re
+    match = re.search(r'/cliente/(\d+)', referer)
+    if not match:
+        return jsonify({"error": "URL no válida"}), 400
+    
+    negocio_id = match.group(1)
+    
+    # Obtener nombre del negocio
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT nombre FROM negocios WHERE id = %s', (negocio_id,))
+    negocio = cursor.fetchone()
+    conn.close()
+    
+    nombre_negocio = negocio['nombre'] if negocio else f"Negocio {negocio_id}"
+    
     # URL base
     base_url = request.host_url.rstrip('/')
     
-    # Detectar de dónde viene
-    referer = request.headers.get('Referer', '')
-    
-    # Determinar start_url
-    if any(x in referer for x in ['/login', '/admin', '/negocio', '/profesional', '/dashboard']):
-        start_url = "/app"
-        app_name = "WaBot Panel"
-        short_name = "Panel"
-    elif '/cliente/' in referer:
-        import re
-        match = re.search(r'/cliente/(\d+)', referer)
-        if match:
-            start_url = f"/cliente/{match.group(1)}"
-            app_name = "Agendar Cita"
-            short_name = "Agendar"
-        else:
-            start_url = "/app"
-            app_name = "WaBot"
-            short_name = "WaBot"
-    else:
-        start_url = "/app"
-        app_name = "WaBot"
-        short_name = "WaBot"
-    
-    # 🔥 MANIFEST ESPECÍFICO PARA ACCESOS DIRECTOS (NO PWA INSTALABLE)
     manifest = {
-        "name": app_name,
-        "short_name": short_name,
-        "description": "Acceso rápido a WaBot",
+        "name": f"WaBot - {nombre_negocio}",
+        "short_name": "WaBot",
+        "description": f"Agendar citas en {nombre_negocio}",
         
-        # ✅ ESTO ES CLAVE: start_url relativa, NO absoluta
-        "start_url": start_url,
+        # URL RELATIVA
+        "start_url": f"/cliente/{negocio_id}",
         
-        # ✅ display: 'minimal-ui' o 'browser' para NO instalar como PWA
-        "display": "minimal-ui",  # "standalone" instala como app, "minimal-ui" solo acceso directo
-        
-        "background_color": "#ffffff",
+        "display": "standalone",
+        "background_color": "#007bff",
         "theme_color": "#007bff",
+        "orientation": "portrait",
         
-        # ✅ orientation: 'any' para evitar restricciones
-        "orientation": "any",
-        
-        "scope": "/",
-        "lang": "es",
-        
-        # ✅ ICONOS MÍNIMOS pero efectivos
+        # ✅ ICONOS CORREGIDOS (usa la carpeta /static/icons/)
         "icons": [
-            # Solo los esenciales para accesos directos
             {
-                "src": "/static/icons/icon-192x192.png",
+                "src": f"{base_url}/static/icons/icon-192x192.png",  # ← CORREGIDO
                 "sizes": "192x192",
                 "type": "image/png",
-                "purpose": "any maskable"
+                "purpose": "any"
             },
             {
-                "src": "/static/icons/icon-512x512.png",
-                "sizes": "512x512", 
+                "src": f"{base_url}/static/icons/icon-512x512.png",  # ← CORREGIDO
+                "sizes": "512x512",
                 "type": "image/png",
-                "purpose": "any maskable"
+                "purpose": "any"
             }
         ],
         
-        # ✅ CATEGORÍAS que no triggeren instalación automática
-        "categories": ["utilities"],
-        
-        # ✅ SHORTCUTS simples
         "shortcuts": [
             {
-                "name": app_name,
-                "short_name": short_name,
-                "description": "Acceso rápido",
-                "url": start_url,
+                "name": "Agendar Cita",
+                "short_name": "Agendar",
+                "description": f"Agendar en {nombre_negocio}",
+                "url": f"/cliente/{negocio_id}",
                 "icons": [
                     {
-                        "src": "/static/icons/icon-96x96.png",
+                        "src": f"{base_url}/static/icons/icon-96x96.png",  # ← CORREGIDO
                         "sizes": "96x96",
                         "type": "image/png"
                     }
@@ -4110,7 +4105,7 @@ def manifest_unico():
     }
     
     response = jsonify(manifest)
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Cache-Control'] = 'no-store, no-cache'
     return response
 
 def crear_manifest_default():

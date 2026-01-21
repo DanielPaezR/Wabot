@@ -4,16 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - WaBot</title>
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#007bff">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="WaBot">
 
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-152x152.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/icon-180x180.png') }}">
+    <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="no"> 
+    <meta name="apple-mobile-web-app-capable" content="no"> 
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-32x32.png') }}">
@@ -205,70 +199,50 @@
 
     <script>
     // =============================================================================
-    // SCRIPT PARA FORZAR SOLO ACCESO DIRECTO, NO INSTALACIÓN COMO APP
+    // BLOQUEAR COMPLETAMENTE PWA EN EL PANEL
     // =============================================================================
-
     document.addEventListener('DOMContentLoaded', function() {
-        console.log("🚫 Bloqueando instalación automática de PWA...");
+        console.log('🚫 PWA bloqueado para el panel');
         
-        // 1. Bloquear el beforeinstallprompt (instalación automática)
-        window.addEventListener('beforeinstallprompt', function(e) {
-            console.log("🚫 beforeinstallprompt BLOQUEADO - Solo queremos acceso directo");
-            e.preventDefault();
-            return false;
-        });
-        
-        // 2. Actualizar el manifest con timestamp para evitar caché
-        setTimeout(function() {
-            const manifestLinks = document.querySelectorAll('link[rel="manifest"]');
-            manifestLinks.forEach(function(link) {
-                const newHref = link.href.split('?')[0] + '?t=' + Date.now();
-                link.href = newHref;
-                console.log('🔄 Manifest actualizado sin caché:', newHref);
+        // 1. Eliminar cualquier service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (let registration of registrations) {
+                    console.log('🔥 Eliminando ServiceWorker:', registration.scope);
+                    registration.unregister();
+                }
             });
-        }, 1000);
-        
-        // 3. Verificar que los iconos se carguen
-        console.log("🔍 Verificando carga de iconos...");
-        const iconUrls = [
-            '/static/icons/icon-192x192.png',
-            '/static/icons/icon-512x512.png',
-            '/static/icons/icon-96x96.png'
-        ];
-        
-        iconUrls.forEach(function(url) {
-            const img = new Image();
-            img.onload = function() {
-                console.log('✅ Icono cargado:', url);
-            };
-            img.onerror = function() {
-                console.error('❌ Icono NO encontrado:', url);
-            };
-            img.src = url;
-        });
-    });
-
-    // Función para guiar al usuario a crear acceso directo
-    function mostrarInstruccionesAccesoDirecto() {
-        const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const esAndroid = /Android/.test(navigator.userAgent);
-        
-        let mensaje = '';
-        
-        if (esIOS) {
-            mensaje = '📱 Para iPhone:\n1. Toca el ícono de compartir (📤)\n2. Desplázate y selecciona "Añadir a inicio"\n3. Confirma el nombre y toca "Añadir"';
-        } else if (esAndroid) {
-            mensaje = '📱 Para Android:\n1. Toca el menú (⋮) en la esquina superior derecha\n2. Selecciona "Añadir a la pantalla de inicio"\n3. Confirma y presiona "Añadir"';
-        } else {
-            mensaje = '💻 Para PC:\n1. Haz clic en el ícono de instalación en la barra de dirección\n2. Selecciona "Instalar" o sigue las instrucciones de tu navegador';
         }
         
-        alert('📌 Crea un acceso directo:\n\n' + mensaje + '\n\n✅ Esto solo creará un acceso directo, NO instalará una app.');
-    }
+        // 2. Bloquear beforeinstallprompt
+        window.addEventListener('beforeinstallprompt', function(e) {
+            console.log('🚫 beforeinstallprompt bloqueado');
+            e.preventDefault();
+            return false;
+        }, {once: true});
+        
+        // 3. Verificar que NO hay manifest
+        const manifestLinks = document.querySelectorAll('link[rel="manifest"]');
+        if (manifestLinks.length > 0) {
+            console.log('⚠️ Se encontraron manifests, eliminando...');
+            manifestLinks.forEach(link => link.remove());
+        }
+        
+        // 4. Forzar recarga si se detecta intento de instalación
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log('📱 Está en modo PWA, redirigiendo...');
+            // Si por algún error está en modo PWA, redirigir
+            window.location.href = window.location.href + '?no-pwa=1';
+        }
+    });
 
-    // Mostrar instrucciones si el usuario intenta "instalar"
-    if (window.location.search.includes('install') || window.location.hash.includes('install')) {
-        setTimeout(mostrarInstruccionesAccesoDirecto, 2000);
+    // También bloquear clic derecho en ícono si es iOS
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, {passive: false});
     }
     </script>
 </body>
