@@ -204,17 +204,72 @@
     </div>
 
     <script>
-        // Forzar manifest fresco cada vez
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const links = document.querySelectorAll('link[rel="manifest"]');
-                links.forEach(link => {
-                    const newHref = link.href.split('?')[0] + '?v=' + Date.now();
-                    link.href = newHref;
-                    console.log('🔄 Manifest actualizado:', newHref);
-                });
-            }, 1000);
+    // =============================================================================
+    // SCRIPT PARA FORZAR SOLO ACCESO DIRECTO, NO INSTALACIÓN COMO APP
+    // =============================================================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("🚫 Bloqueando instalación automática de PWA...");
+        
+        // 1. Bloquear el beforeinstallprompt (instalación automática)
+        window.addEventListener('beforeinstallprompt', function(e) {
+            console.log("🚫 beforeinstallprompt BLOQUEADO - Solo queremos acceso directo");
+            e.preventDefault();
+            return false;
         });
+        
+        // 2. Actualizar el manifest con timestamp para evitar caché
+        setTimeout(function() {
+            const manifestLinks = document.querySelectorAll('link[rel="manifest"]');
+            manifestLinks.forEach(function(link) {
+                const newHref = link.href.split('?')[0] + '?t=' + Date.now();
+                link.href = newHref;
+                console.log('🔄 Manifest actualizado sin caché:', newHref);
+            });
+        }, 1000);
+        
+        // 3. Verificar que los iconos se carguen
+        console.log("🔍 Verificando carga de iconos...");
+        const iconUrls = [
+            '/static/icons/icon-192x192.png',
+            '/static/icons/icon-512x512.png',
+            '/static/icons/icon-96x96.png'
+        ];
+        
+        iconUrls.forEach(function(url) {
+            const img = new Image();
+            img.onload = function() {
+                console.log('✅ Icono cargado:', url);
+            };
+            img.onerror = function() {
+                console.error('❌ Icono NO encontrado:', url);
+            };
+            img.src = url;
+        });
+    });
+
+    // Función para guiar al usuario a crear acceso directo
+    function mostrarInstruccionesAccesoDirecto() {
+        const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const esAndroid = /Android/.test(navigator.userAgent);
+        
+        let mensaje = '';
+        
+        if (esIOS) {
+            mensaje = '📱 Para iPhone:\n1. Toca el ícono de compartir (📤)\n2. Desplázate y selecciona "Añadir a inicio"\n3. Confirma el nombre y toca "Añadir"';
+        } else if (esAndroid) {
+            mensaje = '📱 Para Android:\n1. Toca el menú (⋮) en la esquina superior derecha\n2. Selecciona "Añadir a la pantalla de inicio"\n3. Confirma y presiona "Añadir"';
+        } else {
+            mensaje = '💻 Para PC:\n1. Haz clic en el ícono de instalación en la barra de dirección\n2. Selecciona "Instalar" o sigue las instrucciones de tu navegador';
+        }
+        
+        alert('📌 Crea un acceso directo:\n\n' + mensaje + '\n\n✅ Esto solo creará un acceso directo, NO instalará una app.');
+    }
+
+    // Mostrar instrucciones si el usuario intenta "instalar"
+    if (window.location.search.includes('install') || window.location.hash.includes('install')) {
+        setTimeout(mostrarInstruccionesAccesoDirecto, 2000);
+    }
     </script>
 </body>
 </html>

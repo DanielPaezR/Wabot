@@ -4022,158 +4022,80 @@ def test_personalizar():
 
 @app.route('/manifest.json')
 def manifest_unico():
-    """Manifest ÚNICO que detecta automáticamente qué mostrar"""
+    """Manifest SOLO para accesos directos, NO para PWA instalable"""
     # URL base
     base_url = request.host_url.rstrip('/')
     
-    # 1. Si viene del PANEL
+    # Detectar de dónde viene
     referer = request.headers.get('Referer', '')
     
-    # Determinar start_url basado en el referer
+    # Determinar start_url
     if any(x in referer for x in ['/login', '/admin', '/negocio', '/profesional', '/dashboard']):
-        start_url = "/app"  # Para trabajadores
-        app_name = "WaBot - Panel"
+        start_url = "/app"
+        app_name = "WaBot Panel"
+        short_name = "Panel"
     elif '/cliente/' in referer:
         import re
         match = re.search(r'/cliente/(\d+)', referer)
         if match:
-            start_url = f"{base_url}/cliente/{match.group(1)}"  # URL específica
-            # Obtener nombre del negocio para personalizar
-            conn = get_db_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute('SELECT nombre FROM negocios WHERE id = %s', (match.group(1),))
-            negocio = cursor.fetchone()
-            conn.close()
-            app_name = f"WaBot - {negocio['nombre'] if negocio else 'Cliente'}"
+            start_url = f"/cliente/{match.group(1)}"
+            app_name = "Agendar Cita"
+            short_name = "Agendar"
         else:
             start_url = "/app"
             app_name = "WaBot"
+            short_name = "WaBot"
     else:
         start_url = "/app"
         app_name = "WaBot"
+        short_name = "WaBot"
     
+    # 🔥 MANIFEST ESPECÍFICO PARA ACCESOS DIRECTOS (NO PWA INSTALABLE)
     manifest = {
         "name": app_name,
-        "short_name": "WaBot",
-        "description": "Sistema de agendamiento de citas",
+        "short_name": short_name,
+        "description": "Acceso rápido a WaBot",
+        
+        # ✅ ESTO ES CLAVE: start_url relativa, NO absoluta
         "start_url": start_url,
-        "display": "standalone",
-        "background_color": "#007bff",
+        
+        # ✅ display: 'minimal-ui' o 'browser' para NO instalar como PWA
+        "display": "minimal-ui",  # "standalone" instala como app, "minimal-ui" solo acceso directo
+        
+        "background_color": "#ffffff",
         "theme_color": "#007bff",
-        "orientation": "portrait-primary",
+        
+        # ✅ orientation: 'any' para evitar restricciones
+        "orientation": "any",
+        
         "scope": "/",
         "lang": "es",
         
-        # =========================================================================
-        # ICONOS PARA DIFERENTES TAMAÑOS Y DISPOSITIVOS
-        # =========================================================================
+        # ✅ ICONOS MÍNIMOS pero efectivos
         "icons": [
-            # Android/Chrome
+            # Solo los esenciales para accesos directos
             {
-                "src": "/static/icons/icon-72x72.png",
-                "sizes": "72x72",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-96x96.png",
-                "sizes": "96x96",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-128x128.png",
-                "sizes": "128x128",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-144x144.png",
-                "sizes": "144x144",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-152x152.png",
-                "sizes": "152x152",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-192x192.png",  # Android Chrome
+                "src": "/static/icons/icon-192x192.png",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": "/static/icons/icon-384x384.png",
-                "sizes": "384x384",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-512x512.png",  # Splash screen
-                "sizes": "512x512",
+                "src": "/static/icons/icon-512x512.png",
+                "sizes": "512x512", 
                 "type": "image/png",
                 "purpose": "any maskable"
-            },
-            
-            # iOS/Safari
-            {
-                "src": "/static/icons/apple-touch-icon-60x60.png",
-                "sizes": "60x60",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/apple-touch-icon-76x76.png",
-                "sizes": "76x76",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/apple-touch-icon-120x120.png",
-                "sizes": "120x120",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/apple-touch-icon-152x152.png",
-                "sizes": "152x152",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/apple-touch-icon-180x180.png",  # iOS Home Screen
-                "sizes": "180x180",
-                "type": "image/png"
-            },
-            
-            # Windows
-            {
-                "src": "/static/icons/mstile-70x70.png",
-                "sizes": "70x70",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/mstile-150x150.png",
-                "sizes": "150x150",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/mstile-310x150.png",
-                "sizes": "310x150",
-                "type": "image/png"
-            },
-            {
-                "src": "/static/icons/mstile-310x310.png",
-                "sizes": "310x310",
-                "type": "image/png"
             }
         ],
         
-        "categories": ["business", "productivity", "utilities"],
+        # ✅ CATEGORÍAS que no triggeren instalación automática
+        "categories": ["utilities"],
         
+        # ✅ SHORTCUTS simples
         "shortcuts": [
             {
-                "name": "Agendar Cita" if "Cliente" in app_name else "Panel WaBot",
-                "short_name": "Agendar" if "Cliente" in app_name else "Panel",
+                "name": app_name,
+                "short_name": short_name,
                 "description": "Acceso rápido",
                 "url": start_url,
                 "icons": [
@@ -4184,24 +4106,11 @@ def manifest_unico():
                     }
                 ]
             }
-        ],
-        
-        # Safari pinned tab
-        "safari_pinned_tab_color": "#007bff",
-        
-        # MS Tile
-        "msapplication_TileColor": "#007bff",
-        "msapplication_TileImage": "/static/icons/mstile-144x144.png",
-        
-        # Para Android - color de la barra de dirección
-        "theme_color": "#007bff",
-        "background_color": "#007bff"
+        ]
     }
     
-    # Headers para evitar caché
     response = jsonify(manifest)
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
     return response
 
 def crear_manifest_default():
