@@ -4021,8 +4021,8 @@ def test_personalizar():
 # =============================================================================
 
 @app.route('/manifest.json')
-def manifest_garantizado():
-    """Manifest con URLs ABSOLUTAS que SI funcionan"""
+def manifest_corregido():
+    """Manifest CORREGIDO con URLs válidas"""
     referer = request.headers.get('Referer', '')
     
     # Detectar negocio
@@ -4033,41 +4033,50 @@ def manifest_garantizado():
         if match:
             negocio_id = match.group(1)
     
-    # 🔥 URL BASE ABSOLUTA
-    base_url = request.host_url.rstrip('/')
+    # 🔥 URL BASE CORRECTA (con https://)
+    base_url = 'https://wabot-production-d544.up.railway.app'
     
-    # 🔥 Manifest con URLs ABSOLUTAS
     manifest = {
         "name": "WaBot",
         "short_name": "WaBot",
         "description": "Agendar citas",
-        
-        # 🔥 start_url ABSOLUTA
         "start_url": f"{base_url}/cliente/{negocio_id}",
-        
         "display": "standalone",
         "background_color": "#007bff",
         "theme_color": "#007bff",
         "orientation": "portrait",
         
-        # 🔥 scope ABSOLUTO
+        # 🔥 scope CORRECTO
         "scope": f"{base_url}/",
         
         "lang": "es",
         
-        # 🔥 iconos con URLs ABSOLUTAS
+        # 🔥 iconos CON BARRA CORRECTA
         "icons": [
             {
-                "src": f"{base_url}static/icons/icon-192x192.png",  # 🔥 ABSOLUTA
+                "src": f"{base_url}/static/icons/icon-192x192.png",  
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any"
             },
             {
-                "src": f"{base_url}static/icons/icon-512x512.png",  # 🔥 ABSOLUTA
-                "sizes": "512x512",
+                "src": f"{base_url}/static/icons/icon-512x512.png",  
+                "sizes": "512x512", 
                 "type": "image/png",
                 "purpose": "any"
+            }
+        ],
+        
+        # 🔥 shortcuts SIMPLES (si quieres)
+        "shortcuts": [
+            {
+                "name": "Agendar",
+                "url": f"{base_url}/cliente/{negocio_id}",
+                "icons": [{
+                    "src": f"{base_url}/static/icons/icon-96x96.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                }]
             }
         ]
     }
