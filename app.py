@@ -4021,8 +4021,7 @@ def test_personalizar():
 # =============================================================================
 
 @app.route('/manifest.json')
-def manifest_corregido():
-    """Manifest CORREGIDO con URLs válidas"""
+def manifest_final():
     referer = request.headers.get('Referer', '')
     
     # Detectar negocio
@@ -4033,7 +4032,6 @@ def manifest_corregido():
         if match:
             negocio_id = match.group(1)
     
-    # 🔥 URL BASE CORRECTA (con https://)
     base_url = 'https://wabot-production-d544.up.railway.app'
     
     manifest = {
@@ -4045,38 +4043,30 @@ def manifest_corregido():
         "background_color": "#007bff",
         "theme_color": "#007bff",
         "orientation": "portrait",
-        
-        # 🔥 scope CORRECTO
         "scope": f"{base_url}/",
-        
         "lang": "es",
         
-        # 🔥 iconos CON BARRA CORRECTA
+        # 🔥 CLAVE: "any maskable" para iconos adaptables
         "icons": [
             {
-                "src": f"{base_url}/static/icons/icon-192x192.png",  
+                "src": f"{base_url}/static/icons/icon-192x192.png",
                 "sizes": "192x192",
                 "type": "image/png",
-                "purpose": "any"
+                "purpose": "any maskable"  # 🔥 ESTA LÍNEA ES CLAVE
             },
             {
-                "src": f"{base_url}/static/icons/icon-512x512.png",  
-                "sizes": "512x512", 
-                "type": "image/png",
-                "purpose": "any"
+                "src": f"{base_url}/static/icons/icon-512x512.png",
+                "sizes": "512x512",
+                "type": "image/png", 
+                "purpose": "any maskable"  # 🔥 ESTA LÍNEA ES CLAVE
             }
         ],
         
-        # 🔥 shortcuts SIMPLES (si quieres)
+        # 🔥 OPCIONAL: Agrega este shortcut simplificado
         "shortcuts": [
             {
                 "name": "Agendar",
-                "url": f"{base_url}/cliente/{negocio_id}",
-                "icons": [{
-                    "src": f"{base_url}/static/icons/icon-96x96.png",
-                    "sizes": "96x96",
-                    "type": "image/png"
-                }]
+                "url": f"{base_url}/cliente/{negocio_id}"
             }
         ]
     }
