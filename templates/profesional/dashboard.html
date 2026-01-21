@@ -492,6 +492,7 @@
             gap: 0.8rem;
         }
         
+        /* ESTILOS EXISTENTES */
         .btn-complete {
             background: var(--success);
             color: var(--white);
@@ -502,16 +503,43 @@
             font-weight: 600;
             cursor: pointer;
             min-height: 44px;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
-        
-        .btn-complete:active {
+
+        .btn-complete:active:not(:disabled) {
             transform: scale(0.95);
         }
-        
+
+        /* NUEVOS ESTILOS PARA ESTADO DESHABILITADO */
         .btn-complete:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
+            background: #95a5a6 !important;
+            cursor: not-allowed !important;
+            opacity: 0.7 !important;
+            transform: none !important;
+        }
+
+        .btn-complete:disabled:hover {
+            background: #95a5a6 !important;
+        }
+
+        /* Efecto de "pulsación" cuando está activo */
+        .btn-complete:not(:disabled):active {
+            animation: pulseClick 0.3s ease;
+        }
+
+        @keyframes pulseClick {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        /* Indicador de "procesando" */
+        .btn-complete .spinner-border-sm {
+            width: 0.8rem;
+            height: 0.8rem;
+            border-width: 0.15em;
         }
         
         .empty-state {
@@ -1336,16 +1364,25 @@
                         <!-- 🔥 CORRECCIÓN: AMBOS BOTONES SIEMPRE VISIBLES -->
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <!-- Botón Completar -->
-                            {% if cita.estado != 'completado' %}
-                            <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" style="display: inline;">
-                                <button type="submit" class="btn-complete" onclick="mostrarNotificacion()">
-                                    ✅ Completar
-                                </button>
-                            </form>
+                            {% if cita.estado == 'cancelado' %}
+                                <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span>❌</span> Cancelada
+                                </span>
+                            {% elif cita.estado == 'completado' %}
+                                <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                    <span>✅</span> Completado
+                                </span>
                             {% else %}
-                            <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                <span>✅</span> Completado
-                            </span>
+                                <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
+                                    class="completar-cita-form" 
+                                    style="display: inline;">
+                                    <button type="submit" 
+                                            class="btn-complete completar-btn"
+                                            data-cita-id="{{ cita.id }}"
+                                            onclick="return manejarCompletarCita(event, this);">
+                                        ✅ Completar
+                                    </button>
+                                </form>
                             {% endif %}
                             
                             <!-- Botón Personalizar - SIEMPRE VISIBLE -->
@@ -1389,6 +1426,44 @@
     </div>
 
     <script>
+        // ==================== FUNCIÓN PARA COMPLETAR CITAS ====================
+        async function completarCita(event, citaId) {
+            event.preventDefault(); // Prevenir envío inmediato del formulario
+            
+            const boton = event.target;
+            const formulario = boton.closest('.completar-cita-form');
+            
+            // Deshabilitar botón inmediatamente para evitar doble clic
+            boton.disabled = true;
+            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+            boton.style.opacity = '0.7';
+            boton.style.cursor = 'not-allowed';
+            
+            try {
+                // Mostrar notificación inmediata
+                mostrarNotificacion();
+                
+                // Esperar un momento para que el usuario vea la notificación
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Enviar el formulario
+                formulario.submit();
+                
+            } catch (error) {
+                console.error('Error completando cita:', error);
+                boton.innerHTML = '❌ Error';
+                boton.style.background = 'var(--danger)';
+                
+                // Rehabilitar después de 3 segundos si hay error
+                setTimeout(() => {
+                    boton.disabled = false;
+                    boton.innerHTML = '✅ Completar';
+                    boton.style.opacity = '1';
+                    boton.style.cursor = 'pointer';
+                    boton.style.background = '';
+                }, 3000);
+            }
+        }
         // ==================== FUNCIONES DE NOTIFICACIONES WEB ====================
         
         let notificationsOpen = false;
@@ -1810,16 +1885,28 @@
             window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
         }
 
-        function mostrarNotificacion() {
+        function mostrarNotificacion(mensaje = '✅ Cita marcada como completada') {
             const notification = document.getElementById('notification');
+            if (!notification) return;
+            
+            notification.textContent = mensaje;
             notification.style.display = 'block';
+            notification.style.opacity = '1';
+            
+            // Ocultar después de 3 segundos con animación
             setTimeout(() => {
-                notification.style.display = 'none';
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                    notification.style.opacity = '1';
+                    notification.style.transition = '';
+                }, 500);
             }, 3000);
             
-            // Vibrate if supported
+            // Vibrar si está soportado
             if (navigator.vibrate) {
-                navigator.vibrate(200);
+                navigator.vibrate([100, 50, 100]);
             }
         }
 
