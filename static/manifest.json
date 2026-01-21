@@ -2,7 +2,7 @@
   "name": "WaBot - Sistema de Citas",
   "short_name": "WaBot",
   "description": "Sistema de agendamiento de citas inteligente WaBot",
-  "start_url": "/login",
+  "start_url": "/chat",
   "display": "standalone",
   "background_color": "#007bff",
   "theme_color": "#007bff",
@@ -68,7 +68,7 @@
       "name": "Agendar Cita",
       "short_name": "Agendar",
       "description": "Agendar una nueva cita en WaBot",
-      "url": "/cliente",
+      "url": "/chat",
       "icons": [
         {
           "src": "/static/icons/icon-96x96.png",

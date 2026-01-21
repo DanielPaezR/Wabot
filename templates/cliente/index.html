@@ -312,6 +312,22 @@
             min-height: 44px;
         }
         
+        /* Botón de compartir enlace */
+        .share-btn {
+            background: #28a745 !important;
+            color: white !important;
+            border: 1px solid #28a745 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+        }
+        
+        .share-btn:hover {
+            background: #218838 !important;
+            border-color: #1e7e34 !important;
+        }
+        
         /* Responsive */
         @media (max-width: 576px) {
             .chat-container, .chat-header, .chat-messages, .chat-input {
@@ -404,6 +420,9 @@
             <button class="btn btn-outline-info action-btn" id="helpButton">
                 <i class="fas fa-question"></i> Ayuda
             </button>
+            <button class="btn share-btn action-btn" id="shareButton">
+                <i class="fas fa-share-alt"></i> Guardar Enlace
+            </button>
         </div>
     </div>
 
@@ -422,6 +441,112 @@
             const negocioNombre = $('#negocioNombre').val();
             
             console.log("✅ Chat inicializado - Scroll garantizado con position: fixed");
+            
+            // FUNCIÓN PARA COMPARTIR ENLACE CLIENTE (SOLUCIÓN 4)
+            function compartirEnlaceCliente() {
+                // Obtener el negocio_id de la página actual
+                const negocioId = $('#negocioId').val();
+                
+                // Crear URL COMPLETA para acceso directo del cliente
+                const urlCompleta = window.location.origin + '/chat?negocio=' + negocioId;
+                
+                // También crear la URL alternativa específica
+                const urlEspecifica = window.location.origin + '/cliente/' + negocioId;
+                
+                console.log('🔗 URL de acceso directo generada:', urlCompleta);
+                
+                // Intentar usar Web Share API primero (móviles)
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Agenda tu cita - ' + negocioNombre,
+                        text: 'Haz clic aquí para agendar tu cita en ' + negocioNombre,
+                        url: urlCompleta
+                    }).then(() => {
+                        console.log('✅ Enlace compartido exitosamente');
+                    }).catch((error) => {
+                        console.log('⚠️ Error compartiendo:', error);
+                        // Fallback: copiar al portapapeles
+                        copiarEnlace(urlCompleta);
+                    });
+                } else {
+                    // Fallback para navegadores que no soportan Web Share API
+                    copiarEnlace(urlCompleta);
+                }
+                
+                // Si es un PWA instalado, actualizar el shortcut
+                if ('serviceWorker' in navigator && window.matchMedia('(display-mode: standalone)').matches) {
+                    actualizarShortcutPWA(urlCompleta);
+                }
+            }
+            
+            function copiarEnlace(url) {
+                // Crear un input temporal para copiar
+                const tempInput = document.createElement('input');
+                tempInput.value = url;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                tempInput.setSelectionRange(0, 99999); // Para móviles
+                
+                try {
+                    const exitoso = document.execCommand('copy');
+                    if (exitoso) {
+                        alert('✅ Enlace copiado al portapapeles:\n\n' + url + '\n\nPégalo donde quieras guardarlo.');
+                    } else {
+                        mostrarModalEnlace(url);
+                    }
+                } catch (err) {
+                    mostrarModalEnlace(url);
+                }
+                
+                document.body.removeChild(tempInput);
+            }
+            
+            function mostrarModalEnlace(url) {
+                // Crear un modal simple para mostrar el enlace
+                const modalHtml = `
+                    <div style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center;">
+                        <div style="background:white; padding:20px; border-radius:10px; max-width:90%; width:400px;">
+                            <h5>📱 Guarda este enlace</h5>
+                            <p>Para acceder directamente a agendar citas, guarda este enlace:</p>
+                            <div style="background:#f8f9fa; padding:10px; border-radius:5px; margin:10px 0; word-break:break-all; font-size:14px;">
+                                ${url}
+                            </div>
+                            <div style="display:flex; gap:10px; margin-top:20px;">
+                                <button onclick="navigator.clipboard.writeText('${url}').then(() => alert('✅ Enlace copiado')).catch(() => alert('❌ Error copiando'))" 
+                                        style="flex:1; padding:10px; background:#007bff; color:white; border:none; border-radius:5px;">
+                                    📋 Copiar
+                                </button>
+                                <button onclick="window.open('${url}', '_blank')" 
+                                        style="flex:1; padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">
+                                    🔗 Abrir
+                                </button>
+                                <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                        style="padding:10px; background:#6c757d; color:white; border:none; border-radius:5px;">
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                $('body').append(modalHtml);
+            }
+            
+            function actualizarShortcutPWA(url) {
+                // Intentar actualizar el shortcut del PWA si es posible
+                if ('shortcuts' in navigator && navigator.shortcuts) {
+                    try {
+                        navigator.shortcuts.update({
+                            name: "Agendar Cita - " + negocioNombre,
+                            url: url
+                        }).then(() => {
+                            console.log('✅ Shortcut del PWA actualizado');
+                        });
+                    } catch (e) {
+                        console.log('⚠️ No se pudo actualizar shortcut:', e);
+                    }
+                }
+            }
             
             // Función simple para scroll al final
             function scrollToBottom() {
@@ -576,6 +701,11 @@
                 sendMessage();
             });
             
+            // Evento para el botón de compartir enlace (SOLUCIÓN 4)
+            $('#shareButton').click(function() {
+                compartirEnlaceCliente();
+            });
+            
             // Iniciar conversación
             setTimeout(() => {
                 userInput.val('hola');
@@ -584,6 +714,17 @@
             
             // Verificar scroll inicial
             setTimeout(checkScroll, 1000);
+            
+            // Mostrar mensaje sobre el enlace en la primera interacción
+            let mensajeMostrado = false;
+            $(document).on('click', function() {
+                if (!mensajeMostrado) {
+                    setTimeout(() => {
+                        addBotMessage(`💡 **Tip importante:** Si quieres guardar este enlace para acceder directamente en el futuro, haz clic en el botón **"Guardar Enlace"** abajo. Así siempre llegarás aquí sin pasar por el panel de administración.`);
+                        mensajeMostrado = true;
+                    }, 3000);
+                }
+            });
         });
     </script>
 </body>

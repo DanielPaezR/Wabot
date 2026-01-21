@@ -4440,6 +4440,12 @@ def fix_precios_final():
         </html>
         """
 
+@app.route('/chat')
+def chat_universal():
+    """Ruta principal para clientes"""
+    negocio_id = request.args.get('negocio', 1)
+    return redirect(url_for('chat_index', negocio_id=negocio_id))
+
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
