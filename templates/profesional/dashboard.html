@@ -1603,18 +1603,17 @@
                 {% for cita in citas %}
                     <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
                         <div class="cita-info">
+                            {% if cita.estado != 'bloqueado' %}
                             <h3>{{ cita.cliente_nombre }}
                                 {% if cita.personalizada %}
                                 <span class="badge-personalizada">⭐ Personalizada</span>
                                 {% endif %}
                             </h3>
-                            {% if cita.estado == 'bloqueado' %}
                                 <div class="cita-meta">
                                     <span class="cita-time">⏰ {{ cita.hora }}</span>
                                     <span class="cita-service">💼 cita no disponible</span>
                                     <span class="cita-price">💰 $0</span>
                                 </div>
-                            {% else %}
                                 <div class="cita-meta">
                                     <span class="cita-time">⏰ {{ cita.hora }}</span>
                                     <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
@@ -1663,24 +1662,6 @@
                             </div>
                             
                             <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
-                        </div>
-                    </div>
-                    <div class="appointment-item {% if cita.estado == 'bloqueado' %}bg-light text-muted{% endif %}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge {% if cita.estado == 'bloqueado' %}bg-warning{% else %}bg-primary{% endif %} me-2">
-                                    ⏰ {{ cita.hora[:5] }}
-                                </span>
-                                
-                                {% if cita.estado == 'bloqueado' %}
-                                    <span class="fw-bold text-warning">
-                                        <i class="fas fa-ban me-1"></i> BLOQUEADO
-                                    </span>
-                                    <div class="text-muted small mt-1">
-                                        {{ cita.cliente_nombre or "Horario no disponible" }}
-                                    </div>
-                                {% endif %}
-                            </div>
                         </div>
                     </div>
                 {% endfor %}
