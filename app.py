@@ -4289,6 +4289,8 @@ def profesional_bloquear_horario():
         hora = request.form.get('hora')
         duracion = request.form.get('duracion', 60)
         motivo = request.form.get('motivo', '')
+        sobreescribir_cita = request.form.get('sobreescribir_cita', 'false').lower() == 'true'
+        
         
         if not all([fecha, hora]):
             return jsonify({'success': False, 'error': 'Fecha y hora son requeridos'})
@@ -4303,7 +4305,8 @@ def profesional_bloquear_horario():
             fecha=fecha,
             hora_inicio=hora,
             duracion_minutos=int(duracion),
-            motivo=motivo
+            motivo=motivo,
+            sobreescribir=sobreescribir_cita
         )
         
         return jsonify(resultado)
