@@ -379,7 +379,7 @@
             color: var(--dark);
             margin: 0;
             display: flex;
-            align-items: center;
+                align-items: center;
             gap: 10px;
         }
         
@@ -856,8 +856,10 @@
         </div>
     </main>
 
-    <!-- Bootstrap JS (solo para componentes que necesiten) -->
     <script>
+        // Variables globales
+        let horariosOcupados = {};
+        
         // Configuración inicial
         document.addEventListener('DOMContentLoaded', function() {
             // Prevenir zoom en inputs
@@ -893,13 +895,13 @@
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Cargar horarios disponibles
+            // Cargar todas las citas del profesional usando la ruta existente
             const fechaInput = document.getElementById('fechaBloqueo');
             if (fechaInput.value) {
-                cargarTodosLosHorarios(fechaInput.value);
+                cargarTodasLasCitas(fechaInput.value);
             } else {
                 fechaInput.value = document.getElementById('fecha').value || new Date().toISOString().split('T')[0];
-                cargarTodosLosHorarios(fechaInput.value);
+                cargarTodasLasCitas(fechaInput.value);
             }
             
             // Enfoque seguro
@@ -933,80 +935,141 @@
             }
         });
         
-        // Función para cargar TODOS los horarios (incluyendo ocupados)
-        async function cargarTodosLosHorarios(fecha) {
+        // Función para cargar TODAS las citas usando la ruta existente /api/citas
+        async function cargarTodasLasCitas(fecha) {
             const horaSelect = document.getElementById('horaBloqueo');
             if (!horaSelect || !fecha) return;
             
             // Mostrar loading
-            horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+            horaSelect.innerHTML = '<option value="">Cargando todas las citas...</option>';
             horaSelect.disabled = true;
             
             try {
-                // CAMBIAR ESTA LÍNEA: En lugar de llamar a profesional_api_horarios_disponibles,
-                // necesitamos una nueva ruta que devuelva TODOS los horarios con su estado
-                const response = await fetch(`{{ url_for('profesional_api_horarios_completos') }}?fecha=${fecha}`);
-                const data = await response.json();
+                // Usar la ruta existente que ya tienes
+                const response = await fetch(`/api/citas?fecha=${fecha}`);
+                const todasLasCitas = await response.json();
                 
-                if (data.success) {
-                    horaSelect.innerHTML = '<option value="">Seleccionar hora...</option>';
-                    
-                    if (data.horarios && data.horarios.length > 0) {
-                        data.horarios.forEach(horario => {
-                            const option = document.createElement('option');
-                            option.value = horario.hora;
-                            
-                            // Determinar el texto a mostrar según el estado
-                            let texto = `${horario.hora}`;
-                            let tooltip = '';
-                            
-                            if (horario.estado === 'bloqueado') {
-                                texto += ' (Ya bloqueado)';
-                                tooltip = `Motivo: ${horario.motivo || 'Sin motivo'}`;
-                                option.disabled = true;
-                            } else if (horario.estado === 'confirmado') {
-                                texto += ' (Cita confirmada)';
-                                tooltip = `Cliente: ${horario.cliente_nombre || 'Sin nombre'}`;
-                                if (horario.servicio_nombre) {
-                                    tooltip += `, Servicio: ${horario.servicio_nombre}`;
-                                }
-                                // NO deshabilitar - permitir bloquear sobre citas confirmadas
-                            } else if (horario.estado === 'completado') {
-                                texto += ' (Cita completada)';
-                                option.disabled = true;
-                            } else if (horario.estado === 'cancelado') {
-                                texto += ' (Cita cancelada)';
-                                // Permitir bloquear horarios cancelados
-                            } else if (horario.disponible === false) {
-                                texto += ' (No disponible)';
-                                option.disabled = true;
-                            }
-                            
-                            option.textContent = texto;
-                            
-                            if (tooltip) {
-                                option.title = tooltip;
-                            }
-                            
-                            horaSelect.appendChild(option);
-                        });
-                    } else {
-                        horaSelect.innerHTML = '<option value="">No hay horarios configurados</option>';
-                    }
-                } else {
-                    horaSelect.innerHTML = `<option value="">Error: ${data.error || 'No se pudieron cargar los horarios'}</option>`;
+                // Resetear variable global
+                horariosOcupados = {};
+                
+                // Mapear todas las citas por hora
+                if (todasLasCitas && Array.isArray(todasLasCitas)) {
+                    todasLasCitas.forEach(cita => {
+                        // Verificar que la cita no esté cancelada (pero incluir bloqueadas)
+                        if (cita.estado && cita.estado.toLowerCase() !== 'cancelada') {
+                            horariosOcupados[cita.hora] = {
+                                estado: cita.estado.toLowerCase(),
+                                cliente_nombre: cita.cliente_nombre || 'Sin nombre',
+                                servicio_nombre: cita.servicio || 'Sin servicio',
+                                profesional_nombre: cita.profesional_nombre || ''
+                            };
+                        }
+                    });
                 }
+                
+                // También obtener horarios disponibles para saber cuáles están libres
+                let horariosDisponibles = [];
+                try {
+                    const responseDisponibles = await fetch(`{{ url_for('profesional_api_horarios_disponibles') }}?fecha=${fecha}`);
+                    const disponiblesData = await responseDisponibles.json();
+                    if (disponiblesData.success && disponiblesData.horarios) {
+                        horariosDisponibles = disponiblesData.horarios;
+                    }
+                } catch (error) {
+                    console.log('No se pudieron cargar horarios disponibles:', error);
+                }
+                
+                // Generar horarios de 9:00 a 18:00 (ajusta según tu horario laboral)
+                const horariosCompletos = generarHorariosLaborales();
+                
+                // Llenar el select
+                horaSelect.innerHTML = '<option value="">Seleccionar hora...</option>';
+                
+                horariosCompletos.forEach(hora => {
+                    const option = document.createElement('option');
+                    option.value = hora;
+                    
+                    // Determinar el estado del horario
+                    let texto = hora;
+                    let tooltip = '';
+                    let disabled = false;
+                    let esCitaConfirmada = false;
+                    
+                    if (horariosOcupados[hora]) {
+                        const cita = horariosOcupados[hora];
+                        
+                        if (cita.estado === 'bloqueado') {
+                            texto += ' (BLOQUEADO)';
+                            tooltip = `Horario bloqueado`;
+                            disabled = true;
+                        } else if (cita.estado === 'confirmado' || cita.estado === 'confirmada') {
+                            texto += ' (CITA CONFIRMADA)';
+                            tooltip = `Cliente: ${cita.cliente_nombre}`;
+                            tooltip += `\nServicio: ${cita.servicio_nombre}`;
+                            esCitaConfirmada = true;
+                            // NO deshabilitar - permitir bloquear sobre citas confirmadas
+                        } else if (cita.estado === 'completado' || cita.estado === 'completada') {
+                            texto += ' (CITA COMPLETADA)';
+                            tooltip = 'Cita ya completada';
+                            disabled = true;
+                        }
+                    } else {
+                        // Verificar si está disponible
+                        const disponible = horariosDisponibles.find(h => h.hora === hora);
+                        if (disponible && !disponible.bloqueado) {
+                            texto += ' (DISPONIBLE)';
+                        } else {
+                            texto += ' (NO DISPONIBLE)';
+                            tooltip = 'Fuera del horario laboral o ya bloqueado';
+                            disabled = true;
+                        }
+                    }
+                    
+                    // Marcar la opción como cita confirmada para validación posterior
+                    if (esCitaConfirmada) {
+                        option.dataset.citaConfirmada = 'true';
+                    }
+                    
+                    option.textContent = texto;
+                    option.disabled = disabled;
+                    
+                    if (tooltip) {
+                        option.title = tooltip;
+                    }
+                    
+                    horaSelect.appendChild(option);
+                });
+                
             } catch (error) {
-                console.error('Error:', error);
-                horaSelect.innerHTML = '<option value="">Error de conexión</option>';
+                console.error('Error cargando citas:', error);
+                horaSelect.innerHTML = '<option value="">Error cargando los horarios</option>';
             } finally {
                 horaSelect.disabled = false;
             }
         }
         
+        // Generar horarios laborales de 9:00 a 18:00
+        function generarHorariosLaborales() {
+            const horarios = [];
+            const horaInicio = 9; // 9:00 AM
+            const horaFin = 18;   // 6:00 PM
+            
+            for (let hora = horaInicio; hora <= horaFin; hora++) {
+                // Solo horas enteras por ahora (puedes cambiar a 30 min)
+                const horaStr = hora.toString().padStart(2, '0');
+                horarios.push(`${horaStr}:00`);
+                
+                // Si quieres intervalos de 30 minutos, descomenta esto:
+                // if (hora < horaFin) {
+                //     horarios.push(`${horaStr}:30`);
+                // }
+            }
+            return horarios;
+        }
+        
         // Event listeners para el modal
         document.getElementById('fechaBloqueo').addEventListener('change', function() {
-            cargarTodosLosHorarios(this.value);
+            cargarTodasLasCitas(this.value);
         });
         
         // Manejar envío del formulario
@@ -1018,21 +1081,31 @@
             
             // Validaciones
             const fecha = document.getElementById('fechaBloqueo').value;
-            const hora = document.getElementById('horaBloqueo').value;
+            const horaSelect = document.getElementById('horaBloqueo');
+            const hora = horaSelect.value;
             
             if (!fecha || !hora) {
                 showToast('error', 'Error', 'Por favor, completa todos los campos requeridos');
                 return;
             }
             
-            // Verificar si el horario ya tiene una cita confirmada
-            const horaSeleccionada = document.getElementById('horaBloqueo');
-            const optionSeleccionada = horaSeleccionada.options[horaSeleccionada.selectedIndex];
-            const tieneCitaConfirmada = optionSeleccionada.text.includes('(Cita confirmada)');
+            // Verificar si es una cita confirmada
+            const optionSeleccionada = horaSelect.options[horaSelect.selectedIndex];
+            const esCitaConfirmada = optionSeleccionada.dataset.citaConfirmada === 'true' || 
+                                     optionSeleccionada.text.includes('CITA CONFIRMADA');
             
             // Confirmación especial para horarios con citas confirmadas
-            if (tieneCitaConfirmada) {
-                if (!confirm('⚠️ ATENCIÓN: Este horario tiene una cita CONFIRMADA.\n\n¿Estás seguro de que quieres bloquear este horario?\n\nEsto CANCELARÁ la cita existente y notificará al cliente.')) {
+            if (esCitaConfirmada) {
+                const cita = horariosOcupados[hora];
+                const confirmacion = confirm(
+                    `⚠️ ATENCIÓN: Este horario tiene una cita CONFIRMADA.\n\n` +
+                    `Cliente: ${cita.cliente_nombre}\n` +
+                    `Servicio: ${cita.servicio_nombre}\n\n` +
+                    `¿Estás seguro de que quieres bloquear este horario?\n\n` +
+                    `Esto CANCELARÁ la cita existente por lo que debes notificar al cliente.`
+                );
+                
+                if (!confirmacion) {
                     return;
                 }
             }
@@ -1049,7 +1122,7 @@
             formData.append('duracion', document.getElementById('duracionBloqueo').value);
             formData.append('motivo', document.getElementById('motivoBloqueo').value || '');
             // Agregar bandera para saber si estamos sobreescribiendo una cita
-            formData.append('sobreescribir_cita', tieneCitaConfirmada ? 'true' : 'false');
+            formData.append('sobreescribir_cita', esCitaConfirmada ? 'true' : 'false');
             
             try {
                 const response = await fetch('{{ url_for("profesional_bloquear_horario") }}', {
