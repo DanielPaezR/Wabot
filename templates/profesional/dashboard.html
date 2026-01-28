@@ -1608,11 +1608,19 @@
                                 <span class="badge-personalizada">⭐ Personalizada</span>
                                 {% endif %}
                             </h3>
-                            <div class="cita-meta">
-                                <span class="cita-time">⏰ {{ cita.hora }}</span>
-                                <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
-                                <span class="cita-price">💰 ${{ cita.precio }}</span>
-                            </div>
+                            {% if cita.estado == 'bloqueado' %}
+                                <div class="cita-meta">
+                                    <span class="cita-time">⏰ {{ cita.hora }}</span>
+                                    <span class="cita-service">💼 cita no disponible</span>
+                                    <span class="cita-price">💰 $0</span>
+                                </div>
+                            {% else %}
+                                <div class="cita-meta">
+                                    <span class="cita-time">⏰ {{ cita.hora }}</span>
+                                    <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
+                                    <span class="cita-price">💰 ${{ cita.precio }}</span>
+                                </div>
+                            {% endif %}
                         </div>
                         
                         <div class="cita-actions">
@@ -1622,6 +1630,10 @@
                                 {% if cita.estado == 'cancelado' %}
                                     <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
                                         <span>❌</span> Cancelada
+                                    </span>
+                                {% elif cita.estado == 'bloqueado' %}
+                                    <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                       <span>❌</span> Bloqueado
                                     </span>
                                 {% elif cita.estado == 'completado' %}
                                     <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
@@ -1667,30 +1679,10 @@
                                     <div class="text-muted small mt-1">
                                         {{ cita.cliente_nombre or "Horario no disponible" }}
                                     </div>
-                                {% else %}
-                                    <span class="fw-bold">{{ cita.servicio_nombre }}</span>
-                                    <div class="text-muted small mt-1">
-                                        {{ cita.cliente_nombre or "Cliente" }}
-                                        <span class="ms-2">💰 ${{ "%.2f"|format(cita.precio|float) }}</span>
-                                    </div>
-                                {% endif %}
-                            </div>
-                            
-                            <div>
-                                {% if cita.estado != 'bloqueado' %}
-                                    {% if cita.estado != 'completado' %}
-                                    <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" class="d-inline">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn btn-sm btn-success">
-                                            <i class="fas fa-check"></i> Completar
-                                        </button>
-                                    </form>
-                                    {% endif %}
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-                
                 {% endfor %}
             {% else %}
             <div class="empty-state">
