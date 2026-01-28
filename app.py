@@ -4226,6 +4226,172 @@ def app_redirect():
         return redirect(url_for('chat_index', negocio_id=negocio['id'] if negocio else 1))
 
 # =============================================================================
+# RUTAS PARA BLOQUEO DE HORARIOS POR PROFESIONALES
+# =============================================================================
+
+@app.route('/profesional/bloqueos')
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_bloqueos():
+    """Página principal para gestión de horarios bloqueados"""
+    try:
+        negocio_id = session.get('negocio_id', 1)
+        profesional_id = session.get('profesional_id')
+        
+        if not profesional_id:
+            flash('No se pudo identificar al profesional', 'error')
+            return redirect(url_for('profesional_dashboard'))
+        
+        # Fecha por defecto: hoy
+        fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        
+        # Obtener bloqueos del profesional
+        from database import obtener_bloqueos_profesional
+        bloqueos = obtener_bloqueos_profesional(negocio_id, profesional_id, fecha)
+        
+        # Obtener información del profesional
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('SELECT nombre, especialidad FROM profesionales WHERE id = %s', (profesional_id,))
+        profesional_info = cursor.fetchone()
+        conn.close()
+        
+        return render_template('profesional/bloqueos.html',
+                            bloqueos=bloqueos,
+                            fecha_seleccionada=fecha,
+                            profesional_id=profesional_id,
+                            profesional_nombre=profesional_info['nombre'])
+        
+    except Exception as e:
+        print(f"❌ Error en profesional_bloqueos: {e}")
+        flash('Error al cargar la página de bloqueos', 'error')
+        return redirect(url_for('profesional_dashboard'))
+
+@app.route('/profesional/bloquear-horario', methods=['POST'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_bloquear_horario():
+    """Bloquear un horario específico"""
+    try:
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            return jsonify({'success': False, 'error': 'Error de seguridad'})
+        
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        
+        fecha = request.form.get('fecha')
+        hora = request.form.get('hora')
+        duracion = request.form.get('duracion', 60)
+        motivo = request.form.get('motivo', '')
+        
+        if not all([fecha, hora]):
+            return jsonify({'success': False, 'error': 'Fecha y hora son requeridos'})
+        
+        print(f"🔒 Bloqueando horario: {fecha} {hora} por profesional {profesional_id}")
+        
+        # Llamar a la función de bloqueo
+        from database import bloquear_horario_profesional
+        resultado = bloquear_horario_profesional(
+            negocio_id=negocio_id,
+            profesional_id=profesional_id,
+            fecha=fecha,
+            hora_inicio=hora,
+            duracion_minutos=int(duracion),
+            motivo=motivo
+        )
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"❌ Error bloqueando horario: {e}")
+        return jsonify({'success': False, 'error': 'Error interno del servidor'})
+
+@app.route('/profesional/desbloquear-horario/<int:bloqueo_id>', methods=['POST'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_desbloquear_horario(bloqueo_id):
+    """Desbloquear un horario previamente bloqueado"""
+    try:
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('profesional_bloqueos'))
+        
+        profesional_id = session.get('profesional_id')
+        
+        from database import desbloquear_horario
+        resultado = desbloquear_horario(bloqueo_id, profesional_id)
+        
+        if resultado['success']:
+            flash('✅ Horario desbloqueado exitosamente', 'success')
+        else:
+            flash(f"❌ {resultado.get('error', 'Error al desbloquear')}", 'error')
+        
+        return redirect(url_for('profesional_bloqueos'))
+        
+    except Exception as e:
+        print(f"❌ Error desbloqueando horario: {e}")
+        flash('Error al desbloquear el horario', 'error')
+        return redirect(url_for('profesional_bloqueos'))
+
+@app.route('/profesional/api/horarios-disponibles')
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_api_horarios_disponibles():
+    """API para obtener horarios disponibles (para el formulario de bloqueo)"""
+    try:
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        
+        # Reutilizar la misma lógica que usan los clientes
+        from web_chat_handler import generar_horarios_disponibles_actualizado
+        
+        # Necesitamos un servicio_id para la función, usamos el primero
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM servicios WHERE negocio_id = %s AND activo = TRUE LIMIT 1', (negocio_id,))
+        servicio = cursor.fetchone()
+        conn.close()
+        
+        if not servicio:
+            return jsonify({'horarios': [], 'error': 'No hay servicios configurados'})
+        
+        servicio_id = servicio[0] if isinstance(servicio, tuple) else servicio['id']
+        
+        # Generar horarios disponibles (ya excluye los bloqueados automáticamente)
+        horarios = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id)
+        
+        # Obtener horarios ya bloqueados para marcarlos
+        from database import obtener_bloqueos_profesional
+        bloqueos = obtener_bloqueos_profesional(negocio_id, profesional_id, fecha)
+        
+        # Formatear respuesta
+        horarios_formateados = []
+        for hora in horarios:
+            # Verificar si está bloqueado
+            bloqueado = False
+            motivo = ""
+            for bloqueo in bloqueos:
+                if bloqueo['hora'].startswith(hora):
+                    bloqueado = True
+                    motivo = bloqueo.get('motivo', '')
+                    break
+            
+            horarios_formateados.append({
+                'hora': hora,
+                'bloqueado': bloqueado,
+                'motivo': motivo if bloqueado else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'horarios': horarios_formateados,
+            'fecha': fecha
+        })
+        
+    except Exception as e:
+        print(f"❌ Error en profesional_api_horarios_disponibles: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
 try:

@@ -2046,7 +2046,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     
     print(f"✅ Día activo. Horario: {horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']}")
     
-    # ✅ Obtener citas ya agendadas - CON DIAGNÓSTICO
+    # ✅ Obtener citas ya agendadas - INCLUYENDO BLOQUEOS
     print(f"📋 Llamando a obtener_citas_dia...")
     citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
     print(f"📊 TOTAL citas devueltas por BD: {len(citas_ocupadas)}")
