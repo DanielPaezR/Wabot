@@ -1602,67 +1602,55 @@
             {% if citas %}
                 {% for cita in citas %}
                     <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
-                        <div class="cita-info">
-                            {% if cita.estado != 'bloqueado' %}
-                            <h3>{{ cita.cliente_nombre }}
-                                {% if cita.personalizada %}
-                                <span class="badge-personalizada">⭐ Personalizada</span>
-                                {% endif %}
-                            </h3>
-                                <div class="cita-meta">
-                                    <span class="cita-time">⏰ {{ cita.hora }}</span>
-                                    <span class="cita-service">💼 cita no disponible</span>
-                                    <span class="cita-price">💰 $0</span>
-                                </div>
-                                <div class="cita-meta">
-                                    <span class="cita-time">⏰ {{ cita.hora }}</span>
-                                    <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
-                                    <span class="cita-price">💰 ${{ cita.precio }}</span>
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        
-                        <div class="cita-actions">
-                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                <!-- Botón Completar -->
-                                {% if cita.estado == 'cancelado' %}
-                                    <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                        <span>❌</span> Cancelada
-                                    </span>
-                                {% elif cita.estado == 'bloqueado' %}
-                                    <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                       <span>❌</span> Bloqueado
-                                    </span>
-                                {% elif cita.estado == 'completado' %}
-                                    <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                        <span>✅</span> Completado
-                                    </span>
-                                {% else %}
-                                    <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
-                                        class="completar-cita-form" 
-                                        style="display: inline;">
-
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                                        <button type="submit" 
-                                                class="btn-complete completar-btn"
-                                                data-cita-id="{{ cita.id }}"
-                                                onclick="return manejarCompletarCita(event, this);">
-                                            ✅ Completar
-                                        </button>
-                                    </form>
-                                {% endif %}
+                        {% if cita.estado != 'bloqueado' %}
+                            <div class="cita-info">
+                                    <h3>{{ cita.cliente_nombre }}
+                                        {% if cita.personalizada %}
+                                        <span class="badge-personalizada">⭐ Personalizada</span>
+                                        {% endif %}
+                                    </h3>    
+                                    <div class="cita-meta">
+                                        <span class="cita-time">⏰ {{ cita.hora }}</span>
+                                        <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
+                                        <span class="cita-price">💰 ${{ cita.precio }}</span>
+                                    </div>
                                 
-                                <!-- Botón Personalizar - SIEMPRE VISIBLE -->
-                                <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
-                                class="btn-personalizar">
-                                <span>⚙️</span> Personalizar
-                                </a>
+                                </div>
+                            <div class="cita-actions">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    {% if cita.estado == 'cancelado' %}
+                                        <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                            <span>❌</span> Cancelada
+                                        </span>
+                                    {% elif cita.estado == 'completado' %}
+                                        <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                            <span>✅</span> Completado
+                                        </span>
+                                    {% else %}
+                                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
+                                            class="completar-cita-form" 
+                                            style="display: inline;">
+
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                            <button type="submit" 
+                                                    class="btn-complete completar-btn"
+                                                    data-cita-id="{{ cita.id }}"
+                                                    onclick="return manejarCompletarCita(event, this);">
+                                                ✅ Completar
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    <!-- Botón Personalizar - SIEMPRE VISIBLE -->
+                                    <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
+                                    class="btn-personalizar">
+                                    <span>⚙️</span> Personalizar
+                                    </a>
+                                </div>
+                                
+                                <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
                             </div>
-                            
-                            <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
-                        </div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             {% else %}
