@@ -1601,8 +1601,8 @@
         <div class="citas-list">
             {% if citas %}
                 {% for cita in citas %}
-                    <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
-                        {% if cita.estado != 'bloqueado' %}
+                    {% if cita.estado != 'bloqueado' %}
+                        <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
                             <div class="cita-info">
                                     <h3>{{ cita.cliente_nombre }}
                                         {% if cita.personalizada %}
@@ -1650,8 +1650,9 @@
                                 
                                 <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
                             </div>
-                        {% endif %}
-                    </div>
+                            
+                        </div>
+                    {% endif %}
                 {% endfor %}
             {% else %}
             <div class="empty-state">
