@@ -1188,6 +1188,261 @@
                 transition: none;
             }
         }
+
+        .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* 2 columnas en móvil */
+        gap: 0.8rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Tamaño uniforme de tarjetas */
+    .action-card {
+        background: var(--white);
+        padding: 1rem 0.8rem; /* Reducido padding */
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.3s ease;
+        min-height: 100px; /* Reducido para móvil */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        border: 2px solid transparent;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Efecto hover/active */
+    .action-card:active {
+        transform: scale(0.97);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Iconos más pequeños para móvil */
+    .action-icon {
+        font-size: 1.8rem; /* Reducido */
+        margin-bottom: 0.5rem;
+        line-height: 1;
+    }
+
+    /* Títulos más compactos */
+    .action-title {
+        font-weight: 600;
+        margin-bottom: 0.2rem;
+        font-size: 0.9rem; /* Reducido */
+        line-height: 1.2;
+    }
+
+    /* Descripciones más pequeñas */
+    .action-desc {
+        font-size: 0.75rem; /* Reducido */
+        color: var(--text-light);
+        line-height: 1.2;
+        opacity: 0.9;
+    }
+
+    /* COLORES ESPECÍFICOS PARA CADA BOTÓN */
+    /* Por defecto (azul) */
+    .action-card:nth-child(1) {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+
+    /* Estadísticas (verde) */
+    .action-card:nth-child(2) {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        color: white;
+    }
+
+    /* Agendar (naranja) */
+    .action-card:nth-child(3) {
+        background: linear-gradient(135deg, #f39c12, #f1c40f);
+        color: white;
+    }
+
+    /* Gestionar Horarios (rojo/naranja) */
+    .action-card.action-card-warning {
+        background: linear-gradient(135deg, #e74c3c, #e67e22);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Efecto para el botón de horarios */
+    .action-card.action-card-warning::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.1), 
+            transparent);
+        transition: left 0.5s ease;
+    }
+
+    .action-card.action-card-warning:active::before {
+        left: 100%;
+    }
+
+    /* Efecto de pulso para el botón de horarios cuando hay bloques activos */
+    .action-card.action-card-warning.pulse {
+        animation: warningPulse 2s infinite;
+    }
+
+    @keyframes warningPulse {
+        0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+    }
+
+    /* Efecto de brillo para todos los botones */
+    .action-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0);
+        transition: background 0.3s ease;
+        pointer-events: none;
+    }
+
+    .action-card:active::after {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ==================== RESPONSIVE ==================== */
+
+    /* Para tablets */
+    @media (min-width: 600px) {
+        .quick-actions {
+            grid-template-columns: repeat(4, 1fr); /* 4 columnas en tablets */
+            gap: 1rem;
+        }
+        
+        .action-card {
+            min-height: 110px;
+            padding: 1rem;
+        }
+        
+        .action-icon {
+            font-size: 2rem;
+        }
+        
+        .action-title {
+            font-size: 1rem;
+        }
+        
+        .action-desc {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* Para pantallas pequeñas (360px o menos) */
+    @media (max-width: 360px) {
+        .quick-actions {
+            gap: 0.6rem;
+        }
+        
+        .action-card {
+            min-height: 90px;
+            padding: 0.8rem 0.6rem;
+        }
+        
+        .action-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.4rem;
+        }
+        
+        .action-title {
+            font-size: 0.8rem;
+        }
+        
+        .action-desc {
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Para orientación horizontal en móviles */
+    @media (max-height: 500px) and (orientation: landscape) {
+        .quick-actions {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .action-card {
+            min-height: 80px;
+            padding: 0.6rem;
+        }
+        
+        .action-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .action-title {
+            margin-bottom: 0.1rem;
+        }
+    }
+
+    /* Modo oscuro */
+    @media (prefers-color-scheme: dark) {
+        .action-card {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .action-card:nth-child(1) {
+            background: linear-gradient(135deg, #5a6fd8, #6a3fa0);
+        }
+        
+        .action-card:nth-child(2) {
+            background: linear-gradient(135deg, #219653, #27ae60);
+        }
+        
+        .action-card:nth-child(3) {
+            background: linear-gradient(135deg, #e67e22, #f39c12);
+        }
+        
+        .action-card.action-card-warning {
+            background: linear-gradient(135deg, #c0392b, #d35400);
+        }
+        
+        .action-card:active {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+    }
+
+    /* ==================== EFECTO DE CARGA ==================== */
+    .action-card.loading .action-icon,
+    .action-card.loading .action-title,
+    .action-card.loading .action-desc {
+        opacity: 0.5;
+    }
+
+    .action-card.loading::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.2), 
+            transparent);
+        animation: loadingShine 1.5s infinite;
+    }
+
+    @keyframes loadingShine {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
     </style>
 </head>
 <body>
@@ -1346,58 +1601,96 @@
         <div class="citas-list">
             {% if citas %}
                 {% for cita in citas %}
-                <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
-                    <div class="cita-info">
-                        <h3>{{ cita.cliente_nombre }}
-                            {% if cita.personalizada %}
-                            <span class="badge-personalizada">⭐ Personalizada</span>
-                            {% endif %}
-                        </h3>
-                        <div class="cita-meta">
-                            <span class="cita-time">⏰ {{ cita.hora }}</span>
-                            <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
-                            <span class="cita-price">💰 ${{ cita.precio }}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="cita-actions">
-                        <!-- 🔥 CORRECCIÓN: AMBOS BOTONES SIEMPRE VISIBLES -->
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            <!-- Botón Completar -->
-                            {% if cita.estado == 'cancelado' %}
-                                <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span>❌</span> Cancelada
-                                </span>
-                            {% elif cita.estado == 'completado' %}
-                                <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
-                                    <span>✅</span> Completado
-                                </span>
-                            {% else %}
-                                <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
-                                    class="completar-cita-form" 
-                                    style="display: inline;">
-
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                                    <button type="submit" 
-                                            class="btn-complete completar-btn"
-                                            data-cita-id="{{ cita.id }}"
-                                            onclick="return manejarCompletarCita(event, this);">
-                                        ✅ Completar
-                                    </button>
-                                </form>
-                            {% endif %}
-                            
-                            <!-- Botón Personalizar - SIEMPRE VISIBLE -->
-                            <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
-                               class="btn-personalizar">
-                               <span>⚙️</span> Personalizar
-                            </a>
+                    <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
+                        <div class="cita-info">
+                            <h3>{{ cita.cliente_nombre }}
+                                {% if cita.personalizada %}
+                                <span class="badge-personalizada">⭐ Personalizada</span>
+                                {% endif %}
+                            </h3>
+                            <div class="cita-meta">
+                                <span class="cita-time">⏰ {{ cita.hora }}</span>
+                                <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
+                                <span class="cita-price">💰 ${{ cita.precio }}</span>
+                            </div>
                         </div>
                         
-                        <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
+                        <div class="cita-actions">
+                            <!-- 🔥 CORRECCIÓN: AMBOS BOTONES SIEMPRE VISIBLES -->
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <!-- Botón Completar -->
+                                {% if cita.estado == 'cancelado' %}
+                                    <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                        <span>❌</span> Cancelada
+                                    </span>
+                                {% elif cita.estado == 'completado' %}
+                                    <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                        <span>✅</span> Completado
+                                    </span>
+                                {% else %}
+                                    <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
+                                        class="completar-cita-form" 
+                                        style="display: inline;">
+
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                        <button type="submit" 
+                                                class="btn-complete completar-btn"
+                                                data-cita-id="{{ cita.id }}"
+                                                onclick="return manejarCompletarCita(event, this);">
+                                            ✅ Completar
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                
+                                <!-- Botón Personalizar - SIEMPRE VISIBLE -->
+                                <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
+                                class="btn-personalizar">
+                                <span>⚙️</span> Personalizar
+                                </a>
+                            </div>
+                            
+                            <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
+                        </div>
                     </div>
+                    <div class="appointment-item {% if cita.estado == 'bloqueado' %}bg-light text-muted{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge {% if cita.estado == 'bloqueado' %}bg-warning{% else %}bg-primary{% endif %} me-2">
+                                    ⏰ {{ cita.hora[:5] }}
+                                </span>
+                                
+                                {% if cita.estado == 'bloqueado' %}
+                                    <span class="fw-bold text-warning">
+                                        <i class="fas fa-ban me-1"></i> BLOQUEADO
+                                    </span>
+                                    <div class="text-muted small mt-1">
+                                        {{ cita.cliente_nombre or "Horario no disponible" }}
+                                    </div>
+                                {% else %}
+                                    <span class="fw-bold">{{ cita.servicio_nombre }}</span>
+                                    <div class="text-muted small mt-1">
+                                        {{ cita.cliente_nombre or "Cliente" }}
+                                        <span class="ms-2">💰 ${{ "%.2f"|format(cita.precio|float) }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div>
+                                {% if cita.estado != 'bloqueado' %}
+                                    {% if cita.estado != 'completado' %}
+                                    <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="fas fa-check"></i> Completar
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
                 </div>
+                {% endfor %}
                 {% endfor %}
             {% else %}
             <div class="empty-state">

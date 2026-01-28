@@ -1531,7 +1531,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
             AND c.fecha::DATE = %s::DATE 
-            AND c.estado != 'cancelado'
+            AND c.estado NOT IN ('cancelado', 'cancelada')
             ORDER BY c.hora
         '''
         params = (negocio_id, profesional_id, fecha)
@@ -1541,7 +1541,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = ? AND c.profesional_id = ? AND c.fecha = ? 
-            AND c.estado != 'cancelado'
+            AND c.estado NOT IN ('cancelado', 'cancelada')
             ORDER BY c.hora
         '''
         params = (negocio_id, profesional_id, fecha)

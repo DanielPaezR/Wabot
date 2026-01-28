@@ -2192,7 +2192,7 @@ def es_horario_almuerzo(hora, config_dia):
         return False
 
 def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """Verificar si un horario está disponible - CON LUGS DETALLADOS"""
+    """Verificar si un horario está disponible - CON LOGS DETALLADOS"""
     hora_str = hora_inicio.strftime('%H:%M')
     hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
     
@@ -2239,22 +2239,25 @@ def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
                 
                 print(f"     🔍 Comparando con cita #{i+1}: {hora_cita_str} ({duracion_cita} min, Estado: {estado_cita})")
                 
-                # VERIFICACIÓN CRÍTICA DEL ESTADO
-                if estado_cita and estado_cita.lower() != 'confirmado':
-                    print(f"       ⏭️ IGNORADA - Estado no confirmado: {estado_cita}")
+                # VERIFICACIÓN CRÍTICA CORREGIDA:
+                # Solo excluir citas CANCELADAS, pero INCLUIR BLOQUEADAS en la verificación
+                if estado_cita and estado_cita.lower() in ['cancelado', 'cancelada']:
+                    print(f"       ⏭️ IGNORADA - Cita cancelada: {estado_cita}")
                     continue
+                
+                # LAS CITAS BLOQUEADAS CONTINÚAN AQUÍ Y SE VERIFICAN POR SOLAPAMIENTO
                 
                 # Verificar solapamiento
                 hora_cita = datetime.strptime(str(hora_cita_str).strip(), '%H:%M')
                 hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
                 
                 if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-                    print(f"       ❌ SOLAPAMIENTO DETECTADO")
+                    print(f"       ❌ SOLAPAMIENTO DETECTADO - Cita con estado: {estado_cita}")
                     print(f"         Nuevo: {hora_str}-{hora_fin_servicio.strftime('%H:%M')}")
                     print(f"         Existente: {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')}")
                     return False
                 else:
-                    print(f"       ✅ No hay solapamiento")
+                    print(f"       ✅ No hay solapamiento (estado: {estado_cita})")
                     
             except Exception as e:
                 print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
