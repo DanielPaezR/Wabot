@@ -980,10 +980,14 @@
                 }
                 
                 // Generar horarios de 9:00 a 18:00 (ajusta según tu horario laboral)
-                const horariosCompletos = generarHorariosLaborales();
+                const horariosCompletos = await obtenerHorariosConfigurados(fecha);
                 
-                // Llenar el select
-                horaSelect.innerHTML = '<option value="">Seleccionar hora...</option>';
+                
+                if (horariosCompletos.length === 0) {
+                    horaSelect.innerHTML = '<option value="">Día no laboral</option>';
+                    horaSelect.disabled = true;
+                    return;
+                }
                 
                 horariosCompletos.forEach(hora => {
                     const option = document.createElement('option');
@@ -1049,20 +1053,69 @@
         }
         
         // Generar horarios laborales de 9:00 a 18:00
-        function generarHorariosLaborales() {
+        async function obtenerHorariosConfigurados(fecha) {
+            try {
+                // Obtener configuración de horarios del negocio
+                const response = await fetch(`/api/horarios/configuracion?fecha=${fecha}`);
+                const config = await response.json();
+                
+                if (!config.activo) {
+                    return []; // Día no activo
+                }
+                
+                const horarios = [];
+                const horaInicio = parseInt(config.hora_inicio.split(':')[0]);
+                const minutoInicio = parseInt(config.hora_inicio.split(':')[1]);
+                const horaFin = parseInt(config.hora_fin.split(':')[0]);
+                const minutoFin = parseInt(config.hora_fin.split(':')[1]);
+                
+                // Convertir todo a minutos desde medianoche
+                const inicioMinutos = horaInicio * 60 + minutoInicio;
+                const finMinutos = horaFin * 60 + minutoFin;
+                
+                // Intervalo de 30 minutos
+                for (let minutos = inicioMinutos; minutos < finMinutos; minutos += 30) {
+                    const hora = Math.floor(minutos / 60);
+                    const minuto = minutos % 60;
+                    const horaStr = hora.toString().padStart(2, '0');
+                    const minutoStr = minuto.toString().padStart(2, '0');
+                    
+                    // Verificar si cae en horario de almuerzo
+                    const esAlmuerzo = config.almuerzo_inicio && config.almuerzo_fin && 
+                                    minutos >= convertirHoraAMinutos(config.almuerzo_inicio) &&
+                                    minutos < convertirHoraAMinutos(config.almuerzo_fin);
+                    
+                    if (!esAlmuerzo) {
+                        horarios.push(`${horaStr}:${minutoStr}`);
+                    }
+                }
+                
+                return horarios;
+                
+            } catch (error) {
+                console.error('Error obteniendo configuración:', error);
+                // Si hay error, usar horario por defecto
+                return generarHorariosPorDefecto();
+            }
+        }
+
+        function convertirHoraAMinutos(horaStr) {
+            if (!horaStr) return 0;
+            const [hora, minuto] = horaStr.split(':').map(Number);
+            return hora * 60 + minuto;
+        }
+
+        function generarHorariosPorDefecto() {
             const horarios = [];
             const horaInicio = 9; // 9:00 AM
             const horaFin = 18;   // 6:00 PM
             
-            for (let hora = horaInicio; hora <= horaFin; hora++) {
-                // Solo horas enteras por ahora (puedes cambiar a 30 min)
-                const horaStr = hora.toString().padStart(2, '0');
-                horarios.push(`${horaStr}:00`);
-                
-                // Si quieres intervalos de 30 minutos, descomenta esto:
-                // if (hora < horaFin) {
-                //     horarios.push(`${horaStr}:30`);
-                // }
+            for (let hora = horaInicio; hora < horaFin; hora++) {
+                for (let minuto = 0; minuto < 60; minuto += 30) {
+                    const horaStr = hora.toString().padStart(2, '0');
+                    const minutoStr = minuto.toString().padStart(2, '0');
+                    horarios.push(`${horaStr}:${minutoStr}`);
+                }
             }
             return horarios;
         }

@@ -4390,6 +4390,21 @@ def profesional_api_horarios_disponibles():
     except Exception as e:
         print(f"❌ Error en profesional_api_horarios_disponibles: {e}")
         return jsonify({'success': False, 'error': str(e)})
+    
+@app.route('/api/horarios/configuracion', methods=['GET'])
+@login_required
+def obtener_configuracion_horarios():
+    """Obtener configuración de horarios para una fecha específica"""
+    fecha = request.args.get('fecha', '')
+    if not fecha:
+        fecha = datetime.now().strftime('%Y-%m-%d')
+    
+    negocio_id = session.get('negocio_id', 1)
+    
+    # Usar la función que ya tienes en database.py
+    config = db.obtener_horarios_por_dia(negocio_id, fecha)
+    
+    return jsonify(config)
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
