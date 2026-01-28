@@ -1,280 +1,409 @@
-{% extends "base_profesional.html" %}
-
-{% block title %}Gestión de Horarios Bloqueados{% endblock %}
-
-{% block content %}
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-calendar-times me-2"></i>
-                        Gestión de Horarios No Disponibles
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <!-- Filtro por fecha -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <form method="GET" class="row g-3">
-                                <div class="col-auto">
-                                    <label for="fecha" class="col-form-label">Fecha:</label>
-                                </div>
-                                <div class="col-auto">
-                                    <input type="date" class="form-control" id="fecha" name="fecha" 
-                                           value="{{ fecha_seleccionada }}" 
-                                           min="{{ today }}">
-                                </div>
-                                <div class="col-auto">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-search me-1"></i> Ver
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="col-md-6 text-end">
-                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalBloquear">
-                                <i class="fas fa-plus-circle me-1"></i> Bloquear Horario
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Lista de horarios bloqueados -->
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Hora</th>
-                                    <th>Motivo</th>
-                                    <th>Fecha de Bloqueo</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% if bloqueos %}
-                                    {% for bloqueo in bloqueos %}
-                                    <tr>
-                                        <td>{{ bloqueo.fecha }}</td>
-                                        <td>{{ bloqueo.hora }}</td>
-                                        <td>{{ bloqueo.motivo }}</td>
-                                        <td>{{ bloqueo.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                                        <td>
-                                            <form method="POST" action="{{ url_for('profesional_desbloquear_horario', bloqueo_id=bloqueo.id) }}" 
-                                                  onsubmit="return confirm('¿Estás seguro de desbloquear este horario?');">
-                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button type="submit" class="btn btn-sm btn-danger">
-                                                    <i class="fas fa-unlock me-1"></i> Desbloquear
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted py-4">
-                                            <i class="fas fa-calendar-check fa-2x mb-3"></i>
-                                            <p>No hay horarios bloqueados para esta fecha.</p>
-                                        </td>
-                                    </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal para bloquear nuevo horario -->
-<div class="modal fade" id="modalBloquear" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-ban me-2"></i> Bloquear Horario
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="formBloquear" method="POST">
-                <div class="modal-body">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    
-                    <div class="mb-3">
-                        <label for="fechaBloqueo" class="form-label">Fecha</label>
-                        <input type="date" class="form-control" id="fechaBloqueo" name="fecha" 
-                               value="{{ fecha_seleccionada }}" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="horaBloqueo" class="form-label">Hora</label>
-                        <select class="form-control" id="horaBloqueo" name="hora" required>
-                            <option value="">Seleccionar hora...</option>
-                            <!-- Se llenará con JavaScript -->
-                        </select>
-                        <small class="text-muted">Solo se muestran horarios disponibles</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="duracionBloqueo" class="form-label">Duración (minutos)</label>
-                        <select class="form-control" id="duracionBloqueo" name="duracion">
-                            <option value="30">30 minutos</option>
-                            <option value="60" selected>1 hora</option>
-                            <option value="90">1.5 horas</option>
-                            <option value="120">2 horas</option>
-                            <option value="180">3 horas</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="motivoBloqueo" class="form-label">Motivo (opcional)</label>
-                        <input type="text" class="form-control" id="motivoBloqueo" name="motivo" 
-                               placeholder="Ej: Reunión, Diligencia, Descanso...">
-                    </div>
-                    
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Este horario no estará disponible para que los clientes agenden citas.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="btnBloquear">
-                        <i class="fas fa-save me-1"></i> Bloquear Horario
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const fechaInput = document.getElementById('fechaBloqueo');
-    const horaSelect = document.getElementById('horaBloqueo');
-    const formBloquear = document.getElementById('formBloquear');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horarios Bloqueados - Panel Profesional</title>
     
-    // Cargar horarios disponibles cuando cambia la fecha
-    fechaInput.addEventListener('change', function() {
-        cargarHorariosDisponibles(this.value);
-    });
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    // Cargar horarios disponibles al abrir el modal
-    document.getElementById('modalBloquear').addEventListener('show.bs.modal', function() {
-        if (fechaInput.value) {
-            cargarHorariosDisponibles(fechaInput.value);
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 20px;
         }
-    });
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        
+        .card-header {
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background-color: #4361ee;
+            border-color: #4361ee;
+        }
+        
+        .btn-primary:hover {
+            background-color: #3a56d4;
+            border-color: #3a56d4;
+        }
+        
+        .btn-success {
+            background-color: #4cc9f0;
+            border-color: #4cc9f0;
+        }
+        
+        .btn-danger {
+            background-color: #f72585;
+            border-color: #f72585;
+        }
+        
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+        
+        .back-btn {
+            margin-bottom: 20px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Botón para volver al dashboard -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-outline-primary back-btn">
+                    <i class="fas fa-arrow-left me-2"></i> Volver al Dashboard
+                </a>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-times me-2"></i>
+                            Gestión de Horarios No Disponibles
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Filtro por fecha -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <form method="GET" class="row g-3">
+                                    <div class="col-auto">
+                                        <label for="fecha" class="col-form-label">Fecha:</label>
+                                    </div>
+                                    <div class="col-auto">
+                                        <input type="date" class="form-control" id="fecha" name="fecha" 
+                                               value="{{ fecha_seleccionada }}" 
+                                               required>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-search me-1"></i> Ver
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalBloquear">
+                                    <i class="fas fa-plus-circle me-1"></i> Bloquear Horario
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Lista de horarios bloqueados -->
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Hora</th>
+                                        <th>Motivo</th>
+                                        <th>Fecha de Bloqueo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if bloqueos %}
+                                        {% for bloqueo in bloqueos %}
+                                        <tr>
+                                            <td>{{ bloqueo.fecha }}</td>
+                                            <td>{{ bloqueo.hora[:5] if bloqueo.hora|length > 5 else bloqueo.hora }}</td>
+                                            <td>{{ bloqueo.motivo or "Sin motivo especificado" }}</td>
+                                            <td>
+                                                {% if bloqueo.created_at %}
+                                                    {{ bloqueo.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                                {% else %}
+                                                    {{ bloqueo.created_at or "N/A" }}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <form method="POST" action="{{ url_for('profesional_desbloquear_horario', bloqueo_id=bloqueo.id) }}" 
+                                                      onsubmit="return confirm('¿Estás seguro de desbloquear este horario?');" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-sm btn-danger">
+                                                        <i class="fas fa-unlock me-1"></i> Desbloquear
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4">
+                                                <div class="empty-state">
+                                                    <i class="fas fa-calendar-check"></i>
+                                                    <p class="mb-0">No hay horarios bloqueados para esta fecha.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Mensajes flash -->
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }} alert-dismissible fade show mt-3" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para bloquear nuevo horario -->
+    <div class="modal fade" id="modalBloquear" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-ban me-2"></i> Bloquear Horario
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="formBloquear">
+                    <div class="modal-body">
+                        <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="fechaBloqueo" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="fechaBloqueo" name="fecha" 
+                                   value="{{ fecha_seleccionada }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="horaBloqueo" class="form-label">Hora</label>
+                            <select class="form-control" id="horaBloqueo" name="hora" required>
+                                <option value="">Seleccionar hora...</option>
+                                <!-- Se llenará con JavaScript -->
+                            </select>
+                            <small class="text-muted">Solo se muestran horarios disponibles</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="duracionBloqueo" class="form-label">Duración (minutos)</label>
+                            <select class="form-control" id="duracionBloqueo" name="duracion">
+                                <option value="30">30 minutos</option>
+                                <option value="60" selected>1 hora</option>
+                                <option value="90">1.5 horas</option>
+                                <option value="120">2 horas</option>
+                                <option value="180">3 horas</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="motivoBloqueo" class="form-label">Motivo (opcional)</label>
+                            <input type="text" class="form-control" id="motivoBloqueo" name="motivo" 
+                                   placeholder="Ej: Reunión, Diligencia, Descanso...">
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Este horario no estará disponible para que los clientes agenden citas.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnBloquear">
+                            <i class="fas fa-save me-1"></i> Bloquear Horario
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    // Enviar formulario vía AJAX
-    formBloquear.addEventListener('submit', function(e) {
-        e.preventDefault();
+    <!-- Scripts -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fechaInput = document.getElementById('fechaBloqueo');
+        const horaSelect = document.getElementById('horaBloqueo');
+        const formBloquear = document.getElementById('formBloquear');
         
-        const btnBloquear = document.getElementById('btnBloquear');
-        const btnOriginal = btnBloquear.innerHTML;
+        // Cargar horarios disponibles cuando cambia la fecha
+        fechaInput.addEventListener('change', function() {
+            cargarHorariosDisponibles(this.value);
+        });
         
-        // Mostrar loading
-        btnBloquear.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
-        btnBloquear.disabled = true;
+        // Cargar horarios disponibles al abrir el modal
+        document.getElementById('modalBloquear').addEventListener('show.bs.modal', function() {
+            if (fechaInput.value) {
+                cargarHorariosDisponibles(fechaInput.value);
+            }
+        });
         
-        fetch('{{ url_for("profesional_bloquear_horario") }}', {
-            method: 'POST',
-            body: new FormData(this)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Mostrar mensaje de éxito
-                showToast('success', '¡Horario bloqueado!', data.message);
-                
-                // Cerrar modal y recargar página
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalBloquear'));
-                modal.hide();
-                
-                // Recargar después de 1 segundo
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            } else {
-                showToast('error', 'Error', data.error || 'No se pudo bloquear el horario');
+        // Enviar formulario vía AJAX
+        formBloquear.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const btnBloquear = document.getElementById('btnBloquear');
+            const btnOriginal = btnBloquear.innerHTML;
+            
+            // Mostrar loading
+            btnBloquear.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+            btnBloquear.disabled = true;
+            
+            // Preparar datos del formulario
+            const formData = new FormData();
+            formData.append('csrf_token', document.getElementById('csrf_token').value);
+            formData.append('fecha', fechaInput.value);
+            formData.append('hora', horaSelect.value);
+            formData.append('duracion', document.getElementById('duracionBloqueo').value);
+            formData.append('motivo', document.getElementById('motivoBloqueo').value);
+            
+            fetch('{{ url_for("profesional_bloquear_horario") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar mensaje de éxito
+                    showToast('success', '¡Horario bloqueado!', data.message);
+                    
+                    // Cerrar modal y recargar página
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalBloquear'));
+                    modal.hide();
+                    
+                    // Recargar después de 1 segundo
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showToast('error', 'Error', data.error || 'No se pudo bloquear el horario');
+                    btnBloquear.innerHTML = btnOriginal;
+                    btnBloquear.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'Error de conexión');
                 btnBloquear.innerHTML = btnOriginal;
                 btnBloquear.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('error', 'Error', 'Error de conexión');
-            btnBloquear.innerHTML = btnOriginal;
-            btnBloquear.disabled = false;
+            });
         });
-    });
-    
-    function cargarHorariosDisponibles(fecha) {
-        if (!fecha) return;
         
-        // Mostrar loading
-        horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
-        horaSelect.disabled = true;
-        
-        fetch(`{{ url_for('profesional_api_horarios_disponibles') }}?fecha=${fecha}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Limpiar select
-                horaSelect.innerHTML = '<option value="">Seleccionar hora...</option>';
-                
-                // Agregar horarios disponibles
-                data.horarios.forEach(horario => {
-                    const option = document.createElement('option');
-                    option.value = horario.hora;
-                    option.textContent = `${horario.hora} ${horario.bloqueado ? '(Ya bloqueado)' : ''}`;
-                    option.disabled = horario.bloqueado;
+        function cargarHorariosDisponibles(fecha) {
+            if (!fecha) return;
+            
+            // Mostrar loading
+            horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+            horaSelect.disabled = true;
+            
+            fetch(`{{ url_for('profesional_api_horarios_disponibles') }}?fecha=${fecha}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Limpiar select
+                    horaSelect.innerHTML = '<option value="">Seleccionar hora...</option>';
                     
-                    if (horario.bloqueado) {
-                        option.title = `Motivo: ${horario.motivo || 'Sin motivo'}`;
+                    // Agregar horarios disponibles
+                    if (data.horarios && data.horarios.length > 0) {
+                        data.horarios.forEach(horario => {
+                            const option = document.createElement('option');
+                            option.value = horario.hora;
+                            
+                            let texto = `${horario.hora}`;
+                            if (horario.bloqueado) {
+                                texto += ' (Ya bloqueado)';
+                            }
+                            
+                            option.textContent = texto;
+                            option.disabled = horario.bloqueado;
+                            
+                            if (horario.bloqueado) {
+                                option.title = `Motivo: ${horario.motivo || 'Sin motivo'}`;
+                            }
+                            
+                            horaSelect.appendChild(option);
+                        });
+                    } else {
+                        horaSelect.innerHTML = '<option value="">No hay horarios disponibles</option>';
                     }
                     
-                    horaSelect.appendChild(option);
-                });
-                
-                horaSelect.disabled = false;
-            } else {
-                horaSelect.innerHTML = `<option value="">Error: ${data.error}</option>`;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            horaSelect.innerHTML = '<option value="">Error cargando horarios</option>';
-        });
-    }
-    
-    function showToast(type, title, message) {
-        // Implementación simple de toast
-        const toast = document.createElement('div');
-        toast.className = `toast align-items-center text-bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
-        toast.setAttribute('role', 'alert');
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">
-                    <strong>${title}</strong><br>${message}
+                    horaSelect.disabled = false;
+                } else {
+                    horaSelect.innerHTML = `<option value="">Error: ${data.error}</option>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                horaSelect.innerHTML = '<option value="">Error cargando horarios</option>';
+            });
+        }
+        
+        function showToast(type, title, message) {
+            // Crear toast dinámico
+            const toastContainer = document.createElement('div');
+            toastContainer.innerHTML = `
+                <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <strong>${title}</strong><br>${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-        
-        document.body.appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast);
-        bsToast.show();
-        
-        // Eliminar después de 5 segundos
-        setTimeout(() => {
-            toast.remove();
-        }, 5000);
-    }
-});
-</script>
-{% endblock %}
+            `;
+            
+            document.body.appendChild(toastContainer);
+            const toastElement = toastContainer.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+            
+            // Eliminar después de 5 segundos
+            setTimeout(() => {
+                toastContainer.remove();
+            }, 5000);
+        }
+    });
+    </script>
+</body>
+</html>

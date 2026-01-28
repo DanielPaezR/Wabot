@@ -1407,7 +1407,7 @@
             {% endif %}
         </div>
 
-        <!-- Acciones Rápidas -->
+        <!-- Acciones Rápidas - MEJORADA -->
         <div class="quick-actions">
             <a href="{{ url_for('profesional_todas_citas') }}" class="action-card">
                 <div class="action-icon">📋</div>
@@ -1420,13 +1420,18 @@
                 <div class="action-title">Estadísticas</div>
                 <div class="action-desc">Mis métricas</div>
             </a>
+            
             <a href="/profesional/agendar" class="action-card">
                 <div class="action-icon">➕</div>
-                <div class="action-title">Agendar Cita</div>
-                <div class="action-desc">Para clientes en persona</div>
+                <div class="action-title">Agendar</div>
+                <div class="action-desc">Nueva cita</div>
             </a>
-            <a href="/profesional/bloqueos" class="btn btn-warning">
-                <i class="fas fa-ban me-1"></i> Gestionar Horarios No Disponibles
+            
+            <!-- BOTÓN GESTIONAR HORARIOS - NUEVO DISEÑO -->
+            <a href="/profesional/bloqueos" class="action-card action-card-warning">
+                <div class="action-icon">🚫</div>
+                <div class="action-title">Horarios</div>
+                <div class="action-desc">Bloquear horas</div>
             </a>
         </div>
         
