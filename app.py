@@ -3610,12 +3610,19 @@ def obtener_citas():
     cursor.execute(query, params)
     citas = cursor.fetchall()
     conn.close()
+
+    # Para debug - ver qué está devolviendo la BD
+    if citas and len(citas) > 0:
+        primera_cita = citas[0]
+        print(f"🔍 DEBUG primera cita fecha: {primera_cita['fecha']}")
+        print(f"🔍 DEBUG tipo fecha: {type(primera_cita['fecha'])}")
+        print(f"🔍 DEBUG tiene strftime?: {hasattr(primera_cita['fecha'], 'strftime')}")
     
     return jsonify([{
         'id': c['id'],
         'cliente_nombre': c['cliente_nombre'] or 'No especificado',
         'cliente_telefono': c['cliente_telefono'],
-        'fecha': c['fecha'].strftime('%Y-%m-%d') if c['fecha'] else '',
+        'fecha': c['fecha'].strftime('%Y-%m-%d') if c['fecha'] and hasattr(c['fecha'], 'strftime') else str(c['fecha']) if c['fecha'] else '',
         'hora': c['hora'],
         'servicio': c['servicio'],
         'estado': c['estado'],
