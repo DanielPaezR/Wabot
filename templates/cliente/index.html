@@ -373,6 +373,62 @@
             display: block;
             height: 10px;
         }
+
+    
+        .install-btn-container {
+            position: fixed;
+            bottom: 130px; /* Justo arriba del input */
+            right: 15px;
+            z-index: 1001;
+            animation: slideInUp 0.5s ease;
+            display: none; /* Oculto por defecto */
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .install-btn {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 20px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .install-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .install-btn i {
+            font-size: 1.2rem;
+        }
+
+        .install-btn.hidden {
+            display: none;
+        }
+
+        /* Para móviles */
+        @media (max-width: 576px) {
+            .install-btn-container {
+                bottom: 120px;
+                right: 10px;
+            }
+            
+            .install-btn {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -404,7 +460,17 @@
             <button class="btn btn-outline-info action-btn" id="helpButton">
                 <i class="fas fa-question"></i> Ayuda
             </button>
+            <button class="btn btn-outline-success action-btn" id="installFooterBtn">
+                <i class="fas fa-mobile-alt"></i> Instalar App
+            </button>
         </div>
+    </div>
+
+    <!-- Botón de instalación PWA (FLOTANTE) -->
+    <div class="install-btn-container" id="installBtnContainer">
+        <button class="install-btn" id="installBtn">
+            <i class="fas fa-download"></i> Instalar App
+        </button>
     </div>
 
     <input type="hidden" id="sessionId" value="{{ session_id }}">
@@ -705,6 +771,10 @@
                 userInput.val('4');
                 sendMessage();
             });
+
+            $('#installFooterBtn').click(function() {
+                $('#installBtn').click(); // Simula click en el botón flotante
+            });
             
             // Iniciar conversación
             setTimeout(() => {
@@ -719,33 +789,114 @@
             console.log("🚀 Creando manifest dinámico para el acceso directo...");
             crearManifestDinamico();
             
-            // También crear un endpoint específico para este negocio
-            // Esto ayuda a que los navegadores detecten mejor el PWA
-            setTimeout(() => {
-                // Crear un "install prompt" personalizado
-                if ('beforeinstallprompt' in window) {
-                    window.addEventListener('beforeinstallprompt', (e) => {
-                        console.log("📱 Instalación de PWA disponible para negocio:", negocioId);
-                        // Podrías mostrar un botón de instalación aquí si quieres
-                    });
+            // ==================== CÓDIGO PARA INSTALAR PWA ====================
+            
+            // Variables para instalación PWA
+            let deferredPrompt;
+            const installBtn = document.getElementById('installBtn');
+            const installBtnContainer = document.getElementById('installBtnContainer');
+            
+            // Verificar si ya está instalado como PWA
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                console.log("📱 Ya está instalado como PWA");
+                if (installBtnContainer) installBtnContainer.style.display = 'none';
+            }
+            
+            // Evento para capturar el prompt de instalación
+            window.addEventListener('beforeinstallprompt', (e) => {
+                console.log("📱 beforeinstallprompt activado - PWA se puede instalar");
+                // Prevenir que el navegador muestre el prompt automático
+                e.preventDefault();
+                // Guardar el evento para usarlo después
+                deferredPrompt = e;
+                
+                // Mostrar el botón de instalación
+                if (installBtnContainer) {
+                    installBtnContainer.style.display = 'block';
                 }
                 
-                // Si ya está instalado como PWA, forzar actualización
-                if (window.matchMedia('(display-mode: standalone)').matches) {
-                    console.log("📱 Ya está instalado como PWA - Forzando actualización de URL...");
-                    // Podemos intentar actualizar el shortcut
-                    try {
-                        if ('shortcuts' in navigator && navigator.shortcuts) {
-                            navigator.shortcuts.update({
-                                name: "Agendar Cita - " + negocioNombre,
-                                url: window.location.href
-                            });
-                        }
-                    } catch (e) {
-                        console.log("ℹ️ No se pudo actualizar shortcut, pero está bien");
-                    }
+                // Actualizar el manifest dinámico para asegurar que todo esté correcto
+                crearManifestDinamico();
+                
+                // También mostrar mensaje informativo
+                addBotMessage('📱 ¡Puedes instalar esta app en tu teléfono! Toca "Instalar App" para agregarla a tu pantalla principal.');
+            });
+            
+            // Evento cuando la PWA se instala exitosamente
+            window.addEventListener('appinstalled', (evt) => {
+                console.log("🎉 PWA instalado exitosamente");
+                if (installBtnContainer) {
+                    installBtnContainer.style.display = 'none';
                 }
-            }, 2000);
+                deferredPrompt = null;
+                
+                // Mostrar mensaje de confirmación
+                addBotMessage('✅ ¡App instalada exitosamente! Ahora puedes acceder directamente desde tu pantalla principal.');
+            });
+            
+            // Evento click en el botón de instalación
+            if (installBtn) {
+                installBtn.addEventListener('click', async () => {
+                    if (!deferredPrompt) {
+                        console.log("No hay prompt de instalación disponible automáticamente");
+                        
+                        // Mostrar instrucciones manuales
+                        addBotMessage(`
+                            📱 Para instalar la app manualmente:
+                            1. En Chrome: Toca el menú ⋮ (tres puntos) → "Instalar app"
+                            2. En Safari: Toca el ícono de compartir 📤 → "Agregar a pantalla de inicio"
+                            3. En otros navegadores: Busca la opción "Agregar a pantalla de inicio"
+                        `);
+                        return;
+                    }
+                    
+                    console.log("🔘 Botón de instalación presionado");
+                    
+                    // Mostrar el prompt de instalación
+                    deferredPrompt.prompt();
+                    
+                    // Esperar a que el usuario responda
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`Usuario eligió: ${outcome}`);
+                    
+                    // Limpiar el prompt guardado
+                    deferredPrompt = null;
+                    
+                    // Ocultar el botón
+                    if (installBtnContainer) {
+                        installBtnContainer.style.display = 'none';
+                    }
+                    
+                    if (outcome === 'accepted') {
+                        addBotMessage('✅ ¡Gracias por instalar la app! Se agregará a tu pantalla principal.');
+                    } else {
+                        addBotMessage('ℹ️ Puedes instalar la app más tarde desde el menú del navegador.');
+                    }
+                });
+            }
+            
+            // Verificar si ya se puede instalar al cargar la página
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    // Intentar registrar el service worker
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('/service-worker.js')
+                            .then(registration => {
+                                console.log('✅ Service Worker registrado:', registration.scope);
+                            })
+                            .catch(error => {
+                                console.log('❌ Error registrando Service Worker:', error);
+                            });
+                    }
+                    
+                    // Verificar si ya se puede instalar (manifest correcto)
+                    if (window.matchMedia('(display-mode: browser)').matches) {
+                        console.log('🔍 Verificando capacidad de instalación PWA...');
+                        // Forzar verificación del manifest
+                        crearManifestDinamico();
+                    }
+                }, 2000);
+            });
         });
     </script>
     <script>
