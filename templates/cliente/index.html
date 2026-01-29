@@ -789,10 +789,10 @@
             console.log("🚀 Creando manifest dinámico para el acceso directo...");
             crearManifestDinamico();
             
-            // ==================== CÓDIGO PARA INSTALAR PWA ====================
+            // ==================== CÓDIGO MEJORADO PARA INSTALAR PWA ====================
             
             // Variables para instalación PWA
-            let deferredPrompt;
+            let deferredPrompt = null;
             const installBtn = document.getElementById('installBtn');
             const installBtnContainer = document.getElementById('installBtnContainer');
             
@@ -818,8 +818,10 @@
                 // Actualizar el manifest dinámico para asegurar que todo esté correcto
                 crearManifestDinamico();
                 
-                // También mostrar mensaje informativo
-                addBotMessage('📱 ¡Puedes instalar esta app en tu teléfono! Toca "Instalar App" para agregarla a tu pantalla principal.');
+                // Mostrar mensaje informativo breve
+                setTimeout(() => {
+                    addBotMessage('📱 ¡Ahora puedes instalar esta app en tu teléfono!');
+                }, 1000);
             });
             
             // Evento cuando la PWA se instala exitosamente
@@ -831,27 +833,26 @@
                 deferredPrompt = null;
                 
                 // Mostrar mensaje de confirmación
-                addBotMessage('✅ ¡App instalada exitosamente! Ahora puedes acceder directamente desde tu pantalla principal.');
+                setTimeout(() => {
+                    addBotMessage('✅ ¡App instalada! Ahora puedes acceder directamente desde tu pantalla principal.');
+                }, 500);
             });
             
-            // Evento click en el botón de instalación
-            if (installBtn) {
-                installBtn.addEventListener('click', async () => {
-                    if (!deferredPrompt) {
-                        console.log("No hay prompt de instalación disponible automáticamente");
-                        
-                        // Mostrar instrucciones manuales
-                        addBotMessage(`
-                            📱 Para instalar la app manualmente:
-                            1. En Chrome: Toca el menú ⋮ (tres puntos) → "Instalar app"
-                            2. En Safari: Toca el ícono de compartir 📤 → "Agregar a pantalla de inicio"
-                            3. En otros navegadores: Busca la opción "Agregar a pantalla de inicio"
-                        `);
-                        return;
-                    }
+            // Función para intentar instalar la PWA
+            async function tryInstallPWA() {
+                if (!deferredPrompt) {
+                    console.log("❌ No hay prompt de instalación disponible");
+                    // Intentar forzar la detección del manifest
+                    crearManifestDinamico();
                     
-                    console.log("🔘 Botón de instalación presionado");
-                    
+                    // Mostrar mensaje simple
+                    addBotMessage('📱 La instalación no está disponible en este momento. Intenta más tarde.');
+                    return false;
+                }
+                
+                console.log("🔘 Intentando instalar PWA...");
+                
+                try {
                     // Mostrar el prompt de instalación
                     deferredPrompt.prompt();
                     
@@ -869,9 +870,22 @@
                     
                     if (outcome === 'accepted') {
                         addBotMessage('✅ ¡Gracias por instalar la app! Se agregará a tu pantalla principal.');
+                        return true;
                     } else {
                         addBotMessage('ℹ️ Puedes instalar la app más tarde desde el menú del navegador.');
+                        return false;
                     }
+                } catch (error) {
+                    console.error("❌ Error al instalar PWA:", error);
+                    addBotMessage('❌ Hubo un error al intentar instalar la app.');
+                    return false;
+                }
+            }
+            
+            // Evento click en el botón de instalación
+            if (installBtn) {
+                installBtn.addEventListener('click', async () => {
+                    await tryInstallPWA();
                 });
             }
             
@@ -897,51 +911,15 @@
                     }
                 }, 2000);
             });
-        });
-    </script>
-    <script>
-    // Debug simple - verificar manifest e iconos
-    setTimeout(function() {
-        console.log("🔍 Debug acceso directo:");
-        
-        // 1. Ver manifest
-        fetch('/manifest.json')
-            .then(r => r.json())
-            .then(data => {
-                console.log("📄 Manifest cargado:");
-                console.log("- Start URL:", data.start_url);
-                console.log("- Iconos:", data.icons ? data.icons.length : 0);
-                
-                if (data.icons) {
-                    data.icons.forEach(function(icon, i) {
-                        console.log("  Icono " + i + ":", icon.src);
-                        
-                        // Verificar si el icono se carga
-                        var img = new Image();
-                        img.onload = function() {
-                            console.log("    ✅ Se carga OK");
-                        };
-                        img.onerror = function() {
-                            console.log("    ❌ NO se carga");
-                        };
-                        img.src = icon.src;
-                    });
+            
+            // También verificar después de un tiempo por si acaso
+            setTimeout(() => {
+                if (!deferredPrompt && window.matchMedia('(display-mode: browser)').matches) {
+                    console.log("🔄 Verificando nuevamente capacidad de instalación...");
+                    crearManifestDinamico();
                 }
-            })
-            .catch(function(err) {
-                console.log("❌ Error cargando manifest:", err);
-            });
-        
-        // 2. Ver iconos directos
-        console.log("🖼️ Iconos directos:");
-        var iconos = ['/static/icons/icon-192x192.png', '/static/favicon.ico'];
-        iconos.forEach(function(url) {
-            var img = new Image();
-            img.onload = function() { console.log("✅ " + url); };
-            img.onerror = function() { console.log("❌ " + url); };
-            img.src = url;
+            }, 5000);
         });
-    }, 1000);
     </script>
 </body>
 </html>
