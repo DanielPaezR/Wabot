@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="/static/icons/icon-192x192.png" sizes="192x192">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <meta name="mobile-web-app-capable" content="yes"> <!-- CORREGIDO -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -84,11 +85,11 @@
             margin-top: 3px;
         }
         
-        /* ÁREA DE MENSAJES - POSICIÓN FIXED CON SCROLL */
+        /* ÁREA DE MENSAJES - POSICIÓN FIXED CON SCROLL - CORREGIDO */
         .chat-messages {
             position: fixed;
             top: 80px; /* Justo debajo del header */
-            bottom: 160px; /* Justo encima del footer */
+            bottom: 190px; /* AUMENTADO para el botón de instalación */
             left: 0;
             right: 0;
             max-width: 500px;
@@ -126,6 +127,7 @@
             margin: 0 auto;
             border-top: 1px solid #ddd;
             z-index: 1000;
+            height: 140px; /* Altura fija */
         }
         
         /* Mensajes */
@@ -323,11 +325,13 @@
             
             .chat-messages {
                 top: 70px;
+                bottom: 180px; /* Ajustado para móvil */
                 padding: 15px;
             }
             
             .chat-input {
                 padding: 12px;
+                height: 135px; /* Ajustado para móvil */
             }
             
             .message {
@@ -363,21 +367,21 @@
             
             .chat-messages {
                 top: 80px;
-                bottom: 160px;
+                bottom: 190px; /* Ajustado para desktop */
             }
         }
         
-        /* Espacio al final del chat */
+        /* Espacio al final del chat - IMPORTANTE para scroll */
         .chat-messages::after {
             content: '';
             display: block;
-            height: 10px;
+            height: 30px; /* Aumentado para espacio extra */
         }
 
     
         .install-btn-container {
             position: fixed;
-            bottom: 130px; /* Justo arriba del input */
+            bottom: 150px; /* Ajustado para no tapar mensajes */
             right: 15px;
             z-index: 1001;
             animation: slideInUp 0.5s ease;
@@ -394,14 +398,15 @@
             color: white;
             border: none;
             border-radius: 50px;
-            padding: 12px 20px;
+            padding: 10px 16px;
             box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
+            font-size: 0.85rem;
         }
 
         .install-btn:hover {
@@ -410,23 +415,19 @@
         }
 
         .install-btn i {
-            font-size: 1.2rem;
-        }
-
-        .install-btn.hidden {
-            display: none;
+            font-size: 1rem;
         }
 
         /* Para móviles */
         @media (max-width: 576px) {
             .install-btn-container {
-                bottom: 120px;
+                bottom: 140px;
                 right: 10px;
             }
             
             .install-btn {
-                padding: 10px 16px;
-                font-size: 0.9rem;
+                padding: 8px 14px;
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -469,7 +470,7 @@
     <!-- Botón de instalación PWA (FLOTANTE) -->
     <div class="install-btn-container" id="installBtnContainer">
         <button class="install-btn" id="installBtn">
-            <i class="fas fa-download"></i> Instalar App
+            <i class="fas fa-download"></i> Instalar
         </button>
     </div>
 
@@ -489,23 +490,26 @@
             
             console.log("✅ Chat inicializado para negocio ID:", negocioId, "Nombre:", negocioNombre);
             
-            // ✅ SOLUCIÓN DEFINITIVA: Crear manifest.json DINÁMICO desde CERO
+            // ✅ SOLUCIÓN DEFINITIVA: Crear manifest.json DINÁMICO desde CERO - CORREGIDO
             function crearManifestDinamico() {
                 // Crear la URL ABSOLUTA para este negocio específico
                 const urlAbsoluta = window.location.origin + '/cliente/' + negocioId;
                 console.log("🎯 URL ABSOLUTA para acceso directo:", urlAbsoluta);
                 
-                // Crear manifest COMPLETAMENTE personalizado
+                // CORREGIR: El scope debe ser una URL relativa válida
+                const scopeUrl = '/cliente/' + negocioId + '/';
+                
+                // Crear manifest COMPLETAMENTE personalizado - CORREGIDO
                 const manifestData = {
                     "name": "WaBot - " + negocioNombre,
                     "short_name": "WaBot",
                     "description": "Agendar citas en " + negocioNombre,
-                    "start_url": urlAbsoluta,  // ¡URL ESPECÍFICA DEL NEGOCIO!
+                    "start_url": urlAbsoluta,
                     "display": "standalone",
                     "background_color": "#007bff",
                     "theme_color": "#007bff",
                     "orientation": "portrait-primary",
-                    "scope": "/",
+                    "scope": scopeUrl,  // ¡CORREGIDO! URL relativa válida
                     "lang": "es",
                     "icons": [
                         {
@@ -563,7 +567,7 @@
                             "name": "Agendar Cita",
                             "short_name": "Agendar",
                             "description": "Agendar una nueva cita en " + negocioNombre,
-                            "url": urlAbsoluta,  // ¡URL ESPECÍFICA DEL NEGOCIO!
+                            "url": urlAbsoluta,
                             "icons": [
                                 {
                                     "src": "/static/icons/icon-96x96.png",
@@ -575,6 +579,8 @@
                     ]
                 };
                 
+                console.log("📄 Manifest generado:", JSON.stringify(manifestData, null, 2));
+                
                 // Convertir a JSON y crear Blob
                 const jsonManifest = JSON.stringify(manifestData, null, 2);
                 const blob = new Blob([jsonManifest], {type: 'application/json'});
@@ -584,53 +590,34 @@
                 let manifestLink = document.querySelector('link[rel="manifest"]');
                 
                 if (!manifestLink) {
-                    // Crear nuevo elemento manifest
                     manifestLink = document.createElement('link');
                     manifestLink.rel = 'manifest';
                     document.head.appendChild(manifestLink);
-                    console.log("✅ Manifest creado dinámicamente");
                 }
                 
                 // Asignar la URL del blob
                 manifestLink.href = manifestUrl;
                 
-                // Crear un nombre único para evitar caché
-                const manifestId = 'manifest-' + negocioId + '-' + Date.now();
-                manifestLink.id = manifestId;
-                
                 console.log("🎯 Manifest generado para negocio:", negocioId);
-                console.log("🔗 Start URL en manifest:", urlAbsoluta);
-                
-                // Forzar a que el navegador detecte el cambio
-                setTimeout(() => {
-                    // Agregar un segundo manifest con nombre diferente para forzar actualización
-                    const manifestLink2 = document.createElement('link');
-                    manifestLink2.rel = 'manifest';
-                    manifestLink2.href = '/manifest-' + negocioId + '.json?v=' + Date.now();
-                    document.head.appendChild(manifestLink2);
-                    
-                    // Remover después de un momento
-                    setTimeout(() => {
-                        if (manifestLink2.parentNode) {
-                            document.head.removeChild(manifestLink2);
-                        }
-                    }, 1000);
-                }, 500);
+                console.log("🔗 Start URL:", urlAbsoluta);
+                console.log("🔗 Scope:", scopeUrl);
                 
                 return manifestUrl;
             }
             
-            // Función simple para scroll al final
+            // Función MEJORADA para scroll al final
             function scrollToBottom() {
                 setTimeout(() => {
-                    chatMessages[0].scrollTop = chatMessages[0].scrollHeight;
-                }, 50);
+                    const messagesEl = chatMessages[0];
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                    console.log("📏 Scroll ajustado:", messagesEl.scrollTop, "Altura total:", messagesEl.scrollHeight);
+                }, 100);
             }
             
             // Verificar que el scroll funciona
             function checkScroll() {
                 const el = chatMessages[0];
-                console.log("📏 Altura scroll:", el.scrollHeight, "Altura visible:", el.clientHeight);
+                console.log("📏 Altura scroll:", el.scrollHeight, "Altura visible:", el.clientHeight, "ScrollTop:", el.scrollTop);
             }
             
             // Mostrar indicador de "escribiendo"
@@ -660,7 +647,6 @@
                 `;
                 chatMessages.append(messageHtml);
                 scrollToBottom();
-                checkScroll();
             }
             
             // Agregar mensaje del bot
@@ -714,10 +700,11 @@
                     chatMessages.append(`<div class="pagination-info">${pagination}</div>`);
                 }
                 
+                // Scroll después de que todo se renderice
                 setTimeout(() => {
                     scrollToBottom();
                     checkScroll();
-                }, 100);
+                }, 200);
             }
             
             // Enviar mensaje
@@ -773,7 +760,7 @@
             });
 
             $('#installFooterBtn').click(function() {
-                $('#installBtn').click(); // Simula click en el botón flotante
+                $('#installBtn').click();
             });
             
             // Iniciar conversación
@@ -782,13 +769,6 @@
                 sendMessage();
             }, 800);
             
-            // Verificar scroll inicial
-            setTimeout(checkScroll, 1000);
-            
-            // ✅ EJECUTAR LA SOLUCIÓN DEFINITIVA INMEDIATAMENTE
-            console.log("🚀 Creando manifest dinámico para el acceso directo...");
-            crearManifestDinamico();
-            
             // ==================== CÓDIGO MEJORADO PARA INSTALAR PWA ====================
             
             // Variables para instalación PWA
@@ -796,129 +776,125 @@
             const installBtn = document.getElementById('installBtn');
             const installBtnContainer = document.getElementById('installBtnContainer');
             
-            // Verificar si ya está instalado como PWA
-            if (window.matchMedia('(display-mode: standalone)').matches) {
-                console.log("📱 Ya está instalado como PWA");
-                if (installBtnContainer) installBtnContainer.style.display = 'none';
+            // Función para verificar si se puede instalar
+            function checkPWAInstallable() {
+                // Verificar si ya está instalado como PWA
+                if (window.matchMedia('(display-mode: standalone)').matches) {
+                    console.log("📱 Ya está instalado como PWA");
+                    if (installBtnContainer) installBtnContainer.style.display = 'none';
+                    return false;
+                }
+                
+                // Verificar requisitos para PWA
+                const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+                const hasServiceWorker = 'serviceWorker' in navigator;
+                const hasBeforeInstallPrompt = 'beforeinstallprompt' in window;
+                
+                console.log("🔍 Verificando PWA:");
+                console.log("  - HTTPS/Localhost:", isSecure);
+                console.log("  - Service Worker:", hasServiceWorker);
+                console.log("  - beforeinstallprompt:", hasBeforeInstallPrompt);
+                
+                return isSecure && hasServiceWorker;
             }
             
             // Evento para capturar el prompt de instalación
             window.addEventListener('beforeinstallprompt', (e) => {
-                console.log("📱 beforeinstallprompt activado - PWA se puede instalar");
-                // Prevenir que el navegador muestre el prompt automático
+                console.log("🎉 beforeinstallprompt activado - ¡PWA se puede instalar!");
                 e.preventDefault();
-                // Guardar el evento para usarlo después
                 deferredPrompt = e;
                 
-                // Mostrar el botón de instalación
                 if (installBtnContainer) {
                     installBtnContainer.style.display = 'block';
+                    console.log("✅ Botón de instalación mostrado");
                 }
                 
-                // Actualizar el manifest dinámico para asegurar que todo esté correcto
+                // Crear manifest CORREGIDO
                 crearManifestDinamico();
-                
-                // Mostrar mensaje informativo breve
-                setTimeout(() => {
-                    addBotMessage('📱 ¡Ahora puedes instalar esta app en tu teléfono!');
-                }, 1000);
             });
             
-            // Evento cuando la PWA se instala exitosamente
+            // Evento cuando la PWA se instala
             window.addEventListener('appinstalled', (evt) => {
-                console.log("🎉 PWA instalado exitosamente");
-                if (installBtnContainer) {
-                    installBtnContainer.style.display = 'none';
-                }
+                console.log("🎊 PWA instalado exitosamente");
+                if (installBtnContainer) installBtnContainer.style.display = 'none';
                 deferredPrompt = null;
-                
-                // Mostrar mensaje de confirmación
-                setTimeout(() => {
-                    addBotMessage('✅ ¡App instalada! Ahora puedes acceder directamente desde tu pantalla principal.');
-                }, 500);
             });
             
-            // Función para intentar instalar la PWA
+            // Función para intentar instalar
             async function tryInstallPWA() {
+                console.log("🔘 Intentando instalar PWA...");
+                
                 if (!deferredPrompt) {
-                    console.log("❌ No hay prompt de instalación disponible");
-                    // Intentar forzar la detección del manifest
+                    console.log("⚠️ No hay deferredPrompt, verificando si se puede instalar...");
+                    
+                    // Verificar si cumple requisitos
+                    if (!checkPWAInstallable()) {
+                        addBotMessage('📱 Esta app no cumple los requisitos para instalación. Se necesita HTTPS.');
+                        return false;
+                    }
+                    
+                    // Intentar forzar la detección
                     crearManifestDinamico();
                     
-                    // Mostrar mensaje simple
-                    addBotMessage('📱 La instalación no está disponible en este momento. Intenta más tarde.');
+                    // Registrar service worker si no está
+                    if ('serviceWorker' in navigator) {
+                        try {
+                            await navigator.serviceWorker.register('/service-worker.js');
+                            console.log("✅ Service Worker registrado");
+                        } catch (error) {
+                            console.log("❌ Error registrando Service Worker:", error);
+                        }
+                    }
+                    
+                    addBotMessage('📱 Intenta recargar la página o usar Chrome/Edge para instalar.');
                     return false;
                 }
                 
-                console.log("🔘 Intentando instalar PWA...");
-                
                 try {
-                    // Mostrar el prompt de instalación
                     deferredPrompt.prompt();
-                    
-                    // Esperar a que el usuario responda
                     const { outcome } = await deferredPrompt.userChoice;
                     console.log(`Usuario eligió: ${outcome}`);
                     
-                    // Limpiar el prompt guardado
                     deferredPrompt = null;
-                    
-                    // Ocultar el botón
-                    if (installBtnContainer) {
-                        installBtnContainer.style.display = 'none';
-                    }
+                    if (installBtnContainer) installBtnContainer.style.display = 'none';
                     
                     if (outcome === 'accepted') {
-                        addBotMessage('✅ ¡Gracias por instalar la app! Se agregará a tu pantalla principal.');
+                        addBotMessage('✅ ¡App instalada! Busca el ícono en tu pantalla principal.');
                         return true;
                     } else {
-                        addBotMessage('ℹ️ Puedes instalar la app más tarde desde el menú del navegador.');
+                        addBotMessage('ℹ️ Puedes instalarla más tarde desde ⋮ → "Instalar app".');
                         return false;
                     }
                 } catch (error) {
-                    console.error("❌ Error al instalar PWA:", error);
-                    addBotMessage('❌ Hubo un error al intentar instalar la app.');
+                    console.error("❌ Error al instalar:", error);
+                    addBotMessage('❌ Error al instalar. Intenta en otro navegador.');
                     return false;
                 }
             }
             
-            // Evento click en el botón de instalación
+            // Evento click en botón de instalación
             if (installBtn) {
                 installBtn.addEventListener('click', async () => {
                     await tryInstallPWA();
                 });
             }
             
-            // Verificar si ya se puede instalar al cargar la página
-            window.addEventListener('load', () => {
-                setTimeout(() => {
-                    // Intentar registrar el service worker
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('/service-worker.js')
-                            .then(registration => {
-                                console.log('✅ Service Worker registrado:', registration.scope);
-                            })
-                            .catch(error => {
-                                console.log('❌ Error registrando Service Worker:', error);
-                            });
-                    }
-                    
-                    // Verificar si ya se puede instalar (manifest correcto)
-                    if (window.matchMedia('(display-mode: browser)').matches) {
-                        console.log('🔍 Verificando capacidad de instalación PWA...');
-                        // Forzar verificación del manifest
-                        crearManifestDinamico();
-                    }
-                }, 2000);
-            });
-            
-            // También verificar después de un tiempo por si acaso
+            // Inicializar al cargar
             setTimeout(() => {
-                if (!deferredPrompt && window.matchMedia('(display-mode: browser)').matches) {
-                    console.log("🔄 Verificando nuevamente capacidad de instalación...");
-                    crearManifestDinamico();
+                // Registrar service worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/service-worker.js')
+                        .then(reg => console.log("✅ SW registrado:", reg.scope))
+                        .catch(err => console.log("❌ Error SW:", err));
                 }
-            }, 5000);
+                
+                // Verificar si se puede instalar
+                checkPWAInstallable();
+                crearManifestDinamico();
+                
+                // Scroll inicial
+                checkScroll();
+            }, 1000);
         });
     </script>
 </body>
