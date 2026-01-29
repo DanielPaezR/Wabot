@@ -2701,8 +2701,7 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
                 print(f"📝 [BLOQUEO] Cancelando {len(citas_confirmadas)} cita(s) confirmada(s)")
                 sql_cancelar = '''
                     UPDATE citas 
-                    SET estado = 'cancelado', 
-                        updated_at = NOW()
+                    SET estado = 'cancelado'
                     WHERE negocio_id = %s AND profesional_id = %s 
                     AND fecha = %s AND hora = %s
                     AND estado = 'confirmado'
