@@ -1,4 +1,4 @@
-from webpush import generate_vapid_keys
+from pywebpush import generate_vapid_keys
 import json
 
 keys = generate_vapid_keys()

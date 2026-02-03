@@ -3,7 +3,7 @@ import os
 import json
 from flask import Blueprint, request, jsonify
 from database import guardar_suscripcion_push, obtener_suscripciones_profesional
-import webpush
+import pywebpush
 
 push_bp = Blueprint('push', __name__)
 
@@ -14,7 +14,7 @@ VAPID_CLAIMS = {
     "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
 }
 
-webpush.setVapidDetails(
+pywebpush.setVapidDetails(
     VAPID_CLAIMS["sub"],
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
@@ -75,7 +75,7 @@ def send_push_notification():
         resultados = []
         for suscripcion in suscripciones:
             try:
-                webpush.send_notification(
+                pywebpush.send_notification(
                     suscripcion['subscription'],
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
@@ -129,7 +129,7 @@ def enviar_notificacion_cita_creada(cita_data):
         enviados = 0
         for suscripcion in suscripciones:
             try:
-                webpush.send_notification(
+                pywebpush.send_notification(
                     suscripcion['subscription'],
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
