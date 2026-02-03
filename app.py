@@ -3,6 +3,7 @@
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory
+import pywebpush
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import secrets
 from datetime import datetime, timedelta
@@ -36,7 +37,7 @@ app.register_blueprint(push_bp, url_prefix='/push')
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """Enviar notificación push a todos los dispositivos del profesional"""
     try:
-        # Configurar webpush
+        # Configurar pywebpush
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
         VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
@@ -45,7 +46,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             print("⚠️ Variables VAPID no configuradas")
             return False
         
-        webpush.setVapidDetails(
+        pywebpush.setVapidDetails(
             VAPID_SUBJECT,
             VAPID_PUBLIC_KEY,
             VAPID_PRIVATE_KEY
@@ -85,7 +86,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
                 subscription = json.loads(subscription_json)
                 
-                webpush.send_notification(
+                pywebpush.send_notification(
                     subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
