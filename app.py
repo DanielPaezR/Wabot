@@ -4164,7 +4164,7 @@ def mark_all_notifications_read():
 @app.route('/api/push/subscribe', methods=['POST'])
 @login_required
 def subscribe_push():
-    """Registrar dispositivo para notificaciones push"""
+    """Registrar dispositivo para notificaciones push - VERSIÓN SIMPLIFICADA"""
     try:
         data = request.json
         subscription = data.get('subscription')
@@ -4179,16 +4179,13 @@ def subscribe_push():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        dispositivo_info = request.headers.get('User-Agent', 'Dispositivo móvil')
+        dispositivo_info = request.headers.get('User-Agent', 'Dispositivo móvil')[:500]
         
         cursor.execute('''
-            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info)
-            VALUES (%s, %s, %s)
+            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
+            VALUES (%s, %s, %s, TRUE)
             ON CONFLICT (profesional_id, subscription_json) 
-            DO UPDATE SET 
-                fecha_creacion = NOW(),
-                activa = TRUE,
-                dispositivo_info = EXCLUDED.dispositivo_info
+            DO UPDATE SET activa = TRUE
         ''', (profesional_id, json.dumps(subscription), dispositivo_info))
         
         conn.commit()
