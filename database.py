@@ -101,6 +101,9 @@ def init_db():
         # Crear tablas
         _crear_tablas(cursor)
         print("✅ Tablas creadas/verificadas")
+
+        # ✅ NUEVA: Crear tabla para suscripciones push
+        crear_tabla_suscripciones_push()
         
         # Insertar datos por defecto
         try:
@@ -2920,5 +2923,128 @@ def desbloquear_horario(bloqueo_id, profesional_id=None, negocio_id=None):
         conn.rollback()
         print(f"❌ Error desbloqueando horario: {e}")
         return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+def crear_tabla_suscripciones_push():
+    """Crear tabla para suscripciones push si no existe"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = '''
+        CREATE TABLE IF NOT EXISTS suscripciones_push (
+            id SERIAL PRIMARY KEY,
+            profesional_id INTEGER NOT NULL,
+            subscription_json TEXT NOT NULL,
+            dispositivo_info TEXT,
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            activa BOOLEAN DEFAULT TRUE,
+            FOREIGN KEY (profesional_id) REFERENCES profesionales (id) ON DELETE CASCADE,
+            UNIQUE(profesional_id, subscription_json)
+        )
+    '''
+    
+    if is_postgresql():
+        sql = sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    
+    execute_sql(cursor, sql)
+    conn.commit()
+    conn.close()
+    print("✅ Tabla suscripciones_push creada/verificada")
+
+# FUNCIONES PARA NOTIFICACIONES PUSH
+def guardar_suscripcion_push(profesional_id, subscription_json, dispositivo_info=""):
+    """Guardar suscripción push de un profesional"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        sql = '''
+            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (profesional_id, subscription_json) 
+            DO UPDATE SET 
+                fecha_creacion = CURRENT_TIMESTAMP,
+                activa = TRUE,
+                dispositivo_info = EXCLUDED.dispositivo_info
+        '''
+        
+        if is_postgresql():
+            sql = sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+            cursor.execute(sql, (profesional_id, json.dumps(subscription_json), dispositivo_info))
+        else:
+            sql = sql.replace('%s', '?')
+            cursor.execute(sql, (profesional_id, json.dumps(subscription_json), dispositivo_info))
+        
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ Error guardando suscripción push: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def obtener_suscripciones_profesional(profesional_id):
+    """Obtener todas las suscripciones push activas de un profesional"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        sql = '''
+            SELECT subscription_json, dispositivo_info
+            FROM suscripciones_push
+            WHERE profesional_id = %s AND activa = TRUE
+        '''
+        
+        if is_postgresql():
+            cursor.execute(sql, (profesional_id,))
+        else:
+            sql = sql.replace('%s', '?')
+            cursor.execute(sql, (profesional_id,))
+        
+        suscripciones = cursor.fetchall()
+        
+        resultado = []
+        for suscripcion in suscripciones:
+            try:
+                sub_json = json.loads(suscripcion['subscription_json'])
+                resultado.append({
+                    'subscription': sub_json,
+                    'dispositivo': suscripcion.get('dispositivo_info', '')
+                })
+            except:
+                continue
+        
+        return resultado
+    except Exception as e:
+        print(f"❌ Error obteniendo suscripciones: {e}")
+        return []
+    finally:
+        conn.close()
+
+def desactivar_suscripcion_push(profesional_id, subscription_json):
+    """Desactivar una suscripción push"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        sql = '''
+            UPDATE suscripciones_push
+            SET activa = FALSE
+            WHERE profesional_id = %s AND subscription_json = %s
+        '''
+        
+        if is_postgresql():
+            cursor.execute(sql, (profesional_id, json.dumps(subscription_json)))
+        else:
+            sql = sql.replace('%s', '?')
+            cursor.execute(sql, (profesional_id, json.dumps(subscription_json)))
+        
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print(f"❌ Error desactivando suscripción: {e}")
+        return False
     finally:
         conn.close()

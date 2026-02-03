@@ -11,6 +11,7 @@ import os
 import pytz
 from dotenv import load_dotenv
 from database import obtener_servicio_personalizado_cliente
+from webpush import WebPushException, webpush
 
 load_dotenv()
 
@@ -1390,7 +1391,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
 
 def procesar_confirmacion_directa(numero, negocio_id, conversacion):
-    """Procesar confirmación de cita - VERSIÓN SIMPLIFICADA SIN SERVICIOS ADICIONALES"""
+    """Procesar confirmación de cita - VERSIÓN SIMPLIFICADA CON NOTIFICACIONES PUSH"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     try:
@@ -1468,6 +1469,21 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         
         if cita_id and cita_id > 0:
             print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
+            
+            # ✅ AGREGAR AQUÍ: ENVIAR NOTIFICACIÓN PUSH
+            try:
+                fecha_obj = datetime.strptime(fecha, '%Y-%m-%d') if isinstance(fecha, str) else fecha
+                enviar_notificacion_push_cita_agendada(
+                    cita_id=cita_id,
+                    negocio_id=negocio_id,
+                    profesional_id=profesional_id,
+                    cliente_nombre=nombre_cliente,
+                    fecha=fecha_obj,
+                    hora=hora
+                )
+                print("✅ Notificación push enviada desde chat web")
+            except Exception as push_error:
+                print(f"⚠️ [DEBUG] Error enviando push desde chat: {push_error}")
             
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
@@ -2371,3 +2387,83 @@ def limpiar_formato_whatsapp(texto):
     texto = texto.replace('_', '')  # Quitar guiones bajos de cursiva
     
     return texto
+
+# =============================================================================
+# FUNCIÓN PARA NOTIFICACIONES PUSH
+# =============================================================================
+
+def enviar_notificacion_push_cita_agendada(cita_id, negocio_id, profesional_id, cliente_nombre, fecha, hora):
+    """Enviar notificación push cuando se agenda una cita desde el chat"""
+    try:
+        print(f"🔔 [PUSH-CHAT] Enviando notificación push para cita #{cita_id}")
+        
+        # Configurar webpush
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        
+        if not all([VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT]):
+            print("⚠️ [PUSH-CHAT] Variables VAPID no configuradas")
+            return False
+        
+        webpush.setVapidDetails(
+            VAPID_SUBJECT,
+            VAPID_PUBLIC_KEY,
+            VAPID_PRIVATE_KEY
+        )
+        
+        # Obtener suscripciones del profesional desde la BD
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+        ''', (profesional_id,))
+        
+        suscripciones = cursor.fetchall()
+        conn.close()
+        
+        if not suscripciones:
+            print(f"⚠️ [PUSH-CHAT] Profesional {profesional_id} no tiene suscripciones push")
+            return False
+        
+        # Preparar payload de notificación
+        fecha_formateada = fecha.strftime('%d/%m/%Y') if hasattr(fecha, 'strftime') else fecha
+        mensaje = f"{cliente_nombre} - {fecha_formateada} {hora}"
+        
+        payload = {
+            'title': '📅 Nueva Cita Agendada',
+            'body': mensaje,
+            'icon': '/static/icons/icon-192x192.png',
+            'url': f'/profesional?cita={cita_id}',
+            'citaId': cita_id,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Enviar a cada suscripción
+        exitos = 0
+        for suscripcion in suscripciones:
+            try:
+                subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
+                subscription = json.loads(subscription_json)
+                
+                webpush.send_notification(
+                    subscription,
+                    json.dumps(payload),
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": VAPID_SUBJECT}
+                )
+                exitos += 1
+                print(f"✅ [PUSH-CHAT] Notificación enviada a suscripción #{exitos}")
+            except Exception as e:
+                print(f"⚠️ [PUSH-CHAT] Error enviando push: {e}")
+        
+        print(f"✅ [PUSH-CHAT] Total notificaciones enviadas: {exitos}/{len(suscripciones)}")
+        return exitos > 0
+        
+    except Exception as e:
+        print(f"❌ [PUSH-CHAT] Error general en notificación push: {e}")
+        return False

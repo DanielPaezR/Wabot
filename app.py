@@ -11,7 +11,6 @@ from web_chat_handler import web_chat_bp
 import os
 from dotenv import load_dotenv
 import threading
-from scheduler import iniciar_scheduler_en_segundo_plano
 import threading
 import json
 from functools import wraps
@@ -21,6 +20,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
 from notification_system import notification_system
+from push_notifications import push_bp, enviar_notificacion_cita_creada
+from pywebpush import WebPushException, webpush
+import scheduler
 
 # Cargar variables de entorno
 load_dotenv()
@@ -29,6 +31,76 @@ tz_colombia = pytz.timezone('America/Bogota')
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
+app.register_blueprint(push_bp, url_prefix='/push')
+
+def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
+    """Enviar notificación push a todos los dispositivos del profesional"""
+    try:
+        # Configurar webpush
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        
+        if not all([VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT]):
+            print("⚠️ Variables VAPID no configuradas")
+            return False
+        
+        webpush.setVapidDetails(
+            VAPID_SUBJECT,
+            VAPID_PUBLIC_KEY,
+            VAPID_PRIVATE_KEY
+        )
+        
+        # Obtener suscripciones del profesional
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+        ''', (profesional_id,))
+        
+        suscripciones = cursor.fetchall()
+        conn.close()
+        
+        if not suscripciones:
+            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones push")
+            return False
+        
+        # Preparar payload de notificación
+        payload = {
+            'title': titulo,
+            'body': mensaje,
+            'icon': '/static/icons/icon-192x192.png',
+            'url': f'/profesional?cita={cita_id}' if cita_id else '/profesional',
+            'citaId': cita_id,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Enviar a cada suscripción
+        exitos = 0
+        for suscripcion in suscripciones:
+            try:
+                subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
+                subscription = json.loads(subscription_json)
+                
+                webpush.send_notification(
+                    subscription,
+                    json.dumps(payload),
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": VAPID_SUBJECT}
+                )
+                exitos += 1
+                print(f"✅ Notificación push enviada a profesional {profesional_id}")
+            except Exception as e:
+                print(f"⚠️ Error enviando push: {e}")
+        
+        return exitos > 0
+        
+    except Exception as e:
+        print(f"❌ Error en enviar_notificacion_push_profesional: {e}")
+        return False
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
@@ -3138,6 +3210,18 @@ def profesional_crear_cita():
             return redirect(url_for('profesional_agendar'))
         
         conn.commit()
+        try:
+            mensaje_push = f"{cliente_nombre} - {fecha} {hora}"
+            enviar_notificacion_push_profesional(
+                profesional_id=profesional_id,
+                titulo="📅 Nueva Cita Agendada",
+                mensaje=mensaje_push,
+                cita_id=cita_id
+            )
+            print("✅ Notificación push enviada")
+        except Exception as push_error:
+            print(f"⚠️ Error enviando push: {push_error}")
+
         conn.close()
         
         flash('✅ Cita agendada exitosamente', 'success')
@@ -4015,6 +4099,66 @@ def mark_all_notifications_read():
             conn.close()
 
 # =============================================================================
+# RUTAS PARA NOTIFICACIONES PUSH
+# =============================================================================
+
+@app.route('/api/push/subscribe', methods=['POST'])
+@login_required
+def subscribe_push():
+    """Registrar dispositivo para notificaciones push"""
+    try:
+        data = request.json
+        subscription = data.get('subscription')
+        profesional_id = session.get('profesional_id')
+        
+        if not subscription or not profesional_id:
+            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
+        
+        print(f"📱 Suscribiendo profesional {profesional_id} a notificaciones push")
+        
+        # Guardar en base de datos
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        dispositivo_info = request.headers.get('User-Agent', 'Dispositivo móvil')
+        
+        cursor.execute('''
+            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (profesional_id, subscription_json) 
+            DO UPDATE SET 
+                fecha_creacion = NOW(),
+                activa = TRUE,
+                dispositivo_info = EXCLUDED.dispositivo_info
+        ''', (profesional_id, json.dumps(subscription), dispositivo_info))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
+        
+    except Exception as e:
+        print(f"❌ Error en subscribe_push: {e}")
+        return jsonify({'success': False, 'error': 'Error interno'}), 500
+
+@app.route('/api/push/test', methods=['POST'])
+@login_required
+def test_push():
+    """Probar notificaciones push"""
+    profesional_id = session.get('profesional_id')
+    
+    # Llamar a la función auxiliar que ya creaste
+    if enviar_notificacion_push_profesional(
+        profesional_id=profesional_id,
+        titulo="🔔 Test Push",
+        mensaje="¡Las notificaciones push funcionan correctamente!",
+        cita_id=None
+    ):
+        return jsonify({'success': True, 'message': 'Notificación de prueba enviada'})
+    else:
+        return jsonify({'success': False, 'message': 'No hay suscripciones activas'})
+
+# =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
 @app.route('/test_personalizar')
@@ -4420,7 +4564,7 @@ def obtener_configuracion_horarios():
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
 try:
-    scheduler_thread = iniciar_scheduler_en_segundo_plano()
+    scheduler_thread = scheduler.iniciar_scheduler_en_segundo_plano()
     if scheduler_thread:
         print("✅ Scheduler iniciado exitosamente")
 except Exception as e:
@@ -4431,7 +4575,7 @@ if __name__ == '__main__':
     
     # Para desarrollo local: Iniciar scheduler
     try:
-        iniciar_scheduler_en_segundo_plano()
+        scheduler.iniciar_scheduler_en_segundo_plano()
         print("✅ Scheduler iniciado para desarrollo local")
     except Exception as e:
         print(f"⚠️ Error iniciando scheduler local: {e}")
