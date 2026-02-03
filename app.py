@@ -555,6 +555,8 @@ def login():
                 if 'profesional_id' in session:
                     del session['profesional_id']
                 
+                session['needs_push_subscription'] = True
+
                 conn = db.get_db_connection()
                 cursor = conn.cursor()
                 
@@ -640,6 +642,44 @@ def logout():
     flash('Sesión cerrada correctamente', 'success')
     return redirect(url_for('login'))
 
+@app.route('/api/profesional/needs-push')
+@login_required
+def check_needs_push():
+    """Verificar si el profesional necesita suscripción push"""
+    try:
+        profesional_id = session.get('profesional_id')
+        
+        if not profesional_id:
+            return jsonify({'needsPush': False})
+        
+        # Verificar si ya tiene suscripciones activas
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+        ''', (profesional_id,))
+        
+        tiene_suscripciones = cursor.fetchone()[0] > 0
+        conn.close()
+        
+        # Si ya tiene suscripciones, no necesita más
+        if tiene_suscripciones:
+            return jsonify({'needsPush': False})
+        
+        # Verificar si la sesión indica que necesita push
+        needs_push = session.get('needs_push_subscription', False)
+        
+        # Limpiar la sesión después de verificar
+        if 'needs_push_subscription' in session:
+            session.pop('needs_push_subscription')
+        
+        return jsonify({'needsPush': needs_push})
+        
+    except Exception as e:
+        print(f"❌ Error check_needs_push: {e}")
+        return jsonify({'needsPush': False})
 # =============================================================================
 # RUTAS DEL PANEL ADMINISTRADOR
 # =============================================================================
@@ -4559,6 +4599,54 @@ def obtener_configuracion_horarios():
     config = db.obtener_horarios_por_dia(negocio_id, fecha)
     
     return jsonify(config)
+
+@app.route('/api/push/public-key')
+def get_public_key():
+    """Obtener clave pública VAPID para notificaciones push"""
+    try:
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+        if not VAPID_PUBLIC_KEY:
+            return jsonify({'error': 'VAPID no configurado'}), 500
+        
+        return jsonify({
+            'success': True,
+            'publicKey': VAPID_PUBLIC_KEY
+        })
+    except Exception as e:
+        print(f"❌ Error get_public_key: {e}")
+        return jsonify({'error': 'Error interno'}), 500
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+@login_required
+def unsubscribe_push():
+    """Eliminar suscripción push"""
+    try:
+        data = request.json
+        subscription = data.get('subscription')
+        profesional_id = session.get('profesional_id')
+        
+        if not subscription or not profesional_id:
+            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Marcar suscripción como inactiva
+        cursor.execute('''
+            UPDATE suscripciones_push 
+            SET activa = FALSE, fecha_eliminacion = NOW()
+            WHERE profesional_id = %s 
+            AND subscription_json LIKE %s
+        ''', (profesional_id, f'%{subscription["endpoint"][-20:]}%'))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Suscripción eliminada'})
+        
+    except Exception as e:
+        print(f"❌ Error unsubscribe_push: {e}")
+        return jsonify({'success': False, 'error': 'Error interno'}), 500
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE

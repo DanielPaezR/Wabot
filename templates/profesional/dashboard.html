@@ -2306,6 +2306,253 @@
             `;
             document.head.appendChild(style);
         });
+
+        // ==================== SUSCRIPCIÓN AUTOMÁTICA PUSH ====================
+
+        // Función para convertir clave base64 a Uint8Array
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // Función principal para suscribir push
+        async function suscribirPush() {
+            try {
+                console.log("📱 Intentando suscribir notificaciones push...");
+                
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    console.warn("⚠️ Navegador no soporta notificaciones push");
+                    return false;
+                }
+                
+                // Solicitar permisos primero
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    console.log("❌ Permiso de notificaciones denegado");
+                    return false;
+                }
+                
+                console.log("✅ Permiso concedido, registrando service worker...");
+                
+                // Registrar service worker
+                const swRegistration = await navigator.serviceWorker.register('/static/sw.js');
+                console.log("✅ Service worker registrado");
+                
+                // Obtener clave pública del servidor
+                const response = await fetch('/api/push/public-key');
+                const data = await response.json();
+                const publicKey = data.publicKey;
+                
+                console.log("🔑 Clave pública obtenida, suscribiendo...");
+                
+                // Suscribir al usuario
+                const subscription = await swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey)
+                });
+                
+                console.log("✅ Suscripción creada, enviando al servidor...");
+                
+                // Enviar suscripción al servidor
+                await fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({subscription: subscription})
+                });
+                
+                console.log("🎉 Suscripción push completada exitosamente");
+                
+                // Mostrar notificación de éxito
+                mostrarNotificacion('🔔 Notificaciones push activadas');
+                
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Error en suscribirPush:', error);
+                
+                // Intentar método alternativo si falla el service worker
+                if (error.name === 'TypeError' && error.message.includes('service-worker.js')) {
+                    console.log("🔄 Intentando método alternativo...");
+                    return await suscribirPushAlternativo();
+                }
+                
+                return false;
+            }
+        }
+
+        // Método alternativo para navegadores con problemas
+        async function suscribirPushAlternativo() {
+            try {
+                // Crear un service worker mínimo en memoria
+                const swCode = `
+                    self.addEventListener('install', (event) => {
+                        self.skipWaiting();
+                    });
+                    
+                    self.addEventListener('push', (event) => {
+                        const data = event.data.json();
+                        const options = {
+                            body: data.body,
+                            icon: data.icon || '/static/icons/icon-192x192.png',
+                            badge: '/static/icons/icon-72x72.png',
+                            vibrate: [100, 50, 100],
+                            data: {
+                                url: data.url || '/profesional',
+                                click_action: data.click_action || 'https://tudominio.com/profesional'
+                            },
+                            actions: [
+                                {
+                                    action: 'open',
+                                    title: 'Abrir'
+                                },
+                                {
+                                    action: 'close',
+                                    title: 'Cerrar'
+                                }
+                            ]
+                        };
+                        
+                        event.waitUntil(
+                            self.registration.showNotification(data.title, options)
+                        );
+                    });
+                    
+                    self.addEventListener('notificationclick', (event) => {
+                        event.notification.close();
+                        
+                        if (event.action === 'open' || event.action === '') {
+                            clients.openWindow(event.notification.data.url);
+                        }
+                    });
+                `;
+                
+                // Crear blob con el service worker
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                const swURL = URL.createObjectURL(blob);
+                
+                // Registrar el service worker desde el blob
+                const swRegistration = await navigator.serviceWorker.register(swURL, {
+                    scope: '/'
+                });
+                
+                console.log("✅ Service worker alternativo registrado");
+                
+                // Obtener clave pública
+                const response = await fetch('/api/push/public-key');
+                const data = await response.json();
+                const publicKey = data.publicKey;
+                
+                // Suscribir
+                const subscription = await swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey)
+                });
+                
+                // Enviar al servidor
+                await fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({subscription: subscription})
+                });
+                
+                // Limpiar URL del blob
+                URL.revokeObjectURL(swURL);
+                
+                console.log("✅ Suscripción alternativa completada");
+                mostrarNotificacion('🔔 Notificaciones push activadas');
+                
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Error en método alternativo:', error);
+                return false;
+            }
+        }
+
+        // Función para desuscribir push
+        async function desuscribirPush() {
+            try {
+                const swRegistration = await navigator.serviceWorker.ready;
+                const subscription = await swRegistration.pushManager.getSubscription();
+                
+                if (subscription) {
+                    await subscription.unsubscribe();
+                    
+                    // Notificar al servidor
+                    await fetch('/api/push/unsubscribe', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({subscription: subscription})
+                    });
+                    
+                    console.log("🔕 Notificaciones push desactivadas");
+                    mostrarNotificacion('🔕 Notificaciones push desactivadas');
+                }
+            } catch (error) {
+                console.error('Error desuscribiendo push:', error);
+            }
+        }
+
+        // Función para verificar si necesita suscripción y mostrar diálogo
+        async function verificarSuscripcionPush() {
+            try {
+                // Evitar preguntar múltiples veces en la misma sesión
+                if (sessionStorage.getItem('pushAsked')) {
+                    console.log("ℹ️ Ya se preguntó sobre notificaciones en esta sesión");
+                    return;
+                }
+                
+                // Verificar si el navegador soporta notificaciones
+                if (!('Notification' in window)) {
+                    console.log("ℹ️ Este navegador no soporta notificaciones");
+                    return;
+                }
+                
+                // Verificar si ya tiene permisos concedidos
+                if (Notification.permission === 'granted') {
+                    console.log("✅ Permiso ya concedido, verificando si necesita suscripción...");
+                    
+                    // Verificar con el servidor si necesita suscripción
+                    const response = await fetch('/api/profesional/needs-push');
+                    const data = await response.json();
+                    
+                    if (data.needsPush) {
+                        console.log("📱 Necesita suscripción push, mostrando diálogo...");
+                        
+                        // Mostrar diálogo de confirmación
+                        setTimeout(async () => {
+                            if (confirm('¿Activar notificaciones push para recibir alertas de nuevas citas?\n\nTe notificaremos cuando tengas nuevas reservas.')) {
+                                const resultado = await suscribirPush();
+                                if (resultado) {
+                                    console.log("✅ Suscripción push completada");
+                                }
+                            }
+                            sessionStorage.setItem('pushAsked', 'true');
+                        }, 2000); // Esperar 2 segundos para no interrumpir la carga inicial
+                    }
+                }
+                // Si el permiso es "default" (no preguntado aún), no hacemos nada
+                // Si es "denied", el usuario ya rechazó
+                
+            } catch (error) {
+                console.error('❌ Error verificando suscripción push:', error);
+            }
+        }
+
+        // Ejecutar al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            // Esperar a que todo cargue
+            setTimeout(() => {
+                verificarSuscripcionPush();
+            }, 3000); // Esperar 3 segundos después de cargar la página
+        });
     </script>
 </body>
 </html>
