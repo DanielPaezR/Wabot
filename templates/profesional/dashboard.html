@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Agenda - {{ session.negocio_nombre }}</title>
@@ -1829,12 +1833,20 @@
             }
         }
 
-        // Función para convertir clave base64 a Uint8Array
-        function urlBase64ToUint8Array(base64String) {
+        function convertVapidKey(base64String) {
+            // Base64 URL-safe a Base64 estándar
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')  // - → +
+                .replace(/_/g, '/');  // _ → /
+            
+            const rawData = atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
         }
 
         // ==================== FUNCIÓN PARA VERIFICAR SUSCRIPCIÓN EXISTENTE ====================

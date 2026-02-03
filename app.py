@@ -4687,6 +4687,10 @@ def unsubscribe_push():
     except Exception as e:
         print(f"❌ Error unsubscribe_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
+    
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('static', 'manifest.json')
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
