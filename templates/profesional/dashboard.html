@@ -1833,6 +1833,28 @@
             }
         }
 
+        function urlBase64ToUint8Array(base64String) {
+            // 1. Asegurar que no tenga padding
+            let base64 = base64String.replace(/=+$/, '');
+            
+            // 2. Convertir URL-safe a standard
+            base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+            
+            // 3. Añadir padding para múltiplo de 4
+            const padding = '='.repeat((4 - base64.length % 4) % 4);
+            const base64Std = base64 + padding;
+            
+            // 4. Decodificar
+            const rawData = window.atob(base64Std);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            
+            return outputArray;
+        }
+
         function convertVapidKey(base64String) {
             // Base64 URL-safe a Base64 estándar
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
