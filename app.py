@@ -47,13 +47,13 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             print("⚠️ [PUSH] Variables VAPID no configuradas")
             return False
         
-        # Configurar claims VAPID (NO usar setVapidDetails)
+        # Configurar claims VAPID
         vapid_claims = {
             "sub": VAPID_SUBJECT,
             "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
         }
         
-        # Obtener suscripciones del profesional
+        # Obtener suscripciones del profesional - TABLA SIMPLIFICADA
         conn = get_db_connection()
         cursor = conn.cursor()
         

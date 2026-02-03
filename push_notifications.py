@@ -24,17 +24,28 @@ def subscribe_push():
         if not subscription or not profesional_id:
             return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
         
-        # Guardar en base de datos
-        dispositivo_info = request.headers.get('User-Agent', '')
+        # Guardar en base de datos - TABLA SIMPLIFICADA
+        dispositivo_info = request.headers.get('User-Agent', '')[:500]  # Limitar a 500 chars
         
-        if guardar_suscripcion_push(profesional_id, subscription, dispositivo_info):
-            return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
-        else:
-            return jsonify({'success': False, 'error': 'Error guardando suscripción'}), 500
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
+            VALUES (%s, %s, %s, TRUE)
+            ON CONFLICT (profesional_id, subscription_json) 
+            DO UPDATE SET activa = TRUE
+        ''', (profesional_id, json.dumps(subscription), dispositivo_info))
+        
+        conn.commit()
+        conn.close()
+            
+        return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
             
     except Exception as e:
         print(f"❌ Error en subscribe_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
+
 
 @push_bp.route('/api/push/send', methods=['POST'])
 def send_push_notification():
