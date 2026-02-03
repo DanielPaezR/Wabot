@@ -4623,9 +4623,30 @@ def obtener_configuracion_horarios():
 def get_public_key():
     """Obtener clave pública VAPID para notificaciones push"""
     try:
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+        
+        # DEBUG: Mostrar qué hay en la variable
+        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {VAPID_PUBLIC_KEY[:50]}...")
+        print(f"🔑 [DEBUG] Longitud: {len(VAPID_PUBLIC_KEY)}")
+        print(f"🔑 [DEBUG] Tipo: {type(VAPID_PUBLIC_KEY)}")
+        
         if not VAPID_PUBLIC_KEY:
             return jsonify({'error': 'VAPID no configurado'}), 500
+        
+        # Verificar que sea string Base64 válido
+        import base64
+        try:
+            # Intentar decodificar para verificar
+            if '=' in VAPID_PUBLIC_KEY:
+                # Tiene padding, verificar
+                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
+            else:
+                # Sin padding
+                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
+            print(f"✅ Clave válida, longitud decodificada: {len(test)}")
+        except Exception as decode_error:
+            print(f"❌ Clave inválida: {decode_error}")
+            return jsonify({'error': 'Clave VAPID inválida'}), 500
         
         return jsonify({
             'success': True,
