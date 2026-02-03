@@ -36,20 +36,22 @@ app.register_blueprint(push_bp, url_prefix='/push')
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """Enviar notificación push a todos los dispositivos del profesional"""
     try:
-        # Configurar pywebpush
+        print(f"🔔 [PUSH] Enviando notificación push para profesional {profesional_id}")
+        
+        # Configurar webpush
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
         VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
         
         if not all([VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT]):
-            print("⚠️ Variables VAPID no configuradas")
+            print("⚠️ [PUSH] Variables VAPID no configuradas")
             return False
         
-        pywebpush.setVapidDetails(
-            VAPID_SUBJECT,
-            VAPID_PUBLIC_KEY,
-            VAPID_PRIVATE_KEY
-        )
+        # Configurar claims VAPID (NO usar setVapidDetails)
+        vapid_claims = {
+            "sub": VAPID_SUBJECT,
+            "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
+        }
         
         # Obtener suscripciones del profesional
         conn = get_db_connection()
@@ -65,7 +67,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         conn.close()
         
         if not suscripciones:
-            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones push")
+            print(f"⚠️ [PUSH] Profesional {profesional_id} no tiene suscripciones push")
             return False
         
         # Preparar payload de notificación
@@ -73,6 +75,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             'title': titulo,
             'body': mensaje,
             'icon': '/static/icons/icon-192x192.png',
+            'badge': '/static/icons/icon-72x72.png',
             'url': f'/profesional?cita={cita_id}' if cita_id else '/profesional',
             'citaId': cita_id,
             'timestamp': datetime.now().isoformat()
@@ -85,21 +88,37 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
                 subscription = json.loads(subscription_json)
                 
-                pywebpush.send_notification(
+                webpush.send_notification(
                     subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims={"sub": VAPID_SUBJECT}
+                    vapid_claims=vapid_claims
                 )
                 exitos += 1
-                print(f"✅ Notificación push enviada a profesional {profesional_id}")
+                print(f"✅ [PUSH] Notificación enviada a suscripción #{exitos}")
             except Exception as e:
-                print(f"⚠️ Error enviando push: {e}")
+                print(f"⚠️ [PUSH] Error enviando push: {e}")
+                # Si el error es de suscripción expirada, marcarla como inactiva
+                if "expired" in str(e).lower() or "gone" in str(e).lower():
+                    try:
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            UPDATE suscripciones_push 
+                            SET activa = FALSE 
+                            WHERE profesional_id = %s AND subscription_json = %s
+                        ''', (profesional_id, subscription_json))
+                        conn.commit()
+                        conn.close()
+                        print(f"⚠️ [PUSH] Suscripción marcada como inactiva (expiró)")
+                    except:
+                        pass
         
+        print(f"✅ [PUSH] Total notificaciones enviadas: {exitos}/{len(suscripciones)}")
         return exitos > 0
         
     except Exception as e:
-        print(f"❌ Error en enviar_notificacion_push_profesional: {e}")
+        print(f"❌ [PUSH] Error general en notificación push: {e}")
         return False
 
 # =============================================================================
