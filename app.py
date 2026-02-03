@@ -22,7 +22,6 @@ from psycopg2.extras import RealDictCursor
 import uuid 
 from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
-from pywebpush import WebPushException, webpush
 import scheduler
 
 # Cargar variables de entorno
