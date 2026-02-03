@@ -4222,6 +4222,37 @@ def test_personalizar():
     """Ruta de prueba para verificar que la personalización funciona"""
     return "✅ Ruta de personalización funciona correctamente"
 
+@app.route('/api/debug/recreate-push-table', methods=['POST'])
+def recreate_push_table():
+    """Recrear tabla de suscripciones push correctamente"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        print("🗑️ Eliminando tabla existente...")
+        cursor.execute('DROP TABLE IF EXISTS suscripciones_push')
+        
+        print("🔧 Creando nueva tabla...")
+        cursor.execute('''
+            CREATE TABLE suscripciones_push (
+                id SERIAL PRIMARY KEY,
+                profesional_id INTEGER NOT NULL,
+                subscription_json TEXT NOT NULL,
+                dispositivo_info TEXT,
+                activa BOOLEAN DEFAULT TRUE,
+                UNIQUE(profesional_id, subscription_json)
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Tabla recreada con constraint UNIQUE'})
+        
+    except Exception as e:
+        print(f"❌ Error recreando tabla: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # =============================================================================
 # MANIFEST ÚNICO - DETECTA AUTOMÁTICAMENTE
