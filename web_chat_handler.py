@@ -11,7 +11,7 @@ import os
 import pytz
 from dotenv import load_dotenv
 from database import obtener_servicio_personalizado_cliente
-from webpush import WebPushException, webpush
+import pywebpush 
 
 load_dotenv()
 
@@ -2406,7 +2406,7 @@ def enviar_notificacion_push_cita_agendada(cita_id, negocio_id, profesional_id, 
             print("⚠️ [PUSH-CHAT] Variables VAPID no configuradas")
             return False
         
-        webpush.setVapidDetails(
+        pywebpush.setVapidDetails(
             VAPID_SUBJECT,
             VAPID_PUBLIC_KEY,
             VAPID_PRIVATE_KEY
@@ -2450,7 +2450,7 @@ def enviar_notificacion_push_cita_agendada(cita_id, negocio_id, profesional_id, 
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
                 subscription = json.loads(subscription_json)
                 
-                webpush.send_notification(
+                pywebpush.send_notification(
                     subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
