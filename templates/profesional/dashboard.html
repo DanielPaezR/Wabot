@@ -5,69 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Agenda - {{ session.negocio_nombre }}</title>
     <style>
-        /* AÑADE ESTOS ESTILOS AL CSS EXISTENTE */
-        
-        /* Botón para activar notificaciones push */
-        .btn-push-activar {
-            background: linear-gradient(135deg, #9b59b6, #8e44ad);
-            color: white;
-            border: none;
-            padding: 12px 18px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            min-height: 44px;
-            text-decoration: none;
-            box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
-        }
-        
-        .btn-push-activar:hover {
-            background: linear-gradient(135deg, #8e44ad, #7d3c98);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
-        }
-        
-        .btn-push-activar:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(155, 89, 182, 0.3);
-        }
-        
-        .btn-push-activar:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-            opacity: 0.7;
-            transform: none !important;
-            box-shadow: none !important;
-        }
-        
-        /* Indicador de estado push */
-        .push-status {
-            font-size: 0.8rem;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-        
-        .push-status-active {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .push-status-inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        /* ============================================ */
-        /* EL RESTO DEL CSS PERMANECE IGUAL */
-        /* ============================================ */
-        
         /* RESET MOBILE-FIRST */
         * {
             margin: 0;
@@ -91,8 +28,1477 @@
             --radius: 12px;
         }
         
-        /* ... EL RESTO DE TU CSS EXISTENTE ... */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--light);
+            color: var(--text);
+            line-height: 1.4;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
         
+        /* HEADER MOBILE OPTIMIZED - REORGANIZADO */
+        .header {
+            background: var(--white);
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding-top: calc(1rem + env(safe-area-inset-top));
+        }
+        
+        /* NUEVO: Encabezado con saludo y botón de notificaciones */
+        .header-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            gap: 1rem;
+        }
+        
+        .welcome {
+            flex: 1;
+            min-width: 0; /* Permite que el texto se trunque si es necesario */
+        }
+        
+        .welcome h1 {
+            font-size: 1.4rem;
+            color: var(--dark);
+            margin-bottom: 0.3rem;
+            line-height: 1.2;
+        }
+        
+        .welcome p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+        
+        .notification-header-btn {
+            flex-shrink: 0;
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--info);
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .notification-header-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .notification-header-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        /* NUEVO: Barra de acciones inferior */
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-height: 44px;
+            text-align: center;
+        }
+        
+        .action-btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+        
+        .action-btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+        
+        .action-btn-logout {
+            background: var(--danger);
+            color: var(--white);
+        }
+        
+        .action-btn-info {
+            background: var(--info);
+            color: var(--white);
+        }
+        
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* 🔧 BOTÓN PERSONALIZAR - CORREGIDO */
+        .btn-personalizar {
+            background: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 44px;
+            min-width: 44px;
+        }
+
+        .btn-personalizar:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .cita-item.completed {
+            opacity: 0.8;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-left: 4px solid #27ae60;
+        }
+
+        .cita-item.completed .cita-info h3 {
+            text-decoration: line-through;
+            color: #7f8c8d;
+        }
+
+        .cita-item.completed .cita-meta span {
+            color: #95a5a6;
+        }
+
+        /* Estado para cita ya personalizada */
+        .cita-item.personalizada {
+            border-left: 4px solid #9b59b6;
+            background: linear-gradient(135deg, #f8f9fa, #f0e6f5);
+        }
+
+        .cita-item.personalizada .badge-personalizada {
+            background: #9b59b6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        /* Ajustes para pantallas más grandes */
+        @media (min-width: 480px) {
+            .header-actions {
+                gap: 0.8rem;
+            }
+            
+            .action-btn {
+                font-size: 0.9rem;
+                padding: 10px 12px;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .header-main {
+                align-items: center;
+            }
+            
+            .welcome h1 {
+                font-size: 1.5rem;
+            }
+            
+            .header-actions {
+                justify-content: flex-start;
+                gap: 1rem;
+            }
+            
+            .action-btn {
+                flex: 0 0 auto;
+                padding: 10px 16px;
+            }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        /* NOTIFICATIONS PANEL */
+        .notifications-panel {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 2px solid #e0e0e0;
+        }
+        
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .notifications-header h3 {
+            font-size: 1.1rem;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        #notifications-list {
+            max-height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .notification-item {
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--info);
+            background: #f8f9fa;
+            transition: all 0.2s ease;
+            color: #333333;
+        }
+
+        .notification-item:hover {
+            background: #f0f0f0;
+            transform: translateX(2px);
+        }
+        
+        .notification-item.unread {
+            background: #e3f2fd;
+            border-left-color: var(--info);
+            color: #333333;
+        }
+
+        .notification-item.warning {
+            background: #fff3cd;
+            border-left-color: var(--warning);
+            color: #856404;
+        }
+
+        .notification-item.success {
+            background: #d4edda;
+            border-left-color: var(--success);
+            color: #155724;
+        }
+
+        .notification-item.danger {
+            background: #f8d7da;
+            border-left-color: var(--danger);
+            color: #721c24;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .notification-message {
+            font-size: 0.9rem;
+            color: #34495e;
+            line-height: 1.5;
+            margin-bottom: 0.5rem;
+            white-space: pre-line;
+        }
+
+        .notification-time {
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            text-align: right;
+        }
+        
+        .notification-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .btn-mark-read {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            background: var(--info);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .empty-notifications {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-light);
+        }
+        
+        /* STATS CARDS MOBILE */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+        
+        .stat {
+            background: linear-gradient(135deg, var(--primary), #764ba2);
+            color: var(--white);
+            padding: 1rem;
+            border-radius: var(--radius);
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        
+        .stat-number {
+            font-size: 1.6rem;
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+        
+        /* MAIN CONTENT */
+        .container {
+            padding: 1rem;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 1.2rem;
+            color: var(--dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .date-selector {
+            background: var(--white);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            border: 2px solid #e0e0e0;
+            min-height: 44px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        /* CITAS LIST - MOBILE OPTIMIZED */
+        .citas-list {
+            background: var(--white);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+        
+        .cita-item {
+            padding: 1.2rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .cita-item {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+        
+        .cita-item:active {
+            background: #f8f9fa;
+        }
+        
+        .cita-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cita-info h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+        
+        .cita-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        .cita-time {
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .cita-service {
+            color: var(--text-light);
+        }
+        
+        .cita-price {
+            font-weight: bold;
+            color: var(--success);
+        }
+        
+        .cita-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        
+        /* ESTILOS EXISTENTES */
+        .btn-complete {
+            background: var(--success);
+            color: var(--white);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            min-height: 44px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-complete:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        /* NUEVOS ESTILOS PARA ESTADO DESHABILITADO */
+        .btn-complete:disabled {
+            background: #95a5a6 !important;
+            cursor: not-allowed !important;
+            opacity: 0.7 !important;
+            transform: none !important;
+        }
+
+        .btn-complete:disabled:hover {
+            background: #95a5a6 !important;
+        }
+
+        /* Efecto de "pulsación" cuando está activo */
+        .btn-complete:not(:disabled):active {
+            animation: pulseClick 0.3s ease;
+        }
+
+        @keyframes pulseClick {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        /* Indicador de "procesando" */
+        .btn-complete .spinner-border-sm {
+            width: 0.8rem;
+            height: 0.8rem;
+            border-width: 0.15em;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-light);
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+            color: #999;
+            font-size: 1.2rem;
+        }
+        
+        .completed {
+            opacity: 0.7;
+        }
+        
+        .completed .cita-info h3 {
+            text-decoration: line-through;
+        }
+
+        /* QUICK ACTIONS - MOBILE GRID */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 480px) {
+            .quick-actions {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .quick-actions {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .action-card {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .action-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+        
+        .action-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.8rem;
+        }
+        
+        .action-title {
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+            font-size: 1rem;
+        }
+        
+        .action-desc {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        /* STATUS BADGES */
+        .status-badge {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-confirmado {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-completado {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* NOTIFICATION */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            left: 20px;
+            background: var(--success);
+            color: var(--white);
+            padding: 1rem;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* ==================== MODAL RESPONSIVE ==================== */
+        /* Overlay para móviles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: flex-end; /* Para móviles: modal sale desde abajo */
+            justify-content: center;
+            padding: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Para tablets y escritorio */
+        @media (min-width: 768px) {
+            .modal-overlay {
+                align-items: center; /* Centrado vertical en pantallas grandes */
+                padding: 1rem;
+            }
+        }
+
+        /* Contenido del modal - Mobile First */
+        .modal-content {
+            background: var(--white);
+            border-radius: var(--radius) var(--radius) 0 0; /* Redondeado solo arriba en móviles */
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            animation: modalSlideUp 0.3s ease-out;
+            position: relative;
+            margin-top: auto; /* Empuja el modal hacia abajo en móviles */
+        }
+
+        /* Para pantallas más grandes */
+        @media (min-width: 768px) {
+            .modal-content {
+                max-width: 400px;
+                border-radius: var(--radius); /* Redondeado completo */
+                animation: modalSlideIn 0.3s ease;
+                margin-top: 0; /* Reset para centrado */
+            }
+        }
+
+        /* Animaciones específicas para móviles */
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Cabecera del modal mejorada para móviles */
+        .modal-header {
+            padding: 1.2rem 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            z-index: 10;
+        }
+
+        @media (min-width: 768px) {
+            .modal-header {
+                padding: 1.5rem;
+            }
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        @media (min-width: 768px) {
+            .modal-title {
+                font-size: 1.3rem;
+            }
+        }
+
+        /* Botón cerrar optimizado para touch */
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: var(--text-light);
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .modal-close:active {
+            background: #f5f5f5;
+            transform: scale(0.95);
+        }
+
+        /* Cuerpo del modal con padding seguro para móviles */
+        .modal-body {
+            padding: 1.2rem 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .modal-body {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Mejoras en formularios para móviles */
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.95rem;
+        }
+
+        /* Inputs más grandes para touch en móviles */
+        .form-control {
+            width: 100%;
+            padding: 14px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+            -webkit-appearance: none;
+            min-height: 48px; /* Altura mínima para fácil touch */
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Grupo de contraseña optimizado para móviles */
+        .password-input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-input-group .form-control {
+            padding-right: 50px; /* Espacio para el botón de mostrar */
+        }
+
+        /* Botón mostrar/ocultar contraseña mejorado */
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            min-width: 44px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-password:active {
+            background: rgba(0, 0, 0, 0.05);
+            transform: scale(0.95);
+        }
+
+        /* Indicador de fuerza de contraseña */
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 8px;
+            transition: all 0.3s ease;
+            background: #e0e0e0;
+        }
+
+        .strength-weak { background: var(--danger); width: 25%; }
+        .strength-medium { background: var(--warning); width: 50%; }
+        .strength-strong { background: var(--success); width: 75%; }
+        .strength-very-strong { background: var(--success); width: 100%; }
+
+        .form-text {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.3rem;
+            line-height: 1.4;
+        }
+
+        .password-match {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        .password-mismatch {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
+        /* Alertas mejoradas para móviles */
+        .alert {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-top: 1.2rem;
+            line-height: 1.5;
+        }
+
+        .alert strong {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+        /* Footer del modal optimizado para móviles */
+        .modal-footer {
+            padding: 1rem;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            gap: 0.8rem;
+            position: sticky;
+            bottom: 0;
+            background: var(--white);
+            z-index: 10;
+        }
+
+        @media (min-width: 768px) {
+            .modal-footer {
+                padding: 1.5rem;
+                gap: 1rem;
+                justify-content: flex-end;
+            }
+        }
+
+        /* Botones del modal mejorados para touch */
+        .btn-modal {
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            flex: 1;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (min-width: 768px) {
+            .btn-modal {
+                flex: 0 1 auto;
+                padding: 12px 24px;
+            }
+        }
+
+        .btn-modal-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-modal-primary:active {
+            background: color-mix(in srgb, var(--primary) 90%, black);
+            transform: scale(0.98);
+        }
+
+        .btn-modal-secondary {
+            background: #e0e0e0;
+            color: var(--text);
+        }
+
+        .btn-modal-secondary:active {
+            background: #d0d0d0;
+            transform: scale(0.98);
+        }
+
+        /* Estado deshabilitado */
+        .btn-modal:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* LOADING STATES */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* MEDIA QUERIES PARA TABLETS */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+            
+            .header-main {
+                align-items: center;
+            }
+            
+            .cita-item {
+                flex-direction: row;
+                align-items: center;
+            }
+            
+            .cita-actions {
+                flex: 0 0 auto;
+                justify-content: flex-end;
+            }
+            
+            .btn-complete {
+                flex: 0 0 auto;
+                min-width: 120px;
+            }
+        }
+
+        /* MEDIA QUERIES PARA ESCRITORIO */
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 800px;
+            }
+            
+            .quick-actions {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* DARK MODE SUPPORT */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --light: #1a1a1a;
+                --white: #2d2d2d;
+                --text: #ffffff;
+                --text-light: #cccccc;
+                --dark: #ffffff;
+            }
+            
+            .date-selector {
+                background: #3d3d3d;
+                border-color: #555;
+                color: var(--text);
+            }
+            
+            .cita-item {
+                border-bottom-color: #444;
+            }
+            
+            .modal-content {
+                background: #3d3d3d;
+            }
+            
+            .form-control {
+                background: #2d2d2d;
+                border-color: #555;
+                color: var(--text);
+            }
+            
+            .notifications-panel {
+                background: #2d2d2d;
+                border-color: #444;
+            }
+            
+            .notification-item {
+                background: #3d3d3d;
+            }
+            
+            .modal-close:active {
+                background: #444;
+            }
+            
+            .toggle-password:active {
+                background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .btn-modal-secondary {
+                background: #444;
+                color: var(--text);
+            }
+            
+            .btn-modal-secondary:active {
+                background: #555;
+            }
+            
+            .alert {
+                background: #2c5282;
+                color: #90cdf4;
+            }
+        }
+
+        /* ORIENTATION LANDSCAPE */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .header {
+                position: relative;
+            }
+            
+            .stats {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .modal-content {
+                max-height: 95vh;
+                margin-top: 0.5rem;
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                padding: 0.8rem;
+            }
+            
+            .action-btn {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+            }
+            
+            .welcome h1 {
+                font-size: 1.2rem;
+            }
+            
+            .welcome p {
+                font-size: 0.8rem;
+            }
+            
+            .modal-header {
+                padding: 1rem 0.8rem;
+            }
+            
+            .modal-title {
+                font-size: 1.1rem;
+            }
+            
+            .modal-body {
+                padding: 1rem 0.8rem;
+            }
+            
+            .form-control {
+                padding: 12px 10px;
+                min-height: 44px;
+            }
+            
+            .btn-modal {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Pequeños ajustes para pantallas muy pequeñas */
+        @media (max-width: 320px) {
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .btn-modal {
+                width: 100%;
+            }
+        }
+
+        /* Prevenir zoom en inputs en iOS */
+        @media (max-width: 768px) {
+            input, select, textarea {
+                font-size: 16px;
+            }
+            
+            /* Para iOS Safari */
+            @supports (-webkit-touch-callout: none) {
+                .modal-content {
+                    max-height: -webkit-fill-available;
+                }
+            }
+        }
+
+        /* Mejoras de accesibilidad */
+        @media (prefers-reduced-motion: reduce) {
+            .modal-content,
+            .btn-modal,
+            .toggle-password,
+            .modal-close {
+                animation: none;
+                transition: none;
+            }
+        }
+
+        .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* 2 columnas en móvil */
+        gap: 0.8rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Tamaño uniforme de tarjetas */
+    .action-card {
+        background: var(--white);
+        padding: 1rem 0.8rem; /* Reducido padding */
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.3s ease;
+        min-height: 100px; /* Reducido para móvil */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        border: 2px solid transparent;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Efecto hover/active */
+    .action-card:active {
+        transform: scale(0.97);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Iconos más pequeños para móvil */
+    .action-icon {
+        font-size: 1.8rem; /* Reducido */
+        margin-bottom: 0.5rem;
+        line-height: 1;
+    }
+
+    /* Títulos más compactos */
+    .action-title {
+        font-weight: 600;
+        margin-bottom: 0.2rem;
+        font-size: 0.9rem; /* Reducido */
+        line-height: 1.2;
+    }
+
+    /* Descripciones más pequeñas */
+    .action-desc {
+        font-size: 0.75rem; /* Reducido */
+        color: var(--text-light);
+        line-height: 1.2;
+        opacity: 0.9;
+    }
+
+    /* COLORES ESPECÍFICOS PARA CADA BOTÓN */
+    /* Por defecto (azul) */
+    .action-card:nth-child(1) {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+
+    /* Estadísticas (verde) */
+    .action-card:nth-child(2) {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        color: white;
+    }
+
+    /* Agendar (naranja) */
+    .action-card:nth-child(3) {
+        background: linear-gradient(135deg, #f39c12, #f1c40f);
+        color: white;
+    }
+
+    /* Gestionar Horarios (rojo/naranja) */
+    .action-card.action-card-warning {
+        background: linear-gradient(135deg, #e74c3c, #e67e22);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Efecto para el botón de horarios */
+    .action-card.action-card-warning::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.1), 
+            transparent);
+        transition: left 0.5s ease;
+    }
+
+    .action-card.action-card-warning:active::before {
+        left: 100%;
+    }
+
+    /* Efecto de pulso para el botón de horarios cuando hay bloques activos */
+    .action-card.action-card-warning.pulse {
+        animation: warningPulse 2s infinite;
+    }
+
+    @keyframes warningPulse {
+        0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+    }
+
+    /* Efecto de brillo para todos los botones */
+    .action-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0);
+        transition: background 0.3s ease;
+        pointer-events: none;
+    }
+
+    .action-card:active::after {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ==================== RESPONSIVE ==================== */
+
+    /* Para tablets */
+    @media (min-width: 600px) {
+        .quick-actions {
+            grid-template-columns: repeat(4, 1fr); /* 4 columnas en tablets */
+            gap: 1rem;
+        }
+        
+        .action-card {
+            min-height: 110px;
+            padding: 1rem;
+        }
+        
+        .action-icon {
+            font-size: 2rem;
+        }
+        
+        .action-title {
+            font-size: 1rem;
+        }
+        
+        .action-desc {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* Para pantallas pequeñas (360px o menos) */
+    @media (max-width: 360px) {
+        .quick-actions {
+            gap: 0.6rem;
+        }
+        
+        .action-card {
+            min-height: 90px;
+            padding: 0.8rem 0.6rem;
+        }
+        
+        .action-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.4rem;
+        }
+        
+        .action-title {
+            font-size: 0.8rem;
+        }
+        
+        .action-desc {
+            font-size: 0.7rem;
+        }
+    }
+
+    /* Para orientación horizontal en móviles */
+    @media (max-height: 500px) and (orientation: landscape) {
+        .quick-actions {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .action-card {
+            min-height: 80px;
+            padding: 0.6rem;
+        }
+        
+        .action-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .action-title {
+            margin-bottom: 0.1rem;
+        }
+    }
+
+    /* Modo oscuro */
+    @media (prefers-color-scheme: dark) {
+        .action-card {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .action-card:nth-child(1) {
+            background: linear-gradient(135deg, #5a6fd8, #6a3fa0);
+        }
+        
+        .action-card:nth-child(2) {
+            background: linear-gradient(135deg, #219653, #27ae60);
+        }
+        
+        .action-card:nth-child(3) {
+            background: linear-gradient(135deg, #e67e22, #f39c12);
+        }
+        
+        .action-card.action-card-warning {
+            background: linear-gradient(135deg, #c0392b, #d35400);
+        }
+        
+        .action-card:active {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+    }
+
+    /* ==================== EFECTO DE CARGA ==================== */
+    .action-card.loading .action-icon,
+    .action-card.loading .action-title,
+    .action-card.loading .action-desc {
+        opacity: 0.5;
+    }
+
+    .action-card.loading::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.2), 
+            transparent);
+        animation: loadingShine 1.5s infinite;
+    }
+
+    @keyframes loadingShine {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+    
+    /* BOTÓN PARA NOTIFICACIONES PUSH - MANUAL */
+    .btn-push-notifications {
+        background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        color: white;
+        border: none;
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 44px;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
+        margin-left: 10px;
+    }
+    
+    .btn-push-notifications:hover {
+        background: linear-gradient(135deg, #8e44ad, #7d3c98);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+    }
+    
+    .btn-push-notifications:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(155, 89, 182, 0.3);
+    }
+    
+    .btn-push-notifications:disabled {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        cursor: default;
+        opacity: 0.9;
+        transform: none !important;
+        box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+    }
+    
+    /* Para pantallas pequeñas */
+    @media (max-width: 768px) {
+        .btn-push-notifications {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            margin-left: 0;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .section-title {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+    }
     </style>
 </head>
 <body>
@@ -104,7 +1510,79 @@
     <!-- Modal para cambiar contraseña - RESPONSIVE -->
     <div id="passwordModal" class="modal-overlay">
         <div class="modal-content">
-            <!-- ... contenido del modal existente ... -->
+            <div class="modal-header">
+                <h3 class="modal-title">🔐 Cambiar Contraseña</h3>
+                <button class="modal-close" onclick="closePasswordModal()" aria-label="Cerrar">&times;</button>
+            </div>
+            
+            <form id="passwordForm" onsubmit="submitPasswordChange(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="form-group">
+                        <label for="current_password" class="form-label">Contraseña Actual *</label>
+                        <div class="password-input-group">
+                            <input type="password" class="form-control" id="current_password" 
+                                   name="current_password" required aria-describedby="currentPasswordHelp">
+                            <button type="button" class="toggle-password" onclick="togglePassword('current_password')"
+                                    aria-label="Mostrar/ocultar contraseña">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new_password" class="form-label">Nueva Contraseña *</label>
+                        <div class="password-input-group">
+                            <input type="password" class="form-control" id="new_password" 
+                                   name="new_password" required minlength="6" 
+                                   oninput="checkPasswordStrength()"
+                                   aria-describedby="passwordStrengthText">
+                            <button type="button" class="toggle-password" onclick="togglePassword('new_password')"
+                                    aria-label="Mostrar/ocultar contraseña">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="password-strength" id="passwordStrength" role="progressbar" 
+                             aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="form-text" id="passwordStrengthText">
+                            Mínimo 6 caracteres. Fuerza: <span id="strengthText">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña *</label>
+                        <div class="password-input-group">
+                            <input type="password" class="form-control" id="confirm_password" 
+                                   name="confirm_password" required oninput="checkPasswordMatch()"
+                                   aria-describedby="passwordMatchText">
+                            <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')"
+                                    aria-label="Mostrar/ocultar contraseña">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            <span id="passwordMatchText" aria-live="polite"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="alert" role="alert">
+                        <strong>💡 Recomendaciones:</strong><br>
+                        • Usa una contraseña de al menos 8 caracteres<br>
+                        • Combina letras, números y símbolos<br>
+                        • No uses información personal fácil de adivinar
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal btn-modal-secondary" onclick="closePasswordModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-modal btn-modal-primary" id="submitPasswordBtn">
+                        Cambiar Contraseña
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -123,12 +1601,6 @@
         
         <!-- Fila inferior: Botones de acción -->
         <div class="header-actions">
-            <!-- AÑADE ESTE BOTÓN AQUÍ -->
-            <button onclick="activarNotificaciones()" class="action-btn action-btn-primary" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
-                <span>🔔</span>
-                <span>Notificaciones Push</span>
-            </button>
-            
             <button class="action-btn action-btn-info" onclick="openPasswordModal()">
                 <span>🔑</span>
                 <span>Contraseña</span>
@@ -145,7 +1617,21 @@
         
         <!-- Panel de notificaciones (oculto inicialmente) -->
         <div id="notificationsPanel" class="notifications-panel" style="display: none;">
-            <!-- ... contenido del panel de notificaciones ... -->
+            <div class="notifications-header">
+                <h3>🔔 Notificaciones</h3>
+                <div>
+                    <button class="action-btn action-btn-info" onclick="loadNotifications()" style="padding: 8px; font-size: 0.8rem;">🔄</button>
+                    <button class="action-btn action-btn-success" onclick="markAllAsRead()" style="padding: 8px; font-size: 0.8rem;">✓ Leer todas</button>
+                </div>
+            </div>
+            <div id="notificationsList">
+                <!-- Notificaciones se cargarán aquí -->
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Cargando...</span>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Estadísticas -->
@@ -162,31 +1648,108 @@
     </div>
     
     <div class="container">
-        <!-- AÑADE ESTA SECCIÓN DESPUÉS DEL SELECTOR DE FECHA -->
-        <div style="margin-bottom: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h2 style="font-size: 1.2rem; color: var(--dark);">📅 Mis Citas de Hoy</h2>
-                <button onclick="activarNotificaciones()" class="btn-push-activar" id="pushButton">
+        <!-- SECCIÓN MODIFICADA CON BOTÓN DE NOTIFICACIONES PUSH -->
+        <div class="section-title">
+            <h2>📅 Mis Citas de Hoy</h2>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="date" class="date-selector" value="{{ fecha }}" 
+                       onchange="cambiarFecha(this.value)">
+                <button onclick="activarNotificaciones()" class="btn-push-notifications" id="pushButton">
                     🔔 Activar Notificaciones Push
                 </button>
             </div>
-            <input type="date" class="date-selector" value="{{ fecha }}" 
-                   onchange="cambiarFecha(this.value)" style="width: 100%;">
         </div>
         
-        <!-- <div class="section-title"> -->
-        <!--     <h2>📅 Mis Citas de Hoy</h2> -->
-        <!--     <input type="date" class="date-selector" value="{{ fecha }}"  -->
-        <!--            onchange="cambiarFecha(this.value)"> -->
-        <!-- </div> -->
-        
         <div class="citas-list">
-            <!-- ... lista de citas existente ... -->
+            {% if citas %}
+                {% for cita in citas %}
+                    {% if cita.estado != 'bloqueado' %}
+                        <div class="cita-item {% if cita.estado == 'completado' %}completed{% endif %} {% if cita.personalizada %}personalizada{% endif %}">
+                            <div class="cita-info">
+                                    <h3>{{ cita.cliente_nombre }}
+                                        {% if cita.personalizada %}
+                                        <span class="badge-personalizada">⭐ Personalizada</span>
+                                        {% endif %}
+                                    </h3>    
+                                    <div class="cita-meta">
+                                        <span class="cita-time">⏰ {{ cita.hora }}</span>
+                                        <span class="cita-service">💼 {{ cita.servicio_nombre }}</span>
+                                        <span class="cita-price">💰 ${{ cita.precio }}</span>
+                                    </div>
+                                
+                                </div>
+                            <div class="cita-actions">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    {% if cita.estado == 'cancelado' %}
+                                        <span style="color: var(--danger); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                            <span>❌</span> Cancelada
+                                        </span>
+                                    {% elif cita.estado == 'completado' %}
+                                        <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                                            <span>✅</span> Completado
+                                        </span>
+                                    {% else %}
+                                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
+                                            class="completar-cita-form" 
+                                            style="display: inline;">
+
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                            <button type="submit" 
+                                                    class="btn-complete completar-btn"
+                                                    data-cita-id="{{ cita.id }}"
+                                                    onclick="return manejarCompletarCita(event, this);">
+                                                ✅ Completar
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    <!-- Botón Personalizar - SIEMPRE VISIBLE -->
+                                    <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
+                                    class="btn-personalizar">
+                                    <span>⚙️</span> Personalizar
+                                    </a>
+                                </div>
+                                
+                                <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
+                            </div>
+                            
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <h3>🎉 No hay citas para hoy</h3>
+                <p>Disfruta de tu día</p>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Acciones Rápidas -->
         <div class="quick-actions">
-            <!-- ... acciones rápidas existentes ... -->
+            <a href="{{ url_for('profesional_todas_citas') }}" class="action-card">
+                <div class="action-icon">📋</div>
+                <div class="action-title">Todas</div>
+                <div class="action-desc">Mis citas completas</div>
+            </a>
+            
+            <a href="/profesional/estadisticas?profesional_id={{ profesional_id }}" class="action-card">
+                <div class="action-icon">📊</div>
+                <div class="action-title">Estadísticas</div>
+                <div class="action-desc">Mis métricas</div>
+            </a>
+            
+            <a href="/profesional/agendar" class="action-card">
+                <div class="action-icon">➕</div>
+                <div class="action-title">Agendar</div>
+                <div class="action-desc">Nueva cita</div>
+            </a>
+            
+            <!-- BOTÓN GESTIONAR HORARIOS - NUEVO DISEÑO -->
+            <a href="/profesional/bloqueos" class="action-card action-card-warning">
+                <div class="action-icon">🚫</div>
+                <div class="action-title">Horarios</div>
+                <div class="action-desc">Bloquear horas</div>
+            </a>
         </div>
         
     </div>
@@ -251,8 +1814,7 @@
                 if (result.success) {
                     mostrarNotificacion('✅ Notificaciones activadas. Recibirás alertas de nuevas citas.');
                     button.innerHTML = '🔔 Notificaciones Activadas';
-                    button.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-                    button.disabled = true;
+                    button.disabled = true; // Deshabilitar porque ya está activado
                 } else {
                     mostrarNotificacion('❌ Error: ' + (result.error || 'No se pudo activar'), 'error');
                     button.disabled = false;
@@ -287,8 +1849,7 @@
                     
                     if (subscription) {
                         button.innerHTML = '🔔 Notificaciones Activadas';
-                        button.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-                        button.disabled = true;
+                        button.disabled = true; // Deshabilitar porque ya está activado
                         return true;
                     }
                 }
@@ -334,83 +1895,503 @@
             }
         }
 
-        // ==================== AL CARGAR LA PÁGINA ====================
-        document.addEventListener('DOMContentLoaded', function() {
-            // Verificar si ya tiene suscripción push
-            setTimeout(() => {
-                verificarSuscripcionPush();
-            }, 1000);
+        // ==================== FUNCIÓN PARA COMPLETAR CITAS ====================
+        async function completarCita(event, citaId) {
+            event.preventDefault(); // Prevenir envío inmediato del formulario
             
-            // ... el resto de tu código existente ...
-        });
-
-        // ==================== EL RESTO DE TUS FUNCIONES EXISTENTES ====================
-        // ... todas tus funciones existentes permanecen igual ...
-        
-        function manejarCompletarCita(event, boton) {
-            // ... función existente ...
+            const boton = event.target;
+            const formulario = boton.closest('.completar-cita-form');
+            
+            // Deshabilitar botón inmediatamente para evitar doble clic
+            boton.disabled = true;
+            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+            boton.style.opacity = '0.7';
+            boton.style.cursor = 'not-allowed';
+            
+            try {
+                // Mostrar notificación inmediata
+                mostrarNotificacion();
+                
+                // Esperar un momento para que el usuario vea la notificación
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Enviar el formulario
+                formulario.submit();
+                
+            } catch (error) {
+                console.error('Error completando cita:', error);
+                boton.innerHTML = '❌ Error';
+                boton.style.background = 'var(--danger)';
+                
+                // Rehabilitar después de 3 segundos si hay error
+                setTimeout(() => {
+                    boton.disabled = false;
+                    boton.innerHTML = '✅ Completar';
+                    boton.style.opacity = '1';
+                    boton.style.cursor = 'pointer';
+                    boton.style.background = '';
+                }, 3000);
+            }
         }
+
+        function manejarCompletarCita(event, boton) {
+            event.preventDefault();
+            
+            const formulario = boton.closest('form');
+            const botonOriginal = boton.innerHTML;
+            
+            // Verificar que el formulario tenga CSRF token
+            const csrfInput = formulario.querySelector('input[name="csrf_token"]');
+            if (!csrfInput || !csrfInput.value) {
+                mostrarNotificacion('❌ Error de seguridad. Recarga la página.', 'error');
+                return false;
+            }
+            
+            // Deshabilitar botón
+            boton.disabled = true;
+            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+            boton.style.opacity = '0.7';
+            boton.style.cursor = 'not-allowed';
+            
+            // Mostrar notificación
+            mostrarNotificacion('✅ Completando cita...');
+            
+            // Enviar formulario después de breve pausa
+            setTimeout(() => {
+                formulario.submit();
+            }, 800);
+            
+            return false;
+        }
+
+        // ==================== FUNCIONES DE NOTIFICACIONES WEB ====================
         
         let notificationsOpen = false;
         
         function toggleNotifications() {
-            // ... función existente ...
+            const panel = document.getElementById('notificationsPanel');
+            notificationsOpen = !notificationsOpen;
+            
+            if (notificationsOpen) {
+                panel.style.display = 'block';
+                loadNotifications();
+            } else {
+                panel.style.display = 'none';
+            }
         }
         
         async function loadNotifications() {
-            // ... función existente ...
+            const container = document.getElementById('notificationsList');
+            
+            // Mostrar loading
+            container.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Cargando...</span>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/profesional/notificaciones');
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderNotifications(data.notificaciones);
+                    updateBadge(data.total_no_leidas);
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-notifications">
+                            <p>❌ Error al cargar notificaciones</p>
+                            <button class="btn btn-sm btn-info" onclick="loadNotifications()">
+                                Reintentar
+                            </button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando notificaciones:', error);
+                container.innerHTML = `
+                    <div class="empty-notifications">
+                        <p>⚠️ Error de conexión</p>
+                        <button class="btn btn-sm btn-info" onclick="loadNotifications()">
+                            Reintentar
+                        </button>
+                    </div>
+                `;
+            }
         }
         
         function renderNotifications(notificaciones) {
-            // ... función existente ...
+            const container = document.getElementById('notificationsList');
+            
+            if (!notificaciones || notificaciones.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-notifications">
+                        <p>📭 No tienes notificaciones nuevas</p>
+                        <small class="text-muted">Recibirás notificaciones de nuevas citas y recordatorios</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            notificaciones.forEach(notif => {
+                const tipoClase = notif.tipo || 'info';
+                const fechaDisplay = notif.fecha_display || notif.fecha_creacion || 'Hoy';
+                
+                html += `
+                <div class="notification-item ${tipoClase} unread" data-id="${notif.id}">
+                    <div class="notification-title">${notif.titulo || 'Notificación'}</div>
+                    <div class="notification-message">${(notif.mensaje || '').replace(/\n/g, '<br>')}</div>
+                    <div class="notification-time">${fechaDisplay}</div>
+                    <div class="notification-actions">
+                        <button class="btn-mark-read" onclick="markAsRead(${notif.id})">
+                            ✓ Marcar como leída
+                        </button>
+                    </div>
+                </div>
+                `;
+            });
+            
+            container.innerHTML = html;
         }
         
         function updateBadge(count) {
-            // ... función existente ...
+            const badge = document.getElementById('notificationBadge');
+            
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'flex';
+                
+                // Si hay notificaciones y están cerradas, animar
+                if (!notificationsOpen) {
+                    badge.style.animation = 'pulse 2s infinite';
+                }
+            } else {
+                badge.style.display = 'none';
+            }
         }
         
         async function markAsRead(notificationId) {
-            // ... función existente ...
+            try {
+                const response = await fetch(`/api/profesional/notificaciones/${notificationId}/leer`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Remover la notificación de la lista
+                    const notifElement = document.querySelector(`[data-id="${notificationId}"]`);
+                    if (notifElement) {
+                        notifElement.classList.remove('unread');
+                        notifElement.style.opacity = '0.7';
+                        setTimeout(() => {
+                            notifElement.remove();
+                            // Recargar conteo
+                            loadNotifications();
+                        }, 500);
+                    }
+                }
+            } catch (error) {
+                console.error('Error marcando como leída:', error);
+            }
         }
         
         async function markAllAsRead() {
-            // ... función existente ...
+            try {
+                const response = await fetch('/api/profesional/notificaciones/leer-todas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Recargar notificaciones
+                    loadNotifications();
+                    showNotification('✅ Todas las notificaciones marcadas como leídas');
+                }
+            } catch (error) {
+                console.error('Error marcando todas como leídas:', error);
+            }
         }
         
+        // Cargar notificaciones al inicio
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotifications();
+            // Recargar cada 30 segundos
+            setInterval(loadNotifications, 30000);
+        });
+        
+        // ==================== FUNCIONES DEL MODAL RESPONSIVE ====================
+        
+        // Funciones para el modal de contraseña - MEJORADAS PARA MÓVILES
         function openPasswordModal() {
-            // ... función existente ...
+            const modal = document.getElementById('passwordModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Previene scroll en el fondo
+            
+            // Enfoque seguro para móviles (con retraso para evitar problemas de animación)
+            setTimeout(() => {
+                const firstInput = document.getElementById('current_password');
+                if (firstInput) {
+                    firstInput.focus({ preventScroll: true });
+                }
+            }, 300);
+            
+            // Resetear formulario
+            document.getElementById('passwordForm').reset();
+            document.getElementById('passwordStrength').style.width = '0%';
+            document.getElementById('strengthText').textContent = '-';
+            document.getElementById('passwordMatchText').textContent = '';
+            
+            // Para iOS: ajustar viewport
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.documentElement.style.height = '100%';
+                document.documentElement.style.overflow = 'hidden';
+            }
         }
 
         function closePasswordModal() {
-            // ... función existente ...
+            const modal = document.getElementById('passwordModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            // Para iOS: restaurar viewport
+            if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                document.documentElement.style.height = '';
+                document.documentElement.style.overflow = '';
+            }
+            
+            // Cerrar teclado virtual si está abierto
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
         }
 
         function togglePassword(fieldId) {
-            // ... función existente ...
+            const field = document.getElementById(fieldId);
+            const type = field.getAttribute('type') === 'password' ? 'text' : 'password';
+            field.setAttribute('type', type);
+            
+            // Cambiar ícono para mejor UX
+            const toggleBtn = field.parentElement.querySelector('.toggle-password');
+            if (type === 'text') {
+                toggleBtn.innerHTML = '🙈';
+                toggleBtn.setAttribute('aria-label', 'Ocultar contraseña');
+            } else {
+                toggleBtn.innerHTML = '👁️';
+                toggleBtn.setAttribute('aria-label', 'Mostrar contraseña');
+            }
+            
+            // Vibración táctil si está disponible
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
         }
 
         function checkPasswordStrength() {
-            // ... función existente ...
+            const password = document.getElementById('new_password').value;
+            const strengthBar = document.getElementById('passwordStrength');
+            const strengthText = document.getElementById('strengthText');
+            
+            if (!password) {
+                strengthBar.style.width = '0%';
+                strengthBar.setAttribute('aria-valuenow', '0');
+                strengthText.textContent = '-';
+                return;
+            }
+
+            let strength = 0;
+            let score = 0;
+            
+            // Longitud mínima
+            if (password.length >= 6) strength += 1;
+            // Contiene números
+            if (/\d/.test(password)) strength += 1;
+            // Contiene letras minúsculas y mayúsculas
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 1;
+            // Contiene caracteres especiales
+            if (/[^a-zA-Z0-9]/.test(password)) strength += 1;
+            // Longitud mayor a 8
+            if (password.length >= 8) strength += 1;
+
+            // Actualizar barra y texto
+            switch(strength) {
+                case 0:
+                case 1:
+                    strengthBar.className = 'password-strength strength-weak';
+                    strengthText.textContent = 'Débil';
+                    score = 25;
+                    break;
+                case 2:
+                    strengthBar.className = 'password-strength strength-medium';
+                    strengthText.textContent = 'Media';
+                    score = 50;
+                    break;
+                case 3:
+                    strengthBar.className = 'password-strength strength-strong';
+                    strengthText.textContent = 'Fuerte';
+                    score = 75;
+                    break;
+                case 4:
+                case 5:
+                    strengthBar.className = 'password-strength strength-very-strong';
+                    strengthText.textContent = 'Muy Fuerte';
+                    score = 100;
+                    break;
+            }
+            
+            // Actualizar atributos de accesibilidad
+            strengthBar.setAttribute('aria-valuenow', score);
         }
 
         function checkPasswordMatch() {
-            // ... función existente ...
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const matchText = document.getElementById('passwordMatchText');
+            
+            if (!confirmPassword) {
+                matchText.textContent = '';
+                matchText.className = '';
+                return;
+            }
+
+            if (newPassword === confirmPassword) {
+                matchText.textContent = '✓ Las contraseñas coinciden';
+                matchText.className = 'password-match';
+            } else {
+                matchText.textContent = '✗ Las contraseñas no coinciden';
+                matchText.className = 'password-mismatch';
+            }
         }
 
         async function submitPasswordChange(event) {
-            // ... función existente ...
+            event.preventDefault();
+            
+            const currentPassword = document.getElementById('current_password').value;
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const csrfToken = document.getElementById('csrf_token').value;
+            const submitBtn = document.getElementById('submitPasswordBtn');
+            
+            // Validaciones
+            if (!currentPassword) {
+                showModalAlert('❌ Por favor, ingresa tu contraseña actual');
+                document.getElementById('current_password').focus();
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showModalAlert('❌ La nueva contraseña debe tener al menos 6 caracteres');
+                document.getElementById('new_password').focus();
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showModalAlert('❌ Las contraseñas no coinciden');
+                document.getElementById('confirm_password').focus();
+                return;
+            }
+            
+            // Deshabilitar botón mientras se procesa
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+            
+            try {
+                const response = await fetch('/profesional/cambiar-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'current_password': currentPassword,
+                        'new_password': newPassword,
+                        'csrf_token': csrfToken
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showModalAlert('✅ Contraseña cambiada exitosamente', 'success');
+                    setTimeout(() => {
+                        closePasswordModal();
+                        showNotification('✅ Contraseña actualizada correctamente');
+                    }, 1500);
+                } else {
+                    showModalAlert(`❌ Error: ${result.message || 'No se pudo cambiar la contraseña'}`);
+                    // Vibración de error
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showModalAlert('❌ Error de conexión. Intenta nuevamente.');
+            } finally {
+                // Rehabilitar botón
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Cambiar Contraseña';
+            }
         }
 
+        // Función auxiliar para mostrar alertas en el modal
         function showModalAlert(message, type = 'error') {
-            // ... función existente ...
+            // Remover alertas previas
+            const existingAlert = document.querySelector('.modal-alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `modal-alert alert ${type === 'success' ? 'alert-success' : 'alert-danger'}`;
+            alertDiv.innerHTML = message;
+            alertDiv.style.marginTop = '1rem';
+            alertDiv.style.animation = 'fadeIn 0.3s ease';
+            
+            // Insertar después del último form-group
+            const formGroups = document.querySelectorAll('.form-group');
+            const lastFormGroup = formGroups[formGroups.length - 1];
+            lastFormGroup.parentNode.insertBefore(alertDiv, lastFormGroup.nextSibling);
+            
+            // Auto-remover después de 5 segundos para éxito
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.style.opacity = '0';
+                        alertDiv.style.transition = 'opacity 0.5s ease';
+                        setTimeout(() => alertDiv.remove(), 500);
+                    }
+                }, 5000);
+            }
+            
+            // Scroll a la alerta en móviles
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
         }
+
+        // ==================== FUNCIONES EXISTENTES ====================
         
         function cambiarFecha(fecha) {
-            // ... función existente ...
+            window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
         }
 
         function showNotification(message) {
-            // ... función existente ...
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
         }
 
         // Auto-recargar cada 2 minutos para ver citas nuevas
@@ -423,9 +2404,10 @@
             setTimeout(() => mostrarNotificacion(), 500);
         }
 
-        // ==================== CÓDIGO EXISTENTE DE TOUCH Y EVENTOS ====================
+        // Touch optimizations
         document.addEventListener('touchstart', function() {}, {passive: true});
         
+        // Prevent zoom on double-tap
         let lastTouchEnd = 0;
         document.addEventListener('touchend', function (event) {
             const now = (new Date()).getTime();
@@ -435,18 +2417,21 @@
             lastTouchEnd = now;
         }, false);
 
+        // Cerrar modal al hacer clic fuera
         document.getElementById('passwordModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closePasswordModal();
             }
         });
 
+        // Cerrar modal con Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.getElementById('passwordModal').style.display === 'flex') {
                 closePasswordModal();
             }
         });
 
+        // Cerrar panel de notificaciones al hacer clic fuera
         document.addEventListener('click', function(e) {
             const panel = document.getElementById('notificationsPanel');
             const btn = document.querySelector('.notification-header-btn');
@@ -456,16 +2441,20 @@
             }
         });
 
+        // Cerrar teclado virtual al hacer scroll en móviles
         document.addEventListener('scroll', function() {
             if (document.activeElement && /input|textarea/i.test(document.activeElement.tagName)) {
                 document.activeElement.blur();
             }
         });
 
+        // Manejar cambios de orientación en móviles
         let originalHeight = window.innerHeight;
         window.addEventListener('resize', function() {
             if (window.innerHeight !== originalHeight) {
+                // El teclado virtual se abrió/cerró
                 if (document.getElementById('passwordModal').style.display === 'flex') {
+                    // Ajustar posición del modal si es necesario
                     setTimeout(() => {
                         const modalContent = document.querySelector('.modal-content');
                         if (modalContent) {
@@ -484,6 +2473,7 @@
                 item.style.animationDelay = `${index * 0.1}s`;
             });
             
+            // Añadir CSS para animación de fadeIn
             const style = document.createElement('style');
             style.textContent = `
                 @keyframes fadeIn {
@@ -492,14 +2482,8 @@
                 }
             `;
             document.head.appendChild(style);
-        });
-
-        // ==================== SUSCRIPCIÓN AUTOMÁTICA PUSH ====================
-        // ... mantén tu código de suscripción automática si lo quieres ...
-
-        // Ejecutar al cargar la página
-        document.addEventListener('DOMContentLoaded', function() {
-            // Esperar a que todo cargue
+            
+            // Verificar si ya tiene suscripción push activa
             setTimeout(() => {
                 verificarSuscripcionPush();
             }, 1000);
