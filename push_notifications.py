@@ -1,24 +1,17 @@
 # push_notifications.py - SISTEMA DE NOTIFICACIONES PUSH
 import os
 import json
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from database import guardar_suscripcion_push, obtener_suscripciones_profesional
-import pywebpush
+from pywebpush import webpush, WebPushException
 
 push_bp = Blueprint('push', __name__)
 
 # Configurar webpush
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-VAPID_CLAIMS = {
-    "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
-}
-
-pywebpush.setVapidDetails(
-    VAPID_CLAIMS["sub"],
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-)
+VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
 
 @push_bp.route('/api/push/subscribe', methods=['POST'])
 def subscribe_push():
@@ -63,25 +56,39 @@ def send_push_notification():
         if not suscripciones:
             return jsonify({'success': False, 'error': 'No hay suscripciones activas'}), 404
         
+        # Configurar claims VAPID
+        vapid_claims = {
+            "sub": VAPID_SUBJECT,
+            "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
+        }
+        
         payload = {
             'title': title,
             'body': body,
             'url': url,
             'citaId': cita_id,
-            'icon': '/static/icons/icon-192x192.png'
+            'icon': '/static/icons/icon-192x192.png',
+            'timestamp': datetime.now().isoformat()
         }
         
         # Enviar a todas las suscripciones
         resultados = []
         for suscripcion in suscripciones:
             try:
-                pywebpush.send_notification(
-                    suscripcion['subscription'],
+                # Parsear JSON si está en string
+                subscription_data = suscripcion.get('subscription_json')
+                if isinstance(subscription_data, str):
+                    subscription = json.loads(subscription_data)
+                else:
+                    subscription = subscription_data
+                
+                webpush.send_notification(
+                    subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims=VAPID_CLAIMS
+                    vapid_claims=vapid_claims
                 )
-                resultados.append({'success': True, 'dispositivo': suscripcion.get('dispositivo', '')})
+                resultados.append({'success': True, 'dispositivo': suscripcion.get('dispositivo_info', '')})
             except Exception as e:
                 print(f"❌ Error enviando push: {e}")
                 resultados.append({'success': False, 'error': str(e)})
@@ -100,9 +107,6 @@ def send_push_notification():
 def enviar_notificacion_cita_creada(cita_data):
     """Función para enviar notificación push cuando se crea una cita"""
     try:
-        # Importar aquí para evitar dependencia circular
-        from database import obtener_suscripciones_profesional
-        
         profesional_id = cita_data.get('profesional_id')
         
         if not profesional_id:
@@ -115,6 +119,12 @@ def enviar_notificacion_cita_creada(cita_data):
             print(f"⚠️ Profesional {profesional_id} no tiene suscripciones push")
             return False
         
+        # Configurar claims VAPID
+        vapid_claims = {
+            "sub": VAPID_SUBJECT,
+            "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
+        }
+        
         # Preparar payload
         payload = {
             'title': '📅 Nueva Cita Agendada',
@@ -122,22 +132,30 @@ def enviar_notificacion_cita_creada(cita_data):
             'url': f"/profesional?cita={cita_data.get('id', '')}",
             'citaId': cita_data.get('id'),
             'icon': '/static/icons/icon-192x192.png',
-            'timestamp': cita_data.get('created_at', '')
+            'timestamp': datetime.now().isoformat()
         }
         
         # Enviar notificaciones
         enviados = 0
         for suscripcion in suscripciones:
             try:
-                pywebpush.send_notification(
-                    suscripcion['subscription'],
+                # Parsear JSON si está en string
+                subscription_data = suscripcion.get('subscription_json')
+                if isinstance(subscription_data, str):
+                    subscription = json.loads(subscription_data)
+                else:
+                    subscription = subscription_data
+                
+                webpush.send_notification(
+                    subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims=VAPID_CLAIMS
+                    vapid_claims=vapid_claims
                 )
                 enviados += 1
+                print(f"✅ Push enviado a profesional {profesional_id}")
             except Exception as e:
-                print(f"❌ Error enviando push a dispositivo {suscripcion.get('dispositivo', '')}: {e}")
+                print(f"❌ Error enviando push: {e}")
         
         print(f"✅ Notificaciones push enviadas: {enviados}/{len(suscripciones)}")
         return enviados > 0
