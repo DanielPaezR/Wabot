@@ -4222,7 +4222,7 @@ def test_personalizar():
     """Ruta de prueba para verificar que la personalización funciona"""
     return "✅ Ruta de personalización funciona correctamente"
 
-@app.route('/api/debug/recreate-push-table', methods=['POST'])
+@app.route('/api/debug/recreate-push-table', methods=['GET', 'POST'])
 def recreate_push_table():
     """Recrear tabla de suscripciones push correctamente"""
     try:
