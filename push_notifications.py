@@ -24,12 +24,13 @@ def subscribe_push():
         if not subscription or not profesional_id:
             return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
         
-        # Guardar en base de datos - TABLA SIMPLIFICADA
-        dispositivo_info = request.headers.get('User-Agent', '')[:500]  # Limitar a 500 chars
+        # Guardar en base de datos - VERSIÓN SIMPLIFICADA
+        dispositivo_info = request.headers.get('User-Agent', '')[:500]
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # SQL SIMPLIFICADO - sin fecha_creacion ni fecha_actualizacion
         cursor.execute('''
             INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
             VALUES (%s, %s, %s, TRUE)
