@@ -34,7 +34,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 app.register_blueprint(push_bp, url_prefix='/push')
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
-    """VERSIÓN MEJORADA con manejo de errores detallado"""
+    """VERSIÓN MEJORADA con manejo de errores detallado - CORREGIDA"""
     try:
         print(f"\n" + "="*60)
         print(f"🚀 [PUSH-START] Iniciando para profesional {profesional_id}")
@@ -89,9 +89,22 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         # 4. Intentar enviar push a cada suscripción
         exitos = 0
         for sub in suscripciones:
+            sub_id = "desconocido"  # Valor por defecto
             try:
-                sub_id = sub[0]
-                sub_json = sub[1]
+                # ✅ CORRECCIÓN: Verificar estructura de 'sub'
+                if isinstance(sub, (list, tuple)) and len(sub) > 0:
+                    sub_id = sub[0]  # ID de la suscripción
+                    sub_json = sub[1] if len(sub) > 1 else None
+                elif isinstance(sub, dict):
+                    sub_id = sub.get('id', 'desconocido')
+                    sub_json = sub.get('subscription_json')
+                else:
+                    print(f"⚠️ Formato de suscripción desconocido: {type(sub)}")
+                    continue
+                
+                if not sub_json:
+                    print(f"   ⚠️ Suscripción #{sub_id} sin JSON, saltando...")
+                    continue
                 
                 print(f"\n📤 Enviando a suscripción #{sub_id}...")
                 
@@ -99,11 +112,11 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 
                 # Verificar estructura
                 if 'endpoint' not in subscription_data:
-                    print("   ⚠️ Suscripción sin endpoint, saltando...")
+                    print(f"   ⚠️ Suscripción #{sub_id} sin endpoint, saltando...")
                     continue
                 
                 if 'keys' not in subscription_data:
-                    print("   ⚠️ Suscripción sin keys, saltando...")
+                    print(f"   ⚠️ Suscripción #{sub_id} sin keys, saltando...")
                     continue
                 
                 print(f"   🔗 Endpoint: {subscription_data['endpoint'][:80]}...")
@@ -131,6 +144,9 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 print(f"   ✅ Push enviado exitosamente")
                 exitos += 1
                 
+            except json.JSONDecodeError as e:
+                print(f"   ❌ Error JSON en suscripción #{sub_id}: {str(e)}")
+                continue
             except Exception as e:
                 print(f"   ❌ Error enviando a suscripción #{sub_id}: {type(e).__name__}: {str(e)}")
                 continue
@@ -155,18 +171,21 @@ def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Verificar si la tabla tiene fecha_creacion (no created_at)
-        cursor.execute('''
-            SELECT EXISTS (
-                SELECT 1 
-                FROM information_schema.columns 
-                WHERE table_name = 'notificaciones_profesional' 
-                AND column_name = 'fecha_creacion'
-            )
-        ''')
-        tiene_fecha_creacion = cursor.fetchone()[0]
+        print(f"💾 Guardando notificación en BD para profesional {profesional_id}...")
         
-        if tiene_fecha_creacion:
+        # Verificar columnas disponibles
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'notificaciones_profesional'
+            ORDER BY column_name
+        """)
+        
+        columnas = [row[0] for row in cursor.fetchall()]
+        print(f"   Columnas disponibles: {', '.join(columnas)}")
+        
+        # Construir query dinámicamente
+        if 'cita_id' in columnas and 'fecha_creacion' in columnas:
             if cita_id:
                 cursor.execute('''
                     INSERT INTO notificaciones_profesional 
@@ -179,8 +198,8 @@ def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
                     (profesional_id, tipo, titulo, mensaje, leida, fecha_creacion)
                     VALUES (%s, 'push', %s, %s, FALSE, NOW())
                 ''', (profesional_id, titulo, mensaje))
-        else:
-            # Si no tiene fecha_creacion, usar sin fecha
+        
+        elif 'cita_id' in columnas:
             if cita_id:
                 cursor.execute('''
                     INSERT INTO notificaciones_profesional 
@@ -194,12 +213,19 @@ def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
                     VALUES (%s, 'push', %s, %s, FALSE)
                 ''', (profesional_id, titulo, mensaje))
         
+        else:
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional 
+                (profesional_id, tipo, titulo, mensaje, leida)
+                VALUES (%s, 'push', %s, %s, FALSE)
+            ''', (profesional_id, titulo, mensaje))
+        
         conn.commit()
         conn.close()
         print(f"✅ Notificación guardada en BD")
         
     except Exception as e:
-        print(f"⚠️ Error guardando en BD (no crítico): {e}")
+        print(f"⚠️ Error guardando en BD (no crítico): {type(e).__name__}: {str(e)}")
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
