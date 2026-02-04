@@ -35,11 +35,6 @@ app.register_blueprint(push_bp, url_prefix='/push')
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
-    print(f"🎯🎯🎯 [PUSH-DEBUG] FUNCIÓN LLAMADA con:")
-    print(f"   profesional_id: {profesional_id}")
-    print(f"   titulo: {titulo}")
-    print(f"   mensaje: {mensaje}")
-    print(f"   cita_id: {cita_id}")
     try:
         print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
         
@@ -81,30 +76,40 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         except:
             pass
         
-        # 2. Intentar push (opcional)
+        # 2. Intentar push (con try-except específico)
         try:
             import pywebpush
+            
+            # Obtener la primera suscripción
             subscription = json.loads(suscripciones[0][0])
             
+            # Datos a enviar
+            payload = json.dumps({
+                'title': titulo,
+                'body': mensaje,
+                'icon': '/static/icons/icon-192x192.png',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            # Configuración SIMPLE de pywebpush
             pywebpush.webpush(
                 subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png'
-                }),
+                data=payload,
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={
                     "sub": VAPID_SUBJECT,
-                    "exp": 9999999999  # Timestamp lejano
+                    "exp": (datetime.now() + timedelta(hours=12)).timestamp()
                 }
             )
             print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
             return True
+            
         except Exception as e:
-            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
-            # Igual devolvemos True porque la notificación se guardó en BD
-            return True
+            print(f"⚠️ Error en pywebpush: {type(e).__name__}: {str(e)}")
+            # IMPORTANTE: Mostrar detalles del error
+            print(f"🔍 Subscription: {subscription if 'subscription' in locals() else 'No definida'}")
+            print(f"🔍 VAPID key length: {len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0}")
+            return True  # Igual éxito porque se guardó en BD
             
     except Exception as e:
         print(f"❌ Error crítico: {e}")

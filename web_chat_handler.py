@@ -1470,15 +1470,12 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         if cita_id and cita_id > 0:
             print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
             
-            # ✅ AGREGAR AQUÍ: ENVIAR NOTIFICACIÓN PUSH (CORREGIDO)
+            # ✅ AGREGAR AQUÍ: ENVIAR NOTIFICACIÓN PUSH (CON DEBUG)
             try:
                 fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora}"
                 
-                print(f"🎯🎯🎯 [CHAT-PUSH] Intentando enviar push...")
-                print(f"🎯🎯🎯 [CHAT-PUSH] profesional_id: {profesional_id}")
-                print(f"🎯🎯🎯 [CHAT-PUSH] mensaje: {mensaje_push}")
-                print(f"🎯🎯🎯 [CHAT-PUSH] cita_id: {cita_id}")
+                print(f"🎯 [CHAT-PUSH] Enviando push para cita #{cita_id}")
                 
                 # Importar desde app.py
                 from app import enviar_notificacion_push_profesional
@@ -1490,12 +1487,9 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
                     cita_id=cita_id
                 )
                 
-                print(f"🎯🎯🎯 [CHAT-PUSH] Resultado: {resultado}")
-                print("✅ Notificación push enviada desde chat web")
+                print(f"🎯 [CHAT-PUSH] Resultado: {'Éxito' if resultado else 'Falló'}")
             except Exception as push_error:
-                print(f"🎯🎯🎯 [CHAT-PUSH] ERROR: {push_error}")
-                import traceback
-                traceback.print_exc()
+                print(f"🎯 [CHAT-PUSH] Error: {push_error}")
             
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
