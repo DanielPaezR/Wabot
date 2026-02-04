@@ -34,79 +34,157 @@ app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 app.register_blueprint(push_bp, url_prefix='/push')
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
-    """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
+    """VERSIÓN MEJORADA con manejo de errores detallado"""
     try:
-        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
+        print(f"\n" + "="*60)
+        print(f"🚀 [PUSH-START] Iniciando para profesional {profesional_id}")
         print(f"   📝 Título: {titulo}")
         print(f"   💬 Mensaje: {mensaje}")
         print(f"   🎫 Cita ID: {cita_id}")
+        print("="*60)
         
         import json
         import os
+        from datetime import datetime, timedelta
         
+        # 1. Obtener variables de entorno
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+        
+        print(f"🔑 VAPID Keys:")
+        print(f"   Public Key: {'✅' if VAPID_PUBLIC_KEY else '❌'}")
+        print(f"   Private Key: {'✅' if VAPID_PRIVATE_KEY else '❌'}")
+        print(f"   Subject: {VAPID_SUBJECT}")
         
         if not VAPID_PRIVATE_KEY:
-            print("⚠️ No hay clave privada")
+            print("❌ No hay clave privada VAPID configurada")
             return False
         
-        # Obtener suscripciones
+        # 2. Obtener suscripciones
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
+        
+        cursor.execute('''
+            SELECT id, subscription_json, activa
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+        ''', (profesional_id,))
+        
         suscripciones = cursor.fetchall()
         conn.close()
         
+        print(f"📱 Suscripciones encontradas: {len(suscripciones)}")
+        
         if not suscripciones:
-            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
-            return False
+            print("⚠️ No hay suscripciones activas para este profesional")
+            # Guardar notificación en BD de todas formas
+            guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id)
+            return True
         
-        # 1. Guardar notificación en BD (SIEMPRE funciona)
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-                VALUES (%s, 'push', %s, %s, FALSE, %s)
-            ''', (profesional_id, titulo, mensaje, cita_id))
-            conn.commit()
-            conn.close()
-            print(f"✅ Notificación guardada en BD")
-        except Exception as db_error:
-            print(f"⚠️ Error guardando en BD: {db_error}")
+        # 3. Guardar en BD (SIEMPRE)
+        guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id)
         
-        # 2. Intentar push (opcional)
-        try:
-            import pywebpush
-            subscription = json.loads(suscripciones[0][0])
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
+        # 4. Intentar enviar push a cada suscripción
+        exitos = 0
+        for sub in suscripciones:
+            try:
+                sub_id = sub[0]
+                sub_json = sub[1]
+                
+                print(f"\n📤 Enviando a suscripción #{sub_id}...")
+                
+                subscription_data = json.loads(sub_json)
+                
+                # Verificar estructura
+                if 'endpoint' not in subscription_data:
+                    print("   ⚠️ Suscripción sin endpoint, saltando...")
+                    continue
+                
+                if 'keys' not in subscription_data:
+                    print("   ⚠️ Suscripción sin keys, saltando...")
+                    continue
+                
+                print(f"   🔗 Endpoint: {subscription_data['endpoint'][:80]}...")
+                
+                # Enviar push
+                import pywebpush
+                
+                payload = json.dumps({
                     'title': titulo,
                     'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png'
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": 9999999999
-                }
-            )
-            print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
-            return True
-        except Exception as e:
-            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
-            print(f"   Error detallado: {str(e)}")
-            return True
-            
+                    'icon': '/static/icons/icon-192x192.png',
+                    'tag': f'cita-{cita_id}' if cita_id else 'notificacion'
+                })
+                
+                pywebpush.webpush(
+                    subscription_info=subscription_data,
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={
+                        "sub": VAPID_SUBJECT,
+                        "exp": int((datetime.now() + timedelta(hours=12)).timestamp())
+                    }
+                )
+                
+                print(f"   ✅ Push enviado exitosamente")
+                exitos += 1
+                
+            except Exception as e:
+                print(f"   ❌ Error enviando a suscripción #{sub_id}: {type(e).__name__}: {str(e)}")
+                continue
+        
+        print(f"\n" + "="*60)
+        print(f"📊 RESUMEN: {exitos}/{len(suscripciones)} push enviados exitosamente")
+        print("="*60)
+        
+        return exitos > 0
+        
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
+        print(f"❌ Error crítico en push: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
+
+def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
+    """Función auxiliar para guardar notificación en BD"""
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar si la tabla tiene cita_id
+        cursor.execute('''
+            SELECT EXISTS (
+                SELECT 1 
+                FROM information_schema.columns 
+                WHERE table_name = 'notificaciones_profesional' 
+                AND column_name = 'cita_id'
+            )
+        ''')
+        tiene_cita_id = cursor.fetchone()[0]
+        
+        if tiene_cita_id and cita_id:
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional 
+                (profesional_id, tipo, titulo, mensaje, leida, cita_id, fecha_creacion)
+                VALUES (%s, 'push', %s, %s, FALSE, %s, NOW())
+            ''', (profesional_id, titulo, mensaje, cita_id))
+        else:
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional 
+                (profesional_id, tipo, titulo, mensaje, leida, fecha_creacion)
+                VALUES (%s, 'push', %s, %s, FALSE, NOW())
+            ''', (profesional_id, titulo, mensaje))
+        
+        conn.commit()
+        conn.close()
+        print(f"✅ Notificación guardada en BD")
+        
+    except Exception as e:
+        print(f"⚠️ Error guardando en BD (no crítico): {e}")
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
@@ -4707,39 +4785,162 @@ def unsubscribe_push():
 def manifest():
     return send_from_directory('static', 'manifest.json')
 
-@app.route('/api/debug/test-push')
+@app.route('/admin/fix-database')
+def fix_database():
+    """Ruta temporal para corregir la base de datos"""
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        resultados = []
+        
+        # 1. Verificar estructura de notificaciones_profesional
+        resultados.append("=== TABLA notificaciones_profesional ===")
+        cursor.execute('''
+            SELECT column_name, data_type, is_nullable
+            FROM information_schema.columns 
+            WHERE table_name = 'notificaciones_profesional'
+            ORDER BY ordinal_position
+        ''')
+        columnas = cursor.fetchall()
+        
+        for col in columnas:
+            resultados.append(f"Columna: {col[0]} - Tipo: {col[1]} - Nullable: {col[2]}")
+        
+        # 2. Verificar si existe cita_id
+        cursor.execute('''
+            SELECT EXISTS (
+                SELECT 1 
+                FROM information_schema.columns 
+                WHERE table_name = 'notificaciones_profesional' 
+                AND column_name = 'cita_id'
+            )
+        ''')
+        tiene_cita_id = cursor.fetchone()[0]
+        
+        if tiene_cita_id:
+            resultados.append("✅ La tabla YA TIENE columna cita_id")
+        else:
+            resultados.append("⚠️ La tabla NO TIENE columna cita_id")
+            
+            # 3. Intentar agregar la columna
+            try:
+                cursor.execute('''
+                    ALTER TABLE notificaciones_profesional 
+                    ADD COLUMN cita_id INTEGER REFERENCES citas(id)
+                ''')
+                conn.commit()
+                resultados.append("✅ Columna cita_id AGREGADA exitosamente")
+            except Exception as e:
+                resultados.append(f"❌ Error agregando columna: {e}")
+                conn.rollback()
+        
+        # 4. Verificar suscripciones del profesional 1
+        resultados.append("\n=== SUSCRIPCIONES DEL PROFESIONAL 1 ===")
+        cursor.execute('''
+            SELECT id, profesional_id, activa, created_at, 
+                   LENGTH(subscription_json) as json_length
+            FROM suscripciones_push 
+            WHERE profesional_id = 1
+        ''')
+        suscripciones = cursor.fetchall()
+        
+        if suscripciones:
+            for sub in suscripciones:
+                resultados.append(f"ID: {sub[0]} - Activa: {sub[2]} - JSON Len: {sub[4]}")
+        else:
+            resultados.append("⚠️ No hay suscripciones para el profesional 1")
+        
+        # 5. Verificar datos de una suscripción (sin mostrar todo el JSON)
+        cursor.execute('''
+            SELECT id, 
+                   subscription_json::json->>'endpoint' as endpoint,
+                   LENGTH(subscription_json::json->>'endpoint') as endpoint_len
+            FROM suscripciones_push 
+            WHERE profesional_id = 1 AND activa = TRUE
+            LIMIT 1
+        ''')
+        sub_detalle = cursor.fetchone()
+        
+        if sub_detalle:
+            resultados.append(f"\n=== DETALLE SUSCRIPCIÓN {sub_detalle[0]} ===")
+            resultados.append(f"Endpoint: {sub_detalle[1][:50]}...")
+            resultados.append(f"Endpoint length: {sub_detalle[2]}")
+        else:
+            resultados.append("\n⚠️ No hay suscripciones activas para mostrar")
+        
+        conn.close()
+        
+        return "<br>".join(resultados)
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+    
+@app.route('/admin/test-subscription')
+def test_subscription():
+    """Crear suscripción de prueba para el profesional 1"""
+    try:
+        from database import get_db_connection
+        import json
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Datos de suscripción de prueba (simulados)
+        subscription_test = {
+            "endpoint": "https://fcm.googleapis.com/fcm/send/fake-endpoint-for-test",
+            "expirationTime": None,
+            "keys": {
+                "p256dh": "fake-p256dh-key-for-testing-purposes-only",
+                "auth": "fake-auth-key-for-testing"
+            }
+        }
+        
+        # Insertar suscripción de prueba
+        cursor.execute('''
+            INSERT INTO suscripciones_push 
+            (profesional_id, subscription_json, activa, created_at)
+            VALUES (%s, %s, TRUE, NOW())
+            ON CONFLICT DO NOTHING
+        ''', (1, json.dumps(subscription_test)))
+        
+        conn.commit()
+        
+        # Verificar
+        cursor.execute('SELECT COUNT(*) FROM suscripciones_push WHERE profesional_id = 1')
+        count = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return f"✅ Suscripción de prueba creada. Total suscripciones para profesional 1: {count}"
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+@app.route('/admin/test-push-manual')
 def test_push_manual():
-    """Probar push notifications manualmente"""
+    """Probar push manualmente"""
     try:
         from app import enviar_notificacion_push_profesional
         
         resultado = enviar_notificacion_push_profesional(
             profesional_id=1,
             titulo="🔔 Test Manual",
-            mensaje="Esta es una notificación de prueba",
+            mensaje="Esta es una prueba MANUAL de notificación push",
             cita_id=999
         )
         
-        return jsonify({
-            'success': resultado,
-            'message': 'Notificación de prueba enviada' if resultado else 'Falló'
-        })
+        return f"""
+        <h1>Test Push Manual</h1>
+        <p>Resultado: {'✅ ÉXITO' if resultado else '❌ FALLO'}</p>
+        <p><a href="/admin/fix-database">Verificar BD</a></p>
+        <p><a href="/admin/test-subscription">Crear suscripción prueba</a></p>
+        """
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-    
-@app.route('/test-push-direct')
-def test_push_direct():
-    """Test directo de push notifications"""
-    from app import enviar_notificacion_push_profesional
-    
-    resultado = enviar_notificacion_push_profesional(
-        profesional_id=1,
-        titulo="📅 Test Directo",
-        mensaje="Esta es una prueba DIRECTA",
-        cita_id=999
-    )
-    
-    return jsonify({'success': resultado, 'message': 'Test directo ejecutado'})
+        return f"❌ Error: {str(e)}"
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
