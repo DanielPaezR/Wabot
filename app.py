@@ -4728,6 +4728,20 @@ def test_push_manual():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@app.route('/test-push-direct')
+def test_push_direct():
+    """Test directo de push notifications"""
+    from app import enviar_notificacion_push_profesional
+    
+    resultado = enviar_notificacion_push_profesional(
+        profesional_id=1,
+        titulo="📅 Test Directo",
+        mensaje="Esta es una prueba DIRECTA",
+        cita_id=999
+    )
+    
+    return jsonify({'success': resultado, 'message': 'Test directo ejecutado'})
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
