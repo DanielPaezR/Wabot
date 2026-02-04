@@ -4721,6 +4721,26 @@ def unsubscribe_push():
 def manifest():
     return send_from_directory('static', 'manifest.json')
 
+@app.route('/api/debug/test-push')
+def test_push_manual():
+    """Probar push notifications manualmente"""
+    try:
+        from app import enviar_notificacion_push_profesional
+        
+        resultado = enviar_notificacion_push_profesional(
+            profesional_id=1,
+            titulo="🔔 Test Manual",
+            mensaje="Esta es una notificación de prueba",
+            cita_id=999
+        )
+        
+        return jsonify({
+            'success': resultado,
+            'message': 'Notificación de prueba enviada' if resultado else 'Falló'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
