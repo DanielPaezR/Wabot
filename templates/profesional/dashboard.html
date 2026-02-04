@@ -1834,25 +1834,51 @@
         }
 
         function urlBase64ToUint8Array(base64String) {
-            // 1. Asegurar que no tenga padding
-            let base64 = base64String.replace(/=+$/, '');
+            console.log('🔧 Convertiendo clave VAPID base64 a Uint8Array...');
+            console.log('Longitud entrada:', base64String.length);
             
-            // 2. Convertir URL-safe a standard
-            base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-            
-            // 3. Añadir padding para múltiplo de 4
-            const padding = '='.repeat((4 - base64.length % 4) % 4);
-            const base64Std = base64 + padding;
-            
-            // 4. Decodificar
-            const rawData = window.atob(base64Std);
-            const outputArray = new Uint8Array(rawData.length);
-            
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
+            // SOLUCIÓN SIMPLE: Usar una librería base64 robusta
+            try {
+                // 1. Primero asegurar que es base64 URL-safe
+                // Reemplazar - por + y _ por /
+                let base64 = base64String.replace(/-/g, '+').replace(/_/g, '/');
+                
+                // 2. Añadir padding si es necesario
+                while (base64.length % 4) {
+                    base64 += '=';
+                }
+                
+                // 3. Decodificar
+                const rawData = atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                
+                console.log('✅ Conversión exitosa. Longitud resultado:', outputArray.length);
+                console.log('Primeros bytes:', Array.from(outputArray.slice(0, 5)));
+                
+                return outputArray;
+                
+            } catch (error) {
+                console.error('❌ Error en conversión base64:', error);
+                
+                // FALLBACK: Usar método alternativo
+                try {
+                    // Método alternativo usando TextEncoder
+                    const encoder = new TextEncoder();
+                    const binaryString = atob(base64String);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    return bytes;
+                } catch (fallbackError) {
+                    console.error('❌ Error en fallback también:', fallbackError);
+                    throw new Error('No se pudo decodificar la clave VAPID');
+                }
             }
-            
-            return outputArray;
         }
 
         function convertVapidKey(base64String) {
