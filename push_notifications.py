@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from database import guardar_suscripcion_push, obtener_suscripciones_profesional
 from pywebpush import webpush, WebPushException
+import pywebpush
 
 push_bp = Blueprint('push', __name__)
 
@@ -94,7 +95,7 @@ def send_push_notification():
                 else:
                     subscription = subscription_data
                 
-                webpush.send_notification(
+                pywebpush.send_notification(
                     subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
@@ -158,7 +159,7 @@ def enviar_notificacion_cita_creada(cita_data):
                 else:
                     subscription = subscription_data
                 
-                webpush.send_notification(
+                pywebpush.send_notification(
                     subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
