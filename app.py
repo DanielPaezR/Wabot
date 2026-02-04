@@ -88,7 +88,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
                 subscription = json.loads(subscription_json)
                 
-                webpush.send_notification(
+                pywebpush.send_notification(
                     subscription,
                     json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
