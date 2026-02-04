@@ -1475,18 +1475,27 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
                 fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora}"
                 
+                print(f"🎯🎯🎯 [CHAT-PUSH] Intentando enviar push...")
+                print(f"🎯🎯🎯 [CHAT-PUSH] profesional_id: {profesional_id}")
+                print(f"🎯🎯🎯 [CHAT-PUSH] mensaje: {mensaje_push}")
+                print(f"🎯🎯🎯 [CHAT-PUSH] cita_id: {cita_id}")
+                
                 # Importar desde app.py
                 from app import enviar_notificacion_push_profesional
                 
-                enviar_notificacion_push_profesional(
+                resultado = enviar_notificacion_push_profesional(
                     profesional_id=profesional_id,
                     titulo="📅 Nueva Cita Agendada",
                     mensaje=mensaje_push,
                     cita_id=cita_id
                 )
+                
+                print(f"🎯🎯🎯 [CHAT-PUSH] Resultado: {resultado}")
                 print("✅ Notificación push enviada desde chat web")
             except Exception as push_error:
-                print(f"⚠️ [DEBUG] Error enviando push desde chat: {push_error}")
+                print(f"🎯🎯🎯 [CHAT-PUSH] ERROR: {push_error}")
+                import traceback
+                traceback.print_exc()
             
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]

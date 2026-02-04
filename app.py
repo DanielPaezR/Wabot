@@ -35,6 +35,11 @@ app.register_blueprint(push_bp, url_prefix='/push')
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
+    print(f"🎯🎯🎯 [PUSH-DEBUG] FUNCIÓN LLAMADA con:")
+    print(f"   profesional_id: {profesional_id}")
+    print(f"   titulo: {titulo}")
+    print(f"   mensaje: {mensaje}")
+    print(f"   cita_id: {cita_id}")
     try:
         print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
         
