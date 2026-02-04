@@ -148,36 +148,51 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         return False
 
 def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
-    """Función auxiliar para guardar notificación en BD"""
+    """Función auxiliar para guardar notificación en BD - VERSIÓN CORREGIDA"""
     try:
         from database import get_db_connection
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Verificar si la tabla tiene cita_id
+        # Verificar si la tabla tiene fecha_creacion (no created_at)
         cursor.execute('''
             SELECT EXISTS (
                 SELECT 1 
                 FROM information_schema.columns 
                 WHERE table_name = 'notificaciones_profesional' 
-                AND column_name = 'cita_id'
+                AND column_name = 'fecha_creacion'
             )
         ''')
-        tiene_cita_id = cursor.fetchone()[0]
+        tiene_fecha_creacion = cursor.fetchone()[0]
         
-        if tiene_cita_id and cita_id:
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida, cita_id, fecha_creacion)
-                VALUES (%s, 'push', %s, %s, FALSE, %s, NOW())
-            ''', (profesional_id, titulo, mensaje, cita_id))
+        if tiene_fecha_creacion:
+            if cita_id:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida, cita_id, fecha_creacion)
+                    VALUES (%s, 'push', %s, %s, FALSE, %s, NOW())
+                ''', (profesional_id, titulo, mensaje, cita_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida, fecha_creacion)
+                    VALUES (%s, 'push', %s, %s, FALSE, NOW())
+                ''', (profesional_id, titulo, mensaje))
         else:
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida, fecha_creacion)
-                VALUES (%s, 'push', %s, %s, FALSE, NOW())
-            ''', (profesional_id, titulo, mensaje))
+            # Si no tiene fecha_creacion, usar sin fecha
+            if cita_id:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+                    VALUES (%s, 'push', %s, %s, FALSE, %s)
+                ''', (profesional_id, titulo, mensaje, cita_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida)
+                    VALUES (%s, 'push', %s, %s, FALSE)
+                ''', (profesional_id, titulo, mensaje))
         
         conn.commit()
         conn.close()
@@ -5041,7 +5056,7 @@ def fix_database():
     
 @app.route('/admin/test-subscription')
 def test_subscription():
-    """Crear suscripción de prueba para el profesional 1"""
+    """Crear suscripción de prueba para el profesional 1 - VERSIÓN CORREGIDA"""
     try:
         from database import get_db_connection
         import json
@@ -5049,33 +5064,85 @@ def test_subscription():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Datos de suscripción de prueba (simulados)
+        # 1. Verificar estructura de la tabla suscripciones_push
+        resultados = []
+        resultados.append("=== VERIFICANDO TABLA suscripciones_push ===")
+        
+        cursor.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'suscripciones_push'
+            ORDER BY ordinal_position
+        """)
+        
+        columnas = cursor.fetchall()
+        for col in columnas:
+            resultados.append(f"  {col[0]} ({col[1]})")
+        
+        # 2. Datos de suscripción de prueba (simulados)
         subscription_test = {
-            "endpoint": "https://fcm.googleapis.com/fcm/send/fake-endpoint-for-test",
+            "endpoint": "https://fcm.googleapis.com/fcm/send/fake-endpoint-for-test-" + str(int(time.time())),
             "expirationTime": None,
             "keys": {
-                "p256dh": "fake-p256dh-key-for-testing-purposes-only",
-                "auth": "fake-auth-key-for-testing"
+                "p256dh": "BMKJxH5N4vKZ7e5fXqL9wR2tY8uP3zA6cV1bN7mQ0pD4gF5hT2jW8yU3iX6kZ9lO1nV4rS7eY0aB3dC",
+                "auth": "T7qP2wR9lO5nV8yU1iX4kZ6aB3dC7eY0"
             }
         }
         
-        # Insertar suscripción de prueba
-        cursor.execute('''
-            INSERT INTO suscripciones_push 
-            (profesional_id, subscription_json, activa, created_at)
-            VALUES (%s, %s, TRUE, NOW())
-            ON CONFLICT DO NOTHING
-        ''', (1, json.dumps(subscription_test)))
+        # 3. Insertar suscripción de prueba (adaptarse a la estructura real)
+        resultados.append("\n=== INSERTANDO SUSCRIPCIÓN ===")
+        
+        try:
+            # Primero intentar con created_at si existe
+            cursor.execute('''
+                INSERT INTO suscripciones_push 
+                (profesional_id, subscription_json, activa)
+                VALUES (%s, %s, TRUE)
+            ''', (1, json.dumps(subscription_test)))
+            
+            resultados.append("✅ Suscripción insertada SIN created_at")
+            
+        except Exception as insert_error:
+            resultados.append(f"⚠️ Error insertando: {str(insert_error)}")
+            
+            # Intentar otra estructura si falla
+            try:
+                cursor.execute('''
+                    INSERT INTO suscripciones_push 
+                    (profesional_id, subscription_json)
+                    VALUES (%s, %s)
+                ''', (1, json.dumps(subscription_test)))
+                resultados.append("✅ Suscripción insertada con estructura alternativa")
+            except Exception as e2:
+                resultados.append(f"❌ Error en estructura alternativa: {str(e2)}")
+                conn.rollback()
+                conn.close()
+                return "<br>".join(resultados)
         
         conn.commit()
         
-        # Verificar
+        # 4. Verificar
         cursor.execute('SELECT COUNT(*) FROM suscripciones_push WHERE profesional_id = 1')
         count = cursor.fetchone()[0]
         
+        cursor.execute('''
+            SELECT id, activa, LENGTH(subscription_json) as json_len
+            FROM suscripciones_push 
+            WHERE profesional_id = 1
+            ORDER BY id DESC
+            LIMIT 3
+        ''')
+        
+        ultimas = cursor.fetchall()
+        resultados.append("\n=== SUSCRIPCIONES EXISTENTES ===")
+        resultados.append(f"Total suscripciones para profesional 1: {count}")
+        
+        for sub in ultimas:
+            resultados.append(f"  ID: {sub[0]} - Activa: {sub[1]} - JSON Len: {sub[2]}")
+        
         conn.close()
         
-        return f"✅ Suscripción de prueba creada. Total suscripciones para profesional 1: {count}"
+        return "<br>".join(resultados)
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
@@ -5099,6 +5166,76 @@ def test_push_manual():
         <p><a href="/admin/fix-database">Verificar BD</a></p>
         <p><a href="/admin/test-subscription">Crear suscripción prueba</a></p>
         """
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+    
+@app.route('/admin/check-subscriptions-table')
+def check_subscriptions_table():
+    """Verificar estructura REAL de la tabla suscripciones_push"""
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        resultados = []
+        resultados.append("=== ESTRUCTURA COMPLETA suscripciones_push ===")
+        
+        # Obtener todas las columnas
+        cursor.execute("""
+            SELECT 
+                column_name, 
+                data_type,
+                is_nullable,
+                column_default
+            FROM information_schema.columns 
+            WHERE table_name = 'suscripciones_push'
+            ORDER BY ordinal_position
+        """)
+        
+        columnas = cursor.fetchall()
+        
+        if not columnas:
+            resultados.append("❌ La tabla suscripciones_push no existe")
+        else:
+            for col in columnas:
+                resultados.append(f"<b>{col[0]}</b>:")
+                resultados.append(f"  Tipo: {col[1]}")
+                resultados.append(f"  Nullable: {col[2]}")
+                if col[3]:
+                    resultados.append(f"  Default: {col[3]}")
+                resultados.append("")
+        
+        # Ver registros existentes
+        resultados.append("\n=== REGISTROS EXISTENTES ===")
+        cursor.execute("""
+            SELECT 
+                id,
+                profesional_id,
+                activa,
+                LENGTH(subscription_json) as json_len,
+                LEFT(subscription_json::text, 100) as json_preview
+            FROM suscripciones_push 
+            WHERE profesional_id = 1
+            LIMIT 10
+        """)
+        
+        registros = cursor.fetchall()
+        
+        if registros:
+            for reg in registros:
+                resultados.append(f"<b>ID {reg[0]}</b>:")
+                resultados.append(f"  Profesional: {reg[1]}")
+                resultados.append(f"  Activa: {reg[2]}")
+                resultados.append(f"  JSON Length: {reg[3]}")
+                resultados.append(f"  JSON Preview: {reg[4]}")
+                resultados.append("")
+        else:
+            resultados.append("No hay registros para el profesional 1")
+        
+        conn.close()
+        return "<br>".join(resultados)
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
