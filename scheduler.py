@@ -17,25 +17,22 @@ class AppointmentScheduler:
     # ==================== FUNCIONES PRINCIPALES ====================
     
     def verificar_recordatorios(self):
-        """Verificar y enviar recordatorios: 24h y 1h antes"""
+        """Verificar y enviar recordatorios - VERSIÓN SUPER SIMPLE"""
         try:
             ahora = datetime.now()
             
-            # Solo log cada 5 minutos para evitar spam
-            if not self.ultima_ejecucion or (ahora - self.ultima_ejecucion).seconds >= 300:
-                print(f"⏰ [{ahora.strftime('%H:%M:%S')}] Verificando recordatorios...")
-                self.ultima_ejecucion = ahora
+            # Solo log cada 10 minutos
+            if not hasattr(self, 'ultimo_log') or (ahora - self.ultimo_log).seconds >= 600:
+                print(f"⏰ [{ahora.strftime('%H:%M')}] Scheduler activo")
+                self.ultimo_log = ahora
             
-            # OBTENER CITAS PENDIENTES
+            # Obtener citas
             citas_pendientes = self.obtener_citas_pendientes_recordatorio()
             
             if not citas_pendientes:
-                self.enviar_notificaciones_profesionales_hoy()
                 return
             
-            # PROCESAR CADA CITA
             recordatorios_enviados = 0
-            notificaciones_hoy = 0
             
             for cita in citas_pendientes:
                 try:
@@ -48,55 +45,32 @@ class AppointmentScheduler:
                     tiempo_restante = cita_datetime - ahora
                     horas_restantes = tiempo_restante.total_seconds() / 3600
                     
-                    enviado = False
-                    
                     # Recordatorio 24h
                     if 23 <= horas_restantes <= 25 and not cita.get('recordatorio_24h_enviado'):
                         notif_id = notification_system.notify_appointment_reminder(
                             cita['profesional_id'], cita, hours_before=24
                         )
-                        
                         if notif_id:
                             self.marcar_recordatorio_enviado(cita_id, '24h')
                             recordatorios_enviados += 1
-                            print(f"✅ Recordatorio 24h enviado para cita #{cita_id}")
-                        
-                        enviado = True
                     
                     # Recordatorio 1h
                     elif 0.5 <= horas_restantes <= 1.5 and not cita.get('recordatorio_1h_enviado'):
                         notif_id = notification_system.notify_appointment_reminder(
                             cita['profesional_id'], cita, hours_before=1
                         )
-                        
                         if notif_id:
                             self.marcar_recordatorio_enviado(cita_id, '1h')
                             recordatorios_enviados += 1
-                            print(f"✅ Recordatorio 1h enviado para cita #{cita_id}")
-                        
-                        enviado = True
-                    
-                    # Notificar cita de hoy
-                    elif cita_fecha == ahora.date() and horas_restantes > 0 and not cita.get('notificado_hoy'):
-                        notif_id = notification_system.notify_appointment_today(
-                            cita['profesional_id'], cita
-                        )
-                        if notif_id:
-                            self.marcar_cita_notificada_hoy(cita_id)
-                            notificaciones_hoy += 1
-                    
-                except Exception as e:
-                    print(f"❌ Error procesando cita #{cita.get('id')}: {e}")
+                            
+                except Exception:
+                    continue
             
-            # Log resumen
             if recordatorios_enviados > 0:
                 print(f"📨 {recordatorios_enviados} recordatorio(s) enviado(s)")
-            
-            # Enviar notificaciones generales para profesionales
-            self.enviar_notificaciones_profesionales_hoy()
-                    
+                        
         except Exception as e:
-            print(f"❌ Error en verificar_recordatorios: {e}")
+            print(f"❌ Error en recordatorios: {e}")
     
     def obtener_citas_pendientes_recordatorio(self):
         """Obtener citas confirmadas que necesitan recordatorios"""

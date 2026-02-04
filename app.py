@@ -37,8 +37,10 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
     """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
     try:
         print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
+        print(f"   📝 Título: {titulo}")
+        print(f"   💬 Mensaje: {mensaje}")
+        print(f"   🎫 Cita ID: {cita_id}")
         
-        # Solo lo esencial
         import json
         import os
         
@@ -51,6 +53,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             return False
         
         # Obtener suscripciones
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
@@ -73,43 +76,33 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             conn.commit()
             conn.close()
             print(f"✅ Notificación guardada en BD")
-        except:
-            pass
+        except Exception as db_error:
+            print(f"⚠️ Error guardando en BD: {db_error}")
         
-        # 2. Intentar push (con try-except específico)
+        # 2. Intentar push (opcional)
         try:
             import pywebpush
-            
-            # Obtener la primera suscripción
             subscription = json.loads(suscripciones[0][0])
             
-            # Datos a enviar
-            payload = json.dumps({
-                'title': titulo,
-                'body': mensaje,
-                'icon': '/static/icons/icon-192x192.png',
-                'timestamp': datetime.now().isoformat()
-            })
-            
-            # Configuración SIMPLE de pywebpush
             pywebpush.webpush(
                 subscription_info=subscription,
-                data=payload,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png'
+                }),
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={
                     "sub": VAPID_SUBJECT,
-                    "exp": (datetime.now() + timedelta(hours=12)).timestamp()
+                    "exp": 9999999999
                 }
             )
             print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
             return True
-            
         except Exception as e:
-            print(f"⚠️ Error en pywebpush: {type(e).__name__}: {str(e)}")
-            # IMPORTANTE: Mostrar detalles del error
-            print(f"🔍 Subscription: {subscription if 'subscription' in locals() else 'No definida'}")
-            print(f"🔍 VAPID key length: {len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0}")
-            return True  # Igual éxito porque se guardó en BD
+            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
+            print(f"   Error detallado: {str(e)}")
+            return True
             
     except Exception as e:
         print(f"❌ Error crítico: {e}")
