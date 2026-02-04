@@ -120,6 +120,9 @@ def send_push_notification():
 def enviar_notificacion_cita_creada(cita_data):
     """Función para enviar notificación push cuando se crea una cita"""
     try:
+        # Importar aquí
+        import pywebpush
+        
         profesional_id = cita_data.get('profesional_id')
         
         if not profesional_id:
@@ -148,19 +151,18 @@ def enviar_notificacion_cita_creada(cita_data):
             'timestamp': datetime.now().isoformat()
         }
         
-        # Enviar notificaciones - CORREGIDO
+        # Enviar notificaciones
         enviados = 0
         for suscripcion in suscripciones:
             try:
-                # Parsear JSON si está en string
                 subscription_data = suscripcion.get('subscription_json')
                 if isinstance(subscription_data, str):
                     subscription = json.loads(subscription_data)
                 else:
                     subscription = subscription_data
                 
-                
-                pywebpush(
+                # CORRECCIÓN: usar pywebpush.webpush()
+                pywebpush.webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,

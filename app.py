@@ -38,8 +38,8 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
     try:
         print(f"🔔 [PUSH] Enviando notificación push para profesional {profesional_id}")
         
-        # Importar webpush CORRECTAMENTE
-        from pywebpush import webpush
+        # Importar CORRECTAMENTE
+        import pywebpush
         
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
@@ -83,15 +83,15 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             'timestamp': datetime.now().isoformat()
         }
         
-        # Enviar a cada suscripción - CORREGIDO
+        # Enviar a cada suscripción
         exitos = 0
         for suscripcion in suscripciones:
             try:
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
                 subscription = json.loads(subscription_json)
                 
-                
-                pywebpush(
+                # CORRECCIÓN FINAL: usar pywebpush.webpush()
+                pywebpush.webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
