@@ -89,8 +89,8 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 subscription = json.loads(subscription_json)
                 
                 pywebpush.send_notification(
-                    subscription,
-                    json.dumps(payload),
+                    subscription_info=subscription,
+                    data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
                     vapid_claims=vapid_claims
                 )

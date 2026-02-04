@@ -96,8 +96,8 @@ def send_push_notification():
                     subscription = subscription_data
                 
                 pywebpush.send_notification(
-                    subscription,
-                    json.dumps(payload),
+                    subscription_info=subscription,
+                    data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
                     vapid_claims=vapid_claims
                 )
@@ -160,8 +160,8 @@ def enviar_notificacion_cita_creada(cita_data):
                     subscription = subscription_data
                 
                 pywebpush.send_notification(
-                    subscription,
-                    json.dumps(payload),
+                    subscription_info=subscription,
+                    data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
                     vapid_claims=vapid_claims
                 )
