@@ -95,7 +95,7 @@ def send_push_notification():
                 else:
                     subscription = subscription_data
                 
-                pywebpush.send_notification(
+                pywebpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
@@ -148,7 +148,7 @@ def enviar_notificacion_cita_creada(cita_data):
             'timestamp': datetime.now().isoformat()
         }
         
-        # Enviar notificaciones
+        # Enviar notificaciones - CORREGIDO
         enviados = 0
         for suscripcion in suscripciones:
             try:
@@ -159,7 +159,8 @@ def enviar_notificacion_cita_creada(cita_data):
                 else:
                     subscription = subscription_data
                 
-                pywebpush.send_notification(
+                
+                pywebpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,

@@ -38,7 +38,9 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
     try:
         print(f"🔔 [PUSH] Enviando notificación push para profesional {profesional_id}")
         
-        # Configurar webpush
+        # Importar webpush CORRECTAMENTE
+        from pywebpush import webpush
+        
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
         VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
@@ -53,7 +55,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
         }
         
-        # Obtener suscripciones del profesional - TABLA SIMPLIFICADA
+        # Obtener suscripciones del profesional
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -81,14 +83,15 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             'timestamp': datetime.now().isoformat()
         }
         
-        # Enviar a cada suscripción
+        # Enviar a cada suscripción - CORREGIDO
         exitos = 0
         for suscripcion in suscripciones:
             try:
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
                 subscription = json.loads(subscription_json)
                 
-                pywebpush.send_notification(
+                
+                pywebpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
                     vapid_private_key=VAPID_PRIVATE_KEY,
@@ -98,21 +101,6 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 print(f"✅ [PUSH] Notificación enviada a suscripción #{exitos}")
             except Exception as e:
                 print(f"⚠️ [PUSH] Error enviando push: {e}")
-                # Si el error es de suscripción expirada, marcarla como inactiva
-                if "expired" in str(e).lower() or "gone" in str(e).lower():
-                    try:
-                        conn = get_db_connection()
-                        cursor = conn.cursor()
-                        cursor.execute('''
-                            UPDATE suscripciones_push 
-                            SET activa = FALSE 
-                            WHERE profesional_id = %s AND subscription_json = %s
-                        ''', (profesional_id, subscription_json))
-                        conn.commit()
-                        conn.close()
-                        print(f"⚠️ [PUSH] Suscripción marcada como inactiva (expiró)")
-                    except:
-                        pass
         
         print(f"✅ [PUSH] Total notificaciones enviadas: {exitos}/{len(suscripciones)}")
         return exitos > 0
