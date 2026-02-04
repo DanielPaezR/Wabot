@@ -99,7 +99,7 @@ def send_push_notification():
                 pywebpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_private_key=temp_key_file,
                     vapid_claims=vapid_claims
                 )
                 resultados.append({'success': True, 'dispositivo': suscripcion.get('dispositivo_info', '')})
@@ -166,7 +166,7 @@ def enviar_notificacion_cita_creada(cita_data):
                 pywebpush.webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_private_key=temp_key_file,
                     vapid_claims=vapid_claims
                 )
                 enviados += 1
