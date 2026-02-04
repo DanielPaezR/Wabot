@@ -4785,98 +4785,263 @@ def unsubscribe_push():
 def manifest():
     return send_from_directory('static', 'manifest.json')
 
+
+
+@app.route('/admin/debug-db')
+def debug_database():
+    """Debug detallado de la base de datos"""
+    try:
+        from database import get_db_connection
+        import traceback
+        
+        resultados = []
+        
+        # 1. Primero probar conexión simple
+        resultados.append("=== PRUEBA DE CONEXIÓN ===")
+        try:
+            conn = get_db_connection()
+            if conn:
+                resultados.append("✅ Conexión exitosa a PostgreSQL")
+            else:
+                resultados.append("❌ No se pudo conectar")
+                return "<br>".join(resultados)
+        except Exception as e:
+            resultados.append(f"❌ Error en conexión: {str(e)}")
+            return "<br>".join(resultados)
+        
+        # 2. Verificar tabla notificaciones_profesional
+        resultados.append("\n=== TABLA notificaciones_profesional ===")
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT 
+                    table_name,
+                    (SELECT COUNT(*) FROM notificaciones_profesional) as total_registros
+                FROM information_schema.tables 
+                WHERE table_name = 'notificaciones_profesional'
+            """)
+            tabla_info = cursor.fetchone()
+            
+            if tabla_info:
+                resultados.append(f"✅ Tabla encontrada: {tabla_info[0]}")
+                resultados.append(f"   Total registros: {tabla_info[1]}")
+            else:
+                resultados.append("❌ Tabla no encontrada")
+                conn.close()
+                return "<br>".join(resultados)
+        except Exception as e:
+            resultados.append(f"❌ Error verificando tabla: {str(e)}")
+            conn.close()
+            return "<br>".join(resultados)
+        
+        # 3. Ver columnas
+        resultados.append("\n=== COLUMNAS DE notificaciones_profesional ===")
+        try:
+            cursor.execute("""
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns 
+                WHERE table_name = 'notificaciones_profesional'
+                ORDER BY ordinal_position
+            """)
+            
+            columnas = cursor.fetchall()
+            if columnas:
+                for col in columnas:
+                    resultados.append(f"{col[0]} ({col[1]}) - Nullable: {col[2]}")
+            else:
+                resultados.append("No se encontraron columnas")
+                
+        except Exception as e:
+            resultados.append(f"Error obteniendo columnas: {str(e)}")
+        
+        # 4. Verificar columna cita_id específicamente
+        resultados.append("\n=== VERIFICANDO COLUMNA cita_id ===")
+        try:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT 1 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'notificaciones_profesional' 
+                    AND column_name = 'cita_id'
+                )
+            """)
+            existe = cursor.fetchone()[0]
+            
+            if existe:
+                resultados.append("✅ La columna cita_id EXISTE")
+            else:
+                resultados.append("⚠️ La columna cita_id NO existe")
+                
+                # Intentar agregarla
+                resultados.append("\n=== INTENTANDO AGREGAR cita_id ===")
+                try:
+                    cursor.execute("""
+                        ALTER TABLE notificaciones_profesional 
+                        ADD COLUMN IF NOT EXISTS cita_id INTEGER REFERENCES citas(id)
+                    """)
+                    conn.commit()
+                    resultados.append("✅ Comando ALTER ejecutado")
+                    
+                    # Verificar de nuevo
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'notificaciones_profesional' 
+                            AND column_name = 'cita_id'
+                        )
+                    """)
+                    existe_ahora = cursor.fetchone()[0]
+                    
+                    if existe_ahora:
+                        resultados.append("✅ Columna cita_id AGREGADA exitosamente")
+                    else:
+                        resultados.append("❌ No se pudo agregar la columna")
+                        
+                except Exception as alter_error:
+                    resultados.append(f"❌ Error en ALTER TABLE: {str(alter_error)}")
+                    conn.rollback()
+                    
+        except Exception as e:
+            resultados.append(f"Error verificando cita_id: {str(e)}")
+        
+        # 5. Ver suscripciones
+        resultados.append("\n=== SUSCRIPCIONES ===")
+        try:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN activa = TRUE THEN 1 END) as activas,
+                    COUNT(CASE WHEN profesional_id = 1 THEN 1 END) as del_prof_1
+                FROM suscripciones_push
+            """)
+            stats = cursor.fetchone()
+            resultados.append(f"Total suscripciones: {stats[0]}")
+            resultados.append(f"Suscripciones activas: {stats[1]}")
+            resultados.append(f"Suscripciones del profesional 1: {stats[2]}")
+            
+            # Mostrar detalle de suscripciones del profesional 1
+            cursor.execute("""
+                SELECT id, activa, created_at, 
+                       LENGTH(subscription_json) as json_len
+                FROM suscripciones_push 
+                WHERE profesional_id = 1
+                ORDER BY created_at DESC
+                LIMIT 5
+            """)
+            
+            suscripciones = cursor.fetchall()
+            if suscripciones:
+                resultados.append("\nDetalle suscripciones profesional 1:")
+                for sub in suscripciones:
+                    resultados.append(f"  ID: {sub[0]} - Activa: {sub[1]} - Creada: {sub[2]} - JSON Len: {sub[3]}")
+            else:
+                resultados.append("No hay suscripciones para el profesional 1")
+                
+        except Exception as e:
+            resultados.append(f"Error obteniendo suscripciones: {str(e)}")
+        
+        # 6. Verificar citas recientes
+        resultados.append("\n=== CITAS RECIENTES ===")
+        try:
+            cursor.execute("""
+                SELECT id, fecha, hora, cliente_nombre, profesional_id
+                FROM citas 
+                WHERE negocio_id = 1
+                ORDER BY fecha DESC, hora DESC
+                LIMIT 5
+            """)
+            
+            citas = cursor.fetchall()
+            if citas:
+                for cita in citas:
+                    resultados.append(f"  Cita #{cita[0]}: {cita[1]} {cita[2]} - {cita[3]} (Prof: {cita[4]})")
+            else:
+                resultados.append("No hay citas")
+                
+        except Exception as e:
+            resultados.append(f"Error obteniendo citas: {str(e)}")
+        
+        conn.close()
+        
+        # 7. Variables de entorno (sin mostrar valores sensibles)
+        resultados.append("\n=== VARIABLES DE ENTORNO ===")
+        import os
+        resultados.append(f"DATABASE_URL configurada: {'✅' if os.getenv('DATABASE_URL') else '❌'}")
+        resultados.append(f"VAPID_PUBLIC_KEY: {'✅' if os.getenv('VAPID_PUBLIC_KEY') else '❌'}")
+        resultados.append(f"VAPID_PRIVATE_KEY: {'✅' if os.getenv('VAPID_PRIVATE_KEY') else '❌'}")
+        
+        return "<br>".join(resultados)
+        
+    except Exception as e:
+        error_completo = f"""
+        ❌ ERROR COMPLETO:<br>
+        Tipo: {type(e).__name__}<br>
+        Mensaje: {str(e)}<br>
+        <pre>{traceback.format_exc()}</pre>
+        """
+        return error_completo
+    
+@app.route('/admin/test-simple')
+def test_simple():
+    """Prueba super simple"""
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 as test")
+        result = cursor.fetchone()
+        conn.close()
+        return f"✅ Conexión exitosa. Resultado: {result}"
+    except Exception as e:
+        return f"❌ Error: {type(e).__name__}: {str(e)}"
+
 @app.route('/admin/fix-database')
 def fix_database():
-    """Ruta temporal para corregir la base de datos"""
+    """Ruta temporal para corregir la base de datos - VERSIÓN SIMPLIFICADA"""
     try:
         from database import get_db_connection
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        resultados = []
+        resultados = ["=== FIX DATABASE ==="]
         
-        # 1. Verificar estructura de notificaciones_profesional
-        resultados.append("=== TABLA notificaciones_profesional ===")
-        cursor.execute('''
-            SELECT column_name, data_type, is_nullable
-            FROM information_schema.columns 
-            WHERE table_name = 'notificaciones_profesional'
-            ORDER BY ordinal_position
-        ''')
-        columnas = cursor.fetchall()
-        
-        for col in columnas:
-            resultados.append(f"Columna: {col[0]} - Tipo: {col[1]} - Nullable: {col[2]}")
-        
-        # 2. Verificar si existe cita_id
-        cursor.execute('''
-            SELECT EXISTS (
-                SELECT 1 
-                FROM information_schema.columns 
-                WHERE table_name = 'notificaciones_profesional' 
-                AND column_name = 'cita_id'
-            )
-        ''')
-        tiene_cita_id = cursor.fetchone()[0]
-        
-        if tiene_cita_id:
-            resultados.append("✅ La tabla YA TIENE columna cita_id")
-        else:
-            resultados.append("⚠️ La tabla NO TIENE columna cita_id")
+        # SOLO intentar agregar la columna si no existe
+        try:
+            resultados.append("Intentando agregar columna cita_id...")
             
-            # 3. Intentar agregar la columna
-            try:
-                cursor.execute('''
-                    ALTER TABLE notificaciones_profesional 
-                    ADD COLUMN cita_id INTEGER REFERENCES citas(id)
-                ''')
-                conn.commit()
-                resultados.append("✅ Columna cita_id AGREGADA exitosamente")
-            except Exception as e:
-                resultados.append(f"❌ Error agregando columna: {e}")
-                conn.rollback()
+            cursor.execute("""
+                ALTER TABLE notificaciones_profesional 
+                ADD COLUMN IF NOT EXISTS cita_id INTEGER
+            """)
+            
+            conn.commit()
+            resultados.append("✅ Comando ALTER TABLE ejecutado")
+            
+        except Exception as e:
+            resultados.append(f"⚠️ Error en ALTER TABLE: {str(e)}")
+            conn.rollback()
         
-        # 4. Verificar suscripciones del profesional 1
-        resultados.append("\n=== SUSCRIPCIONES DEL PROFESIONAL 1 ===")
-        cursor.execute('''
-            SELECT id, profesional_id, activa, created_at, 
-                   LENGTH(subscription_json) as json_length
-            FROM suscripciones_push 
-            WHERE profesional_id = 1
-        ''')
-        suscripciones = cursor.fetchall()
+        # Verificar si se agregó
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'notificaciones_profesional' 
+            AND column_name = 'cita_id'
+        """)
         
-        if suscripciones:
-            for sub in suscripciones:
-                resultados.append(f"ID: {sub[0]} - Activa: {sub[2]} - JSON Len: {sub[4]}")
+        if cursor.fetchone():
+            resultados.append("✅ La columna cita_id ahora existe")
         else:
-            resultados.append("⚠️ No hay suscripciones para el profesional 1")
-        
-        # 5. Verificar datos de una suscripción (sin mostrar todo el JSON)
-        cursor.execute('''
-            SELECT id, 
-                   subscription_json::json->>'endpoint' as endpoint,
-                   LENGTH(subscription_json::json->>'endpoint') as endpoint_len
-            FROM suscripciones_push 
-            WHERE profesional_id = 1 AND activa = TRUE
-            LIMIT 1
-        ''')
-        sub_detalle = cursor.fetchone()
-        
-        if sub_detalle:
-            resultados.append(f"\n=== DETALLE SUSCRIPCIÓN {sub_detalle[0]} ===")
-            resultados.append(f"Endpoint: {sub_detalle[1][:50]}...")
-            resultados.append(f"Endpoint length: {sub_detalle[2]}")
-        else:
-            resultados.append("\n⚠️ No hay suscripciones activas para mostrar")
+            resultados.append("❌ La columna cita_id NO se pudo agregar")
         
         conn.close()
-        
         return "<br>".join(resultados)
         
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ Error general: {type(e).__name__}: {str(e)}"
     
 @app.route('/admin/test-subscription')
 def test_subscription():
