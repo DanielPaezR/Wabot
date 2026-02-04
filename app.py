@@ -347,10 +347,6 @@ def health_check():
     """Health check para Railway"""
     return jsonify({"status": "healthy", "timestamp": datetime.now(tz_colombia).isoformat()})
 
-@app.route('/test-simple')
-def test_simple():
-    """Ruta simple sin dependencias"""
-    return "✅ Ruta básica OK"
 
 # =============================================================================
 # RUTAS DEL CHAT WEB
