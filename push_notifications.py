@@ -70,9 +70,10 @@ def send_push_notification():
             return jsonify({'success': False, 'error': 'No hay suscripciones activas'}), 404
         
         # Configurar claims VAPID
+        from datetime import datetime, timezone
         vapid_claims = {
             "sub": VAPID_SUBJECT,
-            "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
+            "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
         }
         
         payload = {
@@ -135,10 +136,10 @@ def enviar_notificacion_cita_creada(cita_data):
             print(f"⚠️ Profesional {profesional_id} no tiene suscripciones push")
             return False
         
-        # Configurar claims VAPID
+        from datetime import datetime, timezone
         vapid_claims = {
             "sub": VAPID_SUBJECT,
-            "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
+            "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
         }
         
         # Preparar payload

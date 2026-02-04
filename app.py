@@ -39,6 +39,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         print(f"🔔 [PUSH] Enviando notificación push para profesional {profesional_id}")
         
         import pywebpush
+        from datetime import datetime, timezone, timedelta
         
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
@@ -50,10 +51,10 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             print("⚠️ [PUSH] Variables VAPID no configuradas")
             return False
         
-        # Configurar claims VAPID
+        # Configurar claims VAPID - CORREGIDO (timestamp UNIX)
         vapid_claims = {
             "sub": VAPID_SUBJECT,
-            "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
+            "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
         }
         print(f"🔔 [DEBUG] VAPID claims: {vapid_claims}")
         
@@ -98,7 +99,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 print(f"🔔 [DEBUG] Procesando suscripción #{i+1}: {dispositivo[:50]}...")
                 
                 subscription = json.loads(subscription_json)
-                print(f"🔔 [DEBUG] Subscription keys: {list(subscription.keys())}")
+                print(f"🔔 [DEBUG] Subscription endpoint: {subscription.get('endpoint', '')[:50]}...")
                 
                 # Intentar enviar
                 print(f"🔔 [DEBUG] Intentando pywebpush.webpush()...")
@@ -112,6 +113,8 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 print(f"✅ [PUSH] Notificación enviada a suscripción #{exitos}")
             except Exception as e:
                 print(f"⚠️ [PUSH] Error enviando push #{i+1}: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
         
         print(f"✅ [PUSH] Total notificaciones enviadas: {exitos}/{len(suscripciones)}")
         return exitos > 0
