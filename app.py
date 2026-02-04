@@ -38,12 +38,13 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
     try:
         print(f"🔔 [PUSH] Enviando notificación push para profesional {profesional_id}")
         
-        # Importar CORRECTAMENTE
         import pywebpush
         
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
         VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        
+        print(f"🔔 [DEBUG] VAPID config: PK={bool(VAPID_PUBLIC_KEY)}, SK={bool(VAPID_PRIVATE_KEY)}, SUB={VAPID_SUBJECT}")
         
         if not all([VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT]):
             print("⚠️ [PUSH] Variables VAPID no configuradas")
@@ -54,19 +55,22 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             "sub": VAPID_SUBJECT,
             "exp": (datetime.utcnow() + timedelta(hours=12)).isoformat()
         }
+        print(f"🔔 [DEBUG] VAPID claims: {vapid_claims}")
         
         # Obtener suscripciones del profesional
         conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT subscription_json 
+            SELECT subscription_json, dispositivo_info 
             FROM suscripciones_push 
             WHERE profesional_id = %s AND activa = TRUE
         ''', (profesional_id,))
         
         suscripciones = cursor.fetchall()
         conn.close()
+        
+        print(f"🔔 [DEBUG] Suscripciones encontradas: {len(suscripciones)}")
         
         if not suscripciones:
             print(f"⚠️ [PUSH] Profesional {profesional_id} no tiene suscripciones push")
@@ -82,15 +86,22 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             'citaId': cita_id,
             'timestamp': datetime.now().isoformat()
         }
+        print(f"🔔 [DEBUG] Payload: {payload}")
         
         # Enviar a cada suscripción
         exitos = 0
-        for suscripcion in suscripciones:
+        for i, suscripcion in enumerate(suscripciones):
             try:
                 subscription_json = suscripcion[0] if isinstance(suscripcion, tuple) else suscripcion['subscription_json']
-                subscription = json.loads(subscription_json)
+                dispositivo = suscripcion[1] if isinstance(suscripcion, tuple) else suscripcion.get('dispositivo_info', 'desconocido')
                 
-                # CORRECCIÓN FINAL: usar pywebpush.webpush()
+                print(f"🔔 [DEBUG] Procesando suscripción #{i+1}: {dispositivo[:50]}...")
+                
+                subscription = json.loads(subscription_json)
+                print(f"🔔 [DEBUG] Subscription keys: {list(subscription.keys())}")
+                
+                # Intentar enviar
+                print(f"🔔 [DEBUG] Intentando pywebpush.webpush()...")
                 pywebpush.webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
@@ -100,13 +111,15 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 exitos += 1
                 print(f"✅ [PUSH] Notificación enviada a suscripción #{exitos}")
             except Exception as e:
-                print(f"⚠️ [PUSH] Error enviando push: {e}")
+                print(f"⚠️ [PUSH] Error enviando push #{i+1}: {type(e).__name__}: {e}")
         
         print(f"✅ [PUSH] Total notificaciones enviadas: {exitos}/{len(suscripciones)}")
         return exitos > 0
         
     except Exception as e:
-        print(f"❌ [PUSH] Error general en notificación push: {e}")
+        print(f"❌ [PUSH] Error general en notificación push: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # =============================================================================
