@@ -30,7 +30,7 @@ load_dotenv()
 
 tz_colombia = pytz.timezone('America/Bogota')
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 app.register_blueprint(push_bp, url_prefix='/push')
 
@@ -5548,7 +5548,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
         # ========== GENERAR URL PÚBLICA ==========
         
         # Usar path relativo para la URL
-        url_publica = f"/static/uploads/profesionales/{timestamp}/{unique_name}".replace('\\', '/')
+        url_publica = f"/uploads/profesionales/{timestamp}/{unique_name}".replace('\\', '/')
         print(f"🌐 URL pública generada: {url_publica}")
         
         # ========== GUARDAR EN BASE DE DATOS ==========

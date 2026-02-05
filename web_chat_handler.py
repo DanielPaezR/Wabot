@@ -328,7 +328,7 @@ def generar_opciones_profesionales(numero, negocio_id):
             'text': f"{prof['nombre']} - {prof.get('especialidad', 'General')}",  # Texto para opciones simples
             'name': prof['nombre'],  # Nombre completo
             'specialty': prof.get('especialidad', 'General'),  # Especialidad
-            'rating': 0,  # Rating por defecto (puedes cambiarlo si tienes calificaciones)
+            'rating': 0,  # Rating por defecto
             'type': 'professional'  # Tipo para que el template detecte que son profesionales con fotos
         }
         
@@ -337,15 +337,26 @@ def generar_opciones_profesionales(numero, negocio_id):
             foto_url = prof['foto_url']
             print(f"📸 [WEB CHAT] Profesional {prof['nombre']} tiene foto: {foto_url}")
             
-            # Asegurar que la URL sea correcta
-            if foto_url and not foto_url.startswith('http'):
-                if not foto_url.startswith('/'):
+            # ✅ CORRECCIÓN: NORMALIZAR LA URL
+            if foto_url:
+                # Si empieza con "static/", quitar "static" porque Flask ya lo añade
+                if foto_url.startswith('static/'):
+                    foto_url = '/' + foto_url  # Convertir a /static/...
+                # Si empieza con "/static/", ya está bien
+                elif foto_url.startswith('/static/'):
+                    pass  # Ya está bien
+                # Si no empieza con "/", añadir "/"
+                elif not foto_url.startswith('/'):
                     foto_url = '/' + foto_url
-                # Si es una ruta relativa a static/uploads, asegurarla
-                if 'static/uploads' in foto_url and not foto_url.startswith('/static'):
-                    foto_url = '/' + foto_url.lstrip('/')
-            
-            opcion['image'] = foto_url
+                
+                # Si empieza con "uploads/", añadir "/static/"
+                if foto_url.startswith('/uploads/'):
+                    foto_url = '/static' + foto_url
+                
+                print(f"   🔗 URL normalizada: {foto_url}")
+                opcion['image'] = foto_url
+            else:
+                print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} tiene foto_url vacía")
         else:
             print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} NO tiene foto_url")
         
