@@ -5334,6 +5334,98 @@ def debug_vapid_complete():
         ]
     })
  
+@app.route('/push/setup-completo')
+def push_setup_completo():
+    """Verificar estado completo del sistema push"""
+    import os
+    from database import get_db_connection
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Verificar suscripciones
+    cursor.execute('SELECT COUNT(*) FROM suscripciones_push WHERE activa = TRUE')
+    suscripciones_activas = cursor.fetchone()[0]
+    
+    # Verificar notificaciones en BD
+    cursor.execute('SELECT COUNT(*) FROM notificaciones WHERE leida = FALSE')
+    notificaciones_pendientes = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    
+    return jsonify({
+        'status': 'ANÁLISIS COMPLETO',
+        'vapid_configurado': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
+        'suscripciones_activas': suscripciones_activas,
+        'notificaciones_pendientes': notificaciones_pendientes,
+        'service_worker': 'Debe estar en /service-worker.js',
+        'clave_publica_frontend': 'Debe ser: BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI',
+        'pasos_finales': [
+            '1. El profesional abre /profesional/panel',
+            '2. Permite notificaciones cuando el navegador pregunte',
+            '3. Agenda una cita desde el chat web',
+            '4. Verifica que llega notificación push'
+        ]
+    })
+
+@app.route('/push/test-manual')
+def push_test_manual():
+    """Test manual de push (usa la última suscripción)"""
+    try:
+        import os
+        import json
+        import time
+        from database import get_db_connection
+        
+        profesional_id = 1
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+        
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({'success': False, 'error': 'VAPID no configurado'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC LIMIT 1
+        ''', (profesional_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'success': False, 'error': 'No hay suscripciones. El profesional debe permitir notificaciones.'})
+        
+        subscription = json.loads(result[0])
+        
+        import pywebpush
+        
+        current_time = int(time.time())
+        
+        pywebpush.webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '🔔 Test Manual',
+                'body': f'Prueba de push {time.ctime()}',
+                'icon': '/static/icons/icon-192x192.png',
+                'timestamp': current_time * 1000
+            }),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={
+                "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
+                "exp": current_time + 3600
+            }
+        )
+        
+        return jsonify({'success': True, 'message': 'Push enviado manualmente'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 
 

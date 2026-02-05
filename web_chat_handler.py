@@ -30,15 +30,15 @@ conversaciones_activas = {}
 # =============================================================================
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
-    """Función push CORREGIDA para manejar diccionarios/tuplas"""
+    """Función FINAL de push notificaciones - Versión simplificada y robusta"""
     try:
-        print(f"🔥 [PUSH-FINAL] Iniciando para profesional {profesional_id}")
+        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}, cita {cita_id}")
         
-        # 1. SIEMPRE guardar en BD
+        # 1. SIEMPRE guardar en BD (esto ya funciona)
         guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         print(f"✅ Notificación guardada en BD")
         
-        # 2. Intentar push
+        # 2. Intentar push si tenemos todo configurado
         try:
             import os
             import json
@@ -48,85 +48,79 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
             # Verificar VAPID
             VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
             if not VAPID_PRIVATE_KEY:
-                print("⚠️ Sin VAPID_PRIVATE_KEY")
+                print("⚠️ No hay VAPID_PRIVATE_KEY - push omitido")
                 return True
             
-            # Obtener suscripciones
+            # Obtener la última suscripción activa
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, subscription_json 
+                SELECT subscription_json 
                 FROM suscripciones_push 
                 WHERE profesional_id = %s AND activa = TRUE
-                ORDER BY id DESC
+                ORDER BY id DESC LIMIT 1
             ''', (profesional_id,))
             
-            results = cursor.fetchall()
+            result = cursor.fetchone()
             conn.close()
             
-            print(f"📊 Encontradas {len(results)} suscripciones")
+            if not result:
+                print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
+                return True
             
-            for result in results:
-                try:
-                    # Extraer datos según el tipo
-                    susc_id = None
-                    subscription_json = None
-                    
-                    if isinstance(result, tuple):
-                        susc_id = result[0] if len(result) > 0 else None
-                        subscription_json = result[1] if len(result) > 1 else None
-                    elif isinstance(result, dict):
-                        susc_id = result.get('id')
-                        subscription_json = result.get('subscription_json')
-                    
-                    if not subscription_json:
-                        continue
-                    
-                    print(f"🔄 Procesando suscripción ID: {susc_id}")
-                    
-                    subscription = json.loads(subscription_json)
-                    endpoint = subscription.get('endpoint', '')
-                    
-                    if not endpoint:
-                        continue
-                    
-                    # ENVIAR PUSH
-                    import pywebpush
-                    
-                    current_time = int(time.time())
-                    expiration_time = current_time + (12 * 60 * 60)
-                    
-                    pywebpush.webpush(
-                        subscription_info=subscription,
-                        data=json.dumps({
-                            'title': titulo,
-                            'body': mensaje,
-                            'icon': '/static/icons/icon-192x192.png'
-                        }),
-                        vapid_private_key=VAPID_PRIVATE_KEY,
-                        vapid_claims={
-                            "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
-                            "exp": expiration_time
-                        }
-                    )
-                    
-                    print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
-                    return True
-                    
-                except Exception as e:
-                    print(f"⚠️ Error con suscripción {susc_id}: {type(e).__name__}")
-                    continue
+            # Extraer suscripción (maneja tuplas o diccionarios)
+            subscription_json = None
+            if isinstance(result, tuple):
+                subscription_json = result[0]
+            elif isinstance(result, dict):
+                subscription_json = result.get('subscription_json')
             
-            print(f"⚠️ Todas las suscripciones fallaron")
+            if not subscription_json:
+                print(f"⚠️ No se pudo extraer subscription_json")
+                return True
+            
+            subscription = json.loads(subscription_json)
+            
+            # Enviar push
+            import pywebpush
+            
+            current_time = int(time.time())
+            expiration_time = current_time + (12 * 60 * 60)  # 12 horas máximo para Google FCM
+            
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
+                    "exp": expiration_time
+                },
+                ttl=86400  # 24 horas en segundos
+            )
+            
+            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
             return True
             
-        except Exception as e:
-            print(f"⚠️ Error en push: {type(e).__name__}")
+        except Exception as push_error:
+            error_msg = str(push_error)
+            print(f"⚠️ Push falló (pero notificación en BD OK): {type(push_error).__name__}")
+            
+            # Solo log breve, no detalles que saturan logs
+            if '403' in error_msg and 'credentials' in error_msg:
+                print(f"🔍 Diagnóstico: Problema de claves VAPID (las suscripciones fueron creadas con claves diferentes)")
+            elif '404' in error_msg or '410' in error_msg:
+                print(f"🔍 Diagnóstico: Suscripción expirada o inválida")
+            
             return True
             
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
-        return True
+        print(f"❌ Error crítico (pero continuamos): {type(e).__name__}")
+        return True  # Importante: siempre devolver True porque la notificación YA está en BD
 
 def try_push_immediately(profesional_id, titulo, mensaje):
     """Intentar enviar push inmediatamente"""
