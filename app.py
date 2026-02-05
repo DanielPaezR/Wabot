@@ -4774,263 +4774,6 @@ def unsubscribe_push():
 def manifest():
     return send_from_directory('static', 'manifest.json')
 
-
-
-@app.route('/admin/debug-db')
-def debug_database():
-    """Debug detallado de la base de datos"""
-    try:
-        from database import get_db_connection
-        import traceback
-        
-        resultados = []
-        
-        # 1. Primero probar conexión simple
-        resultados.append("=== PRUEBA DE CONEXIÓN ===")
-        try:
-            conn = get_db_connection()
-            if conn:
-                resultados.append("✅ Conexión exitosa a PostgreSQL")
-            else:
-                resultados.append("❌ No se pudo conectar")
-                return "<br>".join(resultados)
-        except Exception as e:
-            resultados.append(f"❌ Error en conexión: {str(e)}")
-            return "<br>".join(resultados)
-        
-        # 2. Verificar tabla notificaciones_profesional
-        resultados.append("\n=== TABLA notificaciones_profesional ===")
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute("""
-                SELECT 
-                    table_name,
-                    (SELECT COUNT(*) FROM notificaciones_profesional) as total_registros
-                FROM information_schema.tables 
-                WHERE table_name = 'notificaciones_profesional'
-            """)
-            tabla_info = cursor.fetchone()
-            
-            if tabla_info:
-                resultados.append(f"✅ Tabla encontrada: {tabla_info[0]}")
-                resultados.append(f"   Total registros: {tabla_info[1]}")
-            else:
-                resultados.append("❌ Tabla no encontrada")
-                conn.close()
-                return "<br>".join(resultados)
-        except Exception as e:
-            resultados.append(f"❌ Error verificando tabla: {str(e)}")
-            conn.close()
-            return "<br>".join(resultados)
-        
-        # 3. Ver columnas
-        resultados.append("\n=== COLUMNAS DE notificaciones_profesional ===")
-        try:
-            cursor.execute("""
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns 
-                WHERE table_name = 'notificaciones_profesional'
-                ORDER BY ordinal_position
-            """)
-            
-            columnas = cursor.fetchall()
-            if columnas:
-                for col in columnas:
-                    resultados.append(f"{col[0]} ({col[1]}) - Nullable: {col[2]}")
-            else:
-                resultados.append("No se encontraron columnas")
-                
-        except Exception as e:
-            resultados.append(f"Error obteniendo columnas: {str(e)}")
-        
-        # 4. Verificar columna cita_id específicamente
-        resultados.append("\n=== VERIFICANDO COLUMNA cita_id ===")
-        try:
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT 1 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'notificaciones_profesional' 
-                    AND column_name = 'cita_id'
-                )
-            """)
-            existe = cursor.fetchone()[0]
-            
-            if existe:
-                resultados.append("✅ La columna cita_id EXISTE")
-            else:
-                resultados.append("⚠️ La columna cita_id NO existe")
-                
-                # Intentar agregarla
-                resultados.append("\n=== INTENTANDO AGREGAR cita_id ===")
-                try:
-                    cursor.execute("""
-                        ALTER TABLE notificaciones_profesional 
-                        ADD COLUMN IF NOT EXISTS cita_id INTEGER REFERENCES citas(id)
-                    """)
-                    conn.commit()
-                    resultados.append("✅ Comando ALTER ejecutado")
-                    
-                    # Verificar de nuevo
-                    cursor.execute("""
-                        SELECT EXISTS (
-                            SELECT 1 
-                            FROM information_schema.columns 
-                            WHERE table_name = 'notificaciones_profesional' 
-                            AND column_name = 'cita_id'
-                        )
-                    """)
-                    existe_ahora = cursor.fetchone()[0]
-                    
-                    if existe_ahora:
-                        resultados.append("✅ Columna cita_id AGREGADA exitosamente")
-                    else:
-                        resultados.append("❌ No se pudo agregar la columna")
-                        
-                except Exception as alter_error:
-                    resultados.append(f"❌ Error en ALTER TABLE: {str(alter_error)}")
-                    conn.rollback()
-                    
-        except Exception as e:
-            resultados.append(f"Error verificando cita_id: {str(e)}")
-        
-        # 5. Ver suscripciones
-        resultados.append("\n=== SUSCRIPCIONES ===")
-        try:
-            cursor.execute("""
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN activa = TRUE THEN 1 END) as activas,
-                    COUNT(CASE WHEN profesional_id = 1 THEN 1 END) as del_prof_1
-                FROM suscripciones_push
-            """)
-            stats = cursor.fetchone()
-            resultados.append(f"Total suscripciones: {stats[0]}")
-            resultados.append(f"Suscripciones activas: {stats[1]}")
-            resultados.append(f"Suscripciones del profesional 1: {stats[2]}")
-            
-            # Mostrar detalle de suscripciones del profesional 1
-            cursor.execute("""
-                SELECT id, activa, created_at, 
-                       LENGTH(subscription_json) as json_len
-                FROM suscripciones_push 
-                WHERE profesional_id = 1
-                ORDER BY created_at DESC
-                LIMIT 5
-            """)
-            
-            suscripciones = cursor.fetchall()
-            if suscripciones:
-                resultados.append("\nDetalle suscripciones profesional 1:")
-                for sub in suscripciones:
-                    resultados.append(f"  ID: {sub[0]} - Activa: {sub[1]} - Creada: {sub[2]} - JSON Len: {sub[3]}")
-            else:
-                resultados.append("No hay suscripciones para el profesional 1")
-                
-        except Exception as e:
-            resultados.append(f"Error obteniendo suscripciones: {str(e)}")
-        
-        # 6. Verificar citas recientes
-        resultados.append("\n=== CITAS RECIENTES ===")
-        try:
-            cursor.execute("""
-                SELECT id, fecha, hora, cliente_nombre, profesional_id
-                FROM citas 
-                WHERE negocio_id = 1
-                ORDER BY fecha DESC, hora DESC
-                LIMIT 5
-            """)
-            
-            citas = cursor.fetchall()
-            if citas:
-                for cita in citas:
-                    resultados.append(f"  Cita #{cita[0]}: {cita[1]} {cita[2]} - {cita[3]} (Prof: {cita[4]})")
-            else:
-                resultados.append("No hay citas")
-                
-        except Exception as e:
-            resultados.append(f"Error obteniendo citas: {str(e)}")
-        
-        conn.close()
-        
-        # 7. Variables de entorno (sin mostrar valores sensibles)
-        resultados.append("\n=== VARIABLES DE ENTORNO ===")
-        import os
-        resultados.append(f"DATABASE_URL configurada: {'✅' if os.getenv('DATABASE_URL') else '❌'}")
-        resultados.append(f"VAPID_PUBLIC_KEY: {'✅' if os.getenv('VAPID_PUBLIC_KEY') else '❌'}")
-        resultados.append(f"VAPID_PRIVATE_KEY: {'✅' if os.getenv('VAPID_PRIVATE_KEY') else '❌'}")
-        
-        return "<br>".join(resultados)
-        
-    except Exception as e:
-        error_completo = f"""
-        ❌ ERROR COMPLETO:<br>
-        Tipo: {type(e).__name__}<br>
-        Mensaje: {str(e)}<br>
-        <pre>{traceback.format_exc()}</pre>
-        """
-        return error_completo
-    
-@app.route('/admin/test-simple')
-def test_simple():
-    """Prueba super simple"""
-    try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1 as test")
-        result = cursor.fetchone()
-        conn.close()
-        return f"✅ Conexión exitosa. Resultado: {result}"
-    except Exception as e:
-        return f"❌ Error: {type(e).__name__}: {str(e)}"
-
-@app.route('/admin/fix-database')
-def fix_database():
-    """Ruta temporal para corregir la base de datos - VERSIÓN SIMPLIFICADA"""
-    try:
-        from database import get_db_connection
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        resultados = ["=== FIX DATABASE ==="]
-        
-        # SOLO intentar agregar la columna si no existe
-        try:
-            resultados.append("Intentando agregar columna cita_id...")
-            
-            cursor.execute("""
-                ALTER TABLE notificaciones_profesional 
-                ADD COLUMN IF NOT EXISTS cita_id INTEGER
-            """)
-            
-            conn.commit()
-            resultados.append("✅ Comando ALTER TABLE ejecutado")
-            
-        except Exception as e:
-            resultados.append(f"⚠️ Error en ALTER TABLE: {str(e)}")
-            conn.rollback()
-        
-        # Verificar si se agregó
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'notificaciones_profesional' 
-            AND column_name = 'cita_id'
-        """)
-        
-        if cursor.fetchone():
-            resultados.append("✅ La columna cita_id ahora existe")
-        else:
-            resultados.append("❌ La columna cita_id NO se pudo agregar")
-        
-        conn.close()
-        return "<br>".join(resultados)
-        
-    except Exception as e:
-        return f"❌ Error general: {type(e).__name__}: {str(e)}"
     
 @app.route('/admin/test-subscription')
 def test_subscription():
@@ -5484,6 +5227,732 @@ def obtener_profesionales(negocio_id):
     except Exception as e:
         print(f"Error en obtener_profesionales: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
+    
+
+    
+# ==================== RUTA TEMPORAL PARA CREAR TABLA DE IMÁGENES ====================
+@app.route('/admin/crear-tabla-imagenes', methods=['GET', 'POST'])
+def crear_tabla_imagenes():
+    """Ruta temporal para crear tabla de imágenes - Solo para desarrollo"""
+    # Verificar si ya existe la tabla
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'imagenes_profesionales'
+            )
+        """)
+        tabla_existe = cur.fetchone()[0]
+        cur.close()
+        
+        if tabla_existe:
+            return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Tabla ya existe</title>
+                <style>
+                    body { font-family: Arial; padding: 20px; }
+                    .success { background: #d4edda; padding: 15px; border-radius: 5px; }
+                    .info { background: #d1ecf1; padding: 15px; border-radius: 5px; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <h1>✅ Tabla ya existe</h1>
+                <div class="success">
+                    <p>La tabla <strong>imagenes_profesionales</strong> ya existe en la base de datos.</p>
+                </div>
+                <div class="info">
+                    <h3>📊 Información de la tabla:</h3>
+                    <p>Para ver la estructura, puedes ejecutar:</p>
+                    <pre>SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'imagenes_profesionales' 
+ORDER BY ordinal_position;</pre>
+                </div>
+                <a href="/admin/panel">← Volver al Panel Admin</a>
+            </body>
+            </html>
+            """
+        
+        if request.method == 'POST':
+            # SQL para crear tabla de imágenes
+            sql = """
+            -- ==================== TABLA PARA IMÁGENES DE PROFESIONALES ====================
+            CREATE TABLE imagenes_profesionales (
+                id SERIAL PRIMARY KEY,
+                profesional_id INTEGER NOT NULL REFERENCES profesionales(id) ON DELETE CASCADE,
+                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+                tipo VARCHAR(50) DEFAULT 'perfil', -- 'perfil', 'portada', 'galeria'
+                nombre_archivo VARCHAR(255) NOT NULL,
+                ruta_archivo VARCHAR(500) NOT NULL,
+                url_publica VARCHAR(500),
+                mime_type VARCHAR(100),
+                tamaño_bytes INTEGER,
+                ancho INTEGER,
+                alto INTEGER,
+                es_principal BOOLEAN DEFAULT FALSE,
+                orden INTEGER DEFAULT 0,
+                metadata JSONB DEFAULT '{}',
+                creado_por INTEGER, -- ID del usuario que subió la imagen
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            -- Índices para búsqueda rápida
+            CREATE INDEX idx_img_profesional ON imagenes_profesionales(profesional_id);
+            CREATE INDEX idx_img_negocio ON imagenes_profesionales(negocio_id);
+            CREATE INDEX idx_img_principal ON imagenes_profesionales(profesional_id, es_principal) WHERE es_principal = TRUE;
+            CREATE INDEX idx_img_tipo ON imagenes_profesionales(profesional_id, tipo);
+            
+            -- Trigger para actualizar updated_at
+            CREATE OR REPLACE FUNCTION update_img_updated_at()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.updated_at = CURRENT_TIMESTAMP;
+                RETURN NEW;
+            END;
+            $$ language 'plpgsql';
+            
+            CREATE TRIGGER update_imagenes_updated_at
+                BEFORE UPDATE ON imagenes_profesionales
+                FOR EACH ROW
+                EXECUTE FUNCTION update_img_updated_at();
+            
+            -- Función para marcar solo una imagen como principal por profesional
+            CREATE OR REPLACE FUNCTION set_unique_principal_image()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF NEW.es_principal = TRUE THEN
+                    UPDATE imagenes_profesionales 
+                    SET es_principal = FALSE 
+                    WHERE profesional_id = NEW.profesional_id 
+                    AND id != NEW.id
+                    AND tipo = NEW.tipo;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ language 'plpgsql';
+            
+            CREATE TRIGGER ensure_unique_principal_image
+                BEFORE INSERT OR UPDATE ON imagenes_profesionales
+                FOR EACH ROW
+                EXECUTE FUNCTION set_unique_principal_image();
+                
+            -- ==================== ACTUALIZAR TABLA PROFESIONALES ====================
+            -- Añadir referencia a imagen principal si no existe
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name = 'profesionales' AND column_name = 'imagen_principal_id') THEN
+                    ALTER TABLE profesionales ADD COLUMN imagen_principal_id INTEGER REFERENCES imagenes_profesionales(id);
+                END IF;
+            END $$;
+            """
+            
+            cur = conn.cursor()
+            # Ejecutar cada sentencia por separado
+            statements = [stmt.strip() for stmt in sql.split(';') if stmt.strip()]
+            
+            resultados = []
+            for stmt in statements:
+                try:
+                    cur.execute(stmt)
+                    resultados.append(f"✅ {stmt[:50]}...")
+                except Exception as e:
+                    # Ignorar errores de "ya existe"
+                    if 'already exists' not in str(e) and 'duplicate' not in str(e):
+                        resultados.append(f"⚠️ {stmt[:50]}... → {str(e)[:100]}")
+            
+            conn.commit()
+            cur.close()
+            
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Tabla Creada</title>
+                <style>
+                    body {{ font-family: Arial; padding: 20px; }}
+                    .success {{ background: #d4edda; padding: 15px; border-radius: 5px; }}
+                    .results {{ background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; }}
+                    pre {{ background: white; padding: 10px; border-radius: 5px; overflow: auto; }}
+                </style>
+            </head>
+            <body>
+                <h1>✅ Tabla creada exitosamente</h1>
+                <div class="success">
+                    <p>La tabla <strong>imagenes_profesionales</strong> ha sido creada con éxito.</p>
+                </div>
+                <div class="results">
+                    <h3>📝 Resultados de ejecución:</h3>
+                    <pre>{'\\n'.join(resultados)}</pre>
+                </div>
+                <div style="margin-top: 20px;">
+                    <h3>🔍 Para verificar:</h3>
+                    <p>La tabla tiene estas columnas principales:</p>
+                    <ul>
+                        <li><strong>id</strong> - Identificador único</li>
+                        <li><strong>profesional_id</strong> - Referencia al profesional</li>
+                        <li><strong>negocio_id</strong> - Referencia al negocio</li>
+                        <li><strong>tipo</strong> - Tipo de imagen (perfil, portada, galeria)</li>
+                        <li><strong>nombre_archivo</strong> - Nombre original del archivo</li>
+                        <li><strong>ruta_archivo</strong> - Ruta en el servidor</li>
+                        <li><strong>url_publica</strong> - URL para acceso público</li>
+                        <li><strong>es_principal</strong> - Si es la imagen principal</li>
+                    </ul>
+                </div>
+                <a href="/admin/panel">← Volver al Panel Admin</a>
+            </body>
+            </html>
+            """
+        
+        # Mostrar formulario para crear tabla
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Crear Tabla de Imágenes</title>
+            <style>
+                body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+                .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+                .sql-preview { background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; }
+                button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+                button:hover { background: #218838; }
+            </style>
+        </head>
+        <body>
+            <h1>🖼️ Crear Tabla de Imágenes</h1>
+            
+            <div class="warning">
+                <h3>⚠️ ADVERTENCIA</h3>
+                <p>Esta acción creará una nueva tabla en la base de datos. Asegúrate de:</p>
+                <ul>
+                    <li>Tener permisos de administrador</li>
+                    <li>Hacer backup de datos importantes</li>
+                    <li>Verificar que no exista ya la tabla</li>
+                </ul>
+            </div>
+            
+            <h2>📋 Estructura de la tabla:</h2>
+            <div class="sql-preview">
+                <strong>imagenes_profesionales</strong> - Tabla para almacenar imágenes
+                
+                Columnas principales:
+                • id (SERIAL PRIMARY KEY)
+                • profesional_id (INTEGER REFERENCES profesionales)
+                • negocio_id (INTEGER REFERENCES negocios)
+                • tipo (VARCHAR) - 'perfil', 'portada', 'galeria'
+                • nombre_archivo (VARCHAR)
+                • ruta_archivo (VARCHAR)
+                • url_publica (VARCHAR)
+                • es_principal (BOOLEAN)
+                • created_at, updated_at (TIMESTAMP)
+            </div>
+            
+            <form method="POST" style="margin-top: 30px;">
+                <p>
+                    <input type="checkbox" id="confirm" required>
+                    <label for="confirm">Confirmo que quiero crear la tabla de imágenes</label>
+                </p>
+                <button type="submit">🚀 Crear Tabla de Imágenes</button>
+            </form>
+            
+            <div style="margin-top: 30px;">
+                <a href="/admin/panel">← Cancelar y volver al panel</a>
+            </div>
+        </body>
+        </html>
+        """
+        
+    except Exception as e:
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <h1>❌ Error</h1>
+            <p>Error al verificar/crear tabla: {str(e)}</p>
+            <a href="/admin/panel">← Volver</a>
+        </body>
+        </html>
+        """
+
+# ==================== PANEL DE ADMINISTRACIÓN SUPER ADMIN ====================
+@app.route('/admin/panel')
+@login_required
+def admin_panel():
+    """Panel de administración - Solo super admin"""
+    # Verificar si es super admin
+    if session.get('usuario_tipo') != 'admin':
+        return redirect(url_for('profesional_dashboard'))
+    
+    # Obtener estadísticas del sistema
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    # Contar tablas
+    cur.execute("""
+        SELECT COUNT(*) as total_tablas 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+    """)
+    stats = cur.fetchone()
+    
+    # Obtener lista de tablas
+    cur.execute("""
+        SELECT table_name, 
+               (SELECT COUNT(*) FROM information_schema.columns 
+                WHERE table_name = t.table_name) as columnas
+        FROM information_schema.tables t
+        WHERE table_schema = 'public'
+        ORDER BY table_name
+    """)
+    tablas = cur.fetchall()
+    
+    # Verificar si existen las tablas importantes
+    cur.execute("""
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('imagenes_profesionales', 'profesionales', 'calificaciones_profesional')
+    """)
+    tablas_importantes = [t[0] for t in cur.fetchall()]
+    
+    cur.close()
+    
+    return render_template('admin_panel.html',
+                         stats=stats,
+                         tablas=tablas,
+                         tablas_importantes=tablas_importantes,
+                         csrf_token=session.get('csrf_token'))
+
+# ==================== FUNCIONES PARA MANEJAR IMÁGENES ====================
+
+# Configuración para subir imágenes
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def actualizar_foto_perfil_profesional(profesional_id, file):
+    """Función para actualizar foto de perfil usando el nuevo sistema"""
+    try:
+        # Obtener negocio_id
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
+        negocio_id = cur.fetchone()[0]
+        cur.close()
+        
+        # Usar la nueva función de guardado
+        url_publica, error = actualizar_foto_perfil_profesional(
+            file, 
+            profesional_id, 
+            negocio_id, 
+            tipo='perfil'
+        )
+        
+        if error:
+            return None, error
+        
+        return url_publica, None
+        
+    except Exception as e:
+        return None, f"Error: {str(e)}"
+
+@app.route('/api/imagenes/profesional/<int:profesional_id>', methods=['GET'])
+def obtener_imagenes_profesional(profesional_id):
+    """Obtener todas las imágenes de un profesional"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("""
+            SELECT id, tipo, nombre_archivo, url_publica, 
+                   mime_type, tamaño_bytes, es_principal,
+                   created_at
+            FROM imagenes_profesionales
+            WHERE profesional_id = %s
+            ORDER BY es_principal DESC, tipo, created_at DESC
+        """, (profesional_id,))
+        
+        imagenes = cur.fetchall()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'profesional_id': profesional_id,
+            'imagenes': imagenes,
+            'total': len(imagenes)
+        })
+        
+    except Exception as e:
+        print(f"Error obteniendo imágenes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Error al obtener imágenes'
+        }), 500
+
+@app.route('/api/imagenes/subir', methods=['POST'])
+@login_required
+def subir_imagen_profesional():
+    """Subir imagen para profesional"""
+    try:
+        profesional_id = request.form.get('profesional_id')
+        tipo = request.form.get('tipo', 'perfil')
+        
+        if 'imagen' not in request.files:
+            return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
+        
+        file = request.files['imagen']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Nombre de archivo vacío'})
+        
+        # Obtener negocio_id del profesional
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
+        result = cur.fetchone()
+        
+        if not result:
+            return jsonify({'success': False, 'message': 'Profesional no encontrado'})
+        
+        negocio_id = result[0]
+        cur.close()
+        
+        # Guardar imagen
+        url_publica, error = actualizar_foto_perfil_profesional(file, profesional_id, negocio_id, tipo)
+        
+        if error:
+            return jsonify({'success': False, 'message': error})
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen subida exitosamente',
+            'url': url_publica,
+            'profesional_id': profesional_id
+        })
+        
+    except Exception as e:
+        print(f"Error subiendo imagen: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al subir imagen'}), 500
+
+@app.route('/api/imagenes/<int:imagen_id>/principal', methods=['PUT'])
+@login_required
+def marcar_imagen_principal(imagen_id):
+    """Marcar una imagen como principal"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener información de la imagen
+        cur.execute("""
+            SELECT profesional_id, tipo 
+            FROM imagenes_profesionales 
+            WHERE id = %s
+        """, (imagen_id,))
+        
+        img_info = cur.fetchone()
+        if not img_info:
+            return jsonify({'success': False, 'message': 'Imagen no encontrada'})
+        
+        profesional_id, tipo = img_info
+        
+        # Marcar como principal
+        cur.execute("""
+            UPDATE imagenes_profesionales 
+            SET es_principal = TRUE 
+            WHERE id = %s
+            RETURNING url_publica
+        """, (imagen_id,))
+        
+        url_publica = cur.fetchone()[0]
+        
+        # Actualizar referencia en profesionales si es imagen de perfil
+        if tipo == 'perfil':
+            cur.execute("""
+                UPDATE profesionales 
+                SET imagen_principal_id = %s, foto_url = %s 
+                WHERE id = %s
+            """, (imagen_id, url_publica, profesional_id))
+        
+        conn.commit()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen marcada como principal',
+            'url': url_publica
+        })
+        
+    except Exception as e:
+        print(f"Error marcando imagen principal: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al marcar imagen'}), 500
+
+@app.route('/api/imagenes/<int:imagen_id>', methods=['DELETE'])
+@login_required
+def eliminar_imagen(imagen_id):
+    """Eliminar una imagen"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener información de la imagen
+        cur.execute("""
+            SELECT ruta_archivo, profesional_id, es_principal, tipo 
+            FROM imagenes_profesionales 
+            WHERE id = %s
+        """, (imagen_id,))
+        
+        img_info = cur.fetchone()
+        if not img_info:
+            return jsonify({'success': False, 'message': 'Imagen no encontrada'})
+        
+        ruta_archivo, profesional_id, es_principal, tipo = img_info
+        
+        # Eliminar archivo físico si existe
+        if os.path.exists(ruta_archivo):
+            try:
+                os.remove(ruta_archivo)
+            except:
+                pass  # Continuar aunque no se pueda eliminar el archivo
+        
+        # Eliminar de la base de datos
+        cur.execute("DELETE FROM imagenes_profesionales WHERE id = %s", (imagen_id,))
+        
+        # Si era la imagen principal y era de perfil, limpiar referencia
+        if es_principal and tipo == 'perfil':
+            cur.execute("""
+                UPDATE profesionales 
+                SET imagen_principal_id = NULL, foto_url = NULL 
+                WHERE id = %s
+            """, (profesional_id,))
+        
+        conn.commit()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen eliminada exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error eliminando imagen: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al eliminar imagen'}), 500
+
+@app.route('/admin/check-system')
+@login_required
+def check_system():
+    """Verificar estado del sistema"""
+    try:
+        issues = []
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar tablas importantes
+        tablas_importantes = ['profesionales', 'imagenes_profesionales', 'calificaciones_profesional']
+        
+        for tabla in tablas_importantes:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = %s
+                )
+            """, (tabla,))
+            
+            if not cur.fetchone()[0]:
+                issues.append(f"Tabla '{tabla}' no existe")
+        
+        # Verificar directorio de uploads
+        upload_dir = os.path.join(UPLOAD_FOLDER, 'profesionales')
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir, exist_ok=True)
+            issues.append(f"Directorio de uploads creado: {upload_dir}")
+        
+        cur.close()
+        
+        return jsonify({
+            'status': 'ok' if not issues else 'warning',
+            'issues': issues,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@app.route('/api/imagenes/test')
+def test_image_system():
+    """Test del sistema de imágenes"""
+    try:
+        # Verificar tabla
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM imagenes_profesionales")
+        count = cur.fetchone()[0]
+        cur.close()
+        
+        # Verificar directorio
+        upload_dir = os.path.join(UPLOAD_FOLDER, 'profesionales')
+        exists = os.path.exists(upload_dir)
+        
+        return jsonify({
+            'success': True,
+            'table_exists': True,
+            'image_count': count,
+            'upload_dir_exists': exists,
+            'upload_dir': upload_dir
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'table_exists': False
+        }), 500
+    
+@app.route('/admin/ver-tablas')
+@login_required
+def ver_tablas():
+    """Ver todas las tablas en la base de datos (simplificado)"""
+    try:
+        # Solo super admin
+        if session.get('usuario_tipo') != 'superadmin':
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener todas las tablas
+        cur.execute("""
+            SELECT table_name
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """)
+        
+        tables = [row[0] for row in cur.fetchall()]
+        
+        # Obtener columnas de las tablas principales
+        tables_with_info = []
+        for table in tables:
+            if table in ['profesionales', 'negocios', 'usuarios', 'citas', 'imagenes_profesionales']:
+                cur.execute("""
+                    SELECT column_name, data_type
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                    ORDER BY ordinal_position
+                """, (table,))
+                
+                columns = cur.fetchall()
+                tables_with_info.append({
+                    'name': table,
+                    'columns': [{'name': col[0], 'type': col[1]} for col in columns],
+                    'column_count': len(columns)
+                })
+            else:
+                tables_with_info.append({
+                    'name': table,
+                    'columns': [],
+                    'column_count': 0
+                })
+        
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'tables': tables_with_info,
+            'total_tables': len(tables_with_info),
+            'important_tables': ['profesionales', 'negocios', 'usuarios', 'citas', 'imagenes_profesionales']
+        })
+        
+    except Exception as e:
+        print(f"Error viendo tablas: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
+@app.route('/admin/ejecutar-sql', methods=['POST'])
+@login_required
+def ejecutar_sql():
+    """Ejecutar SQL específico para crear tablas (versión segura)"""
+    try:
+        # Solo super admin
+        if session.get('usuario_tipo') != 'superadmin':
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+        data = request.get_json()
+        sql = data.get('sql', '').strip().upper()
+        
+        # Permitir solo CREATE TABLE y SELECT (para seguridad)
+        if not (sql.startswith('CREATE TABLE') or sql.startswith('SELECT')):
+            return jsonify({
+                'success': False,
+                'message': 'Solo se permiten comandos CREATE TABLE y SELECT'
+            })
+        
+        # Bloquear comandos peligrosos
+        dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'UPDATE', 'INSERT']
+        for keyword in dangerous_keywords:
+            if keyword in sql:
+                return jsonify({
+                    'success': False,
+                    'message': f'Comando {keyword} no permitido por seguridad'
+                })
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        try:
+            if sql.startswith('SELECT'):
+                cur.execute(sql)
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
+                
+                results = []
+                for row in rows:
+                    results.append(dict(zip(columns, row)))
+                
+                return jsonify({
+                    'success': True,
+                    'type': 'SELECT',
+                    'rowcount': len(rows),
+                    'data': results
+                })
+            else:
+                # Para CREATE TABLE
+                cur.execute(sql)
+                conn.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'type': 'CREATE',
+                    'message': 'Tabla creada exitosamente'
+                })
+                
+        except Exception as e:
+            conn.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Error SQL: {str(e)}'
+            })
+        finally:
+            cur.close()
+        
+    except Exception as e:
+        print(f"Error ejecutando SQL: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error del sistema: {str(e)}'
+        }), 500
 
 
 # =============================================================================
