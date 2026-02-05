@@ -4989,7 +4989,7 @@ def profesional_perfil():
             return redirect(url_for('login'))
         
         # Obtener SOLO datos del profesional
-        cur = get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("""
             SELECT 
                 p.id,
@@ -5014,7 +5014,7 @@ def profesional_perfil():
         # Obtener calificaciones recientes (si existen)
         calificaciones = []
         try:
-            cur = get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute("""
                 SELECT cp.puntuacion, cp.comentario, cp.created_at,
                        cl.nombre as cliente_nombre
@@ -5049,7 +5049,7 @@ def actualizar_perfil():
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
         
         data = request.form.to_dict()
-        conn = get_db()
+        conn = get_db_connection()
         cur = conn.cursor()
         
         # SOLO campos personales editables
