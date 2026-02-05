@@ -3115,7 +3115,8 @@ def profesional_todas_citas():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Obtener todas las citas del profesional
+
+        # Obtener todas las citas del profesional cambio test
         cursor.execute('''
             SELECT c.*, s.nombre as servicio_nombre, s.precio
             FROM citas c
