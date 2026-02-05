@@ -5069,41 +5069,54 @@ def test_push_debug(profesional_id):
     
 @app.route('/reset-subscriptions/<int:profesional_id>')
 def reset_subscriptions(profesional_id):
-    """Eliminar suscripciones antiguas y preparar para nuevas"""
+    """Eliminar suscripciones antiguas y preparar para nuevas - CORREGIDO"""
     from database import get_db_connection
     
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Ver suscripciones actuales
+        # 1. Ver suscripciones actuales (sin created_at que no existe)
         cursor.execute('''
-            SELECT id, created_at 
+            SELECT id, profesional_id, activa 
             FROM suscripciones_push 
             WHERE profesional_id = %s
         ''', (profesional_id,))
         
         suscripciones = cursor.fetchall()
         
-        # 2. Eliminar todas
+        # 2. Contar cuántas hay
+        count_before = len(suscripciones)
+        
+        # 3. Eliminar todas
         cursor.execute('DELETE FROM suscripciones_push WHERE profesional_id = %s', (profesional_id,))
         
+        deleted_count = cursor.rowcount
         conn.commit()
         conn.close()
         
         return jsonify({
             'success': True,
-            'message': f'Eliminadas {len(suscripciones)} suscripciones antiguas',
-            'profesional_id': profesional_id,
+            'message': f'Eliminadas {deleted_count} suscripciones antiguas',
+            'details': {
+                'profesional_id': profesional_id,
+                'found_before': count_before,
+                'deleted': deleted_count
+            },
             'next_steps': [
-                '1. Recargar la app web',
-                '2. Permitir notificaciones cuando el navegador pregunte',
-                '3. Probar con /test-push-debug/1'
+                '1. El profesional debe abrir la app web: https://wabot-deployment.up.railway.app',
+                '2. Cerrar y volver a abrir el navegador',
+                '3. Permitir notificaciones cuando el navegador pregunte',
+                '4. Probar con /test-push-debug/1'
             ]
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
 
 
 
