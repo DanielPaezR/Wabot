@@ -5399,7 +5399,7 @@ def push_setup_completo():
     
 @app.route('/push/test-manual')
 def push_test_manual():
-    """Test manual de push - CORREGIDO y con mejor diagnóstico"""
+    """Test manual de push - VERSIÓN DEFINITIVA CORREGIDA"""
     try:
         import os
         import json
@@ -5412,33 +5412,51 @@ def push_test_manual():
         if not VAPID_PRIVATE_KEY:
             return jsonify({
                 'success': False, 
-                'error': 'VAPID_PRIVATE_KEY no configurada',
-                'solucion': 'Configurar en Railway: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT'
+                'error': 'VAPID_PRIVATE_KEY no configurada'
             })
         
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Verificar si hay suscripciones
-        cursor.execute('''
-            SELECT COUNT(*) 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-        ''', (profesional_id,))
+        # Verificar si hay suscripciones - FORMA SEGURA
+        try:
+            cursor.execute('''
+                SELECT COUNT(*) as count
+                FROM suscripciones_push 
+                WHERE profesional_id = %s AND activa = TRUE
+            ''', (profesional_id,))
+            
+            result = cursor.fetchone()
+            
+            # Extraer count de forma segura
+            count = 0
+            if isinstance(result, tuple):
+                count = result[0] if len(result) > 0 else 0
+            elif isinstance(result, dict):
+                count = result.get('count', 0)
+            elif hasattr(result, '__getitem__'):
+                try:
+                    count = result[0]
+                except:
+                    count = 0
+            
+        except Exception as count_error:
+            print(f"⚠️ Error contando suscripciones: {count_error}")
+            count = 0
         
-        count_result = cursor.fetchone()
-        count = count_result[0] if count_result else 0
+        print(f"📊 Suscripciones encontradas: {count}")
         
         if count == 0:
             conn.close()
             return jsonify({
                 'success': False,
-                'error': f'No hay suscripciones activas para profesional {profesional_id}',
-                'solucion': 'El profesional debe abrir la app y permitir notificaciones'
+                'error': f'No hay suscripciones activas. Contador: {count}',
+                'solucion': 'Recarga la página del profesional y permite notificaciones DE NUEVO'
             })
         
-        # Obtener la última suscripción
+        # Obtener la última suscripción - FORMA ROBUSTA
+        print(f"🔍 Buscando suscripción para profesional {profesional_id}...")
         cursor.execute('''
             SELECT id, subscription_json 
             FROM suscripciones_push 
@@ -5449,42 +5467,76 @@ def push_test_manual():
         result = cursor.fetchone()
         conn.close()
         
-        if not result:
-            return jsonify({'success': False, 'error': 'Error obteniendo suscripción'})
+        print(f"📋 Resultado BD (tipo: {type(result)}): {result}")
         
-        # Extraer datos según tipo
+        if not result:
+            return jsonify({'success': False, 'error': 'No se obtuvo resultado de la BD'})
+        
+        # EXTRAER DATOS DE FORMA SEGURA
         suscripcion_id = None
         subscription_json = None
         
+        # Si es tupla
         if isinstance(result, tuple):
-            suscripcion_id = result[0] if len(result) > 0 else None
-            subscription_json = result[1] if len(result) > 1 else None
+            print(f"   Es tupla, longitud: {len(result)}")
+            if len(result) >= 1:
+                suscripcion_id = result[0]
+            if len(result) >= 2:
+                subscription_json = result[1]
+        
+        # Si es diccionario (RealDictRow)
         elif isinstance(result, dict):
+            print(f"   Es dict, keys: {list(result.keys())}")
             suscripcion_id = result.get('id')
             subscription_json = result.get('subscription_json')
         
+        # Si es algún otro objeto iterable
+        elif hasattr(result, '__getitem__'):
+            try:
+                suscripcion_id = result[0]
+                subscription_json = result[1] if len(result) > 1 else None
+            except (KeyError, IndexError) as e:
+                print(f"   Error accediendo por índice: {e}")
+        
+        print(f"   ID extraído: {suscripcion_id}")
+        print(f"   JSON extraído (longitud): {len(subscription_json) if subscription_json else 0}")
+        
         if not subscription_json:
-            return jsonify({'success': False, 'error': 'Suscripción sin JSON'})
+            return jsonify({
+                'success': False, 
+                'error': 'No se pudo extraer subscription_json',
+                'result_type': str(type(result)),
+                'result_preview': str(result)[:200]
+            })
         
         # Parsear JSON
         try:
             subscription = json.loads(subscription_json)
+            print(f"✅ JSON parseado correctamente")
         except json.JSONDecodeError as e:
+            print(f"❌ Error parseando JSON: {e}")
+            print(f"📄 JSON crudo (primeros 200 chars): {subscription_json[:200]}")
             return jsonify({
                 'success': False, 
                 'error': f'JSON inválido: {str(e)}',
-                'json_preview': subscription_json[:100]
+                'json_preview': subscription_json[:200]
             })
         
         # Verificar estructura
-        if 'endpoint' not in subscription:
+        endpoint = subscription.get('endpoint', '')
+        keys = subscription.get('keys', {})
+        
+        print(f"📍 Endpoint: {endpoint[:60]}...")
+        print(f"🔑 Keys presentes: {list(keys.keys()) if keys else 'Ninguna'}")
+        
+        if not endpoint:
             return jsonify({
                 'success': False, 
                 'error': 'Suscripción no tiene endpoint',
-                'keys_present': list(subscription.keys())
+                'subscription_keys': list(subscription.keys())
             })
         
-        # Enviar push
+        # ENVIAR PUSH
         try:
             import pywebpush
             
@@ -5493,14 +5545,13 @@ def push_test_manual():
             
             print(f"🚀 Enviando push test...")
             print(f"   Suscripción ID: {suscripcion_id}")
-            print(f"   Endpoint: {subscription.get('endpoint', '')[:50]}...")
-            print(f"   Exp: {expiration_time}")
+            print(f"   Expiración: {expiration_time}")
             
             pywebpush.webpush(
                 subscription_info=subscription,
                 data=json.dumps({
-                    'title': '🔔 Test Manual de Push',
-                    'body': f'Prueba {time.ctime()} - Si ves esto, ¡funciona!',
+                    'title': '🔔 ¡PUSH FUNCIONANDO!',
+                    'body': f'Prueba exitosa - {time.ctime()}',
                     'icon': '/static/icons/icon-192x192.png',
                     'timestamp': current_time * 1000
                 }),
@@ -5509,41 +5560,45 @@ def push_test_manual():
                     "sub": VAPID_SUBJECT,
                     "exp": expiration_time
                 },
-                ttl=86400
+                ttl=86400,
+                timeout=10
             )
             
-            print(f"✅ Push test enviado exitosamente")
+            print(f"✅ ¡PUSH ENVIADO EXITOSAMENTE!")
             
             return jsonify({
                 'success': True,
-                'message': '✅ ¡Push enviado exitosamente!',
+                'message': '🎉 ¡PUSH FUNCIONANDO CORRECTAMENTE!',
                 'details': {
                     'suscripcion_id': suscripcion_id,
                     'profesional_id': profesional_id,
+                    'endpoint_preview': endpoint[:50] + '...',
                     'timestamp': current_time,
-                    'expiration': expiration_time
-                }
+                    'hora_envio': time.ctime()
+                },
+                'siguiente_paso': 'Agendar una cita desde el chat web para probar el flujo completo'
             })
             
         except Exception as push_error:
             error_msg = str(push_error)
             error_type = type(push_error).__name__
             
-            print(f"❌ Error en push: {error_type}: {error_msg[:200]}")
+            print(f"❌ Error en pywebpush: {error_type}")
+            print(f"💡 Detalles: {error_msg[:200]}")
             
-            # Diagnóstico específico
+            # Diagnóstico automático
             if '403' in error_msg and 'credentials' in error_msg:
-                diagnostico = 'ERROR 403: Claves VAPID no coinciden'
-                solucion = 'Resetear suscripciones y profesional debe permitir notificaciones DE NUEVO'
+                diagnostico = 'ERROR 403: Claves VAPID no coinciden con las usadas al crear la suscripción'
+                solucion = 'El profesional debe: 1. Cerrar navegador 2. Abrir app 3. Permitir notificaciones DE NUEVO'
             elif 'exp' in error_msg.lower():
                 diagnostico = 'Problema con tiempo de expiración (exp)'
-                solucion = 'El exp debe ser máximo 24 horas en el futuro'
-            elif 'vapid' in error_msg.lower():
-                diagnostico = 'Problema con credenciales VAPID'
-                solucion = 'Verificar formato de claves VAPID'
+                solucion = 'El exp debe ser timestamp futuro (máximo 24 horas)'
+            elif 'InvalidAuthorization' in error_msg:
+                diagnostico = 'Token de autorización VAPID inválido'
+                solucion = 'Verificar formato de VAPID_PRIVATE_KEY (debe ser base64 url-safe)'
             else:
-                diagnostico = f'Error técnico: {error_type}'
-                solucion = 'Revisar logs de Railway'
+                diagnostico = f'Error técnico en pywebpush: {error_type}'
+                solucion = 'Revisar logs completos en Railway'
             
             return jsonify({
                 'success': False,
@@ -5551,32 +5606,70 @@ def push_test_manual():
                 'error_type': error_type,
                 'diagnostico': diagnostico,
                 'solucion': solucion,
-                'endpoint_preview': subscription.get('endpoint', '')[:50] + '...'
+                'endpoint_usado': endpoint[:50] + '...',
+                'vapid_configurado': bool(VAPID_PRIVATE_KEY),
+                'clave_privada_length': len(VAPID_PRIVATE_KEY)
             })
             
     except Exception as e:
+        print(f"💥 ERROR INESPERADO: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         return jsonify({
             'success': False,
             'error': f'Error inesperado: {type(e).__name__}',
-            'error_details': str(e)
+            'error_details': str(e),
+            'traceback': traceback.format_exc()[:500] if 'traceback' in locals() else 'No disponible'
         }), 500
     
-@app.route('/push/estado-simple')
-def push_estado_simple():
-    """Estado simple del sistema push"""
-    import os
+@app.route('/push/ver-suscripcion')
+def push_ver_suscripcion():
+    """Ver la suscripción actual"""
+    from database import get_db_connection
     
-    return jsonify({
-        'servicio': 'Push Notifications',
-        'status': 'Configurado' if os.getenv('VAPID_PRIVATE_KEY') else 'No configurado',
-        'service_worker': 'OK' if os.path.exists('service-worker.js') else 'No encontrado',
-        'claves_vapid': 'Presentes' if os.getenv('VAPID_PRIVATE_KEY') and os.getenv('VAPID_PUBLIC_KEY') else 'Faltan',
-        'acciones': [
-            'GET /push/setup-completo - Diagnóstico completo',
-            'GET /push/test-manual - Probar push manualmente',
-            'POST /push/api/push/subscribe - Endpoint para suscripciones frontend'
-        ]
-    })
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, profesional_id, activa, 
+                   LEFT(subscription_json::text, 200) as json_preview,
+                   LENGTH(subscription_json::text) as json_length,
+                   created_at
+            FROM suscripciones_push 
+            WHERE activa = TRUE
+            ORDER BY id DESC
+            LIMIT 1
+        ''')
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'encontrada': False, 'mensaje': 'No hay suscripciones activas'})
+        
+        # Formatear resultado
+        if isinstance(result, tuple):
+            suscripcion = {
+                'id': result[0],
+                'profesional_id': result[1],
+                'activa': result[2],
+                'json_preview': result[3],
+                'json_length': result[4],
+                'created_at': str(result[5]) if len(result) > 5 else None
+            }
+        else:
+            suscripcion = dict(result)
+        
+        return jsonify({
+            'encontrada': True,
+            'suscripcion': suscripcion,
+            'total_campos': len(result) if isinstance(result, tuple) else len(suscripcion)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 
