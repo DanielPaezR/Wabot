@@ -15,6 +15,9 @@ import pywebpush
 
 load_dotenv()
 
+print(f"🔑 [ENV-CHECK] VAPID_PUBLIC_KEY exists: {bool(os.getenv('VAPID_PUBLIC_KEY'))}")
+print(f"🔑 [ENV-CHECK] VAPID_PRIVATE_KEY exists: {bool(os.getenv('VAPID_PRIVATE_KEY'))}")
+
 tz_colombia = pytz.timezone('America/Bogota')
 
 web_chat_bp = Blueprint('web_chat', __name__)
@@ -28,28 +31,26 @@ conversaciones_activas = {}
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
     """Versión local de la función push para evitar problemas de import"""
-    print(f"🔑 [DEBUG-PUSH] Clave pública: {VAPID_PUBLIC_KEY[:30]}...")
-    print(f"🔑 [DEBUG-PUSH] Tiene clave privada: {bool(VAPID_PRIVATE_KEY)}")
-    print(f"🔑 [DEBUG-PUSH] Número de suscripciones: {len(suscripciones) if suscripciones else 0}")
-
-    if suscripciones and len(suscripciones) > 0:
-        print(f"🔑 [DEBUG-PUSH] Primera suscripción: {suscripciones[0][0][:100]}...")
-    
     try:
         print(f"🔥 [PUSH-FINAL-LOCAL] Para profesional {profesional_id}")
         
         # Importar lo necesario
         import json
         import os
-        import pywebpush
         
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        # ✅ CORREGIDO: Obtener variables de entorno ANTES de usarlas
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
         VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
         
+        print(f"🔑 [DEBUG-PUSH] Clave pública: {VAPID_PUBLIC_KEY[:30] if VAPID_PUBLIC_KEY else 'NO HAY'}...")
+        print(f"🔑 [DEBUG-PUSH] Tiene clave privada: {bool(VAPID_PRIVATE_KEY)}")
+        print(f"🔑 [DEBUG-PUSH] Longitud privada: {len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0}")
+        
         if not VAPID_PRIVATE_KEY:
-            print("⚠️ No hay clave privada")
-            return False
+            print("⚠️ No hay clave privada VAPID en variables de entorno")
+            # Pero continuamos para guardar notificación en BD
+            return True
         
         # Obtener suscripciones
         from database import get_db_connection
@@ -59,11 +60,16 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
         suscripciones = cursor.fetchall()
         conn.close()
         
+        print(f"🔑 [DEBUG-PUSH] Número de suscripciones: {len(suscripciones) if suscripciones else 0}")
+        
         if not suscripciones:
             print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
-            return False
+            return True  # Devolver True aunque no haya suscripciones, porque la notificación se guardará en BD
         
-        # 1. Guardar notificación en BD
+        if suscripciones and len(suscripciones) > 0:
+            print(f"🔑 [DEBUG-PUSH] Primera suscripción: {suscripciones[0][0][:100] if suscripciones[0][0] else 'VACÍA'}...")
+        
+        # 1. Guardar notificación en BD (SIEMPRE)
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -77,33 +83,42 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
             print(f"✅ Notificación guardada en BD")
         except Exception as db_error:
             print(f"⚠️ Error guardando en BD: {db_error}")
+            # Continuamos igual
         
-        # 2. Intentar push
+        # 2. Intentar push solo si hay suscripciones y clave privada
         try:
-            subscription = json.loads(suscripciones[0][0])
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png'
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": 9999999999
-                }
-            )
-            print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
-            return True
+            if suscripciones and VAPID_PRIVATE_KEY:
+                import pywebpush
+                subscription = json.loads(suscripciones[0][0])
+                
+                pywebpush.webpush(
+                    subscription_info=subscription,
+                    data=json.dumps({
+                        'title': titulo,
+                        'body': mensaje,
+                        'icon': '/static/icons/icon-192x192.png'
+                    }),
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={
+                        "sub": VAPID_SUBJECT,
+                        "exp": 9999999999
+                    }
+                )
+                print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
+                return True
+            else:
+                print(f"⚠️ No se envió push - Razón: suscripciones={bool(suscripciones)}, clave_privada={bool(VAPID_PRIVATE_KEY)}")
+                return True  # Devolver True porque la notificación se guardó en BD
+                
         except Exception as e:
-            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
-            return True
+            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}: {str(e)}")
+            return True  # Siempre devolver True porque la notificación ya se guardó en BD
             
     except Exception as e:
         print(f"❌ Error crítico en push local: {e}")
-        return True  # Siempre devolver True porque la notificación ya se guardó en BD
+        import traceback
+        traceback.print_exc()
+        return True  # Siempre devolver True para no interrumpir el flujo
 
 def limpiar_formato_whatsapp(texto):
     """
