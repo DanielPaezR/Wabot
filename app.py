@@ -5218,6 +5218,117 @@ def check_frontend_vapid():
         ]
     })
 
+@app.route('/whats-in-frontend')
+def whats_in_frontend():
+    """Verificar qué hay en el frontend actual"""
+    import os
+    
+    # Leer el archivo push-notificacion.js del filesystem
+    try:
+        with open('static/js/push-notificacion.js', 'r') as f:
+            content = f.read()
+    except:
+        try:
+            with open('/app/static/js/push-notificacion.js', 'r') as f:
+                content = f.read()
+        except:
+            content = "No se pudo leer el archivo"
+    
+    # Buscar la clave pública en el contenido
+    import re
+    public_key_match = re.search(r"publicKey\s*[:=]\s*['\"]([A-Za-z0-9_-]+)['\"]", content)
+    
+    found_key = public_key_match.group(1) if public_key_match else "NO ENCONTRADA"
+    
+    return jsonify({
+        'frontend_file': 'push-notificacion.js',
+        'found_public_key': found_key,
+        'found_key_length': len(found_key),
+        'railway_public_key': os.getenv('VAPID_PUBLIC_KEY', ''),
+        'railway_key_length': len(os.getenv('VAPID_PUBLIC_KEY', '')),
+        'match': found_key == os.getenv('VAPID_PUBLIC_KEY', ''),
+        'content_preview': content[:500] + '...' if len(content) > 500 else content
+    })
+
+@app.route('/debug-vapid-complete')
+def debug_vapid_complete():
+    """Debug COMPLETO de VAPID - muestra TODO"""
+    import os
+    import re
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+    
+    # 1. Mostrar claves COMPLETAS (últimos 10 chars para seguridad)
+    private_key_end = VAPID_PRIVATE_KEY[-10:] if len(VAPID_PRIVATE_KEY) > 10 else VAPID_PRIVATE_KEY
+    public_key_end = VAPID_PUBLIC_KEY[-10:] if len(VAPID_PUBLIC_KEY) > 10 else VAPID_PUBLIC_KEY
+    
+    # 2. Verificar formato
+    def is_valid_base64_urlsafe(key):
+        return bool(re.match(r'^[A-Za-z0-9_-]+$', key)) if key else False
+    
+    # 3. Obtener suscripción actual
+    from database import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    subscription_info = None
+    if result:
+        import json
+        sub_json = result[0] if isinstance(result, tuple) else result.get('subscription_json')
+        if sub_json:
+            try:
+                subscription = json.loads(sub_json)
+                keys = subscription.get('keys', {})
+                subscription_info = {
+                    'endpoint': subscription.get('endpoint', '')[:60] + '...',
+                    'has_keys': bool(keys),
+                    'keys_present': list(keys.keys()) if keys else []
+                }
+            except:
+                subscription_info = {'error': 'JSON inválido'}
+    
+    return jsonify({
+        'vapid_config': {
+            'VAPID_PRIVATE_KEY': {
+                'present': bool(VAPID_PRIVATE_KEY),
+                'length': len(VAPID_PRIVATE_KEY),
+                'expected_length': 43,
+                'length_ok': len(VAPID_PRIVATE_KEY) == 43,
+                'format_ok': is_valid_base64_urlsafe(VAPID_PRIVATE_KEY),
+                'end': f"...{private_key_end}" if VAPID_PRIVATE_KEY else None
+            },
+            'VAPID_PUBLIC_KEY': {
+                'present': bool(VAPID_PUBLIC_KEY),
+                'length': len(VAPID_PUBLIC_KEY),
+                'expected_length': 87,
+                'length_ok': len(VAPID_PUBLIC_KEY) == 87,
+                'format_ok': is_valid_base64_urlsafe(VAPID_PUBLIC_KEY),
+                'full_key': VAPID_PUBLIC_KEY,  # MOSTRAMOS LA CLAVE COMPLETA
+                'end': f"...{public_key_end}" if VAPID_PUBLIC_KEY else None
+            },
+            'VAPID_SUBJECT': {
+                'value': VAPID_SUBJECT,
+                'valid': VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
+            }
+        },
+        'current_subscription': subscription_info,
+        'critical_check': '¿La VAPID_PUBLIC_KEY de arriba es EXACTAMENTE la misma que en push-notificacion.js?',
+        'action_required': 'COPIAR la VAPID_PUBLIC_KEY de arriba y pegarla en push-notificacion.js',
+        'verification_steps': [
+            '1. Copiar el valor de "full_key" de arriba',
+            '2. Pegarlo EXACTAMENTE en push-notificacion.js donde dice this.publicKey = \'...\'',
+            '3. Hacer commit y push',
+            '4. Railway hará deploy automático',
+            '5. El profesional debe CERRAR NAVEGADOR y volver a abrir',
+            '6. Permitir notificaciones DE NUEVO',
+            '7. Probar con /test-push-final/1'
+        ]
+    })
  
 
 
