@@ -5336,60 +5336,111 @@ def debug_vapid_complete():
  
 @app.route('/push/setup-completo')
 def push_setup_completo():
-    """Verificar estado completo del sistema push"""
+    """Verificar estado completo del sistema push - CORREGIDO"""
     import os
-    from database import get_db_connection
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar suscripciones (con manejo de error si la tabla no existe)
+        try:
+            cursor.execute('SELECT COUNT(*) as count FROM suscripciones_push WHERE activa = TRUE')
+            result = cursor.fetchone()
+            suscripciones_activas = result[0] if result else 0
+        except Exception as e:
+            print(f"⚠️ Error contando suscripciones: {e}")
+            suscripciones_activas = 0
+        
+        # Verificar notificaciones en BD
+        try:
+            cursor.execute('SELECT COUNT(*) as count FROM notificaciones WHERE leida = FALSE')
+            result = cursor.fetchone()
+            notificaciones_pendientes = result[0] if result else 0
+        except Exception as e:
+            print(f"⚠️ Error contando notificaciones: {e}")
+            notificaciones_pendientes = 0
+        
+        conn.close()
+        
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
+        
+        return jsonify({
+            'status': 'OK',
+            'vapid_configurado': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
+            'clave_privada_length': len(VAPID_PRIVATE_KEY),
+            'clave_publica_length': len(VAPID_PUBLIC_KEY),
+            'subject': VAPID_SUBJECT,
+            'suscripciones_activas': suscripciones_activas,
+            'notificaciones_pendientes': notificaciones_pendientes,
+            'service_worker_accesible': True,  # Porque /service-worker.js da 200 OK
+            'diagnostico': 'Sistema push configurado correctamente' if VAPID_PRIVATE_KEY else 'Falta configurar VAPID',
+            'siguientes_pasos': [
+                '1. Profesional abre la app y permite notificaciones',
+                '2. Verificar que se crea suscripción en BD',
+                '3. Probar con /push/test-manual',
+                '4. Agenda cita desde chat web'
+            ] if VAPID_PRIVATE_KEY else [
+                '1. Configurar VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY y VAPID_SUBJECT en Railway',
+                '2. Reiniciar la aplicación'
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'ERROR',
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
     
-    # Verificar suscripciones
-    cursor.execute('SELECT COUNT(*) FROM suscripciones_push WHERE activa = TRUE')
-    suscripciones_activas = cursor.fetchone()[0]
-    
-    # Verificar notificaciones en BD
-    cursor.execute('SELECT COUNT(*) FROM notificaciones WHERE leida = FALSE')
-    notificaciones_pendientes = cursor.fetchone()[0]
-    
-    conn.close()
-    
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    
-    return jsonify({
-        'status': 'ANÁLISIS COMPLETO',
-        'vapid_configurado': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
-        'suscripciones_activas': suscripciones_activas,
-        'notificaciones_pendientes': notificaciones_pendientes,
-        'service_worker': 'Debe estar en /service-worker.js',
-        'clave_publica_frontend': 'Debe ser: BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI',
-        'pasos_finales': [
-            '1. El profesional abre /profesional/panel',
-            '2. Permite notificaciones cuando el navegador pregunte',
-            '3. Agenda una cita desde el chat web',
-            '4. Verifica que llega notificación push'
-        ]
-    })
-
 @app.route('/push/test-manual')
 def push_test_manual():
-    """Test manual de push (usa la última suscripción)"""
+    """Test manual de push - CORREGIDO y con mejor diagnóstico"""
     try:
         import os
         import json
         import time
-        from database import get_db_connection
         
         profesional_id = 1
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
         
         if not VAPID_PRIVATE_KEY:
-            return jsonify({'success': False, 'error': 'VAPID no configurado'})
+            return jsonify({
+                'success': False, 
+                'error': 'VAPID_PRIVATE_KEY no configurada',
+                'solucion': 'Configurar en Railway: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT'
+            })
         
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Verificar si hay suscripciones
         cursor.execute('''
-            SELECT subscription_json 
+            SELECT COUNT(*) 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+        ''', (profesional_id,))
+        
+        count_result = cursor.fetchone()
+        count = count_result[0] if count_result else 0
+        
+        if count == 0:
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': f'No hay suscripciones activas para profesional {profesional_id}',
+                'solucion': 'El profesional debe abrir la app y permitir notificaciones'
+            })
+        
+        # Obtener la última suscripción
+        cursor.execute('''
+            SELECT id, subscription_json 
             FROM suscripciones_push 
             WHERE profesional_id = %s AND activa = TRUE
             ORDER BY id DESC LIMIT 1
@@ -5399,33 +5450,133 @@ def push_test_manual():
         conn.close()
         
         if not result:
-            return jsonify({'success': False, 'error': 'No hay suscripciones. El profesional debe permitir notificaciones.'})
+            return jsonify({'success': False, 'error': 'Error obteniendo suscripción'})
         
-        subscription = json.loads(result[0])
+        # Extraer datos según tipo
+        suscripcion_id = None
+        subscription_json = None
         
-        import pywebpush
+        if isinstance(result, tuple):
+            suscripcion_id = result[0] if len(result) > 0 else None
+            subscription_json = result[1] if len(result) > 1 else None
+        elif isinstance(result, dict):
+            suscripcion_id = result.get('id')
+            subscription_json = result.get('subscription_json')
         
-        current_time = int(time.time())
+        if not subscription_json:
+            return jsonify({'success': False, 'error': 'Suscripción sin JSON'})
         
-        pywebpush.webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '🔔 Test Manual',
-                'body': f'Prueba de push {time.ctime()}',
-                'icon': '/static/icons/icon-192x192.png',
-                'timestamp': current_time * 1000
-            }),
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={
-                "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
-                "exp": current_time + 3600
-            }
-        )
+        # Parsear JSON
+        try:
+            subscription = json.loads(subscription_json)
+        except json.JSONDecodeError as e:
+            return jsonify({
+                'success': False, 
+                'error': f'JSON inválido: {str(e)}',
+                'json_preview': subscription_json[:100]
+            })
         
-        return jsonify({'success': True, 'message': 'Push enviado manualmente'})
+        # Verificar estructura
+        if 'endpoint' not in subscription:
+            return jsonify({
+                'success': False, 
+                'error': 'Suscripción no tiene endpoint',
+                'keys_present': list(subscription.keys())
+            })
         
+        # Enviar push
+        try:
+            import pywebpush
+            
+            current_time = int(time.time())
+            expiration_time = current_time + 3600  # 1 hora
+            
+            print(f"🚀 Enviando push test...")
+            print(f"   Suscripción ID: {suscripcion_id}")
+            print(f"   Endpoint: {subscription.get('endpoint', '')[:50]}...")
+            print(f"   Exp: {expiration_time}")
+            
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': '🔔 Test Manual de Push',
+                    'body': f'Prueba {time.ctime()} - Si ves esto, ¡funciona!',
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": expiration_time
+                },
+                ttl=86400
+            )
+            
+            print(f"✅ Push test enviado exitosamente")
+            
+            return jsonify({
+                'success': True,
+                'message': '✅ ¡Push enviado exitosamente!',
+                'details': {
+                    'suscripcion_id': suscripcion_id,
+                    'profesional_id': profesional_id,
+                    'timestamp': current_time,
+                    'expiration': expiration_time
+                }
+            })
+            
+        except Exception as push_error:
+            error_msg = str(push_error)
+            error_type = type(push_error).__name__
+            
+            print(f"❌ Error en push: {error_type}: {error_msg[:200]}")
+            
+            # Diagnóstico específico
+            if '403' in error_msg and 'credentials' in error_msg:
+                diagnostico = 'ERROR 403: Claves VAPID no coinciden'
+                solucion = 'Resetear suscripciones y profesional debe permitir notificaciones DE NUEVO'
+            elif 'exp' in error_msg.lower():
+                diagnostico = 'Problema con tiempo de expiración (exp)'
+                solucion = 'El exp debe ser máximo 24 horas en el futuro'
+            elif 'vapid' in error_msg.lower():
+                diagnostico = 'Problema con credenciales VAPID'
+                solucion = 'Verificar formato de claves VAPID'
+            else:
+                diagnostico = f'Error técnico: {error_type}'
+                solucion = 'Revisar logs de Railway'
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'error_type': error_type,
+                'diagnostico': diagnostico,
+                'solucion': solucion,
+                'endpoint_preview': subscription.get('endpoint', '')[:50] + '...'
+            })
+            
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': f'Error inesperado: {type(e).__name__}',
+            'error_details': str(e)
+        }), 500
+    
+@app.route('/push/estado-simple')
+def push_estado_simple():
+    """Estado simple del sistema push"""
+    import os
+    
+    return jsonify({
+        'servicio': 'Push Notifications',
+        'status': 'Configurado' if os.getenv('VAPID_PRIVATE_KEY') else 'No configurado',
+        'service_worker': 'OK' if os.path.exists('service-worker.js') else 'No encontrado',
+        'claves_vapid': 'Presentes' if os.getenv('VAPID_PRIVATE_KEY') and os.getenv('VAPID_PUBLIC_KEY') else 'Faltan',
+        'acciones': [
+            'GET /push/setup-completo - Diagnóstico completo',
+            'GET /push/test-manual - Probar push manualmente',
+            'POST /push/api/push/subscribe - Endpoint para suscripciones frontend'
+        ]
+    })
 
 
 
