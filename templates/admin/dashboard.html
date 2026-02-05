@@ -730,47 +730,48 @@
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
-                // Intenta crear la tabla
                 const response = await fetch('/admin/crear-tabla-imagenes', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                        // No necesitas csrf_token para JSON API
                     },
-                    body: JSON.stringify({})
+                    body: JSON.stringify({ accion: 'crear' })
                 });
                 
-                console.log('Status:', response.status);
+                console.log('Response Status:', response.status);
+                console.log('Response:', response);
                 
                 if (response.status === 403) {
-                    // Muestra mensaje claro de permiso
+                    // Muestra ayuda concreta
                     resultDiv.className = 'result-box result-error';
                     resultDiv.innerHTML = `
-                        <p><strong>❌ Error 403 - No autorizado</strong></p>
-                        <p>Tu usuario no tiene permisos de administrador.</p>
-                        <p>Contacta al superadmin o inicia sesión como administrador.</p>
+                        <p><strong>❌ Error 403 - Permisos insuficientes</strong></p>
+                        <p>Tu usuario no tiene permisos para crear tablas.</p>
+                        <p><strong>Solución:</strong></p>
+                        <ol>
+                            <li>Inicia sesión como <strong>superadmin</strong></li>
+                            <li>O ve a <a href="/debug/sesion" target="_blank">/debug/sesion</a> para ver tu tipo de usuario</li>
+                            <li>Contacta al administrador del sistema</li>
+                        </ol>
                     `;
                     return;
                 }
                 
-                if (!response.ok) {
-                    throw new Error(`Error HTTP ${response.status}`);
-                }
-                
                 const result = await response.json();
-                console.log('Resultado:', result);
                 
                 if (result.success) {
                     resultDiv.className = 'result-box result-success';
                     resultDiv.innerHTML = `
                         <p><strong>✅ ${result.message}</strong></p>
-                        <p>La tabla <strong>imagenes_profesionales</strong> ha sido creada.</p>
-                        <p>Ahora los profesionales pueden subir sus fotos de perfil.</p>
+                        <p>Los profesionales ahora pueden subir fotos desde su perfil.</p>
                     `;
                     
-                    // Actualiza el estado visual
-                    document.getElementById('tablaImagenesStatus').className = 'status-value status-online';
-                    document.getElementById('tablaImagenesStatus').textContent = '🟢 Configurada';
+                    // Actualiza visualmente
+                    const statusSpan = document.getElementById('tablaImagenesStatus');
+                    if (statusSpan) {
+                        statusSpan.className = 'status-value status-online';
+                        statusSpan.textContent = '🟢 Configurada';
+                    }
                     
                 } else {
                     resultDiv.className = 'result-box result-error';
@@ -778,12 +779,12 @@
                 }
                 
             } catch (error) {
-                console.error('Error completo:', error);
+                console.error('Error:', error);
                 resultDiv.className = 'result-box result-error';
                 resultDiv.innerHTML = `
-                    <p><strong>❌ Error de conexión</strong></p>
+                    <p><strong>❌ Error de sistema</strong></p>
                     <p>${error.message}</p>
-                    <p>Verifica tu conexión o contacta al administrador.</p>
+                    <p>Intenta recargar la página o contacta soporte.</p>
                 `;
             }
         }
@@ -1073,7 +1074,7 @@ LIMIT 10;`;
         
         // Verificar al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
-            verificarEstadoTablas();
+            
             
             // Atajos de teclado
             document.addEventListener('keydown', function(e) {
