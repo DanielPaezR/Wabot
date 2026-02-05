@@ -5325,34 +5325,46 @@ def subir_imagen_profesional():
 def subir_foto_profesional():
     """Subir foto de perfil - RUTA PARA EL PROFESIONAL"""
     try:
+        print(f"=== INICIANDO SUBIDA FOTO ===")
         profesional_id = session.get('profesional_id')
+        print(f"Profesional ID desde sesión: {profesional_id}")
+        
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
         
         if 'foto' not in request.files:
+            print("❌ No hay 'foto' en request.files")
+            print(f"Keys en request.files: {list(request.files.keys())}")
             return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
         
         file = request.files['foto']
+        print(f"Archivo recibido: {file.filename}")
+        
         if file.filename == '':
+            print("❌ Nombre de archivo vacío")
             return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
         
         # Obtener negocio_id
-        cur = get_db_connection().cursor()
+        cur = get_db().cursor()
         cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
         
         if not result:
+            print(f"❌ Profesional {profesional_id} no encontrado")
             return jsonify({'success': False, 'message': 'Profesional no encontrado'})
         
         negocio_id = result[0]
+        print(f"Negocio ID: {negocio_id}")
         cur.close()
         
         # Guardar foto
         url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, 'perfil')
         
         if error:
+            print(f"❌ Error en guardar_foto_profesional: {error}")
             return jsonify({'success': False, 'message': error})
         
+        print(f"✅ Foto subida exitosamente: {url_publica}")
         return jsonify({
             'success': True,
             'message': 'Foto subida exitosamente',
@@ -5361,7 +5373,9 @@ def subir_foto_profesional():
         })
         
     except Exception as e:
-        print(f"Error subiendo foto: {str(e)}")
+        print(f"❌ Error subiendo foto: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': 'Error al subir foto'}), 500
 
 @app.route('/profesional/foto-actual')
@@ -5413,43 +5427,72 @@ def obtener_foto_actual():
 def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
     """Guardar foto de profesional - FUNCIÓN CORRECTA"""
     try:
+        print(f"=== DEBUG SUBIDA FOTO ===")
+        print(f"Profesional ID: {profesional_id}")
+        print(f"Negocio ID: {negocio_id}")
+        print(f"Tipo: {tipo}")
+        print(f"Archivo recibido: {file.filename if file else 'None'}")
+        print(f"Tipo de archivo: {type(file)}")
+        
         # Validar archivo
         if not file or not file.filename:
+            print("❌ No se proporcionó archivo")
             return None, "No se proporcionó archivo"
         
         # Validar tipo
         ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-        if '.' not in file.filename or \
-           file.filename.rsplit('.', 1)[1].lower() not in ALLOWED_EXTENSIONS:
+        filename = file.filename.lower()
+        print(f"Nombre archivo: {filename}")
+        
+        if '.' not in filename:
+            print("❌ No tiene extensión")
             return None, "Tipo de archivo no permitido"
+        
+        ext = filename.rsplit('.', 1)[1]
+        print(f"Extensión: {ext}")
+        
+        if ext not in ALLOWED_EXTENSIONS:
+            print(f"❌ Extensión {ext} no permitida")
+            return None, "Tipo de archivo no permitido. Use PNG, JPG, JPEG o GIF"
         
         # Verificar tamaño (5MB máximo)
         file.seek(0, 2)  # Ir al final
         file_size = file.tell()
         file.seek(0)  # Volver al inicio
+        print(f"Tamaño archivo: {file_size} bytes")
         
         if file_size > 5 * 1024 * 1024:
+            print(f"❌ Archivo demasiado grande: {file_size} > {5 * 1024 * 1024}")
             return None, "Archivo demasiado grande (máx 5MB)"
         
         # Crear directorios
         timestamp = datetime.now().strftime('%Y/%m')
         upload_path = os.path.join('static', 'uploads', 'profesionales', timestamp)
+        print(f"Ruta destino: {upload_path}")
+        
         os.makedirs(upload_path, exist_ok=True)
+        print(f"✅ Directorio creado/existe")
         
         # Generar nombre único
+        from werkzeug.utils import secure_filename
         filename = secure_filename(file.filename)
         unique_name = f"{profesional_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
         filepath = os.path.join(upload_path, unique_name)
+        print(f"Ruta completa: {filepath}")
         
         # Guardar archivo
         file.save(filepath)
+        print(f"✅ Archivo guardado físicamente")
         
         # Generar URL pública
         url_publica = f"/{upload_path}/{unique_name}".replace('\\', '/')
+        print(f"URL pública: {url_publica}")
         
         # Guardar en base de datos
-        conn = get_db_connection()
+        conn = get_db()
         cur = conn.cursor()
+        
+        print(f"🔍 Conectado a DB")
         
         # 1. Desmarcar cualquier imagen principal existente
         cur.execute("""
@@ -5457,6 +5500,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
             SET es_principal = FALSE 
             WHERE profesional_id = %s AND tipo = 'perfil'
         """, (profesional_id,))
+        print(f"✅ Imágenes anteriores desmarcadas")
         
         # 2. Insertar nueva imagen
         cur.execute("""
@@ -5471,6 +5515,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
         ))
         
         imagen_id, url_publica = cur.fetchone()
+        print(f"✅ Imagen insertada en DB. ID: {imagen_id}")
         
         # 3. Actualizar referencia en tabla profesionales (si existe la columna)
         try:
@@ -5479,16 +5524,20 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
                 SET foto_url = %s 
                 WHERE id = %s
             """, (url_publica, profesional_id))
-        except:
-            pass  # Si no existe la columna, no pasa nada
+            print(f"✅ Referencia actualizada en tabla profesionales")
+        except Exception as e:
+            print(f"ℹ️ Columna foto_url no existe o error: {e}")
         
         conn.commit()
         cur.close()
+        print(f"=== SUBIDA EXITOSA ===")
         
         return url_publica, None
         
     except Exception as e:
-        print(f"Error guardando foto: {str(e)}")
+        print(f"❌ ERROR guardando foto: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None, f"Error al guardar: {str(e)}"
 
 @app.route('/api/imagenes/<int:imagen_id>/principal', methods=['PUT'])
