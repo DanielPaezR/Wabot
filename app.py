@@ -5066,6 +5066,44 @@ def test_push_debug(profesional_id):
             'error': f'Error inesperado: {type(e).__name__}',
             'error_details': str(e)
         }), 500
+    
+@app.route('/reset-subscriptions/<int:profesional_id>')
+def reset_subscriptions(profesional_id):
+    """Eliminar suscripciones antiguas y preparar para nuevas"""
+    from database import get_db_connection
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Ver suscripciones actuales
+        cursor.execute('''
+            SELECT id, created_at 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s
+        ''', (profesional_id,))
+        
+        suscripciones = cursor.fetchall()
+        
+        # 2. Eliminar todas
+        cursor.execute('DELETE FROM suscripciones_push WHERE profesional_id = %s', (profesional_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Eliminadas {len(suscripciones)} suscripciones antiguas',
+            'profesional_id': profesional_id,
+            'next_steps': [
+                '1. Recargar la app web',
+                '2. Permitir notificaciones cuando el navegador pregunte',
+                '3. Probar con /test-push-debug/1'
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 
