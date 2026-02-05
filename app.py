@@ -4775,6 +4775,10 @@ def unsubscribe_push():
 def manifest():
     return send_from_directory('static', 'manifest.json')
 
+@app.route('/service-worker.js')
+def serve_service_worker():
+    return send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
+
     
 
 
