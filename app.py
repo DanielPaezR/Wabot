@@ -5145,202 +5145,6 @@ def debug_service_worker():
     </html>
     ''' 
 
-@app.route('/debug/vapid-simple')
-def debug_vapid_simple():
-    """Diagnóstico simple de VAPID"""
-    import os
-    
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
-    
-    return jsonify({
-        'status': 'OK',
-        'vapid_configured': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
-        'private_key_length': len(VAPID_PRIVATE_KEY),
-        'public_key_length': len(VAPID_PUBLIC_KEY),
-        'subject': VAPID_SUBJECT,
-        'public_key_preview': VAPID_PUBLIC_KEY[:30] + '...' if VAPID_PUBLIC_KEY else 'No configurada'
-    })
-
-@app.route('/debug/subscriptions-simple/<int:profesional_id>')
-def debug_subscriptions_simple(profesional_id):
-    """Diagnóstico simple de suscripciones"""
-    from database import get_db_connection
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # PRIMERO: Ver estructura real de la tabla
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'suscripciones_push'
-            ORDER BY ordinal_position
-        """)
-        
-        columns = [row[0] for row in cursor.fetchall()]
-        print(f"📋 Columnas en suscripciones_push: {columns}")
-        
-        # SEGUNDO: Consulta simple y segura
-        cursor.execute("""
-            SELECT * FROM suscripciones_push 
-            WHERE profesional_id = %s
-            ORDER BY id DESC
-        """, (profesional_id,))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        # Procesar resultados
-        suscripciones = []
-        for row in rows:
-            # Convertir tupla a dict usando nombres de columnas
-            suscripcion = {}
-            for i, col_name in enumerate(columns):
-                if i < len(row):
-                    suscripcion[col_name] = row[i]
-            
-            suscripciones.append(suscripcion)
-        
-        return jsonify({
-            'status': 'OK',
-            'profesional_id': profesional_id,
-            'table_columns': columns,
-            'total_subscriptions': len(suscripciones),
-            'subscriptions': suscripciones
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'status': 'ERROR',
-            'error': str(e),
-            'error_type': type(e).__name__
-        }), 500
-
-@app.route('/debug/push-test/<int:profesional_id>')
-def debug_push_test(profesional_id):
-    """Probar push directamente con diagnóstico"""
-    import os
-    import json
-    import time
-    from database import get_db_connection
-    
-    try:
-        # 1. Verificar VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
-        
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({
-                'success': False,
-                'error': 'VAPID_PRIVATE_KEY no configurada',
-                'next_step': 'Configurar VAPID en variables de entorno'
-            }), 500
-        
-        # 2. Obtener suscripción
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Consulta explícita con columnas conocidas
-        cursor.execute("""
-            SELECT id, subscription_json, activa 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-            ORDER BY id DESC LIMIT 1
-        """, (profesional_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({
-                'success': False,
-                'error': f'No hay suscripciones activas para profesional {profesional_id}',
-                'next_step': 'El profesional debe suscribirse desde la app web'
-            }), 404
-        
-        subscription_id, subscription_json, activa = result
-        
-        if not subscription_json:
-            return jsonify({
-                'success': False, 
-                'error': 'Suscripción no tiene JSON',
-                'subscription_id': subscription_id
-            }), 500
-        
-        # 3. Parsear JSON
-        try:
-            subscription = json.loads(subscription_json)
-        except json.JSONDecodeError as e:
-            return jsonify({
-                'success': False,
-                'error': f'JSON inválido en suscripción: {str(e)}',
-                'json_preview': subscription_json[:100] + '...'
-            }), 500
-        
-        # 4. Verificar estructura
-        endpoint = subscription.get('endpoint', '')
-        keys = subscription.get('keys', {})
-        
-        if not endpoint:
-            return jsonify({
-                'success': False,
-                'error': 'Suscripción no tiene endpoint',
-                'subscription_structure': list(subscription.keys())
-            }), 500
-        
-        # 5. Intentar enviar push
-        try:
-            import pywebpush
-            
-            current_time = int(time.time())
-            expiration_time = current_time + (12 * 60 * 60)
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': '🔥 TEST PUSH',
-                    'body': f'Prueba directa - {time.ctime()}',
-                    'icon': '/static/icons/icon-192x192.png'
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": expiration_time
-                },
-                ttl=86400
-            )
-            
-            return jsonify({
-                'success': True,
-                'message': '¡Push enviado exitosamente!',
-                'details': {
-                    'profesional_id': profesional_id,
-                    'subscription_id': subscription_id,
-                    'endpoint': endpoint[:60] + '...',
-                    'expiration': expiration_time,
-                    'sent_at': current_time
-                }
-            })
-            
-        except Exception as push_error:
-            return jsonify({
-                'success': False,
-                'error': f'Error al enviar push: {type(push_error).__name__}',
-                'error_details': str(push_error),
-                'diagnosis': 'Posible problema con las claves VAPID o endpoint inválido',
-                'next_step': 'Verificar que las claves VAPID sean correctas'
-            }), 500
-            
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': f'Error inesperado: {type(e).__name__}',
-            'error_details': str(e)
-        }), 500
-
 @app.route('/test/push-now/<int:profesional_id>')
 def test_push_now(profesional_id):
     """Probar push inmediatamente"""
@@ -5409,6 +5213,92 @@ def test_push_now(profesional_id):
             'error': str(e),
             'error_type': type(e).__name__
         }), 500
+
+@app.route('/fix-corrupt-subscriptions')
+def fix_corrupt_subscriptions():
+    """Reparar suscripciones que tienen 'subscription_json' como valor en lugar de JSON"""
+    from database import get_db_connection
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Buscar suscripciones corruptas
+        cursor.execute('''
+            SELECT id, profesional_id, subscription_json
+            FROM suscripciones_push
+            WHERE subscription_json IS NOT NULL 
+            AND subscription_json::text IN ('"subscription_json"', 'subscription_json')
+        ''')
+        
+        corruptas = cursor.fetchall()
+        
+        if not corruptas:
+            return jsonify({'message': 'No hay suscripciones corruptas encontradas'})
+        
+        print(f"🔧 Encontradas {len(corruptas)} suscripciones corruptas")
+        
+        # 2. Eliminar las corruptas (o desactivarlas)
+        for susc_id, profesional_id, json_val in corruptas:
+            print(f"   ❌ Suscripción {susc_id} para profesional {profesional_id}: valor='{json_val}'")
+            
+            # Opción A: Eliminar
+            cursor.execute('DELETE FROM suscripciones_push WHERE id = %s', (susc_id,))
+            print(f"   🗑️ Eliminada suscripción {susc_id}")
+            
+            # Opción B: O desactivar
+            # cursor.execute('UPDATE suscripciones_push SET activa = FALSE WHERE id = %s', (susc_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'fixed_count': len(corruptas),
+            'message': f'Reparadas {len(corruptas)} suscripciones corruptas'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/check-subscriptions-real')
+def check_subscriptions_real():
+    """Verificar el estado REAL de las suscripciones"""
+    from database import get_db_connection
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Ver todas las suscripciones
+    cursor.execute('''
+        SELECT id, profesional_id, activa, 
+               LENGTH(subscription_json::text) as json_length,
+               LEFT(subscription_json::text, 100) as json_preview
+        FROM suscripciones_push
+        ORDER BY id DESC
+        LIMIT 20
+    ''')
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    suscripciones = []
+    for row in results:
+        susc_id, prof_id, activa, json_len, json_preview = row
+        suscripciones.append({
+            'id': susc_id,
+            'profesional_id': prof_id,
+            'activa': activa,
+            'json_length': json_len,
+            'json_preview': json_preview,
+            'is_corrupt': json_preview in ['"subscription_json"', 'subscription_json', '']
+        })
+    
+    return jsonify({
+        'total_checked': len(suscripciones),
+        'suscripciones': suscripciones,
+        'corrupt_count': len([s for s in suscripciones if s['is_corrupt']])
+    })
 
 
 
