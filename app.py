@@ -5053,66 +5053,7 @@ def actualizar_perfil():
         print(f"Error en actualizar_perfil: {str(e)}")
         return jsonify({'success': False, 'message': 'Error al actualizar'}), 500
 
-@app.route('/api/profesional/estadisticas-detalladas')
-@login_required
-def profesional_estadisticas_detalladas():
-    """API para obtener estadísticas detalladas del profesional"""
-    try:
-        profesional_id = session.get('profesional_id')
-        
-        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
-        # Estadísticas generales
-        cur.execute("""
-            SELECT 
-                COUNT(c.id) as total_citas,
-                COUNT(CASE WHEN c.estado = 'completado' THEN 1 END) as completadas,
-                COUNT(CASE WHEN c.estado = 'pendiente' THEN 1 END) as pendientes,
-                COUNT(CASE WHEN c.estado = 'cancelado' THEN 1 END) as canceladas,
-                COALESCE(SUM(c.precio), 0) as ingresos_totales,
-                COALESCE(AVG(c.precio), 0) as promedio_por_cita
-            FROM citas c
-            WHERE c.profesional_id = %s
-        """, (profesional_id,))
-        
-        estadisticas = cur.fetchone()
-        
-        # Calificaciones
-        cur.execute("""
-            SELECT 
-                COALESCE(AVG(puntuacion), 0) as calificacion_promedio,
-                COUNT(*) as total_calificaciones
-            FROM calificaciones_profesional
-            WHERE profesional_id = %s
-        """, (profesional_id,))
-        
-        calificaciones = cur.fetchone()
-        
-        # Servicios más solicitados
-        cur.execute("""
-            SELECT s.nombre, COUNT(c.id) as cantidad
-            FROM citas c
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = %s
-            GROUP BY s.nombre
-            ORDER BY cantidad DESC
-            LIMIT 5
-        """, (profesional_id,))
-        
-        servicios_populares = cur.fetchall()
-        
-        cur.close()
-        
-        return jsonify({
-            'success': True,
-            'estadisticas': estadisticas,
-            'calificaciones': calificaciones,
-            'servicios_populares': servicios_populares
-        })
-        
-    except Exception as e:
-        print(f"Error en estadisticas_detalladas: {str(e)}")
-        return jsonify({'success': False, 'message': 'Error al cargar estadísticas'}), 500
+
 
 # ==================== RUTA PARA OBTENER PROFESIONALES CON FOTOS ====================
 @app.route('/api/profesionales/<int:negocio_id>')
@@ -5338,7 +5279,7 @@ def obtener_imagenes_profesional(profesional_id):
 @app.route('/api/imagenes/subir', methods=['POST'])
 @login_required
 def subir_imagen_profesional():
-    """Subir imagen para profesional"""
+    """Subir imagen para profesional - RUTA API"""
     try:
         profesional_id = request.form.get('profesional_id')
         tipo = request.form.get('tipo', 'perfil')
@@ -5351,8 +5292,7 @@ def subir_imagen_profesional():
             return jsonify({'success': False, 'message': 'Nombre de archivo vacío'})
         
         # Obtener negocio_id del profesional
-        conn = get_db_connection()
-        cur = conn.cursor()
+        cur = get_db().cursor()
         cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
         
@@ -5362,8 +5302,8 @@ def subir_imagen_profesional():
         negocio_id = result[0]
         cur.close()
         
-        # Guardar imagen
-        url_publica, error = actualizar_foto_perfil_profesional(file, profesional_id, negocio_id, tipo)
+        # Guardar imagen usando la función CORRECTA
+        url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, tipo)
         
         if error:
             return jsonify({'success': False, 'message': error})
@@ -5378,6 +5318,177 @@ def subir_imagen_profesional():
     except Exception as e:
         print(f"Error subiendo imagen: {str(e)}")
         return jsonify({'success': False, 'message': 'Error al subir imagen'}), 500
+    
+@app.route('/profesional/subir-foto', methods=['POST'])
+@login_required
+def subir_foto_profesional():
+    """Subir foto de perfil - RUTA PARA EL PROFESIONAL"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
+        
+        # Obtener negocio_id
+        cur = get_db().cursor()
+        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
+        result = cur.fetchone()
+        
+        if not result:
+            return jsonify({'success': False, 'message': 'Profesional no encontrado'})
+        
+        negocio_id = result[0]
+        cur.close()
+        
+        # Guardar foto
+        url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, 'perfil')
+        
+        if error:
+            return jsonify({'success': False, 'message': error})
+        
+        return jsonify({
+            'success': True,
+            'message': 'Foto subida exitosamente',
+            'url': url_publica,
+            'profesional_id': profesional_id
+        })
+        
+    except Exception as e:
+        print(f"Error subiendo foto: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al subir foto'}), 500
+
+@app.route('/profesional/foto-actual')
+@login_required
+def obtener_foto_actual():
+    """Obtener la foto actual del profesional"""
+    try:
+        profesional_id = session.get('profesional_id')
+        
+        cur = get_db().cursor()
+        # Buscar la imagen principal más reciente
+        cur.execute("""
+            SELECT url_publica 
+            FROM imagenes_profesionales 
+            WHERE profesional_id = %s 
+            AND tipo = 'perfil' 
+            AND es_principal = TRUE
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (profesional_id,))
+        
+        result = cur.fetchone()
+        cur.close()
+        
+        if result and result[0]:
+            return jsonify({
+                'success': True,
+                'url': result[0],
+                'tiene_foto': True
+            })
+        else:
+            # Si no tiene foto, usar default
+            return jsonify({
+                'success': True,
+                'url': '/static/default-avatar.png',
+                'tiene_foto': False
+            })
+        
+    except Exception as e:
+        print(f"Error obteniendo foto: {str(e)}")
+        # En caso de error, devolver default
+        return jsonify({
+            'success': True,
+            'url': '/static/default-avatar.png',
+            'tiene_foto': False,
+            'message': 'Usando imagen por defecto'
+        })
+    
+def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
+    """Guardar foto de profesional - FUNCIÓN CORRECTA"""
+    try:
+        # Validar archivo
+        if not file or not file.filename:
+            return None, "No se proporcionó archivo"
+        
+        # Validar tipo
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+        if '.' not in file.filename or \
+           file.filename.rsplit('.', 1)[1].lower() not in ALLOWED_EXTENSIONS:
+            return None, "Tipo de archivo no permitido"
+        
+        # Verificar tamaño (5MB máximo)
+        file.seek(0, 2)  # Ir al final
+        file_size = file.tell()
+        file.seek(0)  # Volver al inicio
+        
+        if file_size > 5 * 1024 * 1024:
+            return None, "Archivo demasiado grande (máx 5MB)"
+        
+        # Crear directorios
+        timestamp = datetime.now().strftime('%Y/%m')
+        upload_path = os.path.join('static', 'uploads', 'profesionales', timestamp)
+        os.makedirs(upload_path, exist_ok=True)
+        
+        # Generar nombre único
+        filename = secure_filename(file.filename)
+        unique_name = f"{profesional_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
+        filepath = os.path.join(upload_path, unique_name)
+        
+        # Guardar archivo
+        file.save(filepath)
+        
+        # Generar URL pública
+        url_publica = f"/{upload_path}/{unique_name}".replace('\\', '/')
+        
+        # Guardar en base de datos
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # 1. Desmarcar cualquier imagen principal existente
+        cur.execute("""
+            UPDATE imagenes_profesionales 
+            SET es_principal = FALSE 
+            WHERE profesional_id = %s AND tipo = 'perfil'
+        """, (profesional_id,))
+        
+        # 2. Insertar nueva imagen
+        cur.execute("""
+            INSERT INTO imagenes_profesionales 
+            (profesional_id, negocio_id, tipo, nombre_archivo, ruta_archivo, 
+             url_publica, mime_type, tamaño_bytes, es_principal)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+            RETURNING id, url_publica
+        """, (
+            profesional_id, negocio_id, tipo, filename, filepath,
+            url_publica, file.mimetype, file_size
+        ))
+        
+        imagen_id, url_publica = cur.fetchone()
+        
+        # 3. Actualizar referencia en tabla profesionales (si existe la columna)
+        try:
+            cur.execute("""
+                UPDATE profesionales 
+                SET foto_url = %s 
+                WHERE id = %s
+            """, (url_publica, profesional_id))
+        except:
+            pass  # Si no existe la columna, no pasa nada
+        
+        conn.commit()
+        cur.close()
+        
+        return url_publica, None
+        
+    except Exception as e:
+        print(f"Error guardando foto: {str(e)}")
+        return None, f"Error al guardar: {str(e)}"
 
 @app.route('/api/imagenes/<int:imagen_id>/principal', methods=['PUT'])
 @login_required
