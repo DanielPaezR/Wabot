@@ -5068,6 +5068,82 @@ def verify_key_tool():
     </body>
     </html>
     '''
+
+@app.route('/debug-service-worker')
+def debug_service_worker():
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Debug Service Worker</title>
+    </head>
+    <body>
+        <h1>🔧 Debug Service Worker</h1>
+        <button onclick="testServiceWorker()">Probar Service Worker</button>
+        <div id="result" style="margin-top: 20px;"></div>
+        
+        <script>
+        async function testServiceWorker() {
+            const result = document.getElementById('result');
+            result.innerHTML = 'Probando...';
+            
+            try {
+                // 1. Registrar service worker
+                const registration = await navigator.serviceWorker.register('/static/service-worker.js');
+                result.innerHTML += '<p>✅ Service Worker registrado: ' + registration.scope + '</p>';
+                
+                // 2. Esperar a que esté activo
+                await navigator.serviceWorker.ready;
+                result.innerHTML += '<p>✅ Service Worker listo</p>';
+                
+                // 3. Verificar suscripción actual
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    result.innerHTML += '<p>✅ Ya estás suscrito</p>';
+                    console.log('Suscripción:', subscription);
+                } else {
+                    result.innerHTML += '<p>⚠️ No hay suscripción activa</p>';
+                }
+                
+                // 4. Obtener clave pública
+                const keyResponse = await fetch('/api/push/public-key');
+                const keyData = await keyResponse.json();
+                result.innerHTML += '<p>✅ Clave pública obtenida</p>';
+                
+                // 5. Intentar suscribirse
+                result.innerHTML += '<p>Intentando suscribirse...</p>';
+                const newSubscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+                });
+                
+                result.innerHTML += '<p style="color: green;">✅ ¡Suscripción exitosa!</p>';
+                console.log('Nueva suscripción:', newSubscription);
+                
+            } catch (error) {
+                result.innerHTML += '<p style="color: red;">❌ Error: ' + error.message + '</p>';
+                console.error('Error:', error);
+            }
+        }
+        
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')
+                .replace(/_/g, '/');
+            
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+        </script>
+    </body>
+    </html>
+    '''
     
 
 
