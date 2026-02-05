@@ -182,6 +182,7 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         opciones_extra = None
         if paso_actual == 'seleccionando_profesional':
             opciones_extra = generar_opciones_profesionales(numero, negocio_id)
+            print(f"📋 [CHAT WEB] Opciones de profesionales generadas: {opciones_extra}")  # ← AÑADIR ESTA LÍNEA
         elif paso_actual == 'seleccionando_servicio':
             opciones_extra = generar_opciones_servicios(numero, negocio_id)
         elif paso_actual == 'seleccionando_fecha':
@@ -308,20 +309,49 @@ def generar_opciones_menu_principal():
     return opciones
 
 def generar_opciones_profesionales(numero, negocio_id):
-    """Generar opciones de profesionales para botones del chat web"""
+    """Generar opciones de profesionales para botones del chat web - CON FOTOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'profesionales' not in conversaciones_activas[clave_conversacion]:
+        print(f"❌ [WEB CHAT] No hay profesionales en conversación para {clave_conversacion}")
         return None
     
     profesionales = conversaciones_activas[clave_conversacion]['profesionales']
     opciones = []
     
+    print(f"🔍 [WEB CHAT] Generando opciones para {len(profesionales)} profesionales")
+    
     for i, prof in enumerate(profesionales, 1):
-        opciones.append({
-            'value': str(i),
-            'text': f"{prof['nombre']} - {prof['especialidad']}"
-        })
+        # Crear objeto con TODOS los datos necesarios para el template
+        opcion = {
+            'value': str(i),  # Valor para la lógica interna
+            'text': f"{prof['nombre']} - {prof.get('especialidad', 'General')}",  # Texto para opciones simples
+            'name': prof['nombre'],  # Nombre completo
+            'specialty': prof.get('especialidad', 'General'),  # Especialidad
+            'rating': 0,  # Rating por defecto (puedes cambiarlo si tienes calificaciones)
+            'type': 'professional'  # Tipo para que el template detecte que son profesionales con fotos
+        }
+        
+        # Añadir imagen si existe
+        if 'foto_url' in prof and prof['foto_url']:
+            foto_url = prof['foto_url']
+            print(f"📸 [WEB CHAT] Profesional {prof['nombre']} tiene foto: {foto_url}")
+            
+            # Asegurar que la URL sea correcta
+            if foto_url and not foto_url.startswith('http'):
+                if not foto_url.startswith('/'):
+                    foto_url = '/' + foto_url
+                # Si es una ruta relativa a static/uploads, asegurarla
+                if 'static/uploads' in foto_url and not foto_url.startswith('/static'):
+                    foto_url = '/' + foto_url.lstrip('/')
+            
+            opcion['image'] = foto_url
+        else:
+            print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} NO tiene foto_url")
+        
+        opciones.append(opcion)
+        
+        print(f"👤 [WEB CHAT] Opción {i}: {prof['nombre']} - Imagen: {'✅' if 'image' in opcion else '❌'}")
     
     return opciones
 
@@ -692,7 +722,14 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
 def mostrar_profesionales(numero, negocio_id):
     """Mostrar lista de profesionales disponibles - USANDO PLANTILLA"""
     try:
+        # Obtener profesionales CON fotos
         profesionales = db.obtener_profesionales(negocio_id)
+        
+        print(f"🔍 [WEB CHAT] Obtenidos {len(profesionales)} profesionales")
+        
+        # Verificar si se obtuvieron las fotos
+        for i, prof in enumerate(profesionales):
+            print(f"👤 {i+1}. {prof.get('nombre', 'Sin nombre')} - Foto URL: {prof.get('foto_url', 'No tiene')}")
         
         # Filtrar solo profesionales activos
         profesionales_activos = []
@@ -710,16 +747,14 @@ def mostrar_profesionales(numero, negocio_id):
         if clave_conversacion not in conversaciones_activas:
             conversaciones_activas[clave_conversacion] = {}
         
+        # Guardar profesionales CON sus fotos
         conversaciones_activas[clave_conversacion].update({
             'estado': 'seleccionando_profesional',
-            'profesionales': profesionales,
+            'profesionales': profesionales,  # ← Esto ya incluye foto_url si db.obtener_profesionales la trae
             'timestamp': datetime.now(tz_colombia)
         })
         
-        print(f"✅ [DEBUG] Datos preservados en mostrar_profesionales:")
-        for key, value in conversaciones_activas[clave_conversacion].items():
-            if key not in ['estado', 'profesionales', 'timestamp']:
-                print(f"   - {key}: {value}")
+        print(f"✅ [WEB CHAT] {len(profesionales)} profesionales almacenados con datos completos")
         
         # ✅ USAR PLANTILLA PARA LISTA DE PROFESIONALES
         return renderizar_plantilla('lista_profesionales', negocio_id)

@@ -1229,18 +1229,45 @@ def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, acti
 # GESTIÓN DE PROFESIONALES Y SERVICIOS
 # =============================================================================
 
-def obtener_profesionales(negocio_id=1):
-    """Obtener lista de todos los profesionales activos"""
-    conn = get_db_connection()
-    sql = '''
-        SELECT id, nombre, especialidad, pin, telefono, activo
-        FROM profesionales 
-        WHERE negocio_id = ? AND activo = TRUE
-        ORDER BY nombre
-    '''
-    profesionales = fetch_all(conn.cursor(), sql, (negocio_id,))
-    conn.close()
-    return profesionales
+def obtener_profesionales(negocio_id):
+    """Obtener profesionales de un negocio - INCLUYENDO FOTOS"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # ✅ IMPORTANTE: Incluir foto_url en la consulta
+        cur.execute("""
+            SELECT 
+                id, 
+                nombre, 
+                telefono,
+                especialidad, 
+                foto_url,  # ← ESTA COLUMNA ES CRÍTICA
+                pin,
+                usuario_id,
+                activo,
+                created_at,
+                negocio_id
+            FROM profesionales 
+            WHERE negocio_id = %s
+            ORDER BY nombre
+        """, (negocio_id,))
+        
+        resultados = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        print(f"📊 [DB] Obtenidos {len(resultados)} profesionales para negocio {negocio_id}")
+        
+        # Verificar que tenemos las fotos
+        for prof in resultados:
+            print(f"  👤 {prof['nombre']} - Foto: {'✅' if prof['foto_url'] else '❌'}")
+        
+        return resultados
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo profesionales: {str(e)}")
+        return []
 
 
 def obtener_servicios(negocio_id):
