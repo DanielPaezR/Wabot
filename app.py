@@ -5009,7 +5009,7 @@ def profesional_perfil():
         profesional = cur.fetchone()
         cur.close()
         
-        return render_template('profesional_perfil.html',
+        return render_template('profesional/profesional_perfil.html',
                              profesional=profesional,
                              csrf_token=session.get('csrf_token'))
         
