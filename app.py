@@ -5193,6 +5193,26 @@ def debug_suscripciones_db():
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
+    
+@app.route('/test-push-direct/<int:profesional_id>')
+def test_push_direct(profesional_id):
+    """Probar push directamente"""
+    try:
+        from app import enviar_notificacion_push_profesional
+        
+        resultado = enviar_notificacion_push_profesional(
+            profesional_id=profesional_id,
+            titulo="🔔 Test Directo",
+            mensaje="Esta es una prueba DIRECTA de push",
+            cita_id=999
+        )
+        
+        return jsonify({
+            'success': resultado,
+            'message': 'Push enviado directamente'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 

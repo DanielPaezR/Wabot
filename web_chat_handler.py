@@ -30,132 +30,52 @@ conversaciones_activas = {}
 # =============================================================================
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
-    """Versión local de la función push para evitar problemas de import"""
+    """Versión ULTRA SIMPLE que siempre guarda en BD y luego intenta push"""
     try:
         print(f"🔥 [PUSH-FINAL-LOCAL] Para profesional {profesional_id}")
         
-        # Importar lo necesario
-        import json
-        import os
+        # 1. SIEMPRE guardar en BD primero
+        guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
+        print(f"✅ Notificación guardada en BD")
         
-        # Obtener variables de entorno
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
-        
-        print(f"🔑 [DEBUG-PUSH] Clave pública: {VAPID_PUBLIC_KEY[:30] if VAPID_PUBLIC_KEY else 'NO HAY'}...")
-        print(f"🔑 [DEBUG-PUSH] Tiene clave privada: {bool(VAPID_PRIVATE_KEY)}")
-        print(f"🔑 [DEBUG-PUSH] Longitud privada: {len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0}")
-        
-        if not VAPID_PRIVATE_KEY:
-            print("⚠️ No hay clave privada VAPID en variables de entorno")
-            # Guardar notificación en BD aunque no haya push
-            return guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        
-        # Obtener suscripciones
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # ✅ CORRECCIÓN: Obtener SUSCRIPCIONES con estructura específica
-        cursor.execute('''
-            SELECT id, subscription_json 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-            ORDER BY id DESC
-        ''', (profesional_id,))
-        
-        suscripciones = cursor.fetchall()
-        conn.close()
-        
-        print(f"🔑 [DEBUG-PUSH] Número de suscripciones: {len(suscripciones)}")
-        
-        if not suscripciones:
-            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones activas")
-            # Guardar notificación en BD aunque no haya suscripciones
-            return guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        
-        # ✅ DEBUG DETALLADO: Ver estructura real
-        for i, susc in enumerate(suscripciones):
-            print(f"🔑 [DEBUG-PUSH] Suscripción {i}:")
-            print(f"   Tipo: {type(susc)}")
-            print(f"   Longitud: {len(susc) if hasattr(susc, '__len__') else 'N/A'}")
+        # 2. Intentar push como TAREA EN SEGUNDO PLANO (no bloquear)
+        try:
+            # Importar para ejecutar en segundo plano
+            import threading
             
-            # Acceder según el tipo de dato
-            if isinstance(susc, tuple):
-                print(f"   ID: {susc[0] if len(susc) > 0 else 'N/A'}")
-                print(f"   JSON: {susc[1][:100] if len(susc) > 1 and susc[1] else 'VACÍA'}...")
-            elif isinstance(susc, dict):
-                print(f"   ID: {susc.get('id', 'N/A')}")
-                print(f"   JSON: {susc.get('subscription_json', '')[:100] if susc.get('subscription_json') else 'VACÍA'}...")
-            else:
-                print(f"   Valor crudo: {str(susc)[:100]}...")
-        
-        # 1. Guardar notificación en BD (SIEMPRE)
-        resultado_bd = guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        
-        # 2. Intentar push con la primera suscripción válida
-        for i, susc in enumerate(suscripciones):
-            try:
-                subscription_json = None
-                
-                # Extraer el JSON según la estructura
-                if isinstance(susc, tuple) and len(susc) > 1:
-                    subscription_json = susc[1]
-                elif isinstance(susc, dict):
-                    subscription_json = susc.get('subscription_json')
-                
-                if not subscription_json:
-                    print(f"⚠️ Suscripción {i} no tiene JSON, intentando siguiente...")
-                    continue
-                
-                # Intentar parsear el JSON
+            def intentar_push_en_segundo_plano():
                 try:
-                    subscription = json.loads(subscription_json)
-                    print(f"✅ Suscripción {i} JSON parseado correctamente")
-                    
-                    # Intentar enviar push
-                    import pywebpush
-                    pywebpush.webpush(
-                        subscription_info=subscription,
-                        data=json.dumps({
-                            'title': titulo,
-                            'body': mensaje,
-                            'icon': '/static/icons/icon-192x192.png'
-                        }),
-                        vapid_private_key=VAPID_PRIVATE_KEY,
-                        vapid_claims={
-                            "sub": VAPID_SUBJECT,
-                            "exp": int(time.time()) + (12 * 60 * 60) 
-                        }
+                    from app import enviar_notificacion_push_profesional
+                    resultado = enviar_notificacion_push_profesional(
+                        profesional_id=profesional_id,
+                        titulo=titulo,
+                        mensaje=mensaje,
+                        cita_id=cita_id
                     )
-                    print(f"🔥 ¡PUSH ENVIADO CON ÉXITO usando suscripción {i}!")
-                    return True
-                    
-                except json.JSONDecodeError as e:
-                    print(f"❌ Suscripción {i} tiene JSON inválido: {e}")
-                    continue
-                except Exception as e:
-                    print(f"⚠️ Error enviando push con suscripción {i}: {type(e).__name__}: {str(e)}")
-                    continue
-                    
-            except Exception as e:
-                print(f"⚠️ Error procesando suscripción {i}: {e}")
-                continue
+                    print(f"🎯 [PUSH-BACKGROUND] Resultado: {'✅ ÉXITO' if resultado else '❌ FALLÓ'}")
+                except Exception as bg_error:
+                    print(f"⚠️ [PUSH-BACKGROUND] Error: {bg_error}")
+            
+            # Ejecutar en hilo separado
+            thread = threading.Thread(target=intentar_push_en_segundo_plano)
+            thread.daemon = True
+            thread.start()
+            print(f"🔁 Push iniciado en segundo plano")
+            
+        except Exception as bg_error:
+            print(f"⚠️ No se pudo iniciar push en segundo plano: {bg_error}")
         
-        print(f"⚠️ No se pudo enviar push con ninguna suscripción, pero notificación en BD: OK")
-        return True  # Devolver True porque la notificación se guardó en BD
+        # 3. Siempre devolver True (la notificación YA está en BD)
+        return True
         
     except Exception as e:
-        print(f"❌ Error crítico en push local: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error crítico: {e}")
         # Aún así intentar guardar en BD
         try:
             guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         except:
             pass
-        return True  # Siempre devolver True para no interrumpir el flujo
+        return True
 
 def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
     """Función auxiliar solo para guardar notificación en BD"""
