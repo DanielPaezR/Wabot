@@ -4982,26 +4982,24 @@ def check_subscriptions_table():
 @app.route('/profesional/perfil')
 @login_required
 def profesional_perfil():
-    """Página de perfil del profesional - SOLO INFO PERSONAL"""
+    """Página de perfil - CON TU ESTRUCTURA REAL"""
     try:
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             return redirect(url_for('login'))
         
-        # Obtener SOLO datos del profesional
+        # USANDO TUS COLUMNAS REALES
         cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("""
             SELECT 
                 p.id,
                 p.nombre,
-                p.email,
                 p.telefono,
                 p.especialidad,
-                p.descripcion,
-                p.calificacion_promedio,
-                p.total_calificaciones,
-                p.foto_url,
+                p.pin,
+                p.usuario_id,
                 p.activo,
+                p.created_at,
                 n.nombre as negocio_nombre
             FROM profesionales p
             LEFT JOIN negocios n ON p.negocio_id = n.id
@@ -5011,28 +5009,8 @@ def profesional_perfil():
         profesional = cur.fetchone()
         cur.close()
         
-        # Obtener calificaciones recientes (si existen)
-        calificaciones = []
-        try:
-            cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            cur.execute("""
-                SELECT cp.puntuacion, cp.comentario, cp.created_at,
-                       cl.nombre as cliente_nombre
-                FROM calificaciones_profesional cp
-                LEFT JOIN clientes cl ON cp.cliente_id = cl.id
-                WHERE cp.profesional_id = %s
-                ORDER BY cp.created_at DESC
-                LIMIT 5
-            """, (profesional_id,))
-            calificaciones = cur.fetchall()
-            cur.close()
-        except:
-            # Si no existe la tabla de calificaciones, no pasa nada
-            calificaciones = []
-        
-        return render_template('profesional_perfil.html',
+        return render_template('profesional_perfil_real.html',  # Nueva plantilla
                              profesional=profesional,
-                             calificaciones=calificaciones,
                              csrf_token=session.get('csrf_token'))
         
     except Exception as e:
@@ -5042,7 +5020,7 @@ def profesional_perfil():
 @app.route('/profesional/perfil/actualizar', methods=['POST'])
 @login_required
 def actualizar_perfil():
-    """Actualizar SOLO datos personales del profesional"""
+    """Actualizar perfil - SOLO campos que TIENES"""
     try:
         profesional_id = session.get('profesional_id')
         if not profesional_id:
@@ -5052,61 +5030,27 @@ def actualizar_perfil():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # SOLO campos personales editables
-        campos_permitidos = ['nombre', 'email', 'telefono', 'especialidad', 'descripcion']
+        # SOLO campos que EXISTEN en tu tabla
+        campos_permitidos = ['nombre', 'telefono', 'especialidad']
         update_fields = []
         values = []
         
         for campo in campos_permitidos:
-            if campo in data and data[campo] is not None:
+            if campo in data:
                 update_fields.append(f"{campo} = %s")
                 values.append(data[campo].strip())
         
-        # Manejar subida de foto (si implementaste)
-        foto_url = None
-        if 'foto' in request.files:
-            file = request.files['foto']
-            if file and file.filename:
-                # Aquí va tu código para guardar la imagen
-                # Que ya deberías tener implementado
-                pass
-        
         if update_fields:
-            update_fields.append("updated_at = CURRENT_TIMESTAMP")
             values.append(profesional_id)
-            
-            query = f"""
-                UPDATE profesionales 
-                SET {', '.join(update_fields)}
-                WHERE id = %s
-                RETURNING nombre, email, telefono, especialidad, descripcion
-            """
-            
+            query = f"UPDATE profesionales SET {', '.join(update_fields)} WHERE id = %s"
             cur.execute(query, values)
             conn.commit()
-            
-            profesional_actualizado = cur.fetchone()
-            cur.close()
-            
-            return jsonify({
-                'success': True,
-                'message': 'Perfil actualizado correctamente',
-                'data': {
-                    'nombre': profesional_actualizado[0],
-                    'email': profesional_actualizado[1],
-                    'telefono': profesional_actualizado[2],
-                    'especialidad': profesional_actualizado[3],
-                    'descripcion': profesional_actualizado[4]
-                }
-            })
         
         cur.close()
-        return jsonify({'success': True, 'message': 'Sin cambios'})
+        return jsonify({'success': True, 'message': 'Perfil actualizado'})
         
     except Exception as e:
         print(f"Error en actualizar_perfil: {str(e)}")
-        if 'conn' in locals():
-            conn.rollback()
         return jsonify({'success': False, 'message': 'Error al actualizar'}), 500
 
 @app.route('/api/profesional/estadisticas-detalladas')
