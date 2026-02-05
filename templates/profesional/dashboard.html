@@ -1509,7 +1509,8 @@
     }
     </style>
 </head>
-<body>
+<!-- CAMBIO CRÍTICO: Agregar data-profesional-id al body -->
+<body data-profesional-id="{{ session.profesional_id }}">
     <!-- Notificación flotante -->
     <div id="notification" class="notification">
         ✅ Cita marcada como completada
@@ -1656,13 +1657,14 @@
     </div>
     
     <div class="container">
-        <!-- SECCIÓN MODIFICADA CON BOTÓN DE NOTIFICACIONES PUSH -->
+        <!-- SECCIÓN MODIFICADA: Botón sin onclick, será manejado por push-notifications.js -->
         <div class="section-title">
             <h2>📅 Mis Citas de Hoy</h2>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <input type="date" class="date-selector" value="{{ fecha }}" 
                        onchange="cambiarFecha(this.value)">
-                <button onclick="activarNotificaciones()" class="btn-push-notifications" id="pushButton">
+                <!-- Botón modificado: sin onclick -->
+                <button class="btn-push-notifications" id="pushButton">
                     🔔 Activar Notificaciones Push
                 </button>
             </div>
@@ -1768,168 +1770,10 @@
         
     </div>
 
+    <!-- ==================== IMPORTANTE: Cargar push-notifications.js ==================== -->
+    <script src="{{ url_for('static', filename='js/push-notifications.js') }}"></script>
+
     <script>
-        // ==================== FUNCIÓN PARA ACTIVAR NOTIFICACIONES PUSH ====================
-        async function activarNotificaciones() {
-            const button = document.getElementById('pushButton');
-            const originalText = button.innerHTML;
-            
-            try {
-                // Verificar compatibilidad
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    mostrarNotificacion('❌ Tu navegador no soporta notificaciones push', 'error');
-                    return;
-                }
-                
-                // Cambiar estado del botón
-                button.disabled = true;
-                button.innerHTML = '⏳ Procesando...';
-                
-                // Solicitar permiso
-                const permission = await Notification.requestPermission();
-                if (permission !== 'granted') {
-                    mostrarNotificacion('❌ Debes permitir las notificaciones', 'error');
-                    button.disabled = false;
-                    button.innerHTML = originalText;
-                    return;
-                }
-                
-                // Registrar service worker
-                const sw = await navigator.serviceWorker.register('/static/service-worker.js');
-                console.log('✅ Service Worker registrado');
-                
-                // Obtener clave pública
-                const response = await fetch('/api/push/public-key');
-                const data = await response.json();
-                
-                if (!data.publicKey) {
-                    throw new Error('No se pudo obtener la clave pública');
-                }
-                
-                const publicKey = data.publicKey;
-                
-                // Suscribir
-                const subscription = await sw.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(publicKey)
-                });
-                
-                // Enviar al servidor
-                const saveResponse = await fetch('/api/push/subscribe', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        subscription: subscription
-                        // El profesional_id se obtiene automáticamente de la sesión en el backend
-                    })
-                });
-                
-                const result = await saveResponse.json();
-                if (result.success) {
-                    mostrarNotificacion('✅ Notificaciones activadas. Recibirás alertas de nuevas citas.');
-                    button.innerHTML = '🔔 Notificaciones Activadas';
-                    button.disabled = true; // Deshabilitar porque ya está activado
-                } else {
-                    mostrarNotificacion('❌ Error: ' + (result.error || 'No se pudo activar'), 'error');
-                    button.disabled = false;
-                    button.innerHTML = originalText;
-                }
-                
-            } catch (error) {
-                console.error('❌ Error activando notificaciones:', error);
-                mostrarNotificacion('❌ Error al activar notificaciones: ' + error.message, 'error');
-                button.disabled = false;
-                button.innerHTML = originalText;
-            }
-        }
-
-        function urlBase64ToUint8Array(base64String) {
-            console.log('🔧 Convertiendo clave VAPID base64 a Uint8Array...');
-            console.log('Longitud entrada:', base64String.length);
-            
-            // SOLUCIÓN SIMPLE: Usar una librería base64 robusta
-            try {
-                // 1. Primero asegurar que es base64 URL-safe
-                // Reemplazar - por + y _ por /
-                let base64 = base64String.replace(/-/g, '+').replace(/_/g, '/');
-                
-                // 2. Añadir padding si es necesario
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                
-                // 3. Decodificar
-                const rawData = atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-                
-                for (let i = 0; i < rawData.length; ++i) {
-                    outputArray[i] = rawData.charCodeAt(i);
-                }
-                
-                console.log('✅ Conversión exitosa. Longitud resultado:', outputArray.length);
-                console.log('Primeros bytes:', Array.from(outputArray.slice(0, 5)));
-                
-                return outputArray;
-                
-            } catch (error) {
-                console.error('❌ Error en conversión base64:', error);
-                
-                // FALLBACK: Usar método alternativo
-                try {
-                    // Método alternativo usando TextEncoder
-                    const encoder = new TextEncoder();
-                    const binaryString = atob(base64String);
-                    const bytes = new Uint8Array(binaryString.length);
-                    for (let i = 0; i < binaryString.length; i++) {
-                        bytes[i] = binaryString.charCodeAt(i);
-                    }
-                    return bytes;
-                } catch (fallbackError) {
-                    console.error('❌ Error en fallback también:', fallbackError);
-                    throw new Error('No se pudo decodificar la clave VAPID');
-                }
-            }
-        }
-
-        function convertVapidKey(base64String) {
-            // Base64 URL-safe a Base64 estándar
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding)
-                .replace(/\-/g, '+')  // - → +
-                .replace(/_/g, '/');  // _ → /
-            
-            const rawData = atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
-            }
-            return outputArray;
-        }
-
-        // ==================== FUNCIÓN PARA VERIFICAR SUSCRIPCIÓN EXISTENTE ====================
-        async function verificarSuscripcionPush() {
-            try {
-                const button = document.getElementById('pushButton');
-                
-                // Verificar si ya está suscrito
-                if ('serviceWorker' in navigator) {
-                    const sw = await navigator.serviceWorker.ready;
-                    const subscription = await sw.pushManager.getSubscription();
-                    
-                    if (subscription) {
-                        button.innerHTML = '🔔 Notificaciones Activadas';
-                        button.disabled = true; // Deshabilitar porque ya está activado
-                        return true;
-                    }
-                }
-                return false;
-            } catch (error) {
-                console.log('ℹ️ No hay suscripción push activa');
-                return false;
-            }
-        }
-
         // ==================== FUNCIÓN PARA MOSTRAR NOTIFICACIONES MEJORADA ====================
         function mostrarNotificacion(mensaje = '✅ Cita marcada como completada', tipo = 'success') {
             const notification = document.getElementById('notification');
@@ -1966,44 +1810,6 @@
         }
 
         // ==================== FUNCIÓN PARA COMPLETAR CITAS ====================
-        async function completarCita(event, citaId) {
-            event.preventDefault(); // Prevenir envío inmediato del formulario
-            
-            const boton = event.target;
-            const formulario = boton.closest('.completar-cita-form');
-            
-            // Deshabilitar botón inmediatamente para evitar doble clic
-            boton.disabled = true;
-            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-            boton.style.opacity = '0.7';
-            boton.style.cursor = 'not-allowed';
-            
-            try {
-                // Mostrar notificación inmediata
-                mostrarNotificacion();
-                
-                // Esperar un momento para que el usuario vea la notificación
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Enviar el formulario
-                formulario.submit();
-                
-            } catch (error) {
-                console.error('Error completando cita:', error);
-                boton.innerHTML = '❌ Error';
-                boton.style.background = 'var(--danger)';
-                
-                // Rehabilitar después de 3 segundos si hay error
-                setTimeout(() => {
-                    boton.disabled = false;
-                    boton.innerHTML = '✅ Completar';
-                    boton.style.opacity = '1';
-                    boton.style.cursor = 'pointer';
-                    boton.style.background = '';
-                }, 3000);
-            }
-        }
-
         function manejarCompletarCita(event, boton) {
             event.preventDefault();
             
@@ -2184,7 +1990,7 @@
                 if (data.success) {
                     // Recargar notificaciones
                     loadNotifications();
-                    showNotification('✅ Todas las notificaciones marcadas como leídas');
+                    mostrarNotificacion('✅ Todas las notificaciones marcadas como leídas');
                 }
             } catch (error) {
                 console.error('Error marcando todas como leídas:', error);
@@ -2392,7 +2198,7 @@
                     showModalAlert('✅ Contraseña cambiada exitosamente', 'success');
                     setTimeout(() => {
                         closePasswordModal();
-                        showNotification('✅ Contraseña actualizada correctamente');
+                        mostrarNotificacion('✅ Contraseña actualizada correctamente');
                     }, 1500);
                 } else {
                     showModalAlert(`❌ Error: ${result.message || 'No se pudo cambiar la contraseña'}`);
@@ -2552,11 +2358,6 @@
                 }
             `;
             document.head.appendChild(style);
-            
-            // Verificar si ya tiene suscripción push activa
-            setTimeout(() => {
-                verificarSuscripcionPush();
-            }, 1000);
         });
     </script>
 </body>

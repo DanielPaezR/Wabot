@@ -5623,9 +5623,9 @@ def push_test_manual():
             'traceback': traceback.format_exc()[:500] if 'traceback' in locals() else 'No disponible'
         }), 500
     
-@app.route('/push/ver-suscripcion')
-def push_ver_suscripcion():
-    """Ver la suscripción actual"""
+@app.route('/push/ver-suscripcion-simple')
+def push_ver_suscripcion_simple():
+    """Ver suscripción actual SIN created_at"""
     from database import get_db_connection
     
     try:
@@ -5634,9 +5634,8 @@ def push_ver_suscripcion():
         
         cursor.execute('''
             SELECT id, profesional_id, activa, 
-                   LEFT(subscription_json::text, 200) as json_preview,
-                   LENGTH(subscription_json::text) as json_length,
-                   created_at
+                   LEFT(subscription_json::text, 150) as json_preview,
+                   LENGTH(subscription_json::text) as json_length
             FROM suscripciones_push 
             WHERE activa = TRUE
             ORDER BY id DESC
@@ -5647,25 +5646,30 @@ def push_ver_suscripcion():
         conn.close()
         
         if not result:
-            return jsonify({'encontrada': False, 'mensaje': 'No hay suscripciones activas'})
+            return jsonify({
+                'encontrada': False, 
+                'mensaje': 'No hay suscripciones activas',
+                'accion': 'El profesional debe activar notificaciones'
+            })
         
-        # Formatear resultado
+        # Procesar resultado
         if isinstance(result, tuple):
-            suscripcion = {
+            data = {
                 'id': result[0],
                 'profesional_id': result[1],
                 'activa': result[2],
                 'json_preview': result[3],
                 'json_length': result[4],
-                'created_at': str(result[5]) if len(result) > 5 else None
+                'es_valida': 'endpoint' in (result[3] or '') and 'keys' in (result[3] or '')
             }
         else:
-            suscripcion = dict(result)
+            data = dict(result)
+            data['es_valida'] = 'endpoint' in (data.get('json_preview', '')) and 'keys' in (data.get('json_preview', ''))
         
         return jsonify({
             'encontrada': True,
-            'suscripcion': suscripcion,
-            'total_campos': len(result) if isinstance(result, tuple) else len(suscripcion)
+            'suscripcion': data,
+            'diagnostico': 'VÁLIDA' if data['es_valida'] else 'INVÁLIDA'
         })
         
     except Exception as e:
