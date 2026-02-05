@@ -15,7 +15,7 @@ class PushNotifications {
         
         try {
             // Registrar service worker
-            const registration = await navigator.serviceWorker.register('/sw.js');
+            const registration = await navigator.serviceWorker.register('/static/service-worker.js');
             console.log('✅ Service Worker registrado');
             
             // Solicitar permiso
