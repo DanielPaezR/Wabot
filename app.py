@@ -5194,25 +5194,127 @@ def debug_suscripciones_db():
     except Exception as e:
         return f"❌ Error: {str(e)}"
     
-@app.route('/test-push-direct/<int:profesional_id>')
-def test_push_direct(profesional_id):
-    """Probar push directamente"""
+@app.route('/debug/vapid')
+def debug_vapid():
+    """Endpoint para debug de VAPID"""
+    import os
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
+    
+    return jsonify({
+        'has_private_key': bool(VAPID_PRIVATE_KEY),
+        'private_key_length': len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0,
+        'private_key_first_20': VAPID_PRIVATE_KEY[:20] if VAPID_PRIVATE_KEY else '',
+        'has_public_key': bool(VAPID_PUBLIC_KEY),
+        'public_key_first_30': VAPID_PUBLIC_KEY[:30] if VAPID_PUBLIC_KEY else '',
+        'vapid_subject': VAPID_SUBJECT,
+        'all_env_keys': [key for key in os.environ.keys() if 'VAPID' in key]
+    })
+
+@app.route('/debug/subscriptions/<int:profesional_id>')
+def debug_subscriptions(profesional_id):
+    """Ver suscripciones de un profesional"""
+    from database import get_db_connection
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, activa, created_at, 
+               LENGTH(subscription_json) as json_length,
+               subscription_json::text as json_preview
+        FROM suscripciones_push 
+        WHERE profesional_id = %s
+        ORDER BY id DESC
+    ''', (profesional_id,))
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({
+        'profesional_id': profesional_id,
+        'total_suscripciones': len(results),
+        'suscripciones': [
+            {
+                'id': r[0],
+                'activa': r[1],
+                'created_at': str(r[2]),
+                'json_length': r[3],
+                'json_preview': r[4][:100] + '...' if r[4] and len(r[4]) > 100 else r[4]
+            }
+            for r in results
+        ]
+    })
+
+@app.route('/test/push-now/<int:profesional_id>')
+def test_push_now(profesional_id):
+    """Probar push inmediatamente"""
     try:
-        from app import enviar_notificacion_push_profesional
+        # Usar la misma lógica que en web_chat_handler.py
+        import os
+        import time
+        import json
+        from database import get_db_connection
         
-        resultado = enviar_notificacion_push_profesional(
-            profesional_id=profesional_id,
-            titulo="🔔 Test Directo",
-            mensaje="Esta es una prueba DIRECTA de push",
-            cita_id=999
+        # Verificar VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({'error': 'No hay VAPID_PRIVATE_KEY'}), 500
+        
+        # Obtener suscripción
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC LIMIT 1
+        ''', (profesional_id,))
+        
+        suscripcion_data = cursor.fetchone()
+        conn.close()
+        
+        if not suscripcion_data:
+            return jsonify({'error': 'No hay suscripciones'}), 404
+        
+        subscription = json.loads(suscripcion_data[0])
+        
+        # Enviar push
+        import pywebpush
+        
+        current_time = int(time.time())
+        expiration_time = current_time + (12 * 60 * 60)
+        
+        pywebpush.webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '🔥 TEST PUSH DIRECTO',
+                'body': f'Prueba de push a las {time.ctime()}',
+                'icon': '/static/icons/icon-192x192.png'
+            }),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={
+                "sub": VAPID_SUBJECT,
+                "exp": expiration_time
+            }
         )
         
         return jsonify({
-            'success': resultado,
-            'message': 'Push enviado directamente'
+            'success': True,
+            'message': 'Push enviado exitosamente',
+            'timestamp': current_time,
+            'expiration': expiration_time
         })
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
 
 
 
