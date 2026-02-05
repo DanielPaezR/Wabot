@@ -4,7 +4,7 @@ Versión convertida desde whatsapp_handler.py sin Twilio
 """
 
 from flask import Blueprint
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import database as db
 import json
 import os
@@ -126,7 +126,7 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
                         vapid_private_key=VAPID_PRIVATE_KEY,
                         vapid_claims={
                             "sub": VAPID_SUBJECT,
-                            "exp": 9999999999
+                            "exp": int(time.time()) + (12 * 60 * 60) 
                         }
                     )
                     print(f"🔥 ¡PUSH ENVIADO CON ÉXITO usando suscripción {i}!")

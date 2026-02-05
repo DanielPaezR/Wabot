@@ -101,7 +101,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={
                     "sub": VAPID_SUBJECT,
-                    "exp": 9999999999  # Timestamp lejano
+                    "exp": int(time.time()) + (12 * 60 * 60)  # 12 horas máximo
                 }
             )
             print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
