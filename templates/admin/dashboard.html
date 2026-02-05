@@ -1059,32 +1059,25 @@ LIMIT 10;`;
             try {
                 const response = await fetch('/api/imagenes/test');
                 
-                // Verifica si es JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    console.error('No es JSON:', contentType);
-                    return;
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
                 }
                 
                 const result = await response.json();
-                
                 const statusDiv = document.getElementById('tablaImagenesStatus');
                 
                 if (result.success && result.table_exists) {
                     statusDiv.className = 'status-value status-online';
-                    statusDiv.textContent = `🟢 ${result.image_count || 0} imágenes`;
-                } else if (result.success && !result.table_exists) {
+                    statusDiv.textContent = '🟢 Configurada';
+                } else {
                     statusDiv.className = 'status-value status-warning';
                     statusDiv.textContent = '⚠️ No configurada';
-                } else {
-                    statusDiv.className = 'status-value status-offline';
-                    statusDiv.textContent = '❌ Error';
                 }
             } catch (error) {
-                console.error('Error verificando estado:', error);
+                console.error('Error verificando tablas:', error);
                 const statusDiv = document.getElementById('tablaImagenesStatus');
                 statusDiv.className = 'status-value status-offline';
-                statusDiv.textContent = '❌ Error conexión';
+                statusDiv.textContent = '❌ Error';
             }
         }
         

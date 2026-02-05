@@ -5792,61 +5792,32 @@ def ejecutar_sql():
 @app.route('/api/imagenes/test')
 @login_required
 def test_imagenes_sistema():
-    """Verificar si existe la tabla de imágenes"""
+    """Verificar si existe la tabla de imágenes - VERSIÓN SIMPLE"""
     try:
-        # También permite admin y superadmin
-        usuario_tipo = session.get('usuario_tipo')
-        if usuario_tipo not in ['superadmin', 'admin', 'propietario', 'profesional']:
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
         conn = get_db()
         cur = conn.cursor()
         
-        try:
-            # Verificar si existe la tabla
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'imagenes_profesionales'
-                )
-            """)
-            tabla_existe = cur.fetchone()[0]
-            
-            # Si existe, contar registros
-            count = 0
-            if tabla_existe:
-                cur.execute("SELECT COUNT(*) FROM imagenes_profesionales")
-                count = cur.fetchone()[0] or 0
-            
-            cur.close()
-            
-            return jsonify({
-                'success': True,
-                'table_exists': bool(tabla_existe),
-                'exists': bool(tabla_existe),  # Para compatibilidad
-                'image_count': count
-            })
-            
-        except Exception as db_error:
-            cur.close()
-            return jsonify({
-                'success': False,
-                'message': f'Error en base de datos: {str(db_error)}',
-                'table_exists': False,
-                'exists': False,
-                'image_count': 0
-            })
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'imagenes_profesionales'
+            )
+        """)
+        tabla_existe = cur.fetchone()[0]
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'table_exists': bool(tabla_existe)
+        })
         
     except Exception as e:
-        print(f"Error en test_imagenes_sistema: {str(e)}")
+        # En caso de error, tabla no existe
         return jsonify({
-            'success': False,
-            'message': f'Error general: {str(e)}',
-            'table_exists': False,
-            'exists': False,
-            'image_count': 0
-        }), 500
+            'success': True,
+            'table_exists': False
+        })
 
 
 # =============================================================================
