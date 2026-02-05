@@ -4884,21 +4884,35 @@ def verify_key_tool():
     </body>
     </html>
     '''
-@app.route('/test-push-simple/<int:profesional_id>')
-def test_push_simple(profesional_id):
-    """Prueba de push SIMPLE y directa"""
+@app.route('/test-push-debug/<int:profesional_id>')
+def test_push_debug(profesional_id):
+    """Prueba de push con DEBUG DETALLADO"""
     try:
         import os
         import json
         import time
         from database import get_db_connection
         
-        # 1. Obtener VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({'success': False, 'error': 'VAPID_PRIVATE_KEY no configurada'}), 500
+        print(f"🔍 [DEBUG-PUSH-TEST] Iniciando test para profesional {profesional_id}")
         
-        # 2. Obtener primera suscripción
+        # 1. Obtener y verificar VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com').strip()
+        
+        print(f"🔑 [DEBUG] VAPID_PRIVATE_KEY length: {len(VAPID_PRIVATE_KEY)}")
+        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY length: {len(VAPID_PUBLIC_KEY)}")
+        print(f"🔑 [DEBUG] VAPID_SUBJECT: {VAPID_SUBJECT}")
+        
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({
+                'success': False, 
+                'error': 'VAPID_PRIVATE_KEY no configurada',
+                'debug': 'Configurar en Railway: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT'
+            }), 500
+        
+        # 2. Obtener suscripción
+        print(f"📋 [DEBUG] Obteniendo suscripción de la BD...")
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
@@ -4912,53 +4926,165 @@ def test_push_simple(profesional_id):
         conn.close()
         
         if not result:
-            return jsonify({'success': False, 'error': 'No hay suscripciones'}), 404
+            return jsonify({
+                'success': False, 
+                'error': 'No hay suscripciones activas',
+                'profesional_id': profesional_id
+            }), 404
         
-        subscription = json.loads(result[0])
+        subscription_json = result[0]
+        print(f"✅ [DEBUG] Suscripción obtenida, length: {len(subscription_json)}")
         
-        # 3. Enviar push
-        import pywebpush
+        # 3. Parsear JSON
+        try:
+            subscription = json.loads(subscription_json)
+            print(f"✅ [DEBUG] JSON parseado correctamente")
+        except json.JSONDecodeError as e:
+            print(f"❌ [DEBUG] Error parseando JSON: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'JSON inválido: {str(e)}',
+                'json_preview': subscription_json[:200]
+            }), 500
         
+        # 4. Verificar estructura
+        endpoint = subscription.get('endpoint', '')
+        keys = subscription.get('keys', {})
+        
+        print(f"📍 [DEBUG] Endpoint: {endpoint[:60]}...")
+        print(f"🔑 [DEBUG] Keys: {list(keys.keys()) if keys else 'NO KEYS'}")
+        
+        if not endpoint:
+            return jsonify({
+                'success': False,
+                'error': 'Suscripción no tiene endpoint',
+                'subscription_keys': list(subscription.keys())
+            }), 500
+        
+        # 5. IMPORTAR pywebpush y enviar
+        try:
+            import pywebpush
+            print(f"✅ [DEBUG] pywebpush importado correctamente")
+        except ImportError as e:
+            print(f"❌ [DEBUG] No se pudo importar pywebpush: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'pywebpush no instalado',
+                'solution': 'pip install pywebpush'
+            }), 500
+        
+        # 6. Configurar tiempo
         current_time = int(time.time())
+        expiration_time = current_time + (12 * 60 * 60)  # 12 horas
         
-        pywebpush.webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '🔥 TEST PUSH SIMPLE',
-                'body': f'Prueba: {time.ctime()}',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={
-                "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com'),
-                "exp": current_time + (12 * 60 * 60)
-            }
-        )
+        print(f"⏰ [DEBUG] Current time: {current_time}")
+        print(f"⏰ [DEBUG] Expiration time: {expiration_time}")
+        print(f"🚀 [DEBUG] Intentando enviar push...")
         
-        return jsonify({
-            'success': True,
-            'message': 'Push enviado',
-            'timestamp': current_time
-        })
-        
+        # 7. ENVIAR PUSH
+        try:
+            response = pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': '🔥 TEST PUSH DEBUG',
+                    'body': f'Prueba de debug: {time.ctime()}',
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": expiration_time
+                },
+                ttl=86400,
+                timeout=15
+            )
+            
+            print(f"🎉 [DEBUG] ¡PUSH ENVIADO EXITOSAMENTE!")
+            print(f"📨 [DEBUG] Response: {response.status_code if hasattr(response, 'status_code') else 'No status code'}")
+            
+            return jsonify({
+                'success': True,
+                'message': '¡Push enviado exitosamente!',
+                'timestamp': current_time,
+                'expiration': expiration_time,
+                'endpoint_preview': endpoint[:50] + '...'
+            })
+            
+        except Exception as push_error:
+            error_type = type(push_error).__name__
+            error_msg = str(push_error)
+            
+            print(f"❌ [DEBUG] Error en webpush: {error_type}: {error_msg}")
+            
+            # Análisis específico de errores comunes
+            diagnosis = "Error desconocido"
+            
+            if "exp" in error_msg.lower():
+                diagnosis = "Problema con el tiempo de expiración (exp)"
+            elif "vapid" in error_msg.lower():
+                diagnosis = "Problema con las credenciales VAPID"
+            elif "key" in error_msg.lower():
+                diagnosis = "Problema con la clave privada VAPID"
+            elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+                diagnosis = "Problema de conexión con FCM"
+            elif "InvalidAuthorization" in error_msg:
+                diagnosis = "Token de autorización VAPID inválido"
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'error_type': error_type,
+                'diagnosis': diagnosis,
+                'vapid_configured': bool(VAPID_PRIVATE_KEY),
+                'subscription_valid': bool(endpoint),
+                'next_steps': [
+                    'Verificar que VAPID_PRIVATE_KEY sea correcta',
+                    'Verificar formato de clave (debe ser base64 url-safe)',
+                    'Probar con exp más corto (1 hora)'
+                ]
+            }), 500
+            
     except Exception as e:
+        print(f"💥 [DEBUG] Error inesperado: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         return jsonify({
             'success': False,
-            'error': str(e),
-            'error_type': type(e).__name__
+            'error': f'Error inesperado: {type(e).__name__}',
+            'error_details': str(e),
+            'traceback': traceback.format_exc()
         }), 500
 
-@app.route('/debug-vapid')
-def debug_vapid():
-    """Debug de VAPID"""
-    import os
+@app.route('/check-dependencies')
+def check_dependencies():
+    """Verificar dependencias instaladas"""
+    import pkg_resources
+    import sys
+    
+    dependencies = []
+    
+    # Paquetes críticos
+    critical_packages = [
+        'pywebpush',
+        'pyjwt',
+        'cryptography',
+        'requests',
+        'psycopg2-binary'
+    ]
+    
+    for package in critical_packages:
+        try:
+            version = pkg_resources.get_distribution(package).version
+            dependencies.append({'package': package, 'installed': True, 'version': version})
+        except pkg_resources.DistributionNotFound:
+            dependencies.append({'package': package, 'installed': False, 'version': None})
     
     return jsonify({
-        'VAPID_PRIVATE_KEY': 'PRESENTE' if os.getenv('VAPID_PRIVATE_KEY') else 'AUSENTE',
-        'VAPID_PRIVATE_KEY_length': len(os.getenv('VAPID_PRIVATE_KEY', '')),
-        'VAPID_PUBLIC_KEY': 'PRESENTE' if os.getenv('VAPID_PUBLIC_KEY') else 'AUSENTE',
-        'VAPID_PUBLIC_KEY_preview': os.getenv('VAPID_PUBLIC_KEY', '')[:30] + '...' if os.getenv('VAPID_PUBLIC_KEY') else '',
-        'VAPID_SUBJECT': os.getenv('VAPID_SUBJECT', 'NO CONFIGURADO')
+        'python_version': sys.version,
+        'dependencies': dependencies,
+        'missing_critical': [d['package'] for d in dependencies if not d['installed']]
     })
 
 
