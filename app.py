@@ -5117,6 +5117,80 @@ def reset_subscriptions(profesional_id):
             'error': str(e),
             'error_type': type(e).__name__
         }), 500
+    
+@app.route('/vapid-info')
+def vapid_info():
+    """Ver información de las claves VAPID actuales - MEJORADA"""
+    import os
+    import re
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+    
+    # Analizar formato de las claves
+    def analyze_key(key, key_name):
+        if not key:
+            return {'status': 'MISSING', 'format': 'No configurada'}
+        
+        # Verificar si es base64 url-safe
+        is_base64_urlsafe = bool(re.match(r'^[A-Za-z0-9_-]+$', key))
+        
+        # Verificar longitud típica
+        expected_lengths = {
+            'VAPID_PRIVATE_KEY': 43,  # 32 bytes en base64 url-safe
+            'VAPID_PUBLIC_KEY': 87    # 65 bytes en base64 url-safe
+        }
+        
+        expected = expected_lengths.get(key_name)
+        length_ok = expected and len(key) == expected
+        
+        return {
+            'status': 'PRESENTE',
+            'length': len(key),
+            'expected_length': expected,
+            'length_ok': length_ok,
+            'is_base64_urlsafe': is_base64_urlsafe,
+            'preview': key[:20] + '...' + key[-5:] if len(key) > 30 else key
+        }
+    
+    private_analysis = analyze_key(VAPID_PRIVATE_KEY, 'VAPID_PRIVATE_KEY')
+    public_analysis = analyze_key(VAPID_PUBLIC_KEY, 'VAPID_PUBLIC_KEY')
+    
+    return jsonify({
+        'current_config': {
+            'VAPID_PRIVATE_KEY': private_analysis,
+            'VAPID_PUBLIC_KEY': public_analysis,
+            'VAPID_SUBJECT': VAPID_SUBJECT,
+            'subject_valid': VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
+        },
+        'problem': 'ERROR 403: Las credenciales VAPID no coinciden con las usadas al crear las suscripciones',
+        'explanation': 'Cuando el profesional se suscribió (permitió notificaciones), se usaron unas claves VAPID. Ahora estás usando claves diferentes.',
+        'solutions': [
+            {
+                'title': 'SOLUCIÓN RÁPIDA (Recomendada)',
+                'steps': [
+                    '1. Ejecutar: /reset-subscriptions/1',
+                    '2. Pedir al profesional que abra la app y permita notificaciones DE NUEVO',
+                    '3. Probar: /test-push-debug/1'
+                ]
+            },
+            {
+                'title': 'SOLUCIÓN PERMANENTE',
+                'steps': [
+                    '1. Generar nuevas claves VAPID (openssl)',
+                    '2. Actualizar en Railway las variables',
+                    '3. Ejecutar /reset-subscriptions/1',
+                    '4. Hacer que todos los usuarios se resuscriban'
+                ]
+            }
+        ],
+        'test_links': {
+            'reset_subscriptions': '/reset-subscriptions/1',
+            'test_push': '/test-push-debug/1',
+            'check_dependencies': '/check-dependencies'
+        }
+    })
 
 
 
