@@ -5252,18 +5252,22 @@ def obtener_profesionales(negocio_id):
 @app.route('/admin/crear-tabla-imagenes', methods=['POST'])
 @login_required
 def crear_tabla_imagenes():
-    """Crear tabla de imágenes - Devuelve JSON para AJAX"""
+    """Crear tabla de imágenes"""
     try:
-        # Solo super admin
-        if session.get('usuario_tipo') != 'superadmin':
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        # VERIFICA SI ES SUPER ADMIN O ADMIN
+        usuario_tipo = session.get('usuario_tipo')
+        if usuario_tipo not in ['superadmin', 'admin']:  # Permite ambos
+            return jsonify({
+                'success': False, 
+                'message': f'No autorizado. Tipo de usuario: {usuario_tipo}'
+            }), 403
         
         conn = get_db()
         cur = conn.cursor()
         
-        # Crear tabla
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+        # SQL simple para crear tabla
+        sql_commands = [
+            """CREATE TABLE IF NOT EXISTS imagenes_profesionales (
                 id SERIAL PRIMARY KEY,
                 profesional_id INTEGER NOT NULL REFERENCES profesionales(id) ON DELETE CASCADE,
                 negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
@@ -5276,37 +5280,36 @@ def crear_tabla_imagenes():
                 es_principal BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+            )""",
+            
+            """CREATE INDEX IF NOT EXISTS idx_img_profesional 
+               ON imagenes_profesionales(profesional_id)""",
+            
+            """CREATE INDEX IF NOT EXISTS idx_img_negocio 
+               ON imagenes_profesionales(negocio_id)"""
+        ]
         
-        # Crear índices
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_img_profesional 
-            ON imagenes_profesionales(profesional_id)
-        """)
-        
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_img_negocio 
-            ON imagenes_profesionales(negocio_id)
-        """)
+        executed = 0
+        for sql in sql_commands:
+            try:
+                cur.execute(sql)
+                executed += 1
+            except Exception as e:
+                # Ignorar errores de "ya existe"
+                if 'already exists' not in str(e):
+                    print(f"Error en SQL: {e}")
         
         conn.commit()
         cur.close()
         
         return jsonify({
             'success': True,
-            'message': 'Tabla imagenes_profesionales creada exitosamente',
+            'message': f'Tabla creada ({executed} comandos ejecutados)',
             'table_name': 'imagenes_profesionales'
         })
         
     except Exception as e:
-        # Si la tabla ya existe, igual es éxito
-        if 'already exists' in str(e):
-            return jsonify({
-                'success': True,
-                'message': 'La tabla ya existía'
-            })
-        
+        print(f"Error en crear_tabla_imagenes: {str(e)}")
         return jsonify({
             'success': False,
             'message': f'Error: {str(e)}'
@@ -5789,37 +5792,60 @@ def ejecutar_sql():
 @app.route('/api/imagenes/test')
 @login_required
 def test_imagenes_sistema():
+    """Verificar si existe la tabla de imágenes"""
     try:
+        # También permite admin y superadmin
+        usuario_tipo = session.get('usuario_tipo')
+        if usuario_tipo not in ['superadmin', 'admin', 'propietario', 'profesional']:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
         conn = get_db()
         cur = conn.cursor()
         
-        # Verificar si existe la tabla
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'imagenes_profesionales'
-            )
-        """)
-        tabla_existe = cur.fetchone()[0]
-        
-        count = 0
-        if tabla_existe:
-            cur.execute("SELECT COUNT(*) FROM imagenes_profesionales")
-            count = cur.fetchone()[0]
-        
-        cur.close()
-        
-        return jsonify({
-            'success': True,
-            'table_exists': tabla_existe,
-            'image_count': count
-        })
+        try:
+            # Verificar si existe la tabla
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'imagenes_profesionales'
+                )
+            """)
+            tabla_existe = cur.fetchone()[0]
+            
+            # Si existe, contar registros
+            count = 0
+            if tabla_existe:
+                cur.execute("SELECT COUNT(*) FROM imagenes_profesionales")
+                count = cur.fetchone()[0] or 0
+            
+            cur.close()
+            
+            return jsonify({
+                'success': True,
+                'table_exists': bool(tabla_existe),
+                'exists': bool(tabla_existe),  # Para compatibilidad
+                'image_count': count
+            })
+            
+        except Exception as db_error:
+            cur.close()
+            return jsonify({
+                'success': False,
+                'message': f'Error en base de datos: {str(db_error)}',
+                'table_exists': False,
+                'exists': False,
+                'image_count': 0
+            })
         
     except Exception as e:
+        print(f"Error en test_imagenes_sistema: {str(e)}")
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': f'Error general: {str(e)}',
+            'table_exists': False,
+            'exists': False,
+            'image_count': 0
         }), 500
 
 
