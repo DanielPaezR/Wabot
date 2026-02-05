@@ -5252,64 +5252,62 @@ def obtener_profesionales(negocio_id):
 @app.route('/admin/crear-tabla-imagenes', methods=['POST'])
 @login_required
 def crear_tabla_imagenes():
-    """Crear tabla de imágenes"""
+    """Crear tabla de imágenes - Permite admin y superadmin"""
     try:
-        # VERIFICA SI ES SUPER ADMIN O ADMIN
-        usuario_tipo = session.get('usuario_tipo')
-        if usuario_tipo not in ['superadmin', 'admin']:  # Permite ambos
+        # DEBUG: Ver qué hay en la sesión
+        print(f"DEBUG - Usuario en sesión: {session.get('usuario_nombre')}")
+        print(f"DEBUG - Tipo de usuario: {session.get('usuario_tipo')}")
+        print(f"DEBUG - Sesión completa: {dict(session)}")
+        
+        # ACEPTA MÚLTIPLES TIPOS DE USUARIO
+        usuario_tipo = session.get('usuario_tipo', '').lower()
+        tipos_permitidos = ['superadmin', 'admin', 'propietario', 'administrador']
+        
+        if usuario_tipo not in tipos_permitidos:
             return jsonify({
                 'success': False, 
-                'message': f'No autorizado. Tipo de usuario: {usuario_tipo}'
+                'message': f'No autorizado. Tipo: {usuario_tipo}. Permite: {tipos_permitidos}'
             }), 403
         
-        conn = get_db()
+        conn = get_db_connection()
         cur = conn.cursor()
         
-        # SQL simple para crear tabla
-        sql_commands = [
-            """CREATE TABLE IF NOT EXISTS imagenes_profesionales (
-                id SERIAL PRIMARY KEY,
-                profesional_id INTEGER NOT NULL REFERENCES profesionales(id) ON DELETE CASCADE,
-                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
-                tipo VARCHAR(50) DEFAULT 'perfil',
-                nombre_archivo VARCHAR(255) NOT NULL,
-                ruta_archivo VARCHAR(500) NOT NULL,
-                url_publica VARCHAR(500),
-                mime_type VARCHAR(100),
-                tamaño_bytes INTEGER,
-                es_principal BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )""",
-            
-            """CREATE INDEX IF NOT EXISTS idx_img_profesional 
-               ON imagenes_profesionales(profesional_id)""",
-            
-            """CREATE INDEX IF NOT EXISTS idx_img_negocio 
-               ON imagenes_profesionales(negocio_id)"""
-        ]
-        
-        executed = 0
-        for sql in sql_commands:
-            try:
-                cur.execute(sql)
-                executed += 1
-            except Exception as e:
-                # Ignorar errores de "ya existe"
-                if 'already exists' not in str(e):
-                    print(f"Error en SQL: {e}")
+        # SQL MÍNIMO Y SEGURO
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+                    id SERIAL PRIMARY KEY,
+                    profesional_id INTEGER NOT NULL,
+                    negocio_id INTEGER NOT NULL,
+                    tipo VARCHAR(50) DEFAULT 'perfil',
+                    nombre_archivo VARCHAR(255) NOT NULL,
+                    ruta_archivo VARCHAR(500) NOT NULL,
+                    url_publica VARCHAR(500),
+                    mime_type VARCHAR(100),
+                    tamaño_bytes INTEGER,
+                    es_principal BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        except Exception as e:
+            # Si falla, puede que ya exista
+            if 'already exists' in str(e).lower():
+                return jsonify({
+                    'success': True,
+                    'message': 'La tabla ya existe'
+                })
+            raise e
         
         conn.commit()
         cur.close()
         
         return jsonify({
             'success': True,
-            'message': f'Tabla creada ({executed} comandos ejecutados)',
-            'table_name': 'imagenes_profesionales'
+            'message': '✅ Tabla imagenes_profesionales creada exitosamente'
         })
         
     except Exception as e:
-        print(f"Error en crear_tabla_imagenes: {str(e)}")
+        print(f"ERROR en crear_tabla_imagenes: {str(e)}")
         return jsonify({
             'success': False,
             'message': f'Error: {str(e)}'
@@ -5626,35 +5624,6 @@ def check_system():
             'message': str(e)
         }), 500
 
-@app.route('/api/imagenes/test')
-def test_image_system():
-    """Test del sistema de imágenes"""
-    try:
-        # Verificar tabla
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM imagenes_profesionales")
-        count = cur.fetchone()[0]
-        cur.close()
-        
-        # Verificar directorio
-        upload_dir = os.path.join(UPLOAD_FOLDER, 'profesionales')
-        exists = os.path.exists(upload_dir)
-        
-        return jsonify({
-            'success': True,
-            'table_exists': True,
-            'image_count': count,
-            'upload_dir_exists': exists,
-            'upload_dir': upload_dir
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e),
-            'table_exists': False
-        }), 500
     
 @app.route('/admin/ver-tablas')
 @login_required
@@ -5794,7 +5763,7 @@ def ejecutar_sql():
 def test_imagenes_sistema():
     """Verificar si existe la tabla de imágenes - VERSIÓN SIMPLE"""
     try:
-        conn = get_db()
+        conn = get_db_connection()
         cur = conn.cursor()
         
         cur.execute("""

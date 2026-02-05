@@ -504,7 +504,7 @@
             </a>
         </div>
 
-        <!-- Estado del Sistema -->
+        <!-- Estado del Sistema - VERSIÓN SIMPLIFICADA -->
         <div class="system-status">
             <h2 style="color: #333; margin-bottom: 1rem;">⚙️ Estado del Sistema</h2>
             <div class="status-item">
@@ -513,7 +513,9 @@
             </div>
             <div class="status-item">
                 <span class="status-name">Tabla de Imágenes</span>
-                <span id="tablaImagenesStatus" class="status-value">⏳ Verificando...</span>
+                <span id="tablaImagenesStatus" class="status-value status-warning">
+                    ⚠️ Clic en "Base de Datos" para crear
+                </span>
             </div>
             <div class="status-item">
                 <span class="status-name">Sistema de Citas</span>
@@ -721,53 +723,68 @@
         async function crearTablaImagenes() {
             const resultDiv = document.getElementById('databaseResult');
             
-            if (!confirm('¿Estás seguro de crear la tabla de imágenes?')) {
-                return;
-            }
+            if (!confirm('¿Crear tabla de imágenes para profesionales?')) return;
             
             try {
-                resultDiv.innerHTML = '<p>⏳ Creando tabla de imágenes...</p>';
+                resultDiv.innerHTML = '<p>⏳ Creando tabla...</p>';
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
-                // AÑADE Content-Type y asegúrate de enviar JSON
+                // Intenta crear la tabla
                 const response = await fetch('/admin/crear-tabla-imagenes', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',  // ¡IMPORTANTE!
-                        'X-CSRFToken': csrfToken
+                        'Content-Type': 'application/json'
+                        // No necesitas csrf_token para JSON API
                     },
-                    body: JSON.stringify({})  // Envía un objeto vacío
+                    body: JSON.stringify({})
                 });
                 
-                // Verifica si la respuesta es JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('El servidor no devolvió JSON');
+                console.log('Status:', response.status);
+                
+                if (response.status === 403) {
+                    // Muestra mensaje claro de permiso
+                    resultDiv.className = 'result-box result-error';
+                    resultDiv.innerHTML = `
+                        <p><strong>❌ Error 403 - No autorizado</strong></p>
+                        <p>Tu usuario no tiene permisos de administrador.</p>
+                        <p>Contacta al superadmin o inicia sesión como administrador.</p>
+                    `;
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP ${response.status}`);
                 }
                 
                 const result = await response.json();
+                console.log('Resultado:', result);
                 
                 if (result.success) {
                     resultDiv.className = 'result-box result-success';
-                    resultDiv.innerHTML = `<p><strong>✅ ${result.message}</strong></p>`;
+                    resultDiv.innerHTML = `
+                        <p><strong>✅ ${result.message}</strong></p>
+                        <p>La tabla <strong>imagenes_profesionales</strong> ha sido creada.</p>
+                        <p>Ahora los profesionales pueden subir sus fotos de perfil.</p>
+                    `;
                     
-                    // Actualizar estado
-                    setTimeout(() => {
-                        verificarEstadoTablas();
-                        // Opcional: recargar página
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
-                    }, 1000);
+                    // Actualiza el estado visual
+                    document.getElementById('tablaImagenesStatus').className = 'status-value status-online';
+                    document.getElementById('tablaImagenesStatus').textContent = '🟢 Configurada';
+                    
                 } else {
                     resultDiv.className = 'result-box result-error';
                     resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
                 }
+                
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error completo:', error);
                 resultDiv.className = 'result-box result-error';
-                resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${error.message}</p>`;
+                resultDiv.innerHTML = `
+                    <p><strong>❌ Error de conexión</strong></p>
+                    <p>${error.message}</p>
+                    <p>Verifica tu conexión o contacta al administrador.</p>
+                `;
             }
         }
         
@@ -1053,40 +1070,10 @@ LIMIT 10;`;
             }
         }
         
-        // ==================== VERIFICAR ESTADO INICIAL ====================
-        
-        async function verificarEstadoTablas() {
-            try {
-                const response = await fetch('/api/imagenes/test');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const result = await response.json();
-                const statusDiv = document.getElementById('tablaImagenesStatus');
-                
-                if (result.success && result.table_exists) {
-                    statusDiv.className = 'status-value status-online';
-                    statusDiv.textContent = '🟢 Configurada';
-                } else {
-                    statusDiv.className = 'status-value status-warning';
-                    statusDiv.textContent = '⚠️ No configurada';
-                }
-            } catch (error) {
-                console.error('Error verificando tablas:', error);
-                const statusDiv = document.getElementById('tablaImagenesStatus');
-                statusDiv.className = 'status-value status-offline';
-                statusDiv.textContent = '❌ Error';
-            }
-        }
         
         // Verificar al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             verificarEstadoTablas();
-            
-            // Verificar cada minuto
-            setInterval(verificarEstadoTablas, 60000);
             
             // Atajos de teclado
             document.addEventListener('keydown', function(e) {
