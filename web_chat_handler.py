@@ -38,7 +38,7 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
         import json
         import os
         
-        # ✅ CORREGIDO: Obtener variables de entorno ANTES de usarlas
+        # Obtener variables de entorno
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
         VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
@@ -49,76 +49,132 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
         
         if not VAPID_PRIVATE_KEY:
             print("⚠️ No hay clave privada VAPID en variables de entorno")
-            # Pero continuamos para guardar notificación en BD
-            return True
+            # Guardar notificación en BD aunque no haya push
+            return guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         
         # Obtener suscripciones
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
+        
+        # ✅ CORRECCIÓN: Obtener SUSCRIPCIONES con estructura específica
+        cursor.execute('''
+            SELECT id, subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC
+        ''', (profesional_id,))
+        
         suscripciones = cursor.fetchall()
         conn.close()
         
-        print(f"🔑 [DEBUG-PUSH] Número de suscripciones: {len(suscripciones) if suscripciones else 0}")
+        print(f"🔑 [DEBUG-PUSH] Número de suscripciones: {len(suscripciones)}")
         
         if not suscripciones:
-            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
-            return True  # Devolver True aunque no haya suscripciones, porque la notificación se guardará en BD
+            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones activas")
+            # Guardar notificación en BD aunque no haya suscripciones
+            return guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         
-        if suscripciones and len(suscripciones) > 0:
-            print(f"🔑 [DEBUG-PUSH] Primera suscripción: {suscripciones[0][0][:100] if suscripciones[0][0] else 'VACÍA'}...")
+        # ✅ DEBUG DETALLADO: Ver estructura real
+        for i, susc in enumerate(suscripciones):
+            print(f"🔑 [DEBUG-PUSH] Suscripción {i}:")
+            print(f"   Tipo: {type(susc)}")
+            print(f"   Longitud: {len(susc) if hasattr(susc, '__len__') else 'N/A'}")
+            
+            # Acceder según el tipo de dato
+            if isinstance(susc, tuple):
+                print(f"   ID: {susc[0] if len(susc) > 0 else 'N/A'}")
+                print(f"   JSON: {susc[1][:100] if len(susc) > 1 and susc[1] else 'VACÍA'}...")
+            elif isinstance(susc, dict):
+                print(f"   ID: {susc.get('id', 'N/A')}")
+                print(f"   JSON: {susc.get('subscription_json', '')[:100] if susc.get('subscription_json') else 'VACÍA'}...")
+            else:
+                print(f"   Valor crudo: {str(susc)[:100]}...")
         
         # 1. Guardar notificación en BD (SIEMPRE)
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-                VALUES (%s, 'push', %s, %s, FALSE, %s)
-            ''', (profesional_id, titulo, mensaje, cita_id))
-            conn.commit()
-            conn.close()
-            print(f"✅ Notificación guardada en BD")
-        except Exception as db_error:
-            print(f"⚠️ Error guardando en BD: {db_error}")
-            # Continuamos igual
+        resultado_bd = guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         
-        # 2. Intentar push solo si hay suscripciones y clave privada
-        try:
-            if suscripciones and VAPID_PRIVATE_KEY:
-                import pywebpush
-                subscription = json.loads(suscripciones[0][0])
+        # 2. Intentar push con la primera suscripción válida
+        for i, susc in enumerate(suscripciones):
+            try:
+                subscription_json = None
                 
-                pywebpush.webpush(
-                    subscription_info=subscription,
-                    data=json.dumps({
-                        'title': titulo,
-                        'body': mensaje,
-                        'icon': '/static/icons/icon-192x192.png'
-                    }),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims={
-                        "sub": VAPID_SUBJECT,
-                        "exp": 9999999999
-                    }
-                )
-                print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
-                return True
-            else:
-                print(f"⚠️ No se envió push - Razón: suscripciones={bool(suscripciones)}, clave_privada={bool(VAPID_PRIVATE_KEY)}")
-                return True  # Devolver True porque la notificación se guardó en BD
+                # Extraer el JSON según la estructura
+                if isinstance(susc, tuple) and len(susc) > 1:
+                    subscription_json = susc[1]
+                elif isinstance(susc, dict):
+                    subscription_json = susc.get('subscription_json')
                 
-        except Exception as e:
-            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}: {str(e)}")
-            return True  # Siempre devolver True porque la notificación ya se guardó en BD
-            
+                if not subscription_json:
+                    print(f"⚠️ Suscripción {i} no tiene JSON, intentando siguiente...")
+                    continue
+                
+                # Intentar parsear el JSON
+                try:
+                    subscription = json.loads(subscription_json)
+                    print(f"✅ Suscripción {i} JSON parseado correctamente")
+                    
+                    # Intentar enviar push
+                    import pywebpush
+                    pywebpush.webpush(
+                        subscription_info=subscription,
+                        data=json.dumps({
+                            'title': titulo,
+                            'body': mensaje,
+                            'icon': '/static/icons/icon-192x192.png'
+                        }),
+                        vapid_private_key=VAPID_PRIVATE_KEY,
+                        vapid_claims={
+                            "sub": VAPID_SUBJECT,
+                            "exp": 9999999999
+                        }
+                    )
+                    print(f"🔥 ¡PUSH ENVIADO CON ÉXITO usando suscripción {i}!")
+                    return True
+                    
+                except json.JSONDecodeError as e:
+                    print(f"❌ Suscripción {i} tiene JSON inválido: {e}")
+                    continue
+                except Exception as e:
+                    print(f"⚠️ Error enviando push con suscripción {i}: {type(e).__name__}: {str(e)}")
+                    continue
+                    
+            except Exception as e:
+                print(f"⚠️ Error procesando suscripción {i}: {e}")
+                continue
+        
+        print(f"⚠️ No se pudo enviar push con ninguna suscripción, pero notificación en BD: OK")
+        return True  # Devolver True porque la notificación se guardó en BD
+        
     except Exception as e:
         print(f"❌ Error crítico en push local: {e}")
         import traceback
         traceback.print_exc()
+        # Aún así intentar guardar en BD
+        try:
+            guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
+        except:
+            pass
         return True  # Siempre devolver True para no interrumpir el flujo
+
+def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
+    """Función auxiliar solo para guardar notificación en BD"""
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO notificaciones_profesional 
+            (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+            VALUES (%s, 'push', %s, %s, FALSE, %s)
+        ''', (profesional_id, titulo, mensaje, cita_id))
+        conn.commit()
+        conn.close()
+        print(f"✅ Notificación guardada en BD")
+        return True
+    except Exception as e:
+        print(f"⚠️ Error guardando en BD: {e}")
+        return False
 
 def limpiar_formato_whatsapp(texto):
     """

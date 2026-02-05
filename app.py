@@ -5145,6 +5145,55 @@ def debug_service_worker():
     </html>
     ''' 
 
+# En app.py, agrega esta ruta:
+@app.route('/debug-suscripciones-db')
+def debug_suscripciones_db():
+    """Verificar estructura REAL de las suscripciones en BD"""
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Ver estructura de la tabla
+        cursor.execute("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'suscripciones_push'
+            ORDER BY ordinal_position
+        """)
+        
+        columnas = cursor.fetchall()
+        
+        # Ver datos
+        cursor.execute('SELECT * FROM suscripciones_push WHERE profesional_id = 1')
+        suscripciones = cursor.fetchall()
+        
+        conn.close()
+        
+        resultado = []
+        resultado.append("<h1>🔍 DEBUG SUSCRIPCIONES PUSH</h1>")
+        
+        resultado.append("<h2>📋 Estructura de la tabla:</h2>")
+        for col in columnas:
+            resultado.append(f"<b>{col[0]}</b>: {col[1]}")
+        
+        resultado.append(f"<h2>📊 Suscripciones para profesional 1: {len(suscripciones)}</h2>")
+        
+        for i, susc in enumerate(suscripciones):
+            resultado.append(f"<h3>Suscripción {i+1}:</h3>")
+            resultado.append(f"<pre>Tipo: {type(susc)}</pre>")
+            
+            if isinstance(susc, tuple):
+                for j, val in enumerate(susc):
+                    resultado.append(f"<b>Columna {j}:</b> {str(val)[:200] if val else 'None'}")
+            else:
+                resultado.append(f"<pre>{str(susc)}</pre>")
+        
+        return "<br>".join(resultado)
+        
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
 
 
 
