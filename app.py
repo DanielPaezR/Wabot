@@ -5192,6 +5192,32 @@ def vapid_info():
         }
     })
 
+@app.route('/check-frontend-vapid')
+def check_frontend_vapid():
+    """Verificar qué clave pública VAPID está usando el frontend"""
+    import os
+    
+    # Esta es la clave pública ACTUAL en Railway
+    current_public = os.getenv('VAPID_PUBLIC_KEY', '')
+    
+    return jsonify({
+        'railway_public_key': current_public,
+        'railway_public_key_length': len(current_public),
+        'railway_public_key_preview': current_public[:30] + '...',
+        'instructions': [
+            '1. Busca en tu código frontend (static/js/, templates/) la constante de clave pública VAPID',
+            '2. Compara con la clave de arriba',
+            '3. DEBEN ser IDÉNTICAS',
+            '4. Si son diferentes, actualiza UNA de las dos para que coincidan'
+        ],
+        'common_locations': [
+            'static/js/service-worker.js',
+            'static/js/notifications.js', 
+            'templates/base.html',
+            'templates/includes/scripts.html'
+        ]
+    })
+
  
 
 
