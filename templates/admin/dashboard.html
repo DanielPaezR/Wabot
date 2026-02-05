@@ -1058,19 +1058,33 @@ LIMIT 10;`;
         async function verificarEstadoTablas() {
             try {
                 const response = await fetch('/api/imagenes/test');
+                
+                // Verifica si es JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    console.error('No es JSON:', contentType);
+                    return;
+                }
+                
                 const result = await response.json();
                 
                 const statusDiv = document.getElementById('tablaImagenesStatus');
                 
                 if (result.success && result.table_exists) {
                     statusDiv.className = 'status-value status-online';
-                    statusDiv.textContent = `🟢 ${result.image_count} imágenes`;
-                } else {
+                    statusDiv.textContent = `🟢 ${result.image_count || 0} imágenes`;
+                } else if (result.success && !result.table_exists) {
                     statusDiv.className = 'status-value status-warning';
                     statusDiv.textContent = '⚠️ No configurada';
+                } else {
+                    statusDiv.className = 'status-value status-offline';
+                    statusDiv.textContent = '❌ Error';
                 }
             } catch (error) {
                 console.error('Error verificando estado:', error);
+                const statusDiv = document.getElementById('tablaImagenesStatus');
+                statusDiv.className = 'status-value status-offline';
+                statusDiv.textContent = '❌ Error conexión';
             }
         }
         
