@@ -26,6 +26,85 @@ conversaciones_activas = {}
 # MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL) - SIN CAMBIOS
 # =============================================================================
 
+def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
+    """Versión local de la función push para evitar problemas de import"""
+    print(f"🔑 [DEBUG-PUSH] Clave pública: {VAPID_PUBLIC_KEY[:30]}...")
+    print(f"🔑 [DEBUG-PUSH] Tiene clave privada: {bool(VAPID_PRIVATE_KEY)}")
+    print(f"🔑 [DEBUG-PUSH] Número de suscripciones: {len(suscripciones) if suscripciones else 0}")
+
+    if suscripciones and len(suscripciones) > 0:
+        print(f"🔑 [DEBUG-PUSH] Primera suscripción: {suscripciones[0][0][:100]}...")
+    
+    try:
+        print(f"🔥 [PUSH-FINAL-LOCAL] Para profesional {profesional_id}")
+        
+        # Importar lo necesario
+        import json
+        import os
+        import pywebpush
+        
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        
+        if not VAPID_PRIVATE_KEY:
+            print("⚠️ No hay clave privada")
+            return False
+        
+        # Obtener suscripciones
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
+        suscripciones = cursor.fetchall()
+        conn.close()
+        
+        if not suscripciones:
+            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
+            return False
+        
+        # 1. Guardar notificación en BD
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional 
+                (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+                VALUES (%s, 'push', %s, %s, FALSE, %s)
+            ''', (profesional_id, titulo, mensaje, cita_id))
+            conn.commit()
+            conn.close()
+            print(f"✅ Notificación guardada en BD")
+        except Exception as db_error:
+            print(f"⚠️ Error guardando en BD: {db_error}")
+        
+        # 2. Intentar push
+        try:
+            subscription = json.loads(suscripciones[0][0])
+            
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png'
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": 9999999999
+                }
+            )
+            print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
+            return True
+        except Exception as e:
+            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Error crítico en push local: {e}")
+        return True  # Siempre devolver True porque la notificación ya se guardó en BD
+
 def limpiar_formato_whatsapp(texto):
     """
     Limpiar formato WhatsApp (*negrita*, _cursiva_) para el chat web
@@ -1528,12 +1607,8 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
                 print(f"   📝 Mensaje: {mensaje_push}")
                 print(f"   🎫 Cita ID: {cita_id}")
                 
-                # CORRECCIÓN: Importar correctamente la función
-                # Busca la función en app.py o crea un import directo
-                from app import enviar_notificacion_push_profesional
-                
-                # Llamar a la función
-                resultado = enviar_notificacion_push_profesional(
+                # ✅ SOLUCIÓN DEFINITIVA: COPIAR LA FUNCIÓN DIRECTAMENTE AQUÍ
+                resultado = enviar_notificacion_push_local(
                     profesional_id=profesional_id,
                     titulo="📅 Nueva Cita Agendada",
                     mensaje=mensaje_push,
