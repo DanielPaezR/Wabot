@@ -376,19 +376,13 @@
                 
                 <!-- Fecha de creación -->
                 {% if profesional.created_at %}
-                <div style="margin-bottom: 1rem;">
-                    <div class="info-label">Miembro desde</div>
-                    <div class="info-value">
-                        {% if profesional.created_at is string %}
-                            {{ profesional.created_at }}
-                        {% elif profesional.fecha_creacion %}
-                            {{ profesional.fecha_creacion }}
-                        {% else %}
-                            <!-- Intentar formatear si es datetime -->
-                            {{ profesional.created_at.strftime('%d/%m/%Y') if hasattr(profesional.created_at, 'strftime') else profesional.created_at }}
-                        {% endif %}
-                    </div>
-                </div>
+                    {% if profesional.created_at is string %}
+                        {{ profesional.created_at }}
+                    {% elif profesional.fecha_creacion_formateada %}
+                        {{ profesional.fecha_creacion_formateada }}
+                    {% else %}
+                        {{ profesional.created_at }}
+                    {% endif %}
                 {% endif %}
                 
                 <!-- Negocio ID -->
