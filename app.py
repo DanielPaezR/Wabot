@@ -5334,7 +5334,6 @@ def subir_foto_profesional():
         
         if 'foto' not in request.files:
             print("❌ No hay 'foto' en request.files")
-            print(f"Keys en request.files: {list(request.files.keys())}")
             return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
         
         file = request.files['foto']
@@ -5344,18 +5343,21 @@ def subir_foto_profesional():
             print("❌ Nombre de archivo vacío")
             return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
         
-        # Obtener negocio_id
-        cur = get_db_connection().cursor()
+        # Obtener negocio_id - USAR RealDictCursor
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
+        cur.close()
+        conn.close()
         
         if not result:
             print(f"❌ Profesional {profesional_id} no encontrado")
             return jsonify({'success': False, 'message': 'Profesional no encontrado'})
         
-        negocio_id = result[0]
+        # ACCEDER POR NOMBRE DE COLUMNA, NO POR ÍNDICE
+        negocio_id = result['negocio_id']
         print(f"Negocio ID: {negocio_id}")
-        cur.close()
         
         # Guardar foto
         url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, 'perfil')
