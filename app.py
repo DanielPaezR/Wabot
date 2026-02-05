@@ -5063,41 +5063,85 @@ def actualizar_perfil():
 # ==================== RUTA PARA OBTENER PROFESIONALES CON FOTOS ====================
 @app.route('/api/profesionales/<int:negocio_id>')
 def obtener_profesionales(negocio_id):
-    """API para obtener profesionales con fotos para el chat - ACTUALIZADA"""
+    """API para obtener profesionales con fotos para el chat"""
     try:
-        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        print(f"🔍 Solicitando profesionales para negocio {negocio_id}")
         
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # CONSULTA SEGURA - solo columnas que SÍ existen
         cur.execute("""
-            SELECT id, nombre, especialidad, foto_url,  -- ← Ahora usa foto_url
-                   COALESCE(calificacion_promedio, 0) as rating
+            SELECT 
+                id, 
+                nombre, 
+                telefono,
+                especialidad, 
+                foto_url,
+                activo,
+                created_at
             FROM profesionales 
-            WHERE negocio_id = %s AND activo = TRUE
+            WHERE negocio_id = %s 
+            AND activo = TRUE
             ORDER BY nombre
         """, (negocio_id,))
         
         profesionales = cur.fetchall()
         cur.close()
+        conn.close()
         
+        print(f"✅ Encontrados {len(profesionales)} profesionales activos")
+        
+        # Formatear respuesta
         opciones = []
         for prof in profesionales:
-            opciones.append({
-                'value': prof['id'],
+            # URL de imagen con fallback
+            foto_url = prof['foto_url']
+            if foto_url and not foto_url.startswith('http'):
+                # Asegurar que la URL sea absoluta si es relativa
+                if foto_url.startswith('/'):
+                    foto_url_completa = foto_url
+                else:
+                    foto_url_completa = '/' + foto_url.lstrip('/')
+            else:
+                foto_url_completa = foto_url
+            
+            opcion = {
+                'value': str(prof['id']),  # Asegurar que es string para el chat
                 'name': prof['nombre'],
                 'text': prof['nombre'],
-                'specialty': prof['especialidad'],
-                'rating': float(prof['rating']),
-                'image': prof['foto_url'],
-                'type': 'professional'
-            })
+                'specialty': prof['especialidad'] or 'Sin especialidad',
+                'rating': 0,  # Por ahora sin rating
+                'type': 'professional',
+                'has_image': bool(foto_url_completa)
+            }
+            
+            if foto_url_completa:
+                opcion['image'] = foto_url_completa
+            
+            opciones.append(opcion)
+            print(f"  👤 {prof['nombre']} - ID: {prof['id']} - Imagen: {bool(foto_url_completa)}")
         
         return jsonify({
             'success': True,
-            'profesionales': opciones
+            'profesionales': opciones,
+            'total': len(opciones),
+            'negocio_id': negocio_id
         })
         
     except Exception as e:
-        print(f"Error en obtener_profesionales: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        print(f"❌ Error crítico en obtener_profesionales: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Respuesta de emergencia si falla la consulta
+        return jsonify({
+            'success': True,
+            'profesionales': [],
+            'total': 0,
+            'message': 'No hay profesionales disponibles',
+            'error': str(e)
+        })
     
 
     

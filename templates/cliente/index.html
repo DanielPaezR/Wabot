@@ -796,6 +796,10 @@
             
             // Agregar mensaje del bot
             function addBotMessage(message, options = null, pagination = null) {
+                console.log("🤖 Mensaje del bot:", message);
+                console.log("📋 Opciones recibidas:", options);
+                console.log("🔢 Paginación:", pagination);
+                
                 const messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
@@ -807,28 +811,44 @@
                 
                 // Agregar opciones si existen
                 if (options && options.length > 0) {
-                    // DETECTAR SI SON PROFESIONALES CON FOTOS (nueva lógica)
+                    // DETECTAR SI SON PROFESIONALES CON FOTOS (lógica mejorada)
                     const isProfessionalsWithPhotos = options.some(opt => 
-                        opt.image || opt.rating || opt.type === 'professional'
+                        (opt.image || opt.type === 'professional') && opt.rating !== undefined
                     );
+                    
+                    console.log("🔍 ¿Son profesionales con fotos?:", isProfessionalsWithPhotos);
+                    console.log("🖼️ Datos de opciones:", options);
                     
                     if (isProfessionalsWithPhotos) {
                         let containerClass = 'professionals-grid';
                         let optionsHtml = `<div class="${containerClass}">`;
                         
-                        options.forEach(option => {
+                        options.forEach((option, index) => {
+                            console.log(`👤 Profesional ${index + 1}:`, option);
+                            
+                            // URL de imagen - con manejo seguro
+                            let imageUrl = option.image || '';
+                            
+                            // Ajustar URL si es necesario
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+                                imageUrl = '/' + imageUrl;
+                            }
+                            
+                            // Si no hay imagen, usar avatar por defecto
+                            const hasImage = imageUrl && imageUrl !== '';
+                            
                             optionsHtml += `
                                 <div class="professional-card" data-opcion="${option.value}">
                                     <div class="professional-img">
-                                        ${option.image ? 
-                                            `<img src="${option.image}" alt="${option.name || option.text}" 
-                                                onerror="this.src='/static/default-avatar.png'">` : 
+                                        ${hasImage ? 
+                                            `<img src="${imageUrl}" alt="${option.name || option.text}" 
+                                                onerror="this.onerror=null; this.src='/static/default-avatar.png';">` : 
                                             `<div class="default-avatar"><i class="fas fa-user"></i></div>`
                                         }
-                                        ${option.rating ? 
+                                        <!-- Eliminar la sección de rating si no existe -->
+                                        ${option.rating && option.rating > 0 ? 
                                             `<div class="professional-rating">
-                                                <span class="stars">${'★'.repeat(Math.floor(option.rating))}${'☆'.repeat(5-Math.floor(option.rating))}</span>
-                                                <small>${option.rating.toFixed(1)}</small>
+                                                <small>⭐ ${option.rating.toFixed(1)}</small>
                                             </div>` : ''
                                         }
                                     </div>
@@ -843,16 +863,19 @@
                         optionsHtml += '</div>';
                         
                         chatMessages.append(optionsHtml);
+                        console.log("✅ Grid de profesionales creado");
                         
                         // Evento para seleccionar profesional
                         $('.select-professional-btn').off('click').on('click', function() {
                             const professionalCard = $(this).closest('.professional-card');
                             const optionValue = professionalCard.data('opcion');
+                            console.log("🎯 Profesional seleccionado:", optionValue);
                             userInput.val(optionValue);
                             sendMessage();
                         });
                         
                     } else {
+                        console.log("📝 Mostrando opciones normales");
                         // Código existente para otros tipos de opciones...
                         let containerClass = 'opciones-numeradas';
                         let buttonClass = 'opcion-btn';
@@ -863,7 +886,7 @@
                         } else if (options.some(opt => opt.text && opt.text.includes('Siguiente'))) {
                             containerClass = 'opciones-navegacion';
                             buttonClass = 'nav-btn';
-                        } else if (options.some(opt => opt.text && opt.text.includes('Confirmar'))) {
+                        } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('confirmar')))) {
                             containerClass = 'confirmacion-opciones';
                             buttonClass = 'confirm-btn';
                         }
@@ -871,11 +894,11 @@
                         let optionsHtml = `<div class="${containerClass}">`;
                         options.forEach(option => {
                             let btnClass = buttonClass;
-                            if (option.text.includes('Confirmar')) btnClass += ' confirm-yes';
-                            else if (option.text.includes('Cancelar')) btnClass += ' confirm-no';
-                            else if (option.text.includes('Siguiente')) btnClass += ' nav-next';
+                            if (option.text && (option.text.includes('Confirmar') || option.text.includes('confirmar'))) btnClass += ' confirm-yes';
+                            else if (option.text && (option.text.includes('Cancelar') || option.text.includes('cancelar'))) btnClass += ' confirm-no';
+                            else if (option.text && option.text.includes('Siguiente')) btnClass += ' nav-next';
                             
-                            optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text}</button>`;
+                            optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text || option.name}</button>`;
                         });
                         optionsHtml += '</div>';
                         
@@ -900,11 +923,12 @@
                 }, 200);
             }
             
-            // Enviar mensaje
+            // Enviar mensaje - VERSIÓN CON DEBUG
             function sendMessage() {
                 const message = userInput.val().trim();
                 if (!message) return;
                 
+                console.log("📤 Enviando mensaje:", message);
                 addUserMessage(message);
                 userInput.val('');
                 showTypingIndicator();
@@ -919,6 +943,7 @@
                         negocio_id: negocioId
                     }),
                     success: function(response) {
+                        console.log("✅ Respuesta recibida:", response);
                         hideTypingIndicator();
                         if (response.error) {
                             addBotMessage(`❌ ${response.error}`);
@@ -926,7 +951,8 @@
                         }
                         addBotMessage(response.message, response.options, response.pagination);
                     },
-                    error: function() {
+                    error: function(xhr, status, error) {
+                        console.log("❌ Error AJAX:", error);
                         hideTypingIndicator();
                         addBotMessage('❌ Error al procesar tu mensaje. Intenta de nuevo.');
                     }
