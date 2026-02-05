@@ -5548,7 +5548,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
         # ========== GENERAR URL PÚBLICA ==========
         
         # Usar path relativo para la URL
-        url_publica = f"/uploads/profesionales/{timestamp}/{unique_name}".replace('\\', '/')
+        url_publica = f"/static/uploads/profesionales/{timestamp}/{unique_name}".replace('\\', '/')
         print(f"🌐 URL pública generada: {url_publica}")
         
         # ========== GUARDAR EN BASE DE DATOS ==========
