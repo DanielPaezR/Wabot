@@ -4962,75 +4962,112 @@ def check_subscriptions_table():
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-@app.route('/verify-keys-working')
-def verify_keys_working():
-    """Verificar que las claves funcionan"""
-    import os
-    import base64
-    
-    public_key = os.getenv('VAPID_PUBLIC_KEY', '')
-    
-    html = f"""
+@app.route('/verify-key-tool')
+def verify_key_tool():
+    """Herramienta para verificar claves VAPID"""
+    return '''
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Verificar Claves VAPID</title>
-        <script>
-        async function testKey() {{
-            const publicKey = "{public_key}";
-            
-            console.log('Clave a probar:', publicKey);
-            console.log('Longitud:', publicKey.length);
-            
-            // Función para convertir base64
-            function urlBase64ToUint8Array(base64String) {{
-                const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                const base64 = (base64String + padding)
-                    .replace(/\-/g, '+')
-                    .replace(/_/g, '/');
-                
-                const rawData = window.atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-                
-                for (let i = 0; i < rawData.length; ++i) {{
-                    outputArray[i] = rawData.charCodeAt(i);
-                }}
-                return outputArray;
-            }}
-            
-            try {{
-                const keyArray = urlBase64ToUint8Array(publicKey);
-                console.log('Array convertido:', keyArray);
-                console.log('Longitud array:', keyArray.length);
-                
-                if (keyArray.length === 65) {{
-                    document.getElementById('result').innerHTML = 
-                        '<h2 style="color: green;">✅ Clave VAPID VÁLIDA</h2>' +
-                        '<p>Longitud: 65 bytes ✓</p>';
-                }} else {{
-                    document.getElementById('result').innerHTML = 
-                        '<h2 style="color: red;">❌ Clave inválida</h2>' +
-                        '<p>Longitud: ' + keyArray.length + ' bytes (debe ser 65)</p>';
-                }}
-            }} catch (error) {{
-                document.getElementById('result').innerHTML = 
-                    '<h2 style="color: red;">❌ Error de conversión</h2>' +
-                    '<p>' + error.message + '</p>';
-            }}
-        }}
-        </script>
+        <title>Verificador Claves VAPID</title>
+        <style>
+            body { font-family: Arial; padding: 20px; }
+            textarea { width: 100%; height: 100px; font-family: monospace; }
+            .valid { color: green; font-weight: bold; }
+            .invalid { color: red; font-weight: bold; }
+        </style>
     </head>
-    <body onload="testKey()">
-        <h1>🔍 Verificación Clave VAPID</h1>
-        <div id="result">Probando clave...</div>
-        <hr>
-        <p>Clave actual: {public_key[:50]}...</p>
-        <p>Longitud: {len(public_key)} caracteres</p>
+    <body>
+        <h1>🔍 Verificador de Claves VAPID</h1>
+        
+        <textarea id="keyInput" placeholder="Pega tu clave pública VAPID aquí..."></textarea>
+        <br><br>
+        <button onclick="verifyKey()">Verificar Clave</button>
+        
+        <div id="result" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;"></div>
+        
+        <script>
+        function verifyKey() {
+            const key = document.getElementById('keyInput').value.trim();
+            const result = document.getElementById('result');
+            
+            if (!key) {
+                result.innerHTML = '<span class="invalid">❌ Ingresa una clave</span>';
+                return;
+            }
+            
+            // 1. Verificar longitud
+            if (key.length !== 87) {
+                result.innerHTML = `
+                    <span class="invalid">❌ Longitud incorrecta: ${key.length} caracteres</span>
+                    <p>Debe ser EXACTAMENTE 87 caracteres.</p>
+                `;
+                return;
+            }
+            
+            // 2. Verificar caracteres válidos
+            const validChars = /^[A-Za-z0-9_-]+$/;
+            if (!validChars.test(key)) {
+                result.innerHTML = '<span class="invalid">❌ Contiene caracteres inválidos</span>';
+                return;
+            }
+            
+            // 3. Intentar decodificar
+            try {
+                // Añadir padding si es necesario
+                let base64 = key;
+                while (base64.length % 4) {
+                    base64 += '=';
+                }
+                
+                // Convertir URL-safe a normal
+                base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+                
+                // Decodificar
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                
+                // Verificar longitud de bytes
+                if (bytes.length === 65) {
+                    // Verificar que el primer byte sea 0x04 (formato sin comprimir)
+                    if (bytes[0] === 0x04) {
+                        result.innerHTML = `
+                            <span class="valid">✅ CLAVE VÁLIDA</span>
+                            <p>• Longitud: 87 caracteres ✓</p>
+                            <p>• Bytes decodificados: 65 ✓</p>
+                            <p>• Formato: sin comprimir (0x04) ✓</p>
+                            <p>• Caracteres válidos: ✓</p>
+                        `;
+                    } else {
+                        result.innerHTML = `
+                            <span class="invalid">⚠️ Clave dudosa</span>
+                            <p>• Bytes: ${bytes.length} (OK)</p>
+                            <p>• Primer byte: 0x${bytes[0].toString(16)} (debería ser 0x04)</p>
+                        `;
+                    }
+                } else {
+                    result.innerHTML = `
+                        <span class="invalid">❌ Longitud de bytes incorrecta</span>
+                        <p>• Bytes decodificados: ${bytes.length}</p>
+                        <p>• Debería ser: 65 bytes</p>
+                    `;
+                }
+                
+            } catch (error) {
+                result.innerHTML = `
+                    <span class="invalid">❌ Error de decodificación</span>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+        </script>
     </body>
     </html>
-    """
-    
-    return html
+    '''
     
 
 
