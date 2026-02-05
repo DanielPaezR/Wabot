@@ -5143,9 +5143,7 @@ def debug_service_worker():
         </script>
     </body>
     </html>
-    '''
-
-
+    ''' 
 
 
 
