@@ -305,10 +305,16 @@
         <div class="header-content">
             <button class="back-btn" onclick="window.history.back()">←</button>
             <div class="avatar-container">
-                <img id="avatarImg" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iNDUiIGZpbGw9IiM2NjdlZWEiLz48dGV4dCB4PSI1MCUiIHk9IjU1JSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQwIiBmaWxsPSJ3aGl0ZSI+QTwvdGV4dD48L3N2Zz4=">
+                {% if profesional.foto_url %}
+                <img id="avatarImg" src="{{ profesional.foto_url }}?t={{ range(1, 1000000) | random }}" 
+                    alt="{{ profesional.nombre }}" class="avatar-img">
+                {% else %}
+                <img id="avatarImg" src="/static/default-avatar.png" 
+                    alt="{{ profesional.nombre }}" class="avatar-img">
+                {% endif %}
                 <button class="avatar-upload-btn" onclick="subirFoto()">📷</button>
                 <input type="file" id="fotoInput" accept="image/*" style="display: none;" 
-                       onchange="handleFotoChange(event)">
+                    onchange="handleFotoChange(event)">
             </div>
             <div class="header-info">
                 <h1>{{ profesional.nombre }}</h1>

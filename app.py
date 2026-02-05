@@ -4983,13 +4983,12 @@ def check_subscriptions_table():
 @app.route('/profesional/perfil')
 @login_required
 def profesional_perfil():
-    """Página de perfil - CON TU ESTRUCTURA REAL"""
+    """Página de perfil - ACTUALIZADA CON FOTO"""
     try:
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             return redirect(url_for('login'))
         
-        # USANDO TUS COLUMNAS REALES
         cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("""
             SELECT 
@@ -5000,7 +4999,9 @@ def profesional_perfil():
                 p.pin,
                 p.usuario_id,
                 p.activo,
-                p.created_at,
+                p.negocio_id,
+                p.foto_url,  -- ← NUEVA COLUMNA
+                TO_CHAR(p.created_at, 'DD/MM/YYYY') as fecha_creacion_formateada,
                 n.nombre as negocio_nombre
             FROM profesionales p
             LEFT JOIN negocios n ON p.negocio_id = n.id
@@ -5009,6 +5010,9 @@ def profesional_perfil():
         
         profesional = cur.fetchone()
         cur.close()
+        
+        print(f"📊 Datos del profesional: {profesional['nombre']}")
+        print(f"📸 Foto URL en DB: {profesional.get('foto_url', 'No tiene')}")
         
         return render_template('profesional/profesional_perfil.html',
                              profesional=profesional,
@@ -5059,12 +5063,12 @@ def actualizar_perfil():
 # ==================== RUTA PARA OBTENER PROFESIONALES CON FOTOS ====================
 @app.route('/api/profesionales/<int:negocio_id>')
 def obtener_profesionales(negocio_id):
-    """API para obtener profesionales con fotos para el chat"""
+    """API para obtener profesionales con fotos para el chat - ACTUALIZADA"""
     try:
         cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         cur.execute("""
-            SELECT id, nombre, especialidad, foto_url, 
+            SELECT id, nombre, especialidad, foto_url,  -- ← Ahora usa foto_url
                    COALESCE(calificacion_promedio, 0) as rating
             FROM profesionales 
             WHERE negocio_id = %s AND activo = TRUE
@@ -5074,7 +5078,6 @@ def obtener_profesionales(negocio_id):
         profesionales = cur.fetchall()
         cur.close()
         
-        # Formatear para el chat
         opciones = []
         for prof in profesionales:
             opciones.append({
@@ -5083,7 +5086,7 @@ def obtener_profesionales(negocio_id):
                 'text': prof['nombre'],
                 'specialty': prof['especialidad'],
                 'rating': float(prof['rating']),
-                'image': prof['foto_url'] if prof['foto_url'] else None,
+                'image': prof['foto_url'],
                 'type': 'professional'
             })
         
@@ -5383,33 +5386,28 @@ def subir_foto_profesional():
 @app.route('/profesional/foto-actual')
 @login_required
 def obtener_foto_actual():
-    """Obtener la foto actual del profesional"""
+    """Obtener la foto actual del profesional - VERSIÓN SIMPLIFICADA"""
     try:
         profesional_id = session.get('profesional_id')
         
-        cur = get_db_connection().cursor()
-        # Buscar la imagen principal más reciente
-        cur.execute("""
-            SELECT url_publica 
-            FROM imagenes_profesionales 
-            WHERE profesional_id = %s 
-            AND tipo = 'perfil' 
-            AND es_principal = TRUE
-            ORDER BY created_at DESC 
-            LIMIT 1
-        """, (profesional_id,))
+        conn = get_db_connection()
+        cur = conn.cursor()
         
+        # BUSCAR DIRECTAMENTE EN profesionales.foto_url
+        cur.execute("SELECT foto_url FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
         cur.close()
+        conn.close()
         
         if result and result[0]:
+            print(f"✅ Foto encontrada: {result[0]}")
             return jsonify({
                 'success': True,
                 'url': result[0],
                 'tiene_foto': True
             })
         else:
-            # Si no tiene foto, usar default
+            print(f"ℹ️ No hay foto, usando default")
             return jsonify({
                 'success': True,
                 'url': '/static/default-avatar.png',
@@ -5417,130 +5415,230 @@ def obtener_foto_actual():
             })
         
     except Exception as e:
-        print(f"Error obteniendo foto: {str(e)}")
-        # En caso de error, devolver default
+        print(f"❌ Error obteniendo foto: {str(e)}")
         return jsonify({
             'success': True,
             'url': '/static/default-avatar.png',
             'tiene_foto': False,
-            'message': 'Usando imagen por defecto'
+            'error': str(e)
         })
     
 def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
-    """Guardar foto de profesional - FUNCIÓN CORRECTA"""
+    """Guardar foto de profesional - VERSIÓN COMPLETA ACTUALIZADA"""
     try:
-        print(f"=== DEBUG SUBIDA FOTO ===")
-        print(f"Profesional ID: {profesional_id}")
-        print(f"Negocio ID: {negocio_id}")
-        print(f"Tipo: {tipo}")
-        print(f"Archivo recibido: {file.filename if file else 'None'}")
-        print(f"Tipo de archivo: {type(file)}")
+        print(f"=== INICIANDO GUARDADO DE FOTO ===")
+        print(f"📸 Profesional ID: {profesional_id}")
+        print(f"🏢 Negocio ID: {negocio_id}")
+        print(f"📁 Tipo: {tipo}")
+        print(f"📄 Archivo recibido: {file.filename}")
         
-        # Validar archivo
+        # ========== VALIDACIONES ==========
+        
+        # Validar que haya archivo
         if not file or not file.filename:
             print("❌ No se proporcionó archivo")
             return None, "No se proporcionó archivo"
         
-        # Validar tipo
-        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-        filename = file.filename.lower()
-        print(f"Nombre archivo: {filename}")
+        # Validar tipo de archivo
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        filename_lower = file.filename.lower()
         
-        if '.' not in filename:
-            print("❌ No tiene extensión")
-            return None, "Tipo de archivo no permitido"
+        if '.' not in filename_lower:
+            print("❌ Archivo sin extensión")
+            return None, "El archivo no tiene extensión"
         
-        ext = filename.rsplit('.', 1)[1]
-        print(f"Extensión: {ext}")
+        extension = filename_lower.rsplit('.', 1)[1]
+        print(f"🔍 Extensión detectada: {extension}")
         
-        if ext not in ALLOWED_EXTENSIONS:
-            print(f"❌ Extensión {ext} no permitida")
-            return None, "Tipo de archivo no permitido. Use PNG, JPG, JPEG o GIF"
+        if extension not in ALLOWED_EXTENSIONS:
+            print(f"❌ Extensión no permitida: {extension}")
+            return None, f"Tipo de archivo no permitido. Use: {', '.join(ALLOWED_EXTENSIONS)}"
         
-        # Verificar tamaño (5MB máximo)
+        # Validar tamaño (5MB máximo)
         file.seek(0, 2)  # Ir al final
         file_size = file.tell()
         file.seek(0)  # Volver al inicio
-        print(f"Tamaño archivo: {file_size} bytes")
+        print(f"📊 Tamaño del archivo: {file_size} bytes ({file_size/1024/1024:.2f} MB)")
         
-        if file_size > 5 * 1024 * 1024:
-            print(f"❌ Archivo demasiado grande: {file_size} > {5 * 1024 * 1024}")
-            return None, "Archivo demasiado grande (máx 5MB)"
+        MAX_SIZE = 5 * 1024 * 1024  # 5MB
+        if file_size > MAX_SIZE:
+            print(f"❌ Archivo demasiado grande: {file_size} > {MAX_SIZE}")
+            return None, f"Archivo demasiado grande. Máximo: 5MB"
         
-        # Crear directorios
-        timestamp = datetime.now().strftime('%Y/%m')
-        upload_path = os.path.join('static', 'uploads', 'profesionales', timestamp)
-        print(f"Ruta destino: {upload_path}")
+        # ========== PREPARAR RUTAS ==========
         
-        os.makedirs(upload_path, exist_ok=True)
-        print(f"✅ Directorio creado/existe")
-        
-        # Generar nombre único
+        from datetime import datetime
+        import os
         from werkzeug.utils import secure_filename
-        filename = secure_filename(file.filename)
-        unique_name = f"{profesional_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}"
+        
+        # Crear estructura de carpetas por fecha
+        timestamp = datetime.now().strftime('%Y/%m/%d')
+        upload_path = os.path.join('static', 'uploads', 'profesionales', timestamp)
+        print(f"📂 Ruta de destino: {upload_path}")
+        
+        # Crear directorios si no existen
+        os.makedirs(upload_path, exist_ok=True)
+        print(f"✅ Directorios creados/verificados")
+        
+        # Generar nombre único seguro
+        original_filename = secure_filename(file.filename)
+        timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_name = f"{profesional_id}_{timestamp_str}_{original_filename}"
         filepath = os.path.join(upload_path, unique_name)
-        print(f"Ruta completa: {filepath}")
+        print(f"📝 Nombre único generado: {unique_name}")
+        print(f"📍 Ruta completa del archivo: {filepath}")
         
-        # Guardar archivo
+        # ========== GUARDAR ARCHIVO FÍSICO ==========
+        
         file.save(filepath)
-        print(f"✅ Archivo guardado físicamente")
+        print(f"💾 Archivo guardado físicamente")
         
-        # Generar URL pública
-        url_publica = f"/{upload_path}/{unique_name}".replace('\\', '/')
-        print(f"URL pública: {url_publica}")
+        # Verificar que el archivo se guardó
+        if os.path.exists(filepath):
+            file_stats = os.stat(filepath)
+            print(f"✅ Verificación: Archivo existe, tamaño: {file_stats.st_size} bytes")
+        else:
+            print("❌ ERROR: Archivo no se guardó correctamente")
+            return None, "Error al guardar el archivo"
         
-        # Guardar en base de datos
+        # ========== GENERAR URL PÚBLICA ==========
+        
+        # Usar path relativo para la URL
+        url_publica = f"/static/uploads/profesionales/{timestamp}/{unique_name}".replace('\\', '/')
+        print(f"🌐 URL pública generada: {url_publica}")
+        
+        # ========== GUARDAR EN BASE DE DATOS ==========
+        
         conn = get_db_connection()
         cur = conn.cursor()
         
-        print(f"🔍 Conectado a DB")
+        # 1. GUARDAR EN imagenes_profesionales (para historial)
+        print(f"💿 Guardando en tabla imagenes_profesionales...")
+        try:
+            cur.execute("""
+                INSERT INTO imagenes_profesionales 
+                (profesional_id, negocio_id, tipo, nombre_archivo, ruta_archivo, 
+                 url_publica, mime_type, tamaño_bytes, es_principal)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                RETURNING id
+            """, (
+                profesional_id, negocio_id, tipo, original_filename, filepath,
+                url_publica, file.mimetype, file_size
+            ))
+            
+            imagen_id = cur.fetchone()[0]
+            print(f"✅ Insertado en imagenes_profesionales. ID: {imagen_id}")
+            
+        except Exception as e:
+            print(f"⚠️ Error insertando en imagenes_profesionales: {e}")
+            # Si la tabla no existe, crearla
+            if 'imagenes_profesionales' in str(e).lower():
+                print(f"📋 Creando tabla imagenes_profesionales...")
+                try:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+                            id SERIAL PRIMARY KEY,
+                            profesional_id INTEGER NOT NULL,
+                            negocio_id INTEGER NOT NULL,
+                            tipo VARCHAR(50) DEFAULT 'perfil',
+                            nombre_archivo VARCHAR(255),
+                            ruta_archivo TEXT,
+                            url_publica TEXT,
+                            mime_type VARCHAR(100),
+                            tamaño_bytes INTEGER,
+                            es_principal BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print(f"✅ Tabla imagenes_profesionales creada")
+                    
+                    # Reintentar la inserción
+                    cur.execute("""
+                        INSERT INTO imagenes_profesionales 
+                        (profesional_id, negocio_id, tipo, nombre_archivo, ruta_archivo, 
+                         url_publica, mime_type, tamaño_bytes, es_principal)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                        RETURNING id
+                    """, (
+                        profesional_id, negocio_id, tipo, original_filename, filepath,
+                        url_publica, file.mimetype, file_size
+                    ))
+                    
+                    imagen_id = cur.fetchone()[0]
+                    print(f"✅ Insertado después de crear tabla. ID: {imagen_id}")
+                    
+                except Exception as e2:
+                    print(f"❌ Error creando tabla: {e2}")
+                    # Continuar aunque falle esta parte
         
-        # 1. Desmarcar cualquier imagen principal existente
-        cur.execute("""
-            UPDATE imagenes_profesionales 
-            SET es_principal = FALSE 
-            WHERE profesional_id = %s AND tipo = 'perfil'
-        """, (profesional_id,))
-        print(f"✅ Imágenes anteriores desmarcadas")
-        
-        # 2. Insertar nueva imagen
-        cur.execute("""
-            INSERT INTO imagenes_profesionales 
-            (profesional_id, negocio_id, tipo, nombre_archivo, ruta_archivo, 
-             url_publica, mime_type, tamaño_bytes, es_principal)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
-            RETURNING id, url_publica
-        """, (
-            profesional_id, negocio_id, tipo, filename, filepath,
-            url_publica, file.mimetype, file_size
-        ))
-        
-        imagen_id, url_publica = cur.fetchone()
-        print(f"✅ Imagen insertada en DB. ID: {imagen_id}")
-        
-        # 3. Actualizar referencia en tabla profesionales (si existe la columna)
+        # 2. ACTUALIZAR TABLA profesionales CON LA NUEVA COLUMNA foto_url
+        print(f"🔄 Actualizando tabla profesionales.foto_url...")
         try:
             cur.execute("""
                 UPDATE profesionales 
                 SET foto_url = %s 
                 WHERE id = %s
             """, (url_publica, profesional_id))
-            print(f"✅ Referencia actualizada en tabla profesionales")
+            
+            rows_affected = cur.rowcount
+            if rows_affected > 0:
+                print(f"✅ {rows_affected} fila(s) actualizada(s) en profesionales.foto_url")
+            else:
+                print(f"⚠️ No se actualizó ninguna fila en profesionales")
+                
         except Exception as e:
-            print(f"ℹ️ Columna foto_url no existe o error: {e}")
+            print(f"❌ Error actualizando profesionales.foto_url: {e}")
+            # Intentar crear la columna si no existe
+            if 'column "foto_url" does not exist' in str(e):
+                print(f"📋 Creando columna foto_url en tabla profesionales...")
+                try:
+                    cur.execute("ALTER TABLE profesionales ADD COLUMN IF NOT EXISTS foto_url TEXT")
+                    conn.commit()
+                    print(f"✅ Columna foto_url creada/verificada")
+                    
+                    # Reintentar la actualización
+                    cur.execute("""
+                        UPDATE profesionales 
+                        SET foto_url = %s 
+                        WHERE id = %s
+                    """, (url_publica, profesional_id))
+                    
+                    rows_affected = cur.rowcount
+                    print(f"✅ {rows_affected} fila(s) actualizada(s) después de crear columna")
+                    
+                except Exception as e2:
+                    print(f"⚠️ No se pudo crear columna foto_url: {e2}")
+                    # Continuar sin esta actualización
+        
+        # ========== FINALIZAR ==========
         
         conn.commit()
         cur.close()
-        print(f"=== SUBIDA EXITOSA ===")
+        conn.close()
+        
+        print(f"=================================")
+        print(f"🎉 FOTO SUBIDA EXITOSAMENTE")
+        print(f"👤 Profesional: {profesional_id}")
+        print(f"📸 URL: {url_publica}")
+        print(f"=================================")
         
         return url_publica, None
         
     except Exception as e:
-        print(f"❌ ERROR guardando foto: {str(e)}")
+        print(f"❌❌❌ ERROR CRÍTICO en guardar_foto_profesional: {str(e)}")
         import traceback
         traceback.print_exc()
-        return None, f"Error al guardar: {str(e)}"
+        
+        # Intentar limpiar archivo si se creó pero falló algo después
+        try:
+            if 'filepath' in locals() and os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🧹 Archivo temporal eliminado: {filepath}")
+        except:
+            pass
+        
+        return None, f"Error al guardar la foto: {str(e)}"
 
 @app.route('/api/imagenes/<int:imagen_id>/principal', methods=['PUT'])
 @login_required
