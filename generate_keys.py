@@ -36,17 +36,4 @@ print(f"VAPID_PUBLIC_KEY={vapid_public_key}")
 print(f"VAPID_PRIVATE_KEY={vapid_private_key}")
 print("VAPID_SUBJECT=mailto:danielpaezrami@gmail.com")
 
-print("\n4️⃣ VERIFICACIÓN:")
-print("-" * 40)
-print("Para verificar que son válidas:")
-print("1. Copia la clave pública")
-print("2. Ve a: https://wabot-deployment.up.railway.app/verify-key-tool")
-print("3. Pega la clave y verifica")
 
-# Guardar en archivo por si acaso
-with open('vapid_keys.txt', 'w') as f:
-    f.write(f"VAPID_PUBLIC_KEY={vapid_public_key}\n")
-    f.write(f"VAPID_PRIVATE_KEY={vapid_private_key}\n")
-    f.write("VAPID_SUBJECT=mailto:danielpaezrami@gmail.com\n")
-
-print("\n✅ Claves guardadas en 'vapid_keys.txt'")
