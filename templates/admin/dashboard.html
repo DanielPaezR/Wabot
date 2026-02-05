@@ -721,7 +721,7 @@
         async function crearTablaImagenes() {
             const resultDiv = document.getElementById('databaseResult');
             
-            if (!confirm('¿Estás seguro de crear la tabla de imágenes? Esto puede afectar datos existentes.')) {
+            if (!confirm('¿Estás seguro de crear la tabla de imágenes?')) {
                 return;
             }
             
@@ -730,34 +730,36 @@
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
+                // AÑADE Content-Type y asegúrate de enviar JSON
                 const response = await fetch('/admin/crear-tabla-imagenes', {
                     method: 'POST',
                     headers: {
+                        'Content-Type': 'application/json',  // ¡IMPORTANTE!
                         'X-CSRFToken': csrfToken
-                    }
+                    },
+                    body: JSON.stringify({})  // Envía un objeto vacío
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
+                // Verifica si la respuesta es JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('El servidor no devolvió JSON');
                 }
                 
                 const result = await response.json();
                 
                 if (result.success) {
                     resultDiv.className = 'result-box result-success';
-                    let html = `<p><strong>✅ ${result.message}</strong></p>`;
+                    resultDiv.innerHTML = `<p><strong>✅ ${result.message}</strong></p>`;
                     
-                    if (result.details) {
-                        html += `
-                            <p><strong>Tablas creadas:</strong> ${result.details.tablas_creadas.join(', ')}</p>
-                            <p><strong>Total tablas:</strong> ${result.details.total_tablas}</p>
-                        `;
-                    }
-                    
-                    resultDiv.innerHTML = html;
-                    
-                    // Actualizar estado en el dashboard
-                    setTimeout(verificarEstadoTablas, 1000);
+                    // Actualizar estado
+                    setTimeout(() => {
+                        verificarEstadoTablas();
+                        // Opcional: recargar página
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    }, 1000);
                 } else {
                     resultDiv.className = 'result-box result-error';
                     resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
@@ -765,7 +767,7 @@
             } catch (error) {
                 console.error('Error:', error);
                 resultDiv.className = 'result-box result-error';
-                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+                resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${error.message}</p>`;
             }
         }
         

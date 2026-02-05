@@ -5249,256 +5249,68 @@ def obtener_profesionales(negocio_id):
 
     
 # ==================== RUTA TEMPORAL PARA CREAR TABLA DE IMÁGENES ====================
-@app.route('/admin/crear-tabla-imagenes', methods=['GET', 'POST'])
+@app.route('/admin/crear-tabla-imagenes', methods=['POST'])
+@login_required
 def crear_tabla_imagenes():
-    """Ruta temporal para crear tabla de imágenes - Solo para desarrollo"""
-    # Verificar si ya existe la tabla
+    """Crear tabla de imágenes - Devuelve JSON para AJAX"""
     try:
-        conn = get_db_connection()
+        # Solo super admin
+        if session.get('usuario_tipo') != 'superadmin':
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+        conn = get_db()
         cur = conn.cursor()
+        
+        # Crear tabla
         cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'imagenes_profesionales'
-            )
-        """)
-        tabla_existe = cur.fetchone()[0]
-        cur.close()
-        
-        if tabla_existe:
-            return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Tabla ya existe</title>
-                <style>
-                    body { font-family: Arial; padding: 20px; }
-                    .success { background: #d4edda; padding: 15px; border-radius: 5px; }
-                    .info { background: #d1ecf1; padding: 15px; border-radius: 5px; margin-top: 20px; }
-                </style>
-            </head>
-            <body>
-                <h1>✅ Tabla ya existe</h1>
-                <div class="success">
-                    <p>La tabla <strong>imagenes_profesionales</strong> ya existe en la base de datos.</p>
-                </div>
-                <div class="info">
-                    <h3>📊 Información de la tabla:</h3>
-                    <p>Para ver la estructura, puedes ejecutar:</p>
-                    <pre>SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'imagenes_profesionales' 
-ORDER BY ordinal_position;</pre>
-                </div>
-                <a href="/admin/panel">← Volver al Panel Admin</a>
-            </body>
-            </html>
-            """
-        
-        if request.method == 'POST':
-            # SQL para crear tabla de imágenes
-            sql = """
-            -- ==================== TABLA PARA IMÁGENES DE PROFESIONALES ====================
-            CREATE TABLE imagenes_profesionales (
+            CREATE TABLE IF NOT EXISTS imagenes_profesionales (
                 id SERIAL PRIMARY KEY,
                 profesional_id INTEGER NOT NULL REFERENCES profesionales(id) ON DELETE CASCADE,
                 negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
-                tipo VARCHAR(50) DEFAULT 'perfil', -- 'perfil', 'portada', 'galeria'
+                tipo VARCHAR(50) DEFAULT 'perfil',
                 nombre_archivo VARCHAR(255) NOT NULL,
                 ruta_archivo VARCHAR(500) NOT NULL,
                 url_publica VARCHAR(500),
                 mime_type VARCHAR(100),
                 tamaño_bytes INTEGER,
-                ancho INTEGER,
-                alto INTEGER,
                 es_principal BOOLEAN DEFAULT FALSE,
-                orden INTEGER DEFAULT 0,
-                metadata JSONB DEFAULT '{}',
-                creado_por INTEGER, -- ID del usuario que subió la imagen
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            
-            -- Índices para búsqueda rápida
-            CREATE INDEX idx_img_profesional ON imagenes_profesionales(profesional_id);
-            CREATE INDEX idx_img_negocio ON imagenes_profesionales(negocio_id);
-            CREATE INDEX idx_img_principal ON imagenes_profesionales(profesional_id, es_principal) WHERE es_principal = TRUE;
-            CREATE INDEX idx_img_tipo ON imagenes_profesionales(profesional_id, tipo);
-            
-            -- Trigger para actualizar updated_at
-            CREATE OR REPLACE FUNCTION update_img_updated_at()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                NEW.updated_at = CURRENT_TIMESTAMP;
-                RETURN NEW;
-            END;
-            $$ language 'plpgsql';
-            
-            CREATE TRIGGER update_imagenes_updated_at
-                BEFORE UPDATE ON imagenes_profesionales
-                FOR EACH ROW
-                EXECUTE FUNCTION update_img_updated_at();
-            
-            -- Función para marcar solo una imagen como principal por profesional
-            CREATE OR REPLACE FUNCTION set_unique_principal_image()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                IF NEW.es_principal = TRUE THEN
-                    UPDATE imagenes_profesionales 
-                    SET es_principal = FALSE 
-                    WHERE profesional_id = NEW.profesional_id 
-                    AND id != NEW.id
-                    AND tipo = NEW.tipo;
-                END IF;
-                RETURN NEW;
-            END;
-            $$ language 'plpgsql';
-            
-            CREATE TRIGGER ensure_unique_principal_image
-                BEFORE INSERT OR UPDATE ON imagenes_profesionales
-                FOR EACH ROW
-                EXECUTE FUNCTION set_unique_principal_image();
-                
-            -- ==================== ACTUALIZAR TABLA PROFESIONALES ====================
-            -- Añadir referencia a imagen principal si no existe
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                              WHERE table_name = 'profesionales' AND column_name = 'imagen_principal_id') THEN
-                    ALTER TABLE profesionales ADD COLUMN imagen_principal_id INTEGER REFERENCES imagenes_profesionales(id);
-                END IF;
-            END $$;
-            """
-            
-            cur = conn.cursor()
-            # Ejecutar cada sentencia por separado
-            statements = [stmt.strip() for stmt in sql.split(';') if stmt.strip()]
-            
-            resultados = []
-            for stmt in statements:
-                try:
-                    cur.execute(stmt)
-                    resultados.append(f"✅ {stmt[:50]}...")
-                except Exception as e:
-                    # Ignorar errores de "ya existe"
-                    if 'already exists' not in str(e) and 'duplicate' not in str(e):
-                        resultados.append(f"⚠️ {stmt[:50]}... → {str(e)[:100]}")
-            
-            conn.commit()
-            cur.close()
-
-            resultados_texto = '\n'.join(resultados)
-            
-            return f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Tabla Creada</title>
-                <style>
-                    body {{ font-family: Arial; padding: 20px; }}
-                    .success {{ background: #d4edda; padding: 15px; border-radius: 5px; }}
-                    .results {{ background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; }}
-                    pre {{ background: white; padding: 10px; border-radius: 5px; overflow: auto; }}
-                </style>
-            </head>
-            <body>
-                <h1>✅ Tabla creada exitosamente</h1>
-                <div class="success">
-                    <p>La tabla <strong>imagenes_profesionales</strong> ha sido creada con éxito.</p>
-                </div>
-                <div class="results">
-                    <h3>📝 Resultados de ejecución:</h3>
-                    <pre>{resultados_texto}</pre>
-                </div>
-                <div style="margin-top: 20px;">
-                    <h3>🔍 Para verificar:</h3>
-                    <p>La tabla tiene estas columnas principales:</p>
-                    <ul>
-                        <li><strong>id</strong> - Identificador único</li>
-                        <li><strong>profesional_id</strong> - Referencia al profesional</li>
-                        <li><strong>negocio_id</strong> - Referencia al negocio</li>
-                        <li><strong>tipo</strong> - Tipo de imagen (perfil, portada, galeria)</li>
-                        <li><strong>nombre_archivo</strong> - Nombre original del archivo</li>
-                        <li><strong>ruta_archivo</strong> - Ruta en el servidor</li>
-                        <li><strong>url_publica</strong> - URL para acceso público</li>
-                        <li><strong>es_principal</strong> - Si es la imagen principal</li>
-                    </ul>
-                </div>
-                <a href="/admin/panel">← Volver al Panel Admin</a>
-            </body>
-            </html>
-            """
+            )
+        """)
         
-        # Mostrar formulario para crear tabla
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Crear Tabla de Imágenes</title>
-            <style>
-                body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
-                .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-                .sql-preview { background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; }
-                button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
-                button:hover { background: #218838; }
-            </style>
-        </head>
-        <body>
-            <h1>🖼️ Crear Tabla de Imágenes</h1>
-            
-            <div class="warning">
-                <h3>⚠️ ADVERTENCIA</h3>
-                <p>Esta acción creará una nueva tabla en la base de datos. Asegúrate de:</p>
-                <ul>
-                    <li>Tener permisos de administrador</li>
-                    <li>Hacer backup de datos importantes</li>
-                    <li>Verificar que no exista ya la tabla</li>
-                </ul>
-            </div>
-            
-            <h2>📋 Estructura de la tabla:</h2>
-            <div class="sql-preview">
-                <strong>imagenes_profesionales</strong> - Tabla para almacenar imágenes
-                
-                Columnas principales:
-                • id (SERIAL PRIMARY KEY)
-                • profesional_id (INTEGER REFERENCES profesionales)
-                • negocio_id (INTEGER REFERENCES negocios)
-                • tipo (VARCHAR) - 'perfil', 'portada', 'galeria'
-                • nombre_archivo (VARCHAR)
-                • ruta_archivo (VARCHAR)
-                • url_publica (VARCHAR)
-                • es_principal (BOOLEAN)
-                • created_at, updated_at (TIMESTAMP)
-            </div>
-            
-            <form method="POST" style="margin-top: 30px;">
-                <p>
-                    <input type="checkbox" id="confirm" required>
-                    <label for="confirm">Confirmo que quiero crear la tabla de imágenes</label>
-                </p>
-                <button type="submit">🚀 Crear Tabla de Imágenes</button>
-            </form>
-            
-            <div style="margin-top: 30px;">
-                <a href="/admin/panel">← Cancelar y volver al panel</a>
-            </div>
-        </body>
-        </html>
-        """
+        # Crear índices
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_img_profesional 
+            ON imagenes_profesionales(profesional_id)
+        """)
+        
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_img_negocio 
+            ON imagenes_profesionales(negocio_id)
+        """)
+        
+        conn.commit()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tabla imagenes_profesionales creada exitosamente',
+            'table_name': 'imagenes_profesionales'
+        })
         
     except Exception as e:
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <body>
-            <h1>❌ Error</h1>
-            <p>Error al verificar/crear tabla: {str(e)}</p>
-            <a href="/admin/panel">← Volver</a>
-        </body>
-        </html>
-        """
+        # Si la tabla ya existe, igual es éxito
+        if 'already exists' in str(e):
+            return jsonify({
+                'success': True,
+                'message': 'La tabla ya existía'
+            })
+        
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
 
 # ==================== PANEL DE ADMINISTRACIÓN SUPER ADMIN ====================
 @app.route('/admin/panel')
@@ -5972,6 +5784,42 @@ def ejecutar_sql():
         return jsonify({
             'success': False,
             'message': f'Error del sistema: {str(e)}'
+        }), 500
+
+@app.route('/api/imagenes/test')
+@login_required
+def test_imagenes_sistema():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Verificar si existe la tabla
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'imagenes_profesionales'
+            )
+        """)
+        tabla_existe = cur.fetchone()[0]
+        
+        count = 0
+        if tabla_existe:
+            cur.execute("SELECT COUNT(*) FROM imagenes_profesionales")
+            count = cur.fetchone()[0]
+        
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'table_exists': tabla_existe,
+            'image_count': count
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
         }), 500
 
 
