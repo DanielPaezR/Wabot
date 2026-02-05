@@ -4961,6 +4961,76 @@ def check_subscriptions_table():
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
+
+@app.route('/verify-keys-working')
+def verify_keys_working():
+    """Verificar que las claves funcionan"""
+    import os
+    import base64
+    
+    public_key = os.getenv('VAPID_PUBLIC_KEY', '')
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Verificar Claves VAPID</title>
+        <script>
+        async function testKey() {{
+            const publicKey = "{public_key}";
+            
+            console.log('Clave a probar:', publicKey);
+            console.log('Longitud:', publicKey.length);
+            
+            // Función para convertir base64
+            function urlBase64ToUint8Array(base64String) {{
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/\-/g, '+')
+                    .replace(/_/g, '/');
+                
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                
+                for (let i = 0; i < rawData.length; ++i) {{
+                    outputArray[i] = rawData.charCodeAt(i);
+                }}
+                return outputArray;
+            }}
+            
+            try {{
+                const keyArray = urlBase64ToUint8Array(publicKey);
+                console.log('Array convertido:', keyArray);
+                console.log('Longitud array:', keyArray.length);
+                
+                if (keyArray.length === 65) {{
+                    document.getElementById('result').innerHTML = 
+                        '<h2 style="color: green;">✅ Clave VAPID VÁLIDA</h2>' +
+                        '<p>Longitud: 65 bytes ✓</p>';
+                }} else {{
+                    document.getElementById('result').innerHTML = 
+                        '<h2 style="color: red;">❌ Clave inválida</h2>' +
+                        '<p>Longitud: ' + keyArray.length + ' bytes (debe ser 65)</p>';
+                }}
+            }} catch (error) {{
+                document.getElementById('result').innerHTML = 
+                    '<h2 style="color: red;">❌ Error de conversión</h2>' +
+                    '<p>' + error.message + '</p>';
+            }}
+        }}
+        </script>
+    </head>
+    <body onload="testKey()">
+        <h1>🔍 Verificación Clave VAPID</h1>
+        <div id="result">Probando clave...</div>
+        <hr>
+        <p>Clave actual: {public_key[:50]}...</p>
+        <p>Longitud: {len(public_key)} caracteres</p>
+    </body>
+    </html>
+    """
+    
+    return html
     
 
 
