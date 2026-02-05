@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import pywebpush
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import database as db
 from web_chat_handler import web_chat_bp
 import os
@@ -23,6 +23,7 @@ import uuid
 from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler
+from werkzeug.utils import secure_filename
 
 # Cargar variables de entorno
 load_dotenv()
@@ -32,6 +33,15 @@ tz_colombia = pytz.timezone('America/Bogota')
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 app.register_blueprint(push_bp, url_prefix='/push')
+
+# Configuración para subir imágenes
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+UPLOAD_FOLDER = 'static/uploads/profesionales'
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
@@ -5207,6 +5217,274 @@ def check_subscriptions_table():
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
+    
+@app.route('/profesional/perfil')
+@login_required
+def profesional_perfil():
+    """Página de perfil del profesional"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return redirect(url_for('login'))
+        
+        # Obtener datos del profesional
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT p.*, n.nombre as negocio_nombre
+            FROM profesionales p
+            LEFT JOIN negocios n ON p.negocio_id = n.id
+            WHERE p.id = %s
+        """, (profesional_id,))
+        
+        profesional = cur.fetchone()
+        cur.close()
+        
+        # Obtener estadísticas
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT 
+                COUNT(c.id) as total_citas,
+                COUNT(CASE WHEN c.estado = 'completado' THEN 1 END) as citas_completadas,
+                COUNT(CASE WHEN c.estado = 'cancelado' THEN 1 END) as citas_canceladas,
+                COALESCE(AVG(c.precio), 0) as promedio_ganancia
+            FROM citas c
+            WHERE c.profesional_id = %s
+        """, (profesional_id,))
+        
+        estadisticas = cur.fetchone()
+        cur.close()
+        
+        # Obtener calificaciones recientes
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT cp.puntuacion, cp.comentario, cp.created_at,
+                   cl.nombre as cliente_nombre
+            FROM calificaciones_profesional cp
+            LEFT JOIN clientes cl ON cp.cliente_id = cl.id
+            WHERE cp.profesional_id = %s
+            ORDER BY cp.created_at DESC
+            LIMIT 5
+        """, (profesional_id,))
+        
+        calificaciones = cur.fetchall()
+        cur.close()
+        
+        return render_template('profesional_perfil.html',
+                             profesional=profesional,
+                             estadisticas=estadisticas,
+                             calificaciones=calificaciones,
+                             csrf_token=session.get('csrf_token'))
+        
+    except Exception as e:
+        print(f"Error en profesional_perfil: {str(e)}")
+        return redirect(url_for('profesional_dashboard'))
+
+@app.route('/profesional/perfil/actualizar', methods=['POST'])
+@login_required
+def actualizar_perfil():
+    """Actualizar datos del perfil del profesional"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        data = request.form.to_dict()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Campos permitidos para actualizar
+        campos_permitidos = ['nombre', 'email', 'telefono', 'especialidad', 'descripcion']
+        update_fields = []
+        values = []
+        
+        for campo in campos_permitidos:
+            if campo in data and data[campo] is not None:
+                update_fields.append(f"{campo} = %s")
+                values.append(data[campo].strip())
+        
+        # Manejar subida de foto
+        foto_url = None
+        if 'foto' in request.files:
+            file = request.files['foto']
+            if file and file.filename and allowed_file(file.filename):
+                # Verificar tamaño
+                file.seek(0, 2)  # Ir al final
+                file_size = file.tell()
+                file.seek(0)  # Volver al inicio
+                
+                if file_size > MAX_FILE_SIZE:
+                    return jsonify({'success': False, 'message': 'Archivo demasiado grande (máx 5MB)'}), 400
+                
+                # Crear directorio si no existe
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                
+                # Generar nombre único
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                original_filename = secure_filename(file.filename)
+                filename = f"prof_{profesional_id}_{timestamp}_{original_filename}"
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                
+                # Guardar archivo
+                file.save(filepath)
+                
+                # Guardar URL relativa
+                foto_url = f"/{filepath}"
+                
+                # Eliminar foto anterior si existe
+                cur.execute("SELECT foto_url FROM profesionales WHERE id = %s", (profesional_id,))
+                old_foto = cur.fetchone()
+                if old_foto and old_foto[0]:
+                    old_path = old_foto[0][1:]  # Remover el primer slash
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except:
+                            pass  # Si no se puede eliminar, continuar
+                
+                update_fields.append("foto_url = %s")
+                values.append(foto_url)
+        
+        if update_fields:
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            values.append(profesional_id)
+            
+            query = f"""
+                UPDATE profesionales 
+                SET {', '.join(update_fields)}
+                WHERE id = %s
+                RETURNING id, nombre, email, telefono, especialidad, descripcion, foto_url
+            """
+            
+            cur.execute(query, values)
+            conn.commit()
+            
+            # Obtener datos actualizados
+            profesional_actualizado = cur.fetchone()
+            cur.close()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Perfil actualizado correctamente',
+                'data': {
+                    'nombre': profesional_actualizado[1],
+                    'email': profesional_actualizado[2],
+                    'telefono': profesional_actualizado[3],
+                    'especialidad': profesional_actualizado[4],
+                    'descripcion': profesional_actualizado[5],
+                    'foto_url': profesional_actualizado[6]
+                }
+            })
+        
+        cur.close()
+        return jsonify({'success': True, 'message': 'Sin cambios'})
+        
+    except Exception as e:
+        print(f"Error en actualizar_perfil: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({'success': False, 'message': 'Error al actualizar el perfil'}), 500
+
+@app.route('/api/profesional/estadisticas-detalladas')
+@login_required
+def profesional_estadisticas_detalladas():
+    """API para obtener estadísticas detalladas del profesional"""
+    try:
+        profesional_id = session.get('profesional_id')
+        
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Estadísticas generales
+        cur.execute("""
+            SELECT 
+                COUNT(c.id) as total_citas,
+                COUNT(CASE WHEN c.estado = 'completado' THEN 1 END) as completadas,
+                COUNT(CASE WHEN c.estado = 'pendiente' THEN 1 END) as pendientes,
+                COUNT(CASE WHEN c.estado = 'cancelado' THEN 1 END) as canceladas,
+                COALESCE(SUM(c.precio), 0) as ingresos_totales,
+                COALESCE(AVG(c.precio), 0) as promedio_por_cita
+            FROM citas c
+            WHERE c.profesional_id = %s
+        """, (profesional_id,))
+        
+        estadisticas = cur.fetchone()
+        
+        # Calificaciones
+        cur.execute("""
+            SELECT 
+                COALESCE(AVG(puntuacion), 0) as calificacion_promedio,
+                COUNT(*) as total_calificaciones
+            FROM calificaciones_profesional
+            WHERE profesional_id = %s
+        """, (profesional_id,))
+        
+        calificaciones = cur.fetchone()
+        
+        # Servicios más solicitados
+        cur.execute("""
+            SELECT s.nombre, COUNT(c.id) as cantidad
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.profesional_id = %s
+            GROUP BY s.nombre
+            ORDER BY cantidad DESC
+            LIMIT 5
+        """, (profesional_id,))
+        
+        servicios_populares = cur.fetchall()
+        
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'estadisticas': estadisticas,
+            'calificaciones': calificaciones,
+            'servicios_populares': servicios_populares
+        })
+        
+    except Exception as e:
+        print(f"Error en estadisticas_detalladas: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al cargar estadísticas'}), 500
+
+# ==================== RUTA PARA OBTENER PROFESIONALES CON FOTOS ====================
+@app.route('/api/profesionales/<int:negocio_id>')
+def obtener_profesionales(negocio_id):
+    """API para obtener profesionales con fotos para el chat"""
+    try:
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("""
+            SELECT id, nombre, especialidad, foto_url, 
+                   COALESCE(calificacion_promedio, 0) as rating
+            FROM profesionales 
+            WHERE negocio_id = %s AND activo = TRUE
+            ORDER BY nombre
+        """, (negocio_id,))
+        
+        profesionales = cur.fetchall()
+        cur.close()
+        
+        # Formatear para el chat
+        opciones = []
+        for prof in profesionales:
+            opciones.append({
+                'value': prof['id'],
+                'name': prof['nombre'],
+                'text': prof['nombre'],
+                'specialty': prof['especialidad'],
+                'rating': float(prof['rating']),
+                'image': prof['foto_url'] if prof['foto_url'] else None,
+                'type': 'professional'
+            })
+        
+        return jsonify({
+            'success': True,
+            'profesionales': opciones
+        })
+        
+    except Exception as e:
+        print(f"Error en obtener_profesionales: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
