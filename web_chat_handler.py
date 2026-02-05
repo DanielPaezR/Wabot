@@ -317,7 +317,7 @@ def generar_opciones_profesionales(numero, negocio_id):
         return None
     
     profesionales = conversaciones_activas[clave_conversacion]['profesionales']
-    opciones = []
+    opciones = [] 
     
     print(f"🔍 [WEB CHAT] Generando opciones para {len(profesionales)} profesionales")
     
