@@ -5345,7 +5345,7 @@ def subir_foto_profesional():
             return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
         
         # Obtener negocio_id
-        cur = get_db().cursor()
+        cur = get_db_connection().cursor()
         cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
         
@@ -5489,7 +5489,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
         print(f"URL pública: {url_publica}")
         
         # Guardar en base de datos
-        conn = get_db()
+        conn = get_db_connection()
         cur = conn.cursor()
         
         print(f"🔍 Conectado a DB")
