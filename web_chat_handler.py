@@ -30,15 +30,16 @@ conversaciones_activas = {}
 # =============================================================================
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
-    """Versión CORREGIDA que maneja JSON inválido"""
+    """Versión CORREGIDA y FUNCIONAL de push"""
     try:
         print(f"🔥 [PUSH-FINAL-LOCAL] Para profesional {profesional_id}, cita {cita_id}")
+        print(f"📝 Título: {titulo}, Mensaje: {mensaje}")
         
         # 1. SIEMPRE guardar en BD primero
         guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         print(f"✅ Notificación guardada en BD")
         
-        # 2. Intentar push solo si tenemos todo configurado
+        # 2. Intentar push
         try:
             import os
             import json
@@ -47,11 +48,18 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
             
             # Verificar VAPID
             VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+            VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
+            VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com').strip()
+            
+            print(f"🔑 VAPID_PRIVATE_KEY presente: {bool(VAPID_PRIVATE_KEY)}")
+            print(f"🔑 VAPID_PUBLIC_KEY presente: {bool(VAPID_PUBLIC_KEY)}")
+            print(f"🔑 VAPID_SUBJECT: {VAPID_SUBJECT}")
+            
             if not VAPID_PRIVATE_KEY:
-                print("⚠️ No hay VAPID_PRIVATE_KEY configurada")
+                print("❌ No hay VAPID_PRIVATE_KEY - push omitido")
                 return True
             
-            # Obtener suscripciones del profesional
+            # Obtener suscripciones
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('''
@@ -64,99 +72,97 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
             suscripciones = cursor.fetchall()
             conn.close()
             
-            print(f"📊 Encontradas {len(suscripciones)} suscripciones")
+            print(f"🔍 Encontradas {len(suscripciones)} suscripciones activas")
             
             if not suscripciones:
-                print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
+                print(f"⚠️ No hay suscripciones activas")
                 return True
             
-            # 3. Intentar con CADA suscripción hasta que una funcione
+            # 3. Probar cada suscripción
             for i, (susc_id, subscription_json) in enumerate(suscripciones):
                 try:
-                    print(f"🔄 Intentando suscripción {i+1} (ID: {susc_id})")
+                    print(f"\n🔄 Probando suscripción {i+1} (ID: {susc_id})")
                     
-                    # DEBUG: Mostrar qué hay realmente en el JSON
-                    print(f"   📄 JSON crudo: {str(subscription_json)[:100]}...")
-                    
-                    # Verificar si es un string vacío o inválido
-                    if not subscription_json or subscription_json.strip() == '':
-                        print(f"   ❌ Suscripción {susc_id} tiene JSON vacío")
+                    if not subscription_json:
+                        print(f"   ❌ JSON vacío")
                         continue
                     
-                    # INTENTAR parsear el JSON
+                    # Parsear JSON
                     try:
                         subscription = json.loads(subscription_json)
+                        print(f"   ✅ JSON parseado correctamente")
                     except json.JSONDecodeError as e:
-                        print(f"   ❌ JSON inválido en suscripción {susc_id}: {e}")
-                        
-                        # INTENTO ESPECIAL: Si el JSON es literalmente "subscription_json"
-                        if subscription_json == '"subscription_json"' or subscription_json == 'subscription_json':
-                            print(f"   🔧 ¡DETECTADO VALOR CORRUPTO! Intentando recuperar...")
-                            # Intentar obtener el JSON real desde otra fuente o usar un valor por defecto
-                            continue
-                        else:
-                            continue
-                    
-                    # Verificar estructura mínima del JSON
-                    if not isinstance(subscription, dict):
-                        print(f"   ❌ Suscripción {susc_id} no es un objeto JSON válido")
+                        print(f"   ❌ Error parseando JSON: {e}")
+                        print(f"   📄 JSON crudo (primeros 200 chars): {str(subscription_json)[:200]}")
                         continue
                     
-                    if 'endpoint' not in subscription:
-                        print(f"   ❌ Suscripción {susc_id} no tiene 'endpoint'")
+                    # Verificar estructura
+                    endpoint = subscription.get('endpoint', '')
+                    keys = subscription.get('keys', {})
+                    
+                    if not endpoint:
+                        print(f"   ❌ No hay endpoint en la suscripción")
                         continue
                     
-                    endpoint = subscription['endpoint']
-                    print(f"   ✅ JSON válido, endpoint: {endpoint[:50]}...")
+                    print(f"   📍 Endpoint: {endpoint[:50]}...")
+                    print(f"   🔑 Keys presentes: {bool(keys)}")
                     
-                    # 4. Enviar el push con pywebpush
+                    # 4. ENVIAR PUSH
                     try:
                         import pywebpush
                         
                         current_time = int(time.time())
-                        expiration_time = current_time + (12 * 60 * 60)  # 12 horas
+                        expiration_time = current_time + (12 * 60 * 60)
                         
-                        print(f"   🚀 Enviando push a suscripción {susc_id}...")
+                        print(f"   🚀 Enviando push...")
+                        print(f"   ⏰ Expiración: {expiration_time} ({time.ctime(expiration_time)})")
                         
+                        # INTENTO CON pywebpush
                         pywebpush.webpush(
                             subscription_info=subscription,
                             data=json.dumps({
                                 'title': titulo,
                                 'body': mensaje,
                                 'icon': '/static/icons/icon-192x192.png',
+                                'badge': '/static/icons/badge-72x72.png',
                                 'timestamp': current_time * 1000
                             }),
                             vapid_private_key=VAPID_PRIVATE_KEY,
                             vapid_claims={
-                                "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com'),
+                                "sub": VAPID_SUBJECT,
                                 "exp": expiration_time
                             },
-                            ttl=86400
+                            ttl=86400,
+                            timeout=10
                         )
                         
-                        print(f"   🎉 ¡PUSH ENVIADO EXITOSAMENTE con suscripción {susc_id}!")
+                        print(f"   🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
+                        print(f"   ✅ Suscripción {susc_id} funcionó")
                         return True
                         
                     except Exception as push_error:
-                        print(f"   ❌ Error enviando push (suscripción {susc_id}): {type(push_error).__name__}: {str(push_error)[:100]}")
-                        # Intentar con la siguiente suscripción
+                        print(f"   ❌ Error en pywebpush: {type(push_error).__name__}")
+                        print(f"   💡 Detalles: {str(push_error)[:150]}")
+                        
+                        # Mostrar error específico si es de VAPID
+                        if 'vapid' in str(push_error).lower() or 'exp' in str(push_error).lower():
+                            print(f"   🔧 Posible problema con VAPID claims o exp")
+                        
                         continue
                         
                 except Exception as susc_error:
-                    print(f"   ⚠️ Error procesando suscripción {i+1}: {susc_error}")
+                    print(f"   ⚠️ Error procesando suscripción: {susc_error}")
                     continue
             
-            # Si llegamos aquí, ninguna suscripción funcionó
-            print(f"⚠️ Todas las suscripciones fallaron para profesional {profesional_id}")
+            print(f"\n⚠️ Todas las suscripciones fallaron")
             return True
             
         except Exception as e:
             print(f"⚠️ Error en proceso de push: {type(e).__name__}: {e}")
-            return True  # Importante: la notificación YA está en BD
+            return True
             
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
-        # Aún así intentar guardar en BD
+        print(f"❌ Error crítico en push_local: {e}")
         try:
             guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
         except:

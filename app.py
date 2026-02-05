@@ -4776,191 +4776,7 @@ def manifest():
     return send_from_directory('static', 'manifest.json')
 
     
-@app.route('/admin/test-subscription')
-def test_subscription():
-    """Crear suscripción de prueba para el profesional 1 - VERSIÓN CORREGIDA"""
-    try:
-        from database import get_db_connection
-        import json
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 1. Verificar estructura de la tabla suscripciones_push
-        resultados = []
-        resultados.append("=== VERIFICANDO TABLA suscripciones_push ===")
-        
-        cursor.execute("""
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'suscripciones_push'
-            ORDER BY ordinal_position
-        """)
-        
-        columnas = cursor.fetchall()
-        for col in columnas:
-            resultados.append(f"  {col[0]} ({col[1]})")
-        
-        # 2. Datos de suscripción de prueba (simulados)
-        subscription_test = {
-            "endpoint": "https://fcm.googleapis.com/fcm/send/fake-endpoint-for-test-" + str(int(time.time())),
-            "expirationTime": None,
-            "keys": {
-                "p256dh": "BMKJxH5N4vKZ7e5fXqL9wR2tY8uP3zA6cV1bN7mQ0pD4gF5hT2jW8yU3iX6kZ9lO1nV4rS7eY0aB3dC",
-                "auth": "T7qP2wR9lO5nV8yU1iX4kZ6aB3dC7eY0"
-            }
-        }
-        
-        # 3. Insertar suscripción de prueba (adaptarse a la estructura real)
-        resultados.append("\n=== INSERTANDO SUSCRIPCIÓN ===")
-        
-        try:
-            # Primero intentar con created_at si existe
-            cursor.execute('''
-                INSERT INTO suscripciones_push 
-                (profesional_id, subscription_json, activa)
-                VALUES (%s, %s, TRUE)
-            ''', (1, json.dumps(subscription_test)))
-            
-            resultados.append("✅ Suscripción insertada SIN created_at")
-            
-        except Exception as insert_error:
-            resultados.append(f"⚠️ Error insertando: {str(insert_error)}")
-            
-            # Intentar otra estructura si falla
-            try:
-                cursor.execute('''
-                    INSERT INTO suscripciones_push 
-                    (profesional_id, subscription_json)
-                    VALUES (%s, %s)
-                ''', (1, json.dumps(subscription_test)))
-                resultados.append("✅ Suscripción insertada con estructura alternativa")
-            except Exception as e2:
-                resultados.append(f"❌ Error en estructura alternativa: {str(e2)}")
-                conn.rollback()
-                conn.close()
-                return "<br>".join(resultados)
-        
-        conn.commit()
-        
-        # 4. Verificar
-        cursor.execute('SELECT COUNT(*) FROM suscripciones_push WHERE profesional_id = 1')
-        count = cursor.fetchone()[0]
-        
-        cursor.execute('''
-            SELECT id, activa, LENGTH(subscription_json) as json_len
-            FROM suscripciones_push 
-            WHERE profesional_id = 1
-            ORDER BY id DESC
-            LIMIT 3
-        ''')
-        
-        ultimas = cursor.fetchall()
-        resultados.append("\n=== SUSCRIPCIONES EXISTENTES ===")
-        resultados.append(f"Total suscripciones para profesional 1: {count}")
-        
-        for sub in ultimas:
-            resultados.append(f"  ID: {sub[0]} - Activa: {sub[1]} - JSON Len: {sub[2]}")
-        
-        conn.close()
-        
-        return "<br>".join(resultados)
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
-@app.route('/admin/test-push-manual')
-def test_push_manual():
-    """Probar push manualmente"""
-    try:
-        from app import enviar_notificacion_push_profesional
-        
-        resultado = enviar_notificacion_push_profesional(
-            profesional_id=1,
-            titulo="🔔 Test Manual",
-            mensaje="Esta es una prueba MANUAL de notificación push",
-            cita_id=999
-        )
-        
-        return f"""
-        <h1>Test Push Manual</h1>
-        <p>Resultado: {'✅ ÉXITO' if resultado else '❌ FALLO'}</p>
-        <p><a href="/admin/fix-database">Verificar BD</a></p>
-        <p><a href="/admin/test-subscription">Crear suscripción prueba</a></p>
-        """
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
-    
-@app.route('/admin/check-subscriptions-table')
-def check_subscriptions_table():
-    """Verificar estructura REAL de la tabla suscripciones_push"""
-    try:
-        from database import get_db_connection
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        resultados = []
-        resultados.append("=== ESTRUCTURA COMPLETA suscripciones_push ===")
-        
-        # Obtener todas las columnas
-        cursor.execute("""
-            SELECT 
-                column_name, 
-                data_type,
-                is_nullable,
-                column_default
-            FROM information_schema.columns 
-            WHERE table_name = 'suscripciones_push'
-            ORDER BY ordinal_position
-        """)
-        
-        columnas = cursor.fetchall()
-        
-        if not columnas:
-            resultados.append("❌ La tabla suscripciones_push no existe")
-        else:
-            for col in columnas:
-                resultados.append(f"<b>{col[0]}</b>:")
-                resultados.append(f"  Tipo: {col[1]}")
-                resultados.append(f"  Nullable: {col[2]}")
-                if col[3]:
-                    resultados.append(f"  Default: {col[3]}")
-                resultados.append("")
-        
-        # Ver registros existentes
-        resultados.append("\n=== REGISTROS EXISTENTES ===")
-        cursor.execute("""
-            SELECT 
-                id,
-                profesional_id,
-                activa,
-                LENGTH(subscription_json) as json_len,
-                LEFT(subscription_json::text, 100) as json_preview
-            FROM suscripciones_push 
-            WHERE profesional_id = 1
-            LIMIT 10
-        """)
-        
-        registros = cursor.fetchall()
-        
-        if registros:
-            for reg in registros:
-                resultados.append(f"<b>ID {reg[0]}</b>:")
-                resultados.append(f"  Profesional: {reg[1]}")
-                resultados.append(f"  Activa: {reg[2]}")
-                resultados.append(f"  JSON Length: {reg[3]}")
-                resultados.append(f"  JSON Preview: {reg[4]}")
-                resultados.append("")
-        else:
-            resultados.append("No hay registros para el profesional 1")
-        
-        conn.close()
-        return "<br>".join(resultados)
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
 @app.route('/verify-key-tool')
 def verify_key_tool():
@@ -5068,101 +4884,21 @@ def verify_key_tool():
     </body>
     </html>
     '''
-
-@app.route('/debug-service-worker')
-def debug_service_worker():
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Debug Service Worker</title>
-    </head>
-    <body>
-        <h1>🔧 Debug Service Worker</h1>
-        <button onclick="testServiceWorker()">Probar Service Worker</button>
-        <div id="result" style="margin-top: 20px;"></div>
-        
-        <script>
-        async function testServiceWorker() {
-            const result = document.getElementById('result');
-            result.innerHTML = 'Probando...';
-            
-            try {
-                // 1. Registrar service worker
-                const registration = await navigator.serviceWorker.register('/static/service-worker.js');
-                result.innerHTML += '<p>✅ Service Worker registrado: ' + registration.scope + '</p>';
-                
-                // 2. Esperar a que esté activo
-                await navigator.serviceWorker.ready;
-                result.innerHTML += '<p>✅ Service Worker listo</p>';
-                
-                // 3. Verificar suscripción actual
-                const subscription = await registration.pushManager.getSubscription();
-                if (subscription) {
-                    result.innerHTML += '<p>✅ Ya estás suscrito</p>';
-                    console.log('Suscripción:', subscription);
-                } else {
-                    result.innerHTML += '<p>⚠️ No hay suscripción activa</p>';
-                }
-                
-                // 4. Obtener clave pública
-                const keyResponse = await fetch('/api/push/public-key');
-                const keyData = await keyResponse.json();
-                result.innerHTML += '<p>✅ Clave pública obtenida</p>';
-                
-                // 5. Intentar suscribirse
-                result.innerHTML += '<p>Intentando suscribirse...</p>';
-                const newSubscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
-                });
-                
-                result.innerHTML += '<p style="color: green;">✅ ¡Suscripción exitosa!</p>';
-                console.log('Nueva suscripción:', newSubscription);
-                
-            } catch (error) {
-                result.innerHTML += '<p style="color: red;">❌ Error: ' + error.message + '</p>';
-                console.error('Error:', error);
-            }
-        }
-        
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding)
-                .replace(/\-/g, '+')
-                .replace(/_/g, '/');
-            
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
-            }
-            return outputArray;
-        }
-        </script>
-    </body>
-    </html>
-    ''' 
-
-@app.route('/test/push-now/<int:profesional_id>')
-def test_push_now(profesional_id):
-    """Probar push inmediatamente"""
+@app.route('/test-push-simple/<int:profesional_id>')
+def test_push_simple(profesional_id):
+    """Prueba de push SIMPLE y directa"""
     try:
-        # Usar la misma lógica que en web_chat_handler.py
         import os
-        import time
         import json
+        import time
         from database import get_db_connection
         
-        # Verificar VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
-        
+        # 1. Obtener VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
         if not VAPID_PRIVATE_KEY:
-            return jsonify({'error': 'No hay VAPID_PRIVATE_KEY'}), 500
+            return jsonify({'success': False, 'error': 'VAPID_PRIVATE_KEY no configurada'}), 500
         
-        # Obtener suscripción
+        # 2. Obtener primera suscripción
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
@@ -5172,39 +4908,37 @@ def test_push_now(profesional_id):
             ORDER BY id DESC LIMIT 1
         ''', (profesional_id,))
         
-        suscripcion_data = cursor.fetchone()
+        result = cursor.fetchone()
         conn.close()
         
-        if not suscripcion_data:
-            return jsonify({'error': 'No hay suscripciones'}), 404
+        if not result:
+            return jsonify({'success': False, 'error': 'No hay suscripciones'}), 404
         
-        subscription = json.loads(suscripcion_data[0])
+        subscription = json.loads(result[0])
         
-        # Enviar push
+        # 3. Enviar push
         import pywebpush
         
         current_time = int(time.time())
-        expiration_time = current_time + (12 * 60 * 60)
         
         pywebpush.webpush(
             subscription_info=subscription,
             data=json.dumps({
-                'title': '🔥 TEST PUSH DIRECTO',
-                'body': f'Prueba de push a las {time.ctime()}',
+                'title': '🔥 TEST PUSH SIMPLE',
+                'body': f'Prueba: {time.ctime()}',
                 'icon': '/static/icons/icon-192x192.png'
             }),
             vapid_private_key=VAPID_PRIVATE_KEY,
             vapid_claims={
-                "sub": VAPID_SUBJECT,
-                "exp": expiration_time
+                "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com'),
+                "exp": current_time + (12 * 60 * 60)
             }
         )
         
         return jsonify({
             'success': True,
-            'message': 'Push enviado exitosamente',
-            'timestamp': current_time,
-            'expiration': expiration_time
+            'message': 'Push enviado',
+            'timestamp': current_time
         })
         
     except Exception as e:
@@ -5214,91 +4948,22 @@ def test_push_now(profesional_id):
             'error_type': type(e).__name__
         }), 500
 
-@app.route('/fix-corrupt-subscriptions')
-def fix_corrupt_subscriptions():
-    """Reparar suscripciones que tienen 'subscription_json' como valor en lugar de JSON"""
-    from database import get_db_connection
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 1. Buscar suscripciones corruptas
-        cursor.execute('''
-            SELECT id, profesional_id, subscription_json
-            FROM suscripciones_push
-            WHERE subscription_json IS NOT NULL 
-            AND subscription_json::text IN ('"subscription_json"', 'subscription_json')
-        ''')
-        
-        corruptas = cursor.fetchall()
-        
-        if not corruptas:
-            return jsonify({'message': 'No hay suscripciones corruptas encontradas'})
-        
-        print(f"🔧 Encontradas {len(corruptas)} suscripciones corruptas")
-        
-        # 2. Eliminar las corruptas (o desactivarlas)
-        for susc_id, profesional_id, json_val in corruptas:
-            print(f"   ❌ Suscripción {susc_id} para profesional {profesional_id}: valor='{json_val}'")
-            
-            # Opción A: Eliminar
-            cursor.execute('DELETE FROM suscripciones_push WHERE id = %s', (susc_id,))
-            print(f"   🗑️ Eliminada suscripción {susc_id}")
-            
-            # Opción B: O desactivar
-            # cursor.execute('UPDATE suscripciones_push SET activa = FALSE WHERE id = %s', (susc_id,))
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'fixed_count': len(corruptas),
-            'message': f'Reparadas {len(corruptas)} suscripciones corruptas'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
-@app.route('/check-subscriptions-real')
-def check_subscriptions_real():
-    """Verificar el estado REAL de las suscripciones"""
-    from database import get_db_connection
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Ver todas las suscripciones
-    cursor.execute('''
-        SELECT id, profesional_id, activa, 
-               LENGTH(subscription_json::text) as json_length,
-               LEFT(subscription_json::text, 100) as json_preview
-        FROM suscripciones_push
-        ORDER BY id DESC
-        LIMIT 20
-    ''')
-    
-    results = cursor.fetchall()
-    conn.close()
-    
-    suscripciones = []
-    for row in results:
-        susc_id, prof_id, activa, json_len, json_preview = row
-        suscripciones.append({
-            'id': susc_id,
-            'profesional_id': prof_id,
-            'activa': activa,
-            'json_length': json_len,
-            'json_preview': json_preview,
-            'is_corrupt': json_preview in ['"subscription_json"', 'subscription_json', '']
-        })
+@app.route('/debug-vapid')
+def debug_vapid():
+    """Debug de VAPID"""
+    import os
     
     return jsonify({
-        'total_checked': len(suscripciones),
-        'suscripciones': suscripciones,
-        'corrupt_count': len([s for s in suscripciones if s['is_corrupt']])
+        'VAPID_PRIVATE_KEY': 'PRESENTE' if os.getenv('VAPID_PRIVATE_KEY') else 'AUSENTE',
+        'VAPID_PRIVATE_KEY_length': len(os.getenv('VAPID_PRIVATE_KEY', '')),
+        'VAPID_PUBLIC_KEY': 'PRESENTE' if os.getenv('VAPID_PUBLIC_KEY') else 'AUSENTE',
+        'VAPID_PUBLIC_KEY_preview': os.getenv('VAPID_PUBLIC_KEY', '')[:30] + '...' if os.getenv('VAPID_PUBLIC_KEY') else '',
+        'VAPID_SUBJECT': os.getenv('VAPID_SUBJECT', 'NO CONFIGURADO')
     })
+
+
+
+
 
 
 
