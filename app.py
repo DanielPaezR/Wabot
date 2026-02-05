@@ -5213,37 +5213,69 @@ def debug_vapid():
         'all_env_keys': [key for key in os.environ.keys() if 'VAPID' in key]
     })
 
-@app.route('/debug/subscriptions/<int:profesional_id>')
-def debug_subscriptions(profesional_id):
-    """Ver suscripciones de un profesional"""
+@app.route('/debug/push-status/<int:profesional_id>')
+def debug_push_status(profesional_id):
+    """Estado del sistema push para un profesional"""
+    import os
     from database import get_db_connection
     
+    # 1. Verificar VAPID
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
+    
+    # 2. Verificar suscripciones
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # Solo columnas que sabemos que existen
     cursor.execute('''
-        SELECT id, activa, created_at, 
-               LENGTH(subscription_json) as json_length,
-               subscription_json::text as json_preview
+        SELECT id, activa, subscription_json 
         FROM suscripciones_push 
         WHERE profesional_id = %s
         ORDER BY id DESC
     ''', (profesional_id,))
     
-    results = cursor.fetchall()
+    suscripciones = cursor.fetchall()
     conn.close()
     
+    # 3. Analizar suscripciones
+    suscripciones_analizadas = []
+    for s in suscripciones:
+        try:
+            import json
+            sub_json = json.loads(s[2]) if s[2] else {}
+            suscripciones_analizadas.append({
+                'id': s[0],
+                'activa': s[1],
+                'endpoint': sub_json.get('endpoint', '')[0:60] + '...' if sub_json.get('endpoint') else None,
+                'keys_present': 'keys' in sub_json,
+                'json_length': len(s[2]) if s[2] else 0
+            })
+        except Exception as e:
+            suscripciones_analizadas.append({
+                'id': s[0],
+                'activa': s[1],
+                'error': str(e),
+                'json_preview': str(s[2])[0:100] if s[2] else None
+            })
+    
     return jsonify({
-        'profesional_id': profesional_id,
-        'total_suscripciones': len(results),
-        'suscripciones': [
-            {
-                'id': r[0],
-                'activa': r[1],
-                'created_at': str(r[2]),
-                'json_length': r[3],
-                'json_preview': r[4][:100] + '...' if r[4] and len(r[4]) > 100 else r[4]
-            }
-            for r in results
+        'vapid_status': {
+            'has_private_key': bool(VAPID_PRIVATE_KEY),
+            'has_public_key': bool(VAPID_PUBLIC_KEY),
+            'private_key_length': len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0,
+            'subject': VAPID_SUBJECT
+        },
+        'suscripciones': {
+            'total': len(suscripciones),
+            'activas': len([s for s in suscripciones if s[1] is True]),
+            'detalles': suscripciones_analizadas
+        },
+        'recommendations': [
+            '✅ VAPID configurado' if VAPID_PRIVATE_KEY else '❌ Falta VAPID_PRIVATE_KEY',
+            '✅ Suscripciones encontradas' if suscripciones else '❌ No hay suscripciones',
+            '🔧 Usar /test/push-now/1 para probar push directo'
         ]
     })
 

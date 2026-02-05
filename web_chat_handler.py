@@ -30,107 +30,111 @@ conversaciones_activas = {}
 # =============================================================================
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
-    """Versión CORREGIDA con manejo de errores mejorado"""
+    """Versión SIMPLIFICADA y ROBUSTA para push"""
     try:
-        print(f"🔥 [PUSH-FINAL-LOCAL] Para profesional {profesional_id}")
+        print(f"🔥 [PUSH-FINAL-LOCAL] Iniciando push para profesional {profesional_id}")
         
-        # 1. SIEMPRE guardar en BD primero
-        resultado_bd = guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        print(f"✅ Notificación guardada en BD con resultado: {resultado_bd}")
+        # 1. SIEMPRE guardar en BD primero (esto ya funciona)
+        guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
+        print(f"✅ Notificación guardada en BD para cita {cita_id}")
         
-        # 2. Intentar push EN EL MISMO HILO para ver errores
+        # 2. Intentar push de forma SEGURA
+        try_push_immediately(profesional_id, titulo, mensaje)
+        
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Error en push_local: {e}")
+        # La notificación YA está en BD, así que éxito
+        return True
+
+def try_push_immediately(profesional_id, titulo, mensaje):
+    """Intentar enviar push inmediatamente"""
+    try:
+        import os
+        import json
+        import time
+        from database import get_db_connection
+        
+        # Verificar VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com').strip()
+        
+        if not VAPID_PRIVATE_KEY:
+            print("❌ No hay VAPID_PRIVATE_KEY - saltando push")
+            return False
+        
+        # Obtener la última suscripción activa
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC LIMIT 1
+        ''', (profesional_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result or not result[0]:
+            print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
+            return False
+        
+        # Parsear suscripción
         try:
-            import os
-            import time
-            import json
-            from database import get_db_connection
+            subscription = json.loads(result[0])
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON inválido en suscripción: {e}")
+            return False
+        
+        # Verificar estructura
+        if not subscription.get('endpoint'):
+            print("❌ Suscripción no tiene endpoint")
+            return False
+        
+        # Intentar enviar con pywebpush
+        try:
+            import pywebpush
+        
+            # Configurar tiempo de expiración (12 horas máximo)
+            current_time = int(time.time())
+            expiration_time = current_time + (12 * 60 * 60)
             
-            # Verificar si tenemos claves VAPID
-            VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-            VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-            VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+            print(f"🚀 Enviando push a: {subscription.get('endpoint')[:50]}...")
+            print(f"   Expiración: {expiration_time} ({time.ctime(expiration_time)})")
             
-            print(f"🔑 [DEBUG] VAPID_PRIVATE_KEY presente: {bool(VAPID_PRIVATE_KEY)}")
-            print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY presente: {bool(VAPID_PUBLIC_KEY)}")
-            print(f"🔑 [DEBUG] VAPID_SUBJECT: {VAPID_SUBJECT}")
+            # Enviar push
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": expiration_time
+                },
+                ttl=86400,
+                timeout=5
+            )
             
-            if not VAPID_PRIVATE_KEY:
-                print("❌ No hay clave privada VAPID - no se puede enviar push")
-                return True  # Pero la notificación YA está en BD
+            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE a profesional {profesional_id}!")
+            return True
             
-            # Obtener suscripciones del profesional
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT subscription_json 
-                FROM suscripciones_push 
-                WHERE profesional_id = %s AND activa = TRUE
-                ORDER BY id DESC LIMIT 1
-            ''', (profesional_id,))
-            
-            suscripcion_data = cursor.fetchone()
-            conn.close()
-            
-            if not suscripcion_data:
-                print("⚠️ No hay suscripciones activas para este profesional")
-                return True
-            
-            subscription_json = suscripcion_data[0]
-            subscription = json.loads(subscription_json)
-            
-            # INTENTO DIRECTO con pywebpush (corregido)
-            try:
-                import pywebpush
-                
-                # Configurar exp CORRECTO (máximo 24 horas)
-                current_time = int(time.time())
-                expiration_time = current_time + (12 * 60 * 60)  # 12 horas
-                
-                print(f"🔑 [PUSH-ATTEMPT] Enviando push directo...")
-                print(f"🔑 [PUSH-ATTEMPT] Endpoint: {subscription.get('endpoint', '')[:50]}...")
-                print(f"🔑 [PUSH-ATTEMPT] Exp: {expiration_time}")
-                
-                # Asegurarnos de usar la clave privada CORRECTA
-                vapid_private_key = VAPID_PRIVATE_KEY.strip()
-                
-                # Intentar el envío
-                pywebpush.webpush(
-                    subscription_info=subscription,
-                    data=json.dumps({
-                        'title': titulo,
-                        'body': mensaje,
-                        'icon': '/static/icons/icon-192x192.png',
-                        'badge': '/static/icons/badge-72x72.png'
-                    }),
-                    vapid_private_key=vapid_private_key,
-                    vapid_claims={
-                        "sub": VAPID_SUBJECT,
-                        "exp": expiration_time
-                    },
-                    ttl=86400,  # 24 horas en segundos
-                    timeout=10  # Timeout de 10 segundos
-                )
-                
-                print("🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
-                return True
-                
-            except Exception as push_error:
-                print(f"⚠️ Error en pywebpush: {type(push_error).__name__}: {str(push_error)}")
-                # Podría ser por muchas razones, pero la notificación YA está en BD
-                return True
-                
-        except Exception as e:
-            print(f"⚠️ Error en proceso de push: {type(e).__name__}: {str(e)}")
-            return True  # Importante: SIEMPRE devolver True porque la notificación está en BD
+        except ImportError:
+            print("❌ pywebpush no está instalado")
+            return False
+        except Exception as push_error:
+            print(f"⚠️ Error en pywebpush: {type(push_error).__name__}: {push_error}")
+            return False
             
     except Exception as e:
-        print(f"❌ Error crítico en push_local: {type(e).__name__}: {str(e)}")
-        # Último intento para guardar en BD
-        try:
-            guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        except:
-            pass
-        return True
+        print(f"⚠️ Error en try_push_immediately: {type(e).__name__}: {e}")
+        return False
 
 def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
     """Función auxiliar solo para guardar notificación en BD"""
