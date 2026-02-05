@@ -1242,7 +1242,7 @@ def obtener_profesionales(negocio_id):
                 nombre, 
                 telefono,
                 especialidad, 
-                foto_url,  # ← ESTA COLUMNA ES CRÍTICA
+                foto_url,
                 pin,
                 usuario_id,
                 activo,
