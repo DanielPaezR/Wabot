@@ -4961,6 +4961,24 @@ def check_subscriptions_table():
     except Exception as e:
         return f"❌ Error: {str(e)}"
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 @app.route('/profesional/perfil')
 @login_required
 def profesional_perfil():
@@ -5369,6 +5387,8 @@ ORDER BY ordinal_position;</pre>
             
             conn.commit()
             cur.close()
+
+            resultados_texto = '\n'.join(resultados)
             
             return f"""
             <!DOCTYPE html>
@@ -5389,7 +5409,7 @@ ORDER BY ordinal_position;</pre>
                 </div>
                 <div class="results">
                     <h3>📝 Resultados de ejecución:</h3>
-                    <pre>{'\\n'.join(resultados)}</pre>
+                    <pre>{resultados_texto}</pre>
                 </div>
                 <div style="margin-top: 20px;">
                     <h3>🔍 Para verificar:</h3>
