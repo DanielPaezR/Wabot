@@ -5292,7 +5292,7 @@ def subir_imagen_profesional():
             return jsonify({'success': False, 'message': 'Nombre de archivo vacío'})
         
         # Obtener negocio_id del profesional
-        cur = get_db().cursor()
+        cur = get_db_connection().cursor()
         cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
         
@@ -5336,7 +5336,7 @@ def subir_foto_profesional():
             return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
         
         # Obtener negocio_id
-        cur = get_db().cursor()
+        cur = get_db_connection().cursor()
         cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
         result = cur.fetchone()
         
@@ -5370,7 +5370,7 @@ def obtener_foto_actual():
     try:
         profesional_id = session.get('profesional_id')
         
-        cur = get_db().cursor()
+        cur = get_db_connection().cursor()
         # Buscar la imagen principal más reciente
         cur.execute("""
             SELECT url_publica 
@@ -5447,7 +5447,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
         url_publica = f"/{upload_path}/{unique_name}".replace('\\', '/')
         
         # Guardar en base de datos
-        conn = get_db()
+        conn = get_db_connection()
         cur = conn.cursor()
         
         # 1. Desmarcar cualquier imagen principal existente

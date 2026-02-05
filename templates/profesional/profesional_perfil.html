@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Perfil - {{ profesional.nombre }}</title>
+    <title>Mi Perfil - {{ profesional.nombre if profesional else 'Profesional' }}</title>
     <style>
         :root {
             --primary: #667eea;
@@ -248,9 +248,59 @@
             font-weight: bold;
             color: var(--dark);
         }
+        
+        /* Grid para información */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .info-item {
+            background: rgba(255,255,255,0.1);
+            padding: 0.8rem;
+            border-radius: 8px;
+        }
+        
+        /* Error message */
+        .error-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .error-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--danger);
+        }
+        
+        .error-message {
+            color: var(--danger);
+            margin-bottom: 1.5rem;
+        }
+        
+        .retry-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
+    {% if not profesional %}
+    <div class="error-container">
+        <div class="error-icon">❌</div>
+        <h2 class="error-message">Error al cargar el perfil</h2>
+        <p>No se pudo cargar la información de tu perfil.</p>
+        <button class="retry-btn" onclick="window.location.reload()">Reintentar</button>
+        <button class="retry-btn" onclick="window.history.back()" style="background: var(--text-light); margin-left: 10px;">Volver</button>
+    </div>
+    {% else %}
+    
     <div class="header">
         <div class="header-content">
             <button class="back-btn" onclick="window.history.back()">←</button>
@@ -263,16 +313,41 @@
             </div>
             <div class="header-info">
                 <h1>{{ profesional.nombre }}</h1>
-                <p>{{ profesional.negocio_nombre }}</p>
+                
+                <!-- Negocio (si está en la consulta) -->
+                {% if profesional.negocio_nombre %}
+                <p>🏢 {{ profesional.negocio_nombre }}</p>
+                {% endif %}
+                
+                <!-- Especialidad -->
                 {% if profesional.especialidad %}
                 <p>📋 {{ profesional.especialidad }}</p>
                 {% endif %}
                 
-                <div class="info-box" style="margin-top: 10px; background: rgba(255,255,255,0.2);">
-                    <div class="info-label">ID Profesional</div>
-                    <div class="info-value">{{ profesional.id }}</div>
-                    <div class="info-label">Estado</div>
-                    <div class="info-value">{{ '✅ Activo' if profesional.activo else '❌ Inactivo' }}</div>
+                <!-- Información rápida -->
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">ID</div>
+                        <div class="info-value">{{ profesional.id }}</div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Estado</div>
+                        <div class="info-value">
+                            {% if profesional.activo %}
+                                <span style="color: #27ae60;">✅ Activo</span>
+                            {% else %}
+                                <span style="color: #e74c3c;">❌ Inactivo</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if profesional.telefono %}
+                    <div class="info-item">
+                        <div class="info-label">📞 Teléfono</div>
+                        <div class="info-value">{{ profesional.telefono }}</div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -283,14 +358,46 @@
         <div class="section">
             <h2 class="section-title">📋 Información del Sistema</h2>
             <div class="info-box">
-                <div class="info-label">Usuario ID</div>
-                <div class="info-value">{{ profesional.usuario_id }}</div>
+                <!-- Usuario ID -->
+                {% if profesional.usuario_id %}
+                <div style="margin-bottom: 1rem;">
+                    <div class="info-label">Usuario ID</div>
+                    <div class="info-value">{{ profesional.usuario_id }}</div>
+                </div>
+                {% endif %}
                 
-                <div class="info-label">PIN</div>
-                <div class="info-value">{{ profesional.pin }}</div>
+                <!-- PIN -->
+                {% if profesional.pin %}
+                <div style="margin-bottom: 1rem;">
+                    <div class="info-label">PIN de Acceso</div>
+                    <div class="info-value">{{ profesional.pin }}</div>
+                </div>
+                {% endif %}
                 
-                <div class="info-label">Miembro desde</div>
-                <div class="info-value">{{ profesional.created_at.strftime('%d/%m/%Y') }}</div>
+                <!-- Fecha de creación -->
+                {% if profesional.created_at %}
+                <div style="margin-bottom: 1rem;">
+                    <div class="info-label">Miembro desde</div>
+                    <div class="info-value">
+                        {% if profesional.created_at is string %}
+                            {{ profesional.created_at }}
+                        {% elif profesional.fecha_creacion %}
+                            {{ profesional.fecha_creacion }}
+                        {% else %}
+                            <!-- Intentar formatear si es datetime -->
+                            {{ profesional.created_at.strftime('%d/%m/%Y') if hasattr(profesional.created_at, 'strftime') else profesional.created_at }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Negocio ID -->
+                {% if profesional.negocio_id %}
+                <div style="margin-bottom: 1rem;">
+                    <div class="info-label">Negocio ID</div>
+                    <div class="info-value">{{ profesional.negocio_id }}</div>
+                </div>
+                {% endif %}
             </div>
         </div>
         
@@ -309,19 +416,52 @@
                 <div class="form-group">
                     <label class="form-label">Teléfono</label>
                     <input type="tel" class="form-control" id="telefono" 
-                           value="{{ profesional.telefono or '' }}">
+                           value="{{ profesional.telefono if profesional.telefono else '' }}"
+                           placeholder="Ej: +34 600 123 456">
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Especialidad</label>
                     <input type="text" class="form-control" id="especialidad" 
-                           value="{{ profesional.especialidad or '' }}">
+                           value="{{ profesional.especialidad if profesional.especialidad else '' }}"
+                           placeholder="Ej: Peluquería, Maquillaje, Estética...">
                 </div>
                 
                 <button type="submit" class="btn btn-primary btn-block" id="saveBtn">
                     💾 Guardar Cambios
                 </button>
             </form>
+        </div>
+        
+        <!-- Información de solo lectura -->
+        <div class="section">
+            <h2 class="section-title">🔒 Información del Sistema (solo lectura)</h2>
+            <div class="info-box">
+                <p style="color: var(--text-light); margin-bottom: 1rem;">
+                    <small>Esta información es gestionada por el sistema y no puede ser modificada directamente.</small>
+                </p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div>
+                        <div class="info-label">ID Profesional</div>
+                        <div class="info-value">{{ profesional.id }}</div>
+                    </div>
+                    
+                    {% if profesional.negocio_id %}
+                    <div>
+                        <div class="info-label">Negocio ID</div>
+                        <div class="info-value">{{ profesional.negocio_id }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if profesional.usuario_id %}
+                    <div>
+                        <div class="info-label">Usuario ID</div>
+                        <div class="info-value">{{ profesional.usuario_id }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
     
@@ -351,6 +491,7 @@
             
             try {
                 const saveBtn = document.getElementById('saveBtn');
+                const originalText = saveBtn.innerHTML;
                 saveBtn.disabled = true;
                 saveBtn.innerHTML = '⏳ Subiendo...';
                 
@@ -363,12 +504,15 @@
                 
                 if (result.success) {
                     alert('✅ Foto actualizada correctamente');
-                    document.getElementById('avatarImg').src = result.url + '?t=' + new Date().getTime();
+                    // Actualizar imagen con timestamp para evitar cache
+                    const separator = result.url.includes('?') ? '&' : '?';
+                    const newUrl = result.url + separator + 't=' + new Date().getTime();
+                    document.getElementById('avatarImg').src = newUrl;
                 } else {
                     alert('❌ Error: ' + result.message);
                 }
             } catch (error) {
-                alert('❌ Error de conexión');
+                alert('❌ Error de conexión: ' + error.message);
             } finally {
                 const saveBtn = document.getElementById('saveBtn');
                 saveBtn.disabled = false;
@@ -415,6 +559,14 @@
                     alert('✅ Perfil actualizado correctamente');
                     // Actualizar nombre en el header
                     document.querySelector('.header-info h1').textContent = data.nombre;
+                    
+                    // Actualizar especialidad si existe
+                    if (data.especialidad) {
+                        const especialidadElement = document.querySelector('.header-info p:nth-child(3)');
+                        if (especialidadElement && especialidadElement.textContent.includes('📋')) {
+                            especialidadElement.textContent = '📋 ' + data.especialidad;
+                        }
+                    }
                 } else {
                     alert('❌ Error: ' + result.message);
                 }
@@ -433,15 +585,35 @@
                 const result = await response.json();
                 
                 if (result.success && result.tiene_foto) {
-                    document.getElementById('avatarImg').src = result.url;
+                    // Añadir timestamp para evitar cache
+                    const separator = result.url.includes('?') ? '&' : '?';
+                    const url = result.url + separator + 't=' + new Date().getTime();
+                    document.getElementById('avatarImg').src = url;
                 }
             } catch (error) {
-                console.log('No hay foto configurada');
+                console.log('No hay foto configurada o error al cargarla:', error);
             }
         }
         
         // Cargar al iniciar
         document.addEventListener('DOMContentLoaded', cargarFotoActual);
+        
+        // También cargar cuando la página se muestre después de caché
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                cargarFotoActual();
+            }
+        });
+        
+        // Mejorar experiencia en móviles
+        if ('ontouchstart' in window) {
+            document.querySelectorAll('.form-control').forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.style.fontSize = '16px'; // Evitar zoom en iOS
+                });
+            });
+        }
     </script>
+    {% endif %}
 </body>
 </html>
