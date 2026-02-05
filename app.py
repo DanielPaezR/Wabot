@@ -5145,139 +5145,201 @@ def debug_service_worker():
     </html>
     ''' 
 
-# En app.py, agrega esta ruta:
-@app.route('/debug-suscripciones-db')
-def debug_suscripciones_db():
-    """Verificar estructura REAL de las suscripciones en BD"""
+@app.route('/debug/vapid-simple')
+def debug_vapid_simple():
+    """Diagnóstico simple de VAPID"""
+    import os
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+    
+    return jsonify({
+        'status': 'OK',
+        'vapid_configured': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
+        'private_key_length': len(VAPID_PRIVATE_KEY),
+        'public_key_length': len(VAPID_PUBLIC_KEY),
+        'subject': VAPID_SUBJECT,
+        'public_key_preview': VAPID_PUBLIC_KEY[:30] + '...' if VAPID_PUBLIC_KEY else 'No configurada'
+    })
+
+@app.route('/debug/subscriptions-simple/<int:profesional_id>')
+def debug_subscriptions_simple(profesional_id):
+    """Diagnóstico simple de suscripciones"""
+    from database import get_db_connection
+    
     try:
-        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Ver estructura de la tabla
+        # PRIMERO: Ver estructura real de la tabla
         cursor.execute("""
-            SELECT column_name, data_type 
+            SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'suscripciones_push'
             ORDER BY ordinal_position
         """)
         
-        columnas = cursor.fetchall()
+        columns = [row[0] for row in cursor.fetchall()]
+        print(f"📋 Columnas en suscripciones_push: {columns}")
         
-        # Ver datos
-        cursor.execute('SELECT * FROM suscripciones_push WHERE profesional_id = 1')
-        suscripciones = cursor.fetchall()
+        # SEGUNDO: Consulta simple y segura
+        cursor.execute("""
+            SELECT * FROM suscripciones_push 
+            WHERE profesional_id = %s
+            ORDER BY id DESC
+        """, (profesional_id,))
         
+        rows = cursor.fetchall()
         conn.close()
         
-        resultado = []
-        resultado.append("<h1>🔍 DEBUG SUSCRIPCIONES PUSH</h1>")
-        
-        resultado.append("<h2>📋 Estructura de la tabla:</h2>")
-        for col in columnas:
-            resultado.append(f"<b>{col[0]}</b>: {col[1]}")
-        
-        resultado.append(f"<h2>📊 Suscripciones para profesional 1: {len(suscripciones)}</h2>")
-        
-        for i, susc in enumerate(suscripciones):
-            resultado.append(f"<h3>Suscripción {i+1}:</h3>")
-            resultado.append(f"<pre>Tipo: {type(susc)}</pre>")
+        # Procesar resultados
+        suscripciones = []
+        for row in rows:
+            # Convertir tupla a dict usando nombres de columnas
+            suscripcion = {}
+            for i, col_name in enumerate(columns):
+                if i < len(row):
+                    suscripcion[col_name] = row[i]
             
-            if isinstance(susc, tuple):
-                for j, val in enumerate(susc):
-                    resultado.append(f"<b>Columna {j}:</b> {str(val)[:200] if val else 'None'}")
-            else:
-                resultado.append(f"<pre>{str(susc)}</pre>")
+            suscripciones.append(suscripcion)
         
-        return "<br>".join(resultado)
+        return jsonify({
+            'status': 'OK',
+            'profesional_id': profesional_id,
+            'table_columns': columns,
+            'total_subscriptions': len(suscripciones),
+            'subscriptions': suscripciones
+        })
         
     except Exception as e:
-        return f"❌ Error: {str(e)}"
-    
-@app.route('/debug/vapid')
-def debug_vapid():
-    """Endpoint para debug de VAPID"""
-    import os
-    
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
-    
-    return jsonify({
-        'has_private_key': bool(VAPID_PRIVATE_KEY),
-        'private_key_length': len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0,
-        'private_key_first_20': VAPID_PRIVATE_KEY[:20] if VAPID_PRIVATE_KEY else '',
-        'has_public_key': bool(VAPID_PUBLIC_KEY),
-        'public_key_first_30': VAPID_PUBLIC_KEY[:30] if VAPID_PUBLIC_KEY else '',
-        'vapid_subject': VAPID_SUBJECT,
-        'all_env_keys': [key for key in os.environ.keys() if 'VAPID' in key]
-    })
+        return jsonify({
+            'status': 'ERROR',
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
 
-@app.route('/debug/push-status/<int:profesional_id>')
-def debug_push_status(profesional_id):
-    """Estado del sistema push para un profesional"""
+@app.route('/debug/push-test/<int:profesional_id>')
+def debug_push_test(profesional_id):
+    """Probar push directamente con diagnóstico"""
     import os
+    import json
+    import time
     from database import get_db_connection
     
-    # 1. Verificar VAPID
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
-    
-    # 2. Verificar suscripciones
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Solo columnas que sabemos que existen
-    cursor.execute('''
-        SELECT id, activa, subscription_json 
-        FROM suscripciones_push 
-        WHERE profesional_id = %s
-        ORDER BY id DESC
-    ''', (profesional_id,))
-    
-    suscripciones = cursor.fetchall()
-    conn.close()
-    
-    # 3. Analizar suscripciones
-    suscripciones_analizadas = []
-    for s in suscripciones:
+    try:
+        # 1. Verificar VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({
+                'success': False,
+                'error': 'VAPID_PRIVATE_KEY no configurada',
+                'next_step': 'Configurar VAPID en variables de entorno'
+            }), 500
+        
+        # 2. Obtener suscripción
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Consulta explícita con columnas conocidas
+        cursor.execute("""
+            SELECT id, subscription_json, activa 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC LIMIT 1
+        """, (profesional_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': f'No hay suscripciones activas para profesional {profesional_id}',
+                'next_step': 'El profesional debe suscribirse desde la app web'
+            }), 404
+        
+        subscription_id, subscription_json, activa = result
+        
+        if not subscription_json:
+            return jsonify({
+                'success': False, 
+                'error': 'Suscripción no tiene JSON',
+                'subscription_id': subscription_id
+            }), 500
+        
+        # 3. Parsear JSON
         try:
-            import json
-            sub_json = json.loads(s[2]) if s[2] else {}
-            suscripciones_analizadas.append({
-                'id': s[0],
-                'activa': s[1],
-                'endpoint': sub_json.get('endpoint', '')[0:60] + '...' if sub_json.get('endpoint') else None,
-                'keys_present': 'keys' in sub_json,
-                'json_length': len(s[2]) if s[2] else 0
+            subscription = json.loads(subscription_json)
+        except json.JSONDecodeError as e:
+            return jsonify({
+                'success': False,
+                'error': f'JSON inválido en suscripción: {str(e)}',
+                'json_preview': subscription_json[:100] + '...'
+            }), 500
+        
+        # 4. Verificar estructura
+        endpoint = subscription.get('endpoint', '')
+        keys = subscription.get('keys', {})
+        
+        if not endpoint:
+            return jsonify({
+                'success': False,
+                'error': 'Suscripción no tiene endpoint',
+                'subscription_structure': list(subscription.keys())
+            }), 500
+        
+        # 5. Intentar enviar push
+        try:
+            import pywebpush
+            
+            current_time = int(time.time())
+            expiration_time = current_time + (12 * 60 * 60)
+            
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': '🔥 TEST PUSH',
+                    'body': f'Prueba directa - {time.ctime()}',
+                    'icon': '/static/icons/icon-192x192.png'
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": expiration_time
+                },
+                ttl=86400
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': '¡Push enviado exitosamente!',
+                'details': {
+                    'profesional_id': profesional_id,
+                    'subscription_id': subscription_id,
+                    'endpoint': endpoint[:60] + '...',
+                    'expiration': expiration_time,
+                    'sent_at': current_time
+                }
             })
-        except Exception as e:
-            suscripciones_analizadas.append({
-                'id': s[0],
-                'activa': s[1],
-                'error': str(e),
-                'json_preview': str(s[2])[0:100] if s[2] else None
-            })
-    
-    return jsonify({
-        'vapid_status': {
-            'has_private_key': bool(VAPID_PRIVATE_KEY),
-            'has_public_key': bool(VAPID_PUBLIC_KEY),
-            'private_key_length': len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0,
-            'subject': VAPID_SUBJECT
-        },
-        'suscripciones': {
-            'total': len(suscripciones),
-            'activas': len([s for s in suscripciones if s[1] is True]),
-            'detalles': suscripciones_analizadas
-        },
-        'recommendations': [
-            '✅ VAPID configurado' if VAPID_PRIVATE_KEY else '❌ Falta VAPID_PRIVATE_KEY',
-            '✅ Suscripciones encontradas' if suscripciones else '❌ No hay suscripciones',
-            '🔧 Usar /test/push-now/1 para probar push directo'
-        ]
-    })
+            
+        except Exception as push_error:
+            return jsonify({
+                'success': False,
+                'error': f'Error al enviar push: {type(push_error).__name__}',
+                'error_details': str(push_error),
+                'diagnosis': 'Posible problema con las claves VAPID o endpoint inválido',
+                'next_step': 'Verificar que las claves VAPID sean correctas'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error inesperado: {type(e).__name__}',
+            'error_details': str(e)
+        }), 500
 
 @app.route('/test/push-now/<int:profesional_id>')
 def test_push_now(profesional_id):
