@@ -1,7 +1,7 @@
 // static/js/push-notifications.js
 class PushNotifications {
     constructor() {
-        this.publicKey = 'TU_VAPID_PUBLIC_KEY'; // De Railway env
+        this.publicKey = 'BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI'; // De Railway env
         this.profesionalId = null;
     }
     
