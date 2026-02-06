@@ -1663,10 +1663,35 @@
             <div style="display: flex; align-items: center; gap: 10px;">
                 <input type="date" class="date-selector" value="{{ fecha }}" 
                        onchange="cambiarFecha(this.value)">
-                <!-- Botón modificado: sin onclick -->
-                <button class="btn-push-notifications" id="pushButton">
-                    🔔 Activar Notificaciones Push
+                <!-- BOTÓN TEMPORAL PARA DEBUG -->
+                <button id="debugPushBtn" style="background: red; color: white; padding: 5px 10px; margin-left: 10px; border-radius: 5px;">
+                    🔧 DEBUG
                 </button>
+                <script>
+                // DEBUG TEMPORAL - Agrega esto JUSTO DESPUÉS del botón
+                document.getElementById('debugPushBtn').addEventListener('click', function() {
+                    console.log('=== DEBUG PUSH ===');
+                    console.log('1. Profesional ID:', document.body.dataset.profesionalId);
+                    console.log('2. PushNotifications class:', window.PushNotifications);
+                    console.log('3. Service Worker support:', 'serviceWorker' in navigator);
+                    console.log('4. PushManager support:', 'PushManager' in window);
+                    
+                    // Intentar activar manualmente
+                    if (window.PushNotifications) {
+                        const profesionalId = document.body.dataset.profesionalId;
+                        if (profesionalId) {
+                            const push = new window.PushNotifications();
+                            push.inicializar(profesionalId).then(success => {
+                                alert(success ? '✅ Activado' : '❌ Falló');
+                            });
+                        } else {
+                            alert('❌ No hay profesional_id');
+                        }
+                    } else {
+                        alert('❌ PushNotifications no está definido');
+                    }
+                });
+                </script>
             </div>
         </div>
         
@@ -2340,24 +2365,6 @@
                 }
             }
             originalHeight = window.innerHeight;
-        });
-
-        // Load animations
-        document.addEventListener('DOMContentLoaded', function() {
-            const items = document.querySelectorAll('.cita-item');
-            items.forEach((item, index) => {
-                item.style.animationDelay = `${index * 0.1}s`;
-            });
-            
-            // Añadir CSS para animación de fadeIn
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `;
-            document.head.appendChild(style);
         });
     </script>
 </body>
