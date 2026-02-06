@@ -5684,6 +5684,150 @@ def debug_extremo():
         ]
     })
 
+# ============================================
+# RUTAS DE PRUEBA PUSH EN app.py
+# ============================================
+
+@app.route('/push/test-ultra-simple')
+def test_ultra_simple():
+    """TEST ULTRA SIMPLE - Sin imports complicados"""
+    try:
+        import os
+        import json
+        import time
+        
+        print("🔧 TEST ULTRA SIMPLE INICIADO")
+        
+        # 1. Claves
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({'error': 'VAPID_PRIVATE_KEY no configurada'})
+        
+        # 2. Obtener suscripción MÁS RECIENTE
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': 'No hay suscripciones'})
+        
+        # Extraer
+        sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
+        
+        if not sub_json:
+            return jsonify({'error': 'JSON vacío'})
+        
+        # 3. Parsear
+        subscription = json.loads(sub_json)
+        endpoint = subscription.get('endpoint', '')
+        print(f"📫 Endpoint: {endpoint[:60]}...")
+        
+        # 4. Enviar con pywebpush
+        from pywebpush import webpush
+        
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '🔥 ULTRA SIMPLE',
+                'body': f'Hora: {time.ctime()}',
+                'icon': '/static/icons/icon-192x192.png'
+            }),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={
+                "sub": "mailto:danielpaezrami@gmail.com",
+                "exp": int(time.time()) + 3600
+            }
+        )
+        
+        return jsonify({'success': True, 'message': '¡FUNCIONÓ!'})
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ ERROR: {error_msg}")
+        
+        # Información extra si es WebPushException
+        if hasattr(e, 'response'):
+            error_info = {
+                'status_code': e.response.status_code if hasattr(e, 'response') else None,
+                'response_text': e.response.text[:300] if hasattr(e, 'response') and e.response.text else None
+            }
+        else:
+            error_info = {}
+        
+        return jsonify({
+            'error': error_msg,
+            'error_type': type(e).__name__,
+            'error_info': error_info
+        })
+
+@app.route('/push/ver-suscripcion')
+def ver_suscripcion():
+    """Ver la suscripción exacta almacenada"""
+    from database import get_db_connection
+    import json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return jsonify({'error': 'No hay suscripciones'})
+    
+    # Extraer
+    sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
+    
+    try:
+        subscription = json.loads(sub_json)
+        
+        # Mostrar información sensible pero necesaria
+        return jsonify({
+            'endpoint': subscription.get('endpoint'),
+            'keys_present': list(subscription.get('keys', {}).keys()) if subscription.get('keys') else [],
+            'endpoint_provider': 'FCM (Google)' if 'fcm.googleapis.com' in subscription.get('endpoint', '') else 'Otro',
+            'json_completo': subscription
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'Error parseando: {e}',
+            'json_crudo': sub_json[:500] + '...' if sub_json else None
+        })
+
+@app.route('/push/resetear-todo')
+def resetear_todo():
+    """Eliminar todo y empezar desde cero"""
+    from database import get_db_connection
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Contar antes
+    cursor.execute('SELECT COUNT(*) FROM suscripciones_push')
+    count_antes = cursor.fetchone()[0]
+    
+    # Eliminar todo
+    cursor.execute('DELETE FROM suscripciones_push')
+    conn.commit()
+    
+    # Contar después
+    cursor.execute('SELECT COUNT(*) FROM suscripciones_push')
+    count_despues = cursor.fetchone()[0]
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'message': '✅ TODAS las suscripciones eliminadas',
+        'count_antes': count_antes,
+        'count_despues': count_despues,
+        'instrucciones': '1. Recarga la página del profesional 2. Haz clic en "Activar Notificaciones" 3. Permite notificaciones'
+    })
+
 
 
 
