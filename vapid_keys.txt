@@ -1,3 +1,0 @@
-VAPID_PUBLIC_KEY=W3rZlst2q3iEdvKoNY_XSC3vlcjViAatSfytBNvN9tryKzOUfgAK1Yp8u9aA5E130qssYJySPAc98xuYiMB4HQ
-VAPID_PRIVATE_KEY=AxljyIDBmCZU0gjoT4bw3rS9hmuWhmVvWEc8gk_7CO8
-VAPID_SUBJECT=mailto:danielpaezrami@gmail.com
