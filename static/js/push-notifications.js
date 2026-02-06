@@ -5,7 +5,7 @@ class PushNotifications {
     constructor() {
         console.log('🔧 Constructor PushNotifications');
         // ¡¡¡CLAVE CORRECTA!!! Verifica que sea EXACTAMENTE esta:
-        this.publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
+        this.publicKey = 'BEEo7Fp8xHxL6E5K4n8r5T2v1Z3c6M9q0W4y7U1i5O9p3A2s8D4f6G7h2J3k5L8';
         this.profesionalId = null;
         this.isInitialized = false;
         console.log('✅ Clave configurada (primeros 20 chars):', this.publicKey.substring(0, 20) + '...');
