@@ -5671,8 +5671,8 @@ def debug_extremo():
             'VAPID_PUBLIC_KEY_length': len(VAPID_PUBLIC_KEY),
             'VAPID_SUBJECT': VAPID_SUBJECT,
             'subject_valido': subject_valid,
-            'CLAVE_EN_JS': 'W3rZlst2q3iEdvKoNY_XSC3vlcjViAatSfytBNvN9tryKzOUfgAK1Yp8u9aA5E130qssYJySPAc98xuYiMB4HQ'[:50] + '...',
-            'coinciden_js_env': VAPID_PUBLIC_KEY == 'W3rZlst2q3iEdvKoNY_XSC3vlcjViAatSfytBNvN9tryKzOUfgAK1Yp8u9aA5E130qssYJySPAc98xuYiMB4HQ'
+            'CLAVE_EN_JS': 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'[:50] + '...',
+            'coinciden_js_env': VAPID_PUBLIC_KEY == 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'
         },
         'suscripcion_existe': bool(subscription_data),
         'suscripcion_length': len(subscription_data) if subscription_data else 0,
@@ -5680,7 +5680,7 @@ def debug_extremo():
             'Clave privada demasiado corta (debe ser ~43 chars)' if len(VAPID_PRIVATE_KEY) < 40 else 'Clave privada longitud OK',
             'Clave privada no es base64 válido' if not private_key_info.get('base64_valid', False) else 'Clave privada base64 válido',
             'Subject no válido (debe ser mailto:email@dominio.com)' if not subject_valid else 'Subject válido',
-            'Clave pública no coincide con JS' if VAPID_PUBLIC_KEY != 'W3rZlst2q3iEdvKoNY_XSC3vlcjViAatSfytBNvN9tryKzOUfgAK1Yp8u9aA5E130qssYJySPAc98xuYiMB4HQ' else 'Clave pública OK'
+            'Clave pública no coincide con JS' if VAPID_PUBLIC_KEY != 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU' else 'Clave pública OK'
         ]
     })
 

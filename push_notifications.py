@@ -291,6 +291,6 @@ def debug_info():
         'VAPID_PRIVATE_KEY_exists': bool(VAPID_PRIVATE_KEY),
         'VAPID_PRIVATE_KEY_length': len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0,
         'VAPID_SUBJECT': VAPID_SUBJECT,
-        'CLAVE_EN_JS': 'W3rZlst2q3iEdvKoNY_XSC3vlcjViAatSfytBNvN9tryKzOUfgAK1Yp8u9aA5E130qssYJySPAc98xuYiMB4HQ'[:50] + '...',
-        'claves_coinciden': VAPID_PUBLIC_KEY == 'W3rZlst2q3iEdvKoNY_XSC3vlcjViAatSfytBNvN9tryKzOUfgAK1Yp8u9aA5E130qssYJySPAc98xuYiMB4HQ'
+        'CLAVE_EN_JS': 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'[:50] + '...',
+        'claves_coinciden': VAPID_PUBLIC_KEY == 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'
     })
