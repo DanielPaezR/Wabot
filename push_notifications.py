@@ -1,18 +1,17 @@
-# push_notifications.py - SISTEMA DE NOTIFICACIONES PUSH
+# push_notifications.py - SISTEMA DE NOTIFICACIONES PUSH CORREGIDO
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify
-from database import guardar_suscripcion_push, obtener_suscripciones_profesional
+from database import get_db_connection, obtener_suscripciones_profesional
 from pywebpush import webpush, WebPushException
-import pywebpush
 
 push_bp = Blueprint('push', __name__)
 
-# Configurar webpush
+# Configurar webpush - ¡CORREGIDO!
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
 
 @push_bp.route('/api/push/subscribe', methods=['POST'])
 def subscribe_push():
@@ -25,13 +24,12 @@ def subscribe_push():
         if not subscription or not profesional_id:
             return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
         
-        # Guardar en base de datos - VERSIÓN SIMPLIFICADA
+        # Guardar en base de datos
         dispositivo_info = request.headers.get('User-Agent', '')[:500]
         
-        conn = get_db_connection()
+        conn = get_db_connection()  # ← AHORA SÍ ESTÁ DEFINIDO
         cursor = conn.cursor()
         
-        # SQL SIMPLIFICADO - sin fecha_creacion ni fecha_actualizacion
         cursor.execute('''
             INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
             VALUES (%s, %s, %s, TRUE)
@@ -48,7 +46,6 @@ def subscribe_push():
         print(f"❌ Error en subscribe_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
-
 @push_bp.route('/api/push/send', methods=['POST'])
 def send_push_notification():
     """Enviar notificación push (para uso interno)"""
@@ -63,6 +60,9 @@ def send_push_notification():
         if not profesional_id:
             return jsonify({'success': False, 'error': 'Profesional ID requerido'}), 400
         
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({'success': False, 'error': 'VAPID_PRIVATE_KEY no configurada'}), 500
+        
         # Obtener suscripciones del profesional
         suscripciones = obtener_suscripciones_profesional(profesional_id)
         
@@ -70,7 +70,6 @@ def send_push_notification():
             return jsonify({'success': False, 'error': 'No hay suscripciones activas'}), 404
         
         # Configurar claims VAPID
-        from datetime import datetime, timezone
         vapid_claims = {
             "sub": VAPID_SUBJECT,
             "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
@@ -96,10 +95,11 @@ def send_push_notification():
                 else:
                     subscription = subscription_data
                 
-                pywebpush(
+                # ¡CORRECCIÓN! Usar VAPID_PRIVATE_KEY directamente
+                webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
-                    vapid_private_key=temp_key_file,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
                     vapid_claims=vapid_claims
                 )
                 resultados.append({'success': True, 'dispositivo': suscripcion.get('dispositivo_info', '')})
@@ -121,13 +121,14 @@ def send_push_notification():
 def enviar_notificacion_cita_creada(cita_data):
     """Función para enviar notificación push cuando se crea una cita"""
     try:
-        # Importar aquí
-        import pywebpush
-        
         profesional_id = cita_data.get('profesional_id')
         
         if not profesional_id:
             print("⚠️ No hay profesional_id en cita_data")
+            return False
+        
+        if not VAPID_PRIVATE_KEY:
+            print("⚠️ VAPID_PRIVATE_KEY no configurada")
             return False
         
         suscripciones = obtener_suscripciones_profesional(profesional_id)
@@ -136,7 +137,7 @@ def enviar_notificacion_cita_creada(cita_data):
             print(f"⚠️ Profesional {profesional_id} no tiene suscripciones push")
             return False
         
-        from datetime import datetime, timezone
+        # Configurar claims VAPID
         vapid_claims = {
             "sub": VAPID_SUBJECT,
             "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
@@ -162,11 +163,11 @@ def enviar_notificacion_cita_creada(cita_data):
                 else:
                     subscription = subscription_data
                 
-                # CORRECCIÓN: usar pywebpush.webpush()
-                pywebpush.webpush(
+                # ¡CORRECCIÓN!
+                webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
-                    vapid_private_key=temp_key_file,
+                    vapid_private_key=VAPID_PRIVATE_KEY,  # ← ¡CORREGIDO!
                     vapid_claims=vapid_claims
                 )
                 enviados += 1
