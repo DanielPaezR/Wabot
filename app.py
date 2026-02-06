@@ -6424,6 +6424,7 @@ def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
         conn = get_db_connection()
         cur = conn.cursor()
         
+        
         # 1. GUARDAR EN imagenes_profesionales (para historial)
         print(f"💿 Guardando en tabla imagenes_profesionales...")
         try:
