@@ -54,7 +54,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
         
         if not VAPID_PRIVATE_KEY:
             print("⚠️ No hay clave privada")
@@ -5262,7 +5262,7 @@ def debug_vapid_complete():
     
     VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
     VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT') or 'mailto:danielpaezrami@gmail.com'
     
     # 1. Mostrar claves COMPLETAS (últimos 10 chars para seguridad)
     private_key_end = VAPID_PRIVATE_KEY[-10:] if len(VAPID_PRIVATE_KEY) > 10 else VAPID_PRIVATE_KEY
