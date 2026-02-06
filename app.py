@@ -4260,7 +4260,7 @@ def test_push():
     
     # Llamar a la función auxiliar que ya creaste
     if enviar_notificacion_push_profesional(
-        profesional_id=profesional_id,
+        profesional_id=profesional_id,  
         titulo="🔔 Test Push",
         mensaje="¡Las notificaciones push funcionan correctamente!",
         cita_id=None
@@ -5674,6 +5674,30 @@ def push_ver_suscripcion_simple():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/clear-sw')
+def clear_service_worker():
+    """Forzar limpieza del Service Worker"""
+    return '''
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+                registration.unregister();
+                console.log('Service Worker desregistrado');
+            }
+            // Limpiar cache
+            caches.keys().then(function(cacheNames) {
+                cacheNames.forEach(function(cacheName) {
+                    caches.delete(cacheName);
+                });
+            });
+            alert('✅ Service Worker limpiado. Recarga la página.');
+            location.reload();
+        });
+    }
+    </script>
+    '''
 
 
 
