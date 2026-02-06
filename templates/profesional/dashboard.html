@@ -1452,35 +1452,59 @@
         100% { left: 100%; }
     }
     
-    /* BOTÓN PARA NOTIFICACIONES PUSH - MANUAL */
+    /* BOTÓN PARA NOTIFICACIONES PUSH - MEJORADO Y RESPONSIVE */
     .btn-push-notifications {
         background: linear-gradient(135deg, #9b59b6, #8e44ad);
         color: white;
         border: none;
-        padding: 12px 18px;
         border-radius: 8px;
-        font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        min-height: 44px;
+        justify-content: center;
+        gap: 0.3rem;
         text-decoration: none;
-        box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
-        margin-left: 10px;
+        box-shadow: 0 2px 6px rgba(155, 89, 182, 0.3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-height: 44px; /* Altura táctil mínima */
+    }
+    
+    /* Tamaños específicos para diferentes pantallas */
+    .btn-push-notifications {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        min-width: 100px;
+    }
+    
+    @media (min-width: 480px) {
+        .btn-push-notifications {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            min-width: 120px;
+        }
+    }
+    
+    @media (min-width: 768px) {
+        .btn-push-notifications {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            min-width: 140px;
+        }
     }
     
     .btn-push-notifications:hover {
         background: linear-gradient(135deg, #8e44ad, #7d3c98);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(155, 89, 182, 0.4);
     }
     
     .btn-push-notifications:active {
         transform: translateY(0);
-        box-shadow: 0 2px 4px rgba(155, 89, 182, 0.3);
+        box-shadow: 0 1px 3px rgba(155, 89, 182, 0.3);
     }
     
     .btn-push-notifications:disabled {
@@ -1488,23 +1512,108 @@
         cursor: default;
         opacity: 0.9;
         transform: none !important;
-        box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+        box-shadow: 0 1px 3px rgba(39, 174, 96, 0.3);
     }
     
-    /* Para pantallas pequeñas */
-    @media (max-width: 768px) {
+    /* Para pantallas muy pequeñas */
+    @media (max-width: 360px) {
         .btn-push-notifications {
-            padding: 10px 14px;
-            font-size: 0.85rem;
-            margin-left: 0;
-            margin-top: 10px;
-            width: 100%;
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            min-width: 90px;
+            gap: 0.2rem;
+        }
+    }
+    
+    /* Modo oscuro */
+    @media (prefers-color-scheme: dark) {
+        .btn-push-notifications {
+            background: linear-gradient(135deg, #8e44ad, #7d3c98);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
         
+        .btn-push-notifications:hover {
+            background: linear-gradient(135deg, #7d3c98, #6c3483);
+        }
+    }
+
+    /* BOTÓN DEBUG - TEMPORAL - MEJORADO */
+    #debugPushBtn {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin: 5px 0;
+        width: 100%;
+        max-width: 200px;
+        min-height: 40px;
+    }
+    
+    @media (min-width: 480px) {
+        #debugPushBtn {
+            padding: 10px 16px;
+            font-size: 0.85rem;
+        }
+    }
+    
+    /* AJUSTES PARA LA SECCIÓN DE TÍTULO CON BOTÓN */
+    .section-title {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.8rem;
+    }
+    
+    @media (min-width: 480px) {
         .section-title {
+            flex-direction: row;
+            align-items: center;
+        }
+    }
+    
+    .section-title h2 {
+        font-size: 1.3rem;
+        margin-bottom: 0;
+    }
+    
+    /* Contenedor para fecha y botón */
+    .date-and-button {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .date-selector {
+        flex: 1;
+        min-width: 150px;
+    }
+    
+    @media (max-width: 479px) {
+        .date-and-button {
             flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
+            align-items: stretch;
+        }
+        
+        .date-selector,
+        .btn-push-notifications {
+            width: 100%;
+        }
+    }
+
+    /* Para pantallas muy pequeñas */
+    @media (max-width: 320px) {
+        .section-title h2 {
+            font-size: 1.1rem;
+        }
+        
+        .btn-push-notifications {
+            font-size: 0.7rem;
+            padding: 6px 8px;
         }
     }
     </style>
@@ -1662,51 +1771,20 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
     </div>
     
     <div class="container">
-        <!-- SECCIÓN MODIFICADA: Botón sin onclick, será manejado por push-notifications.js -->
+        <!-- SECCIÓN MEJORADA: Diseño responsive para fecha y botón -->
         <div class="section-title">
             <h2>📅 Mis Citas de Hoy</h2>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="date-and-button">
                 <input type="date" class="date-selector" value="{{ fecha }}" 
                        onchange="cambiarFecha(this.value)">
-                <!-- BOTÓN TEMPORAL PARA DEBUG -->
-                <button id="pushButton" 
-                        style="background: linear-gradient(135deg, #e74c3c, #c0392b); 
-                            color: white; 
-                            border: none; 
-                            padding: 12px 20px; 
-                            border-radius: 8px; 
-                            font-weight: bold; 
-                            font-size: 16px; 
-                            cursor: pointer;
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                            margin: 10px 0;">
-                    🔔 Activar Notificaciones Push (DEBUG)
+                <!-- BOTÓN MEJORADO - RESPONSIVE -->
+                <button id="pushButton" class="btn-push-notifications">
+                    🔔 Activar Notificaciones
                 </button>
-                <script>
-                // DEBUG TEMPORAL - Agrega esto JUSTO DESPUÉS del botón
-                document.getElementById('debugPushBtn').addEventListener('click', function() {
-                    console.log('=== DEBUG PUSH ===');
-                    console.log('1. Profesional ID:', document.body.dataset.profesionalId);
-                    console.log('2. PushNotifications class:', window.PushNotifications);
-                    console.log('3. Service Worker support:', 'serviceWorker' in navigator);
-                    console.log('4. PushManager support:', 'PushManager' in window);
-                    
-                    // Intentar activar manualmente
-                    if (window.PushNotifications) {
-                        const profesionalId = document.body.dataset.profesionalId;
-                        if (profesionalId) {
-                            const push = new window.PushNotifications();
-                            push.inicializar(profesionalId).then(success => {
-                                alert(success ? '✅ Activado' : '❌ Falló');
-                            });
-                        } else {
-                            alert('❌ No hay profesional_id');
-                        }
-                    } else {
-                        alert('❌ PushNotifications no está definido');
-                    }
-                });
-                </script>
+                <!-- BOTÓN DEBUG - MEJORADO -->
+                <button id="debugPushBtn" style="display: none;">
+                    🔧 Debug Push
+                </button>
             </div>
         </div>
         
@@ -2042,6 +2120,63 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
             loadNotifications();
             // Recargar cada 30 segundos
             setInterval(loadNotifications, 30000);
+            
+            // Configurar botón de notificaciones push
+            const pushButton = document.getElementById('pushButton');
+            if (pushButton) {
+                pushButton.addEventListener('click', function() {
+                    if (window.PushNotifications) {
+                        const profesionalId = document.body.dataset.profesionalId;
+                        if (profesionalId) {
+                            const push = new window.PushNotifications();
+                            push.inicializar(profesionalId).then(success => {
+                                if (success) {
+                                    mostrarNotificacion('✅ Notificaciones push activadas', 'success');
+                                    pushButton.disabled = true;
+                                    pushButton.innerHTML = '🔔 Activado';
+                                } else {
+                                    mostrarNotificacion('❌ No se pudieron activar las notificaciones', 'error');
+                                }
+                            });
+                        } else {
+                            mostrarNotificacion('❌ Error: No hay ID de profesional', 'error');
+                        }
+                    } else {
+                        mostrarNotificacion('❌ Error: Módulo de notificaciones no disponible', 'error');
+                    }
+                });
+            }
+            
+            // Configurar botón debug (solo para desarrollo)
+            const debugBtn = document.getElementById('debugPushBtn');
+            if (debugBtn) {
+                // Mostrar solo en modo desarrollo
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    debugBtn.style.display = 'inline-block';
+                    debugBtn.addEventListener('click', function() {
+                        console.log('=== DEBUG PUSH ===');
+                        console.log('1. Profesional ID:', document.body.dataset.profesionalId);
+                        console.log('2. PushNotifications class:', window.PushNotifications);
+                        console.log('3. Service Worker support:', 'serviceWorker' in navigator);
+                        console.log('4. PushManager support:', 'PushManager' in window);
+                        
+                        // Intentar activar manualmente
+                        if (window.PushNotifications) {
+                            const profesionalId = document.body.dataset.profesionalId;
+                            if (profesionalId) {
+                                const push = new window.PushNotifications();
+                                push.inicializar(profesionalId).then(success => {
+                                    alert(success ? '✅ Activado' : '❌ Falló');
+                                });
+                            } else {
+                                alert('❌ No hay profesional_id');
+                            }
+                        } else {
+                            alert('❌ PushNotifications no está definido');
+                        }
+                    });
+                }
+            }
         });
         
         // ==================== FUNCIONES DEL MODAL RESPONSIVE ====================
