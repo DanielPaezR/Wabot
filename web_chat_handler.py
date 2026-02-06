@@ -132,7 +132,7 @@ def try_push_immediately(profesional_id, titulo, mensaje):
         
         # Verificar VAPID
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@tuapp.com').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
         
         if not VAPID_PRIVATE_KEY:
             print("❌ No hay VAPID_PRIVATE_KEY - saltando push")

@@ -26,8 +26,7 @@ def subscribe_push():
         
         # Guardar en base de datos
         dispositivo_info = request.headers.get('User-Agent', '')[:500]
-        
-        conn = get_db_connection()  # ← AHORA SÍ ESTÁ DEFINIDO
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
