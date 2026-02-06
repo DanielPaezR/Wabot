@@ -5436,8 +5436,9 @@ def push_test_manual():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # CONSULTA CORREGIDA - sin created_at
         cursor.execute('''
-            SELECT id, subscription_json, created_at 
+            SELECT id, subscription_json 
             FROM suscripciones_push 
             WHERE profesional_id = %s AND activa = TRUE
             ORDER BY id DESC LIMIT 1
@@ -5455,17 +5456,17 @@ def push_test_manual():
                     'clave_js': CLAVE_JS,
                     'clave_env': VAPID_PUBLIC_KEY,
                     'coinciden': CLAVE_JS == VAPID_PUBLIC_KEY,
-                    'subject_env': VAPID_SUBJECT
+                    'subject_env': VAPID_SUBJECT,
+                    'detalle': 'La BD está vacía. Recarga la página del profesional y permite notificaciones.'
                 }
             })
         
         # Extraer datos
         suscripcion_id = result[0] if result else None
         subscription_json = result[1] if len(result) > 1 else None
-        created_at = result[2] if len(result) > 2 else None
         
         print(f"📦 Suscripción ID: {suscripcion_id}")
-        print(f"📅 Creada: {created_at}")
+        print(f"📄 JSON longitud: {len(subscription_json) if subscription_json else 0}")
         
         # ============================================
         # 4. ANALIZAR LA SUSCRIPCIÓN GUARDADA
@@ -5474,13 +5475,19 @@ def push_test_manual():
             subscription = json.loads(subscription_json)
             print(f"✅ JSON parseado correctamente")
             
-            # Extraer la clave pública de la suscripción
-            if 'keys' in subscription and 'p256dh' in subscription['keys']:
-                clave_en_suscripcion = subscription['keys']['p256dh']
-                print(f"🔐 Clave en suscripción (primeros 30): {clave_en_suscripcion[:30]}...")
+            # Extraer endpoint y claves
+            endpoint = subscription.get('endpoint', '')
+            keys = subscription.get('keys', {})
+            
+            print(f"📫 Endpoint: {endpoint[:60]}...")
+            print(f"🔑 Keys disponibles: {list(keys.keys())}")
+            
+            if 'p256dh' in keys:
+                clave_en_suscripcion = keys['p256dh']
+                print(f"🔐 Clave p256dh en suscripción (primeros 30): {clave_en_suscripcion[:30]}...")
             else:
-                clave_en_suscripcion = "NO_ENCONTRADA"
-                print(f"⚠️ No se encontró clave p256dh en suscripción")
+                clave_en_suscripcion = "NO_TIENE_P256DH"
+                print(f"⚠️ La suscripción no tiene clave p256dh")
                 
         except Exception as e:
             print(f"❌ Error parseando JSON: {e}")
@@ -5512,6 +5519,7 @@ def push_test_manual():
             print(f"   - Subject: {VAPID_SUBJECT}")
             print(f"   - Exp: {vapid_claims['exp']}")
             print(f"   - Key length: {len(VAPID_PRIVATE_KEY)}")
+            print(f"   - Endpoint: {subscription.get('endpoint', '')[:50]}...")
             
             pywebpush.webpush(
                 subscription_info=subscription,
@@ -5532,10 +5540,11 @@ def push_test_manual():
                 'success': True,
                 'message': '🎉 ¡PUSH FUNCIONA!',
                 'claves_analizadas': {
-                    'clave_en_javascript': CLAVE_JS,
-                    'clave_en_environment': VAPID_PUBLIC_KEY,
-                    'clave_en_suscripcion': clave_en_suscripcion[:50] + '...' if clave_en_suscripcion != "NO_ENCONTRADA" else "NO_ENCONTRADA",
+                    'clave_en_javascript': CLAVE_JS[:50] + '...',
+                    'clave_en_environment': VAPID_PUBLIC_KEY[:50] + '...' if VAPID_PUBLIC_KEY else 'VACÍA',
+                    'clave_en_suscripcion': clave_en_suscripcion[:50] + '...' if isinstance(clave_en_suscripcion, str) and len(clave_en_suscripcion) > 50 else str(clave_en_suscripcion),
                     'subject_usado': VAPID_SUBJECT,
+                    'endpoint': subscription.get('endpoint', '')[:80] + '...' if subscription else 'NO_HAY',
                     'comparaciones': {
                         'js_vs_env': CLAVE_JS == VAPID_PUBLIC_KEY,
                         'env_vacia': not VAPID_PUBLIC_KEY,
@@ -5553,14 +5562,23 @@ def push_test_manual():
             
             # Análisis automático del error
             diagnostico = "Error desconocido"
+            solucion = "Revisar logs detallados"
+            
             if '403' in error_detalle:
                 diagnostico = "ERROR 403: Las claves VAPID no coinciden. La suscripción fue creada con una clave diferente."
+                solucion = "Actualizar VAPID_PUBLIC_KEY en Railway para que coincida con la clave en push-simple.js"
             elif 'InvalidAuthorization' in error_detalle:
                 diagnostico = "Token VAPID inválido. La clave privada no es correcta."
+                solucion = "Verificar VAPID_PRIVATE_KEY en Railway"
             elif 'exp' in error_detalle.lower():
                 diagnostico = "Problema con timestamp de expiración."
+                solucion = "El tiempo de expiración (exp) debe ser futuro"
             elif 'not found' in error_detalle.lower():
                 diagnostico = "Endpoint no encontrado (la suscripción expiró o fue eliminada)."
+                solucion = "Recargar página del profesional y permitir notificaciones de nuevo"
+            elif 'Unauthorized' in error_detalle:
+                diagnostico = "No autorizado. Claves VAPID incorrectas."
+                solucion = "Las claves públicas/privadas no coinciden con las usadas al crear la suscripción"
             
             return jsonify({
                 'debug': True,
@@ -5568,6 +5586,7 @@ def push_test_manual():
                 'error': error_detalle,
                 'error_type': error_type,
                 'diagnostico': diagnostico,
+                'solucion': solucion,
                 'claves_analizadas': {
                     'clave_en_javascript': CLAVE_JS,
                     'clave_en_environment': VAPID_PUBLIC_KEY,
@@ -5580,12 +5599,19 @@ def push_test_manual():
                     },
                     'valores_completos': {
                         'CLAVE_JS_PRIMEROS_50': CLAVE_JS[:50],
+                        'CLAVE_JS_COMPLETA': CLAVE_JS,  # ¡ESTO ES IMPORTANTE!
                         'VAPID_PUBLIC_KEY_PRIMEROS_50': VAPID_PUBLIC_KEY[:50] if VAPID_PUBLIC_KEY else 'VACÍA',
+                        'VAPID_PUBLIC_KEY_COMPLETA': VAPID_PUBLIC_KEY if VAPID_PUBLIC_KEY else 'VACÍA',
                         'VAPID_SUBJECT_COMPLETO': VAPID_SUBJECT,
-                        'VAPID_PRIVATE_KEY_PRIMEROS_50': VAPID_PRIVATE_KEY[:50] if VAPID_PRIVATE_KEY else 'VACÍA'
+                        'VAPID_PRIVATE_KEY_PRIMEROS_50': VAPID_PRIVATE_KEY[:50] if VAPID_PRIVATE_KEY else 'VACÍA',
+                        'VAPID_PRIVATE_KEY_COMPLETA': VAPID_PRIVATE_KEY[:100] + '...' if VAPID_PRIVATE_KEY and len(VAPID_PRIVATE_KEY) > 100 else VAPID_PRIVATE_KEY
+                    },
+                    'suscripcion_info': {
+                        'suscripcion_id': suscripcion_id,
+                        'tiene_endpoint': 'endpoint' in subscription if subscription else False,
+                        'tiene_keys': 'keys' in subscription if subscription else False
                     }
-                },
-                'solucion_sugerida': 'Actualizar VAPID_PUBLIC_KEY en Railway para que coincida con la clave en push-simple.js'
+                }
             })
             
     except Exception as e:
