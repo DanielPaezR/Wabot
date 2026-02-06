@@ -5399,66 +5399,45 @@ def push_setup_completo():
     
 @app.route('/push/test-manual')
 def push_test_manual():
-    """Test manual de push - VERSIÓN DEFINITIVA CORREGIDA"""
+    """Test manual de push - CON DEBUG COMPLETO"""
     try:
         import os
         import json
         import time
         
-        profesional_id = 1
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+        print("=== 🚀 INICIO DEBUG PUSH ===")
         
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({
-                'success': False, 
-                'error': 'VAPID_PRIVATE_KEY no configurada'
-            })
+        # ============================================
+        # 1. MOSTRAR TODAS LAS CLAVES ACTUALES
+        # ============================================
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+        
+        print(f"🔑 VAPID_PRIVATE_KEY (primeros 30): {VAPID_PRIVATE_KEY[:30] if VAPID_PRIVATE_KEY else 'VACÍA'}...")
+        print(f"🔑 VAPID_PUBLIC_KEY (primeros 30): {VAPID_PUBLIC_KEY[:30] if VAPID_PUBLIC_KEY else 'VACÍA'}...")
+        print(f"📧 VAPID_SUBJECT: {VAPID_SUBJECT}")
+        print(f"📏 Longitud private: {len(VAPID_PRIVATE_KEY)}")
+        print(f"📏 Longitud public: {len(VAPID_PUBLIC_KEY)}")
+        
+        # ============================================
+        # 2. CLAVE QUE ESTÁ EN JAVASCRIPT (push-simple.js)
+        # ============================================
+        CLAVE_JS = "BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI"
+        print(f"📱 CLAVE en JS (primeros 30): {CLAVE_JS[:30]}...")
+        print(f"🔍 ¿Coinciden JS y Env? {'✅ SÍ' if CLAVE_JS == VAPID_PUBLIC_KEY else '❌ NO'}")
+        
+        # ============================================
+        # 3. OBTENER SUSCRIPCIÓN ACTUAL DE LA BD
+        # ============================================
+        profesional_id = 1
         
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Verificar si hay suscripciones - FORMA SEGURA
-        try:
-            cursor.execute('''
-                SELECT COUNT(*) as count
-                FROM suscripciones_push 
-                WHERE profesional_id = %s AND activa = TRUE
-            ''', (profesional_id,))
-            
-            result = cursor.fetchone()
-            
-            # Extraer count de forma segura
-            count = 0
-            if isinstance(result, tuple):
-                count = result[0] if len(result) > 0 else 0
-            elif isinstance(result, dict):
-                count = result.get('count', 0)
-            elif hasattr(result, '__getitem__'):
-                try:
-                    count = result[0]
-                except:
-                    count = 0
-            
-        except Exception as count_error:
-            print(f"⚠️ Error contando suscripciones: {count_error}")
-            count = 0
-        
-        print(f"📊 Suscripciones encontradas: {count}")
-        
-        if count == 0:
-            conn.close()
-            return jsonify({
-                'success': False,
-                'error': f'No hay suscripciones activas. Contador: {count}',
-                'solucion': 'Recarga la página del profesional y permite notificaciones DE NUEVO'
-            })
-        
-        # Obtener la última suscripción - FORMA ROBUSTA
-        print(f"🔍 Buscando suscripción para profesional {profesional_id}...")
         cursor.execute('''
-            SELECT id, subscription_json 
+            SELECT id, subscription_json, created_at 
             FROM suscripciones_push 
             WHERE profesional_id = %s AND activa = TRUE
             ORDER BY id DESC LIMIT 1
@@ -5467,160 +5446,159 @@ def push_test_manual():
         result = cursor.fetchone()
         conn.close()
         
-        print(f"📋 Resultado BD (tipo: {type(result)}): {result}")
-        
         if not result:
-            return jsonify({'success': False, 'error': 'No se obtuvo resultado de la BD'})
-        
-        # EXTRAER DATOS DE FORMA SEGURA
-        suscripcion_id = None
-        subscription_json = None
-        
-        # Si es tupla
-        if isinstance(result, tuple):
-            print(f"   Es tupla, longitud: {len(result)}")
-            if len(result) >= 1:
-                suscripcion_id = result[0]
-            if len(result) >= 2:
-                subscription_json = result[1]
-        
-        # Si es diccionario (RealDictRow)
-        elif isinstance(result, dict):
-            print(f"   Es dict, keys: {list(result.keys())}")
-            suscripcion_id = result.get('id')
-            subscription_json = result.get('subscription_json')
-        
-        # Si es algún otro objeto iterable
-        elif hasattr(result, '__getitem__'):
-            try:
-                suscripcion_id = result[0]
-                subscription_json = result[1] if len(result) > 1 else None
-            except (KeyError, IndexError) as e:
-                print(f"   Error accediendo por índice: {e}")
-        
-        print(f"   ID extraído: {suscripcion_id}")
-        print(f"   JSON extraído (longitud): {len(subscription_json) if subscription_json else 0}")
-        
-        if not subscription_json:
             return jsonify({
-                'success': False, 
-                'error': 'No se pudo extraer subscription_json',
-                'result_type': str(type(result)),
-                'result_preview': str(result)[:200]
+                'debug': True,
+                'success': False,
+                'error': 'No hay suscripciones en BD',
+                'claves_comparadas': {
+                    'clave_js': CLAVE_JS,
+                    'clave_env': VAPID_PUBLIC_KEY,
+                    'coinciden': CLAVE_JS == VAPID_PUBLIC_KEY,
+                    'subject_env': VAPID_SUBJECT
+                }
             })
         
-        # Parsear JSON
+        # Extraer datos
+        suscripcion_id = result[0] if result else None
+        subscription_json = result[1] if len(result) > 1 else None
+        created_at = result[2] if len(result) > 2 else None
+        
+        print(f"📦 Suscripción ID: {suscripcion_id}")
+        print(f"📅 Creada: {created_at}")
+        
+        # ============================================
+        # 4. ANALIZAR LA SUSCRIPCIÓN GUARDADA
+        # ============================================
         try:
             subscription = json.loads(subscription_json)
             print(f"✅ JSON parseado correctamente")
-        except json.JSONDecodeError as e:
+            
+            # Extraer la clave pública de la suscripción
+            if 'keys' in subscription and 'p256dh' in subscription['keys']:
+                clave_en_suscripcion = subscription['keys']['p256dh']
+                print(f"🔐 Clave en suscripción (primeros 30): {clave_en_suscripcion[:30]}...")
+            else:
+                clave_en_suscripcion = "NO_ENCONTRADA"
+                print(f"⚠️ No se encontró clave p256dh en suscripción")
+                
+        except Exception as e:
             print(f"❌ Error parseando JSON: {e}")
-            print(f"📄 JSON crudo (primeros 200 chars): {subscription_json[:200]}")
-            return jsonify({
-                'success': False, 
-                'error': f'JSON inválido: {str(e)}',
-                'json_preview': subscription_json[:200]
-            })
+            subscription = None
+            clave_en_suscripcion = "ERROR_PARSEO"
         
-        # Verificar estructura
-        endpoint = subscription.get('endpoint', '')
-        keys = subscription.get('keys', {})
-        
-        print(f"📍 Endpoint: {endpoint[:60]}...")
-        print(f"🔑 Keys presentes: {list(keys.keys()) if keys else 'Ninguna'}")
-        
-        if not endpoint:
-            return jsonify({
-                'success': False, 
-                'error': 'Suscripción no tiene endpoint',
-                'subscription_keys': list(subscription.keys())
-            })
-        
-        # ENVIAR PUSH
+        # ============================================
+        # 5. INTENTAR ENVIAR PUSH (para ver error exacto)
+        # ============================================
+        error_detalle = None
         try:
+            if not VAPID_PRIVATE_KEY:
+                error_detalle = "VAPID_PRIVATE_KEY está vacía"
+                raise ValueError("Clave privada vacía")
+            
+            if not subscription:
+                error_detalle = "No hay suscripción válida"
+                raise ValueError("Suscripción inválida")
+            
             import pywebpush
             
-            current_time = int(time.time())
-            expiration_time = current_time + 3600  # 1 hora
+            # Preparar claims
+            vapid_claims = {
+                "sub": VAPID_SUBJECT,
+                "exp": int(time.time()) + 3600  # 1 hora
+            }
             
-            print(f"🚀 Enviando push test...")
-            print(f"   Suscripción ID: {suscripcion_id}")
-            print(f"   Expiración: {expiration_time}")
+            print(f"🎯 Enviando con:")
+            print(f"   - Subject: {VAPID_SUBJECT}")
+            print(f"   - Exp: {vapid_claims['exp']}")
+            print(f"   - Key length: {len(VAPID_PRIVATE_KEY)}")
             
             pywebpush.webpush(
                 subscription_info=subscription,
                 data=json.dumps({
-                    'title': '🔔 ¡PUSH FUNCIONANDO!',
-                    'body': f'Prueba exitosa - {time.ctime()}',
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
+                    'title': '🔔 ¡TEST DEBUG!',
+                    'body': f'Hora: {time.ctime()}',
+                    'icon': '/static/icons/icon-192x192.png'
                 }),
                 vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": expiration_time
-                },
-                ttl=86400,
-                timeout=10
+                vapid_claims=vapid_claims,
+                ttl=86400
             )
             
-            print(f"✅ ¡PUSH ENVIADO EXITOSAMENTE!")
+            print("✅ ¡PUSH ENVIADO EXITOSAMENTE!")
             
             return jsonify({
+                'debug': True,
                 'success': True,
-                'message': '🎉 ¡PUSH FUNCIONANDO CORRECTAMENTE!',
-                'details': {
-                    'suscripcion_id': suscripcion_id,
-                    'profesional_id': profesional_id,
-                    'endpoint_preview': endpoint[:50] + '...',
-                    'timestamp': current_time,
-                    'hora_envio': time.ctime()
-                },
-                'siguiente_paso': 'Agendar una cita desde el chat web para probar el flujo completo'
+                'message': '🎉 ¡PUSH FUNCIONA!',
+                'claves_analizadas': {
+                    'clave_en_javascript': CLAVE_JS,
+                    'clave_en_environment': VAPID_PUBLIC_KEY,
+                    'clave_en_suscripcion': clave_en_suscripcion[:50] + '...' if clave_en_suscripcion != "NO_ENCONTRADA" else "NO_ENCONTRADA",
+                    'subject_usado': VAPID_SUBJECT,
+                    'comparaciones': {
+                        'js_vs_env': CLAVE_JS == VAPID_PUBLIC_KEY,
+                        'env_vacia': not VAPID_PUBLIC_KEY,
+                        'js_vacia': not CLAVE_JS,
+                        'subject_correcto': VAPID_SUBJECT == 'mailto:danielpaezrami@gmail.com'
+                    }
+                }
             })
             
         except Exception as push_error:
-            error_msg = str(push_error)
+            error_detalle = str(push_error)
             error_type = type(push_error).__name__
             
-            print(f"❌ Error en pywebpush: {error_type}")
-            print(f"💡 Detalles: {error_msg[:200]}")
+            print(f"❌ Error push: {error_type}: {error_detalle}")
             
-            # Diagnóstico automático
-            if '403' in error_msg and 'credentials' in error_msg:
-                diagnostico = 'ERROR 403: Claves VAPID no coinciden con las usadas al crear la suscripción'
-                solucion = 'El profesional debe: 1. Cerrar navegador 2. Abrir app 3. Permitir notificaciones DE NUEVO'
-            elif 'exp' in error_msg.lower():
-                diagnostico = 'Problema con tiempo de expiración (exp)'
-                solucion = 'El exp debe ser timestamp futuro (máximo 24 horas)'
-            elif 'InvalidAuthorization' in error_msg:
-                diagnostico = 'Token de autorización VAPID inválido'
-                solucion = 'Verificar formato de VAPID_PRIVATE_KEY (debe ser base64 url-safe)'
-            else:
-                diagnostico = f'Error técnico en pywebpush: {error_type}'
-                solucion = 'Revisar logs completos en Railway'
+            # Análisis automático del error
+            diagnostico = "Error desconocido"
+            if '403' in error_detalle:
+                diagnostico = "ERROR 403: Las claves VAPID no coinciden. La suscripción fue creada con una clave diferente."
+            elif 'InvalidAuthorization' in error_detalle:
+                diagnostico = "Token VAPID inválido. La clave privada no es correcta."
+            elif 'exp' in error_detalle.lower():
+                diagnostico = "Problema con timestamp de expiración."
+            elif 'not found' in error_detalle.lower():
+                diagnostico = "Endpoint no encontrado (la suscripción expiró o fue eliminada)."
             
             return jsonify({
+                'debug': True,
                 'success': False,
-                'error': error_msg,
+                'error': error_detalle,
                 'error_type': error_type,
                 'diagnostico': diagnostico,
-                'solucion': solucion,
-                'endpoint_usado': endpoint[:50] + '...',
-                'vapid_configurado': bool(VAPID_PRIVATE_KEY),
-                'clave_privada_length': len(VAPID_PRIVATE_KEY)
+                'claves_analizadas': {
+                    'clave_en_javascript': CLAVE_JS,
+                    'clave_en_environment': VAPID_PUBLIC_KEY,
+                    'subject_en_environment': VAPID_SUBJECT,
+                    'problemas_detectados': {
+                        'claves_no_coinciden': CLAVE_JS != VAPID_PUBLIC_KEY,
+                        'clave_env_vacia': not VAPID_PUBLIC_KEY,
+                        'subject_incorrecto': VAPID_SUBJECT != 'mailto:danielpaezrami@gmail.com',
+                        'clave_privada_vacia': not VAPID_PRIVATE_KEY
+                    },
+                    'valores_completos': {
+                        'CLAVE_JS_PRIMEROS_50': CLAVE_JS[:50],
+                        'VAPID_PUBLIC_KEY_PRIMEROS_50': VAPID_PUBLIC_KEY[:50] if VAPID_PUBLIC_KEY else 'VACÍA',
+                        'VAPID_SUBJECT_COMPLETO': VAPID_SUBJECT,
+                        'VAPID_PRIVATE_KEY_PRIMEROS_50': VAPID_PRIVATE_KEY[:50] if VAPID_PRIVATE_KEY else 'VACÍA'
+                    }
+                },
+                'solucion_sugerida': 'Actualizar VAPID_PUBLIC_KEY en Railway para que coincida con la clave en push-simple.js'
             })
             
     except Exception as e:
-        print(f"💥 ERROR INESPERADO: {type(e).__name__}: {str(e)}")
+        print(f"💥 ERROR GENERAL: {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
         
         return jsonify({
+            'debug': True,
             'success': False,
-            'error': f'Error inesperado: {type(e).__name__}',
+            'error': f'Error general: {type(e).__name__}',
             'error_details': str(e),
-            'traceback': traceback.format_exc()[:500] if 'traceback' in locals() else 'No disponible'
+            'traceback': traceback.format_exc()[:500]
         }), 500
     
 @app.route('/push/ver-suscripcion-simple')

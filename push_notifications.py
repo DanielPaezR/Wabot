@@ -166,7 +166,7 @@ def enviar_notificacion_cita_creada(cita_data):
                 webpush(
                     subscription_info=subscription,
                     data=json.dumps(payload),
-                    vapid_private_key=VAPID_PRIVATE_KEY,  # ← ¡CORREGIDO!
+                    vapid_private_key=VAPID_PRIVATE_KEY,
                     vapid_claims=vapid_claims
                 )
                 enviados += 1
