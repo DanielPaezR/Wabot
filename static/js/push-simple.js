@@ -92,7 +92,7 @@ function inicializarPush() {
             
             // 3. Suscribirse a Push
             console.log('🔐 Suscribiendo a push...');
-            const publicKey = 'BEEo7Fp8xHxL6E5K4n8r5T2v1Z3c6M9q0W4y7U1i5O9p3A2s8D4f6G7h2J3k5L8';
+            const publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
             
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
