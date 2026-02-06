@@ -5462,8 +5462,8 @@ def push_test_manual():
             })
         
         # Extraer datos
-        suscripcion_id = result[0] if result else None
-        subscription_json = result[1] if len(result) > 1 else None
+        suscripcion_id = result['id'] if result and 'id' in result else None
+        subscription_json = result['subscription_json'] if result and 'subscription_json' in result else None
         
         print(f"📦 Suscripción ID: {suscripcion_id}")
         print(f"📄 JSON longitud: {len(subscription_json) if subscription_json else 0}")
@@ -5702,6 +5702,68 @@ def clear_service_worker():
     }
     </script>
     '''
+
+# Crea esta ruta NUEVA para prueba limpia
+@app.route('/push/test-simple')
+def test_push_simple():
+    """Prueba SUPER SIMPLE de push"""
+    import os
+    import json
+    import time
+    
+    # 1. Obtener primera suscripción
+    from database import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return jsonify({'error': 'No hay suscripciones'})
+    
+    # Extraer JSON (manejar ambos tipos)
+    if isinstance(result, dict):
+        sub_json = result.get('subscription_json')
+    else:
+        sub_json = result[0] if result else None
+    
+    if not sub_json:
+        return jsonify({'error': 'JSON vacío'})
+    
+    # 2. Parsear suscripción
+    try:
+        subscription = json.loads(sub_json)
+    except:
+        return jsonify({'error': 'JSON inválido', 'json': sub_json[:100]})
+    
+    # 3. Enviar push SIMPLE
+    try:
+        from pywebpush import webpush
+        
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '✅ TEST SIMPLE',
+                'body': 'Funciona!',
+                'icon': '/static/icons/icon-192x192.png'
+            }),
+            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
+            vapid_claims={
+                'sub': 'mailto:danielpaezrami@gmail.com',
+                'exp': int(time.time()) + 3600
+            }
+        )
+        
+        return jsonify({'success': True, 'message': '¡PUSH ENVIADO!'})
+        
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'subscription_keys': list(subscription.keys()) if subscription else [],
+            'endpoint': subscription.get('endpoint', '')[:50] + '...' if subscription else None
+        })
 
 
 
