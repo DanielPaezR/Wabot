@@ -430,6 +430,151 @@
                 font-size: 0.8rem;
             }
         }
+
+        /* ESTILOS PARA TARJETAS DE PROFESIONALES - Agregar en tu sección <style> */
+        .professionals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .professional-card {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #e0e0e0;
+        }
+
+        .professional-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.12);
+        }
+
+        .professional-img {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-bottom: 8px;
+            position: relative;
+            border: 2px solid var(--primary-color);
+            background: #f8f9fa;
+        }
+
+        .professional-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .default-avatar {
+            width: 100%;
+            height: 100%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: #6c757d;
+        }
+
+        .professional-rating {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffc107;
+            color: #333;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 40px;
+            justify-content: center;
+        }
+
+        .professional-rating .stars {
+            color: #ffc107;
+            font-size: 0.7rem;
+        }
+
+        .professional-info {
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .professional-info strong {
+            display: block;
+            color: #333;
+            font-size: 0.9rem;
+            margin-bottom: 3px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .professional-info .specialty {
+            color: #6c757d;
+            font-size: 0.75rem;
+            display: block;
+            line-height: 1.2;
+        }
+
+        .select-professional-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            width: 100%;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        .select-professional-btn:hover {
+            background: #0056b3;
+        }
+
+        /* Responsive para móviles */
+        @media (max-width: 576px) {
+            .professionals-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                padding: 10px;
+            }
+            
+            .professional-img {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .professional-card {
+                padding: 8px;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .professionals-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
     </style>
 </head>
 <body>
@@ -651,6 +796,10 @@
             
             // Agregar mensaje del bot
             function addBotMessage(message, options = null, pagination = null) {
+                console.log("🤖 Mensaje del bot:", message);
+                console.log("📋 Opciones recibidas:", options);
+                console.log("🔢 Paginación:", pagination);
+                
                 const messageHtml = `
                     <div class="message bot-message">
                         <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
@@ -662,38 +811,105 @@
                 
                 // Agregar opciones si existen
                 if (options && options.length > 0) {
-                    let containerClass = 'opciones-numeradas';
-                    let buttonClass = 'opcion-btn';
+                    // DETECTAR SI SON PROFESIONALES CON FOTOS (lógica mejorada)
+                    const isProfessionalsWithPhotos = options.some(opt => 
+                        (opt.image || opt.type === 'professional') && opt.rating !== undefined
+                    );
                     
-                    if (options.some(opt => opt.text && opt.text.includes(':'))) {
-                        containerClass = 'horarios-options';
-                        buttonClass = 'hora-btn';
-                    } else if (options.some(opt => opt.text && opt.text.includes('Siguiente'))) {
-                        containerClass = 'opciones-navegacion';
-                        buttonClass = 'nav-btn';
-                    } else if (options.some(opt => opt.text && opt.text.includes('Confirmar'))) {
-                        containerClass = 'confirmacion-opciones';
-                        buttonClass = 'confirm-btn';
-                    }
+                    console.log("🔍 ¿Son profesionales con fotos?:", isProfessionalsWithPhotos);
+                    console.log("🖼️ Datos de opciones:", options);
                     
-                    let optionsHtml = `<div class="${containerClass}">`;
-                    options.forEach(option => {
-                        let btnClass = buttonClass;
-                        if (option.text.includes('Confirmar')) btnClass += ' confirm-yes';
-                        else if (option.text.includes('Cancelar')) btnClass += ' confirm-no';
-                        else if (option.text.includes('Siguiente')) btnClass += ' nav-next';
+                    if (isProfessionalsWithPhotos) {
+                        let containerClass = 'professionals-grid';
+                        let optionsHtml = `<div class="${containerClass}">`;
                         
-                        optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text}</button>`;
-                    });
-                    optionsHtml += '</div>';
-                    
-                    chatMessages.append(optionsHtml);
-                    
-                    // Evento para botones de opciones
-                    $('button[data-opcion]').off('click').on('click', function() {
-                        userInput.val($(this).data('opcion'));
-                        sendMessage();
-                    });
+                        options.forEach((option, index) => {
+                            console.log(`👤 Profesional ${index + 1}:`, option);
+                            
+                            // URL de imagen - con manejo seguro
+                            let imageUrl = option.image || '';
+                            
+                            // Ajustar URL si es necesario
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+                                imageUrl = '/' + imageUrl;
+                            }
+                            
+                            // Si no hay imagen, usar avatar por defecto
+                            const hasImage = imageUrl && imageUrl !== '';
+                            
+                            optionsHtml += `
+                                <div class="professional-card" data-opcion="${option.value}">
+                                    <div class="professional-img">
+                                        ${hasImage ? 
+                                            `<img src="${imageUrl}" alt="${option.name || option.text}" 
+                                                onerror="this.onerror=null; this.src='/static/default-avatar.png';">` : 
+                                            `<div class="default-avatar"><i class="fas fa-user"></i></div>`
+                                        }
+                                        <!-- Eliminar la sección de rating si no existe -->
+                                        ${option.rating && option.rating > 0 ? 
+                                            `<div class="professional-rating">
+                                                <small>⭐ ${option.rating.toFixed(1)}</small>
+                                            </div>` : ''
+                                        }
+                                    </div>
+                                    <div class="professional-info">
+                                        <strong>${option.name || option.text}</strong>
+                                        ${option.specialty ? `<small class="specialty">${option.specialty}</small>` : ''}
+                                    </div>
+                                    <button class="select-professional-btn">Seleccionar</button>
+                                </div>
+                            `;
+                        });
+                        optionsHtml += '</div>';
+                        
+                        chatMessages.append(optionsHtml);
+                        console.log("✅ Grid de profesionales creado");
+                        
+                        // Evento para seleccionar profesional
+                        $('.select-professional-btn').off('click').on('click', function() {
+                            const professionalCard = $(this).closest('.professional-card');
+                            const optionValue = professionalCard.data('opcion');
+                            console.log("🎯 Profesional seleccionado:", optionValue);
+                            userInput.val(optionValue);
+                            sendMessage();
+                        });
+                        
+                    } else {
+                        console.log("📝 Mostrando opciones normales");
+                        // Código existente para otros tipos de opciones...
+                        let containerClass = 'opciones-numeradas';
+                        let buttonClass = 'opcion-btn';
+                        
+                        if (options.some(opt => opt.text && opt.text.includes(':'))) {
+                            containerClass = 'horarios-options';
+                            buttonClass = 'hora-btn';
+                        } else if (options.some(opt => opt.text && opt.text.includes('Siguiente'))) {
+                            containerClass = 'opciones-navegacion';
+                            buttonClass = 'nav-btn';
+                        } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('confirmar')))) {
+                            containerClass = 'confirmacion-opciones';
+                            buttonClass = 'confirm-btn';
+                        }
+                        
+                        let optionsHtml = `<div class="${containerClass}">`;
+                        options.forEach(option => {
+                            let btnClass = buttonClass;
+                            if (option.text && (option.text.includes('Confirmar') || option.text.includes('confirmar'))) btnClass += ' confirm-yes';
+                            else if (option.text && (option.text.includes('Cancelar') || option.text.includes('cancelar'))) btnClass += ' confirm-no';
+                            else if (option.text && option.text.includes('Siguiente')) btnClass += ' nav-next';
+                            
+                            optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text || option.name}</button>`;
+                        });
+                        optionsHtml += '</div>';
+                        
+                        chatMessages.append(optionsHtml);
+                        
+                        // Evento para botones de opciones
+                        $('button[data-opcion]').off('click').on('click', function() {
+                            userInput.val($(this).data('opcion'));
+                            sendMessage();
+                        });
+                    }
                 }
                 
                 if (pagination) {
@@ -707,11 +923,12 @@
                 }, 200);
             }
             
-            // Enviar mensaje
+            // Enviar mensaje - VERSIÓN CON DEBUG
             function sendMessage() {
                 const message = userInput.val().trim();
                 if (!message) return;
                 
+                console.log("📤 Enviando mensaje:", message);
                 addUserMessage(message);
                 userInput.val('');
                 showTypingIndicator();
@@ -726,6 +943,7 @@
                         negocio_id: negocioId
                     }),
                     success: function(response) {
+                        console.log("✅ Respuesta recibida:", response);
                         hideTypingIndicator();
                         if (response.error) {
                             addBotMessage(`❌ ${response.error}`);
@@ -733,7 +951,8 @@
                         }
                         addBotMessage(response.message, response.options, response.pagination);
                     },
-                    error: function() {
+                    error: function(xhr, status, error) {
+                        console.log("❌ Error AJAX:", error);
                         hideTypingIndicator();
                         addBotMessage('❌ Error al procesar tu mensaje. Intenta de nuevo.');
                     }

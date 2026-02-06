@@ -1,4 +1,4 @@
-# scheduler.py - VERSIÓN COMPLETA SIN SMS, SOLO NOTIFICACIONES WEB
+# scheduler.py - VERSIÓN CON LOGS LIMITADOS
 import schedule
 import time
 import threading
@@ -10,29 +10,30 @@ class AppointmentScheduler:
     """Scheduler para recordatorios de citas (SOLO notificaciones web)"""
     
     def __init__(self):
-        print("⏰ Scheduler de recordatorios iniciado (SOLO notificaciones web)")
+        print("⏰ Scheduler iniciado")
         self.en_ejecucion = True
+        self.ultima_ejecucion = None
     
     # ==================== FUNCIONES PRINCIPALES ====================
     
     def verificar_recordatorios(self):
-        """Verificar y enviar recordatorios: 24h y 1h antes"""
+        """Verificar y enviar recordatorios - VERSIÓN SUPER SIMPLE"""
         try:
             ahora = datetime.now()
-            print(f"⏰ [{ahora.strftime('%H:%M:%S')}] Verificando recordatorios...")
             
-            # OBTENER CITAS PENDIENTES DE RECORDATORIO
+            # Solo log cada 10 minutos
+            if not hasattr(self, 'ultimo_log') or (ahora - self.ultimo_log).seconds >= 600:
+                print(f"⏰ [{ahora.strftime('%H:%M')}] Scheduler activo")
+                self.ultimo_log = ahora
+            
+            # Obtener citas
             citas_pendientes = self.obtener_citas_pendientes_recordatorio()
             
             if not citas_pendientes:
-                print("   ℹ️ No hay citas pendientes de recordatorio")
-                # Verificar notificaciones para profesionales de hoy
-                self.enviar_notificaciones_profesionales_hoy()
                 return
             
-            print(f"   📊 Citas para procesar: {len(citas_pendientes)}")
+            recordatorios_enviados = 0
             
-            # PROCESAR CADA CITA
             for cita in citas_pendientes:
                 try:
                     cita_id = cita['id']
@@ -44,72 +45,32 @@ class AppointmentScheduler:
                     tiempo_restante = cita_datetime - ahora
                     horas_restantes = tiempo_restante.total_seconds() / 3600
                     
-                    print(f"   🔍 Cita #{cita_id}: {horas_restantes:.1f} horas restantes")
-                    print(f"     👨‍💼 Profesional: {cita.get('profesional_id', 'N/A')}")
-                    
-                    # DECIDIR QUÉ RECORDATORIO ENVIAR
-                    enviado = False
-                    
-                    # Recordatorio 24h (entre 23 y 25 horas antes)
+                    # Recordatorio 24h
                     if 23 <= horas_restantes <= 25 and not cita.get('recordatorio_24h_enviado'):
-                        print(f"     📅 Enviando recordatorio 24h...")
-                        
-                        # Notificar al profesional
                         notif_id = notification_system.notify_appointment_reminder(
                             cita['profesional_id'], cita, hours_before=24
                         )
-                        
                         if notif_id:
                             self.marcar_recordatorio_enviado(cita_id, '24h')
-                            print(f"     ✅ Recordatorio 24h enviado al profesional (Notif #{notif_id})")
-                        else:
-                            print(f"     ❌ Error enviando recordatorio 24h")
-                        
-                        enviado = True
+                            recordatorios_enviados += 1
                     
-                    # Recordatorio 1h (entre 0.5 y 1.5 horas antes)
+                    # Recordatorio 1h
                     elif 0.5 <= horas_restantes <= 1.5 and not cita.get('recordatorio_1h_enviado'):
-                        print(f"     ⏰ Enviando recordatorio 1h...")
-                        
-                        # Notificar al profesional
                         notif_id = notification_system.notify_appointment_reminder(
                             cita['profesional_id'], cita, hours_before=1
                         )
-                        
                         if notif_id:
                             self.marcar_recordatorio_enviado(cita_id, '1h')
-                            print(f"     ✅ Recordatorio 1h enviado al profesional (Notif #{notif_id})")
-                        else:
-                            print(f"     ❌ Error enviando recordatorio 1h")
-                        
-                        enviado = True
-                    
-                    # Si la cita es para hoy y no se ha notificado aún
-                    elif cita_fecha == ahora.date() and horas_restantes > 0:
-                        # Notificar cita de hoy al profesional (si aún no se ha notificado)
-                        if not cita.get('notificado_hoy'):
-                            notif_id = notification_system.notify_appointment_today(
-                                cita['profesional_id'], cita
-                            )
-                            if notif_id:
-                                self.marcar_cita_notificada_hoy(cita_id)
-                                print(f"     📋 Notificada cita de hoy (Notif #{notif_id})")
-                    
-                    if not enviado and horas_restantes > 0:
-                        print(f"     ℹ️ No requiere recordatorio aún")
-                        
-                except Exception as e:
-                    print(f"     ❌ Error procesando cita #{cita.get('id')}: {e}")
-                    import traceback
-                    traceback.print_exc()
+                            recordatorios_enviados += 1
+                            
+                except Exception:
+                    continue
             
-            # Enviar notificaciones generales para profesionales
-            self.enviar_notificaciones_profesionales_hoy()
-                    
+            if recordatorios_enviados > 0:
+                print(f"📨 {recordatorios_enviados} recordatorio(s) enviado(s)")
+                        
         except Exception as e:
-            print(f"❌ Error en verificar_recordatorios: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ Error en recordatorios: {e}")
     
     def obtener_citas_pendientes_recordatorio(self):
         """Obtener citas confirmadas que necesitan recordatorios"""
@@ -119,7 +80,6 @@ class AppointmentScheduler:
         
         cursor = conn.cursor()
         try:
-            # Obtener citas confirmadas para hoy y los próximos 2 días
             fecha_hoy = datetime.now().strftime('%Y-%m-%d')
             fecha_manana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
             fecha_pasadomanana = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
@@ -148,22 +108,16 @@ class AppointmentScheduler:
                 if hasattr(row, 'keys'):
                     citas_dict.append(dict(row))
                 else:
-                    # Convertir tupla a dict
                     citas_dict.append({
                         'id': row[0],
-                        'negocio_id': row[1],
                         'profesional_id': row[2],
-                        'cliente_telefono': row[3],
                         'cliente_nombre': row[12] if len(row) > 12 else row[4],
                         'fecha': row[5],
                         'hora': row[6],
-                        'servicio_id': row[7],
-                        'estado': row[8],
-                        'recordatorio_24h_enviado': row[9],
-                        'recordatorio_1h_enviado': row[10],
                         'servicio_nombre': row[13] if len(row) > 13 else '',
-                        'precio': row[14] if len(row) > 14 else 0,
-                        'profesional_nombre': row[15] if len(row) > 15 else ''
+                        'profesional_nombre': row[15] if len(row) > 15 else '',
+                        'recordatorio_24h_enviado': row[9],
+                        'recordatorio_1h_enviado': row[10]
                     })
             
             return citas_dict
@@ -177,18 +131,12 @@ class AppointmentScheduler:
     def enviar_notificaciones_profesionales_hoy(self):
         """Enviar notificaciones a profesionales sobre citas de HOY"""
         try:
-            ahora = datetime.now()
-            print(f"👨‍💼 [{ahora.strftime('%H:%M:%S')}] Enviando notificaciones de citas hoy...")
-            
-            # 1. Obtener citas para hoy
             conn = db.get_db_connection()
             if not conn:
                 return
             
             cursor = conn.cursor()
-            
-            # Obtener citas confirmadas para hoy que NO han sido notificadas hoy
-            fecha_hoy = ahora.strftime('%Y-%m-%d')
+            fecha_hoy = datetime.now().strftime('%Y-%m-%d')
             
             cursor.execute('''
                 SELECT DISTINCT c.profesional_id, p.nombre as profesional_nombre,
@@ -210,10 +158,8 @@ class AppointmentScheduler:
             conn.close()
             
             if not profesionales_con_citas:
-                print("   ℹ️ Todos los profesionales ya fueron notificados hoy")
                 return
             
-            # 2. Enviar notificaciones a cada profesional
             notificaciones_enviadas = 0
             
             for prof in profesionales_con_citas:
@@ -227,32 +173,16 @@ class AppointmentScheduler:
                         profesional_nombre = prof[1]
                         total_citas = prof[2]
                     
-                    # ✅ VALIDACIÓN CRÍTICA - AGREGAR ESTO
                     if not profesional_id or profesional_id <= 0:
-                        print(f"   ⚠️ Saltando profesional: ID inválido ({profesional_id})")
                         continue
                     
-                    if not profesional_nombre:
-                        print(f"   ⚠️ Saltando profesional {profesional_id}: sin nombre")
-                        continue
-                    
-                    print(f"   👨‍💼 Procesando profesional: {profesional_id} - {profesional_nombre}")
-                    
-                    # Crear notificación de resumen del día
                     titulo = "📋 Citas Programadas para Hoy"
-                    mensaje = f"""RESUMEN DEL DÍA
-
-    Hola {profesional_nombre},
-
-    Tienes {total_citas} cita(s) programada(s) para hoy.
-
-    ¡Que tengas un excelente día de trabajo!"""
+                    mensaje = f"Tienes {total_citas} cita(s) programada(s) para hoy."
                     
                     metadata = {
                         'tipo': 'cita_hoy',
                         'total_citas': total_citas,
-                        'fecha': fecha_hoy,
-                        'timestamp': datetime.now().isoformat()
+                        'fecha': fecha_hoy
                     }
                     
                     notif_id = notification_system._save_notification_db(
@@ -261,19 +191,13 @@ class AppointmentScheduler:
                     
                     if notif_id:
                         notificaciones_enviadas += 1
-                        print(f"   ✅ Notificado {profesional_nombre} ({total_citas} citas)")
-                    else:
-                        print(f"   ❌ Error notificando {profesional_nombre}")
+                        print(f"✅ Notificado {profesional_nombre} ({total_citas} citas)")
                     
-                except Exception as e:
-                    print(f"   ❌ Error notificando profesional: {e}")
-            
-            print(f"   📨 {notificaciones_enviadas} notificaciones de resumen enviadas")
+                except Exception:
+                    continue
             
         except Exception as e:
             print(f"❌ Error enviando notificaciones profesionales: {e}")
-            import traceback
-            traceback.print_exc()
     
     def marcar_recordatorio_enviado(self, cita_id, tipo_recordatorio):
         """Marcar que se envió un recordatorio"""
@@ -286,7 +210,7 @@ class AppointmentScheduler:
             
             if tipo_recordatorio == '24h':
                 sql = "UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = %s"
-            else:  # '1h'
+            else:
                 sql = "UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = %s"
             
             cursor.execute(sql, (cita_id,))
@@ -301,46 +225,28 @@ class AppointmentScheduler:
     
     def marcar_cita_notificada_hoy(self, cita_id):
         """Marcar que una cita fue notificada hoy"""
-        # Podemos agregar un campo en la BD o manejarlo con metadata
-        # Por ahora solo log
-        print(f"   📝 Cita #{cita_id} marcada como notificada hoy")
         return True
     
     # ==================== FUNCIÓN DE CONFIRMACIÓN INMEDIATA ====================
     
     def enviar_confirmacion_inmediata(self, cita_data):
-        """Llamar esta función después de crear una cita - VERSIÓN CORREGIDA"""
+        """Llamar esta función después de crear una cita"""
         try:
-            print(f"📧 [SCHEDULER] Enviando confirmación para cita #{cita_data.get('id')}")
-            
-            # Verificar datos esenciales
-            if not cita_data:
-                print("⚠️ [SCHEDULER] Cita data vacía")
-                return False
-                
-            # Verificar que tenga profesional_id
-            if 'profesional_id' not in cita_data or not cita_data['profesional_id']:
-                print("⚠️ [SCHEDULER] Cita sin profesional_id, no se puede notificar")
+            if not cita_data or 'profesional_id' not in cita_data or not cita_data['profesional_id']:
                 return False
             
-            print(f"👨‍💼 [SCHEDULER] Notificando al profesional #{cita_data['profesional_id']}")
-            
-            # Notificar al profesional sobre la nueva cita
             notif_id = notification_system.notify_appointment_created(
                 cita_data['profesional_id'], cita_data
             )
             
             if notif_id:
-                print(f"✅ [SCHEDULER] Notificación #{notif_id} enviada al profesional {cita_data['profesional_id']}")
+                print(f"✅ Notificación enviada al profesional #{cita_data['profesional_id']}")
                 return True
             else:
-                print("❌ [SCHEDULER] Error enviando notificación al profesional")
                 return False
                 
         except Exception as e:
-            print(f"❌ [SCHEDULER] Error en confirmación: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ Error en confirmación: {e}")
             return False
     
     # ==================== FUNCIÓN DE RESUMEN DIARIO ====================
@@ -349,23 +255,20 @@ class AppointmentScheduler:
         """Enviar resumen diario de citas a cada profesional (8:00 AM)"""
         try:
             ahora = datetime.now()
-            print(f"📋 [{ahora.strftime('%H:%M:%S')}] Enviando resumen diario a profesionales...")
+            print(f"📋 [{ahora.strftime('%H:%M')}] Enviando resumen diario...")
             
             conn = db.get_db_connection()
             if not conn:
                 return
             
             cursor = conn.cursor()
-            
-            # Obtener todos los profesionales activos con citas hoy
             fecha_hoy = ahora.strftime('%Y-%m-%d')
             
             cursor.execute('''
-                SELECT p.id, p.nombre, p.email,
+                SELECT p.id, p.nombre,
                        COUNT(c.id) as citas_hoy,
                        STRING_AGG(
-                           CONCAT(c.hora, ' - ', COALESCE(cl.nombre, c.cliente_nombre), 
-                                  ' (', s.nombre, ')'), 
+                           CONCAT(c.hora, ' - ', COALESCE(cl.nombre, c.cliente_nombre)), 
                            ', ' 
                            ORDER BY c.hora
                        ) as detalle_citas
@@ -374,45 +277,34 @@ class AppointmentScheduler:
                     AND c.fecha = %s 
                     AND c.estado = 'confirmado'
                 LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono
-                LEFT JOIN servicios s ON c.servicio_id = s.id
                 WHERE p.activo = TRUE
-                GROUP BY p.id, p.nombre, p.email
+                GROUP BY p.id, p.nombre
                 HAVING COUNT(c.id) > 0
             ''', (fecha_hoy,))
             
             profesionales = cursor.fetchall()
             conn.close()
             
+            notificaciones_enviadas = 0
+            
             for prof in profesionales:
                 if hasattr(prof, 'keys'):
                     prof_id = prof['id']
                     prof_nombre = prof['nombre']
                     citas_hoy = prof['citas_hoy']
-                    detalle_citas = prof['detalle_citas']
                 else:
                     prof_id = prof[0]
                     prof_nombre = prof[1]
-                    citas_hoy = prof[3]
-                    detalle_citas = prof[4] if len(prof) > 4 else ''
+                    citas_hoy = prof[2]
                 
                 if citas_hoy > 0:
-                    # Enviar notificación con resumen detallado
                     titulo = "🌅 Resumen del Día"
-                    mensaje = f"""RESUMEN MATUTINO
-
-Hola {prof_nombre},
-
-Tienes {citas_hoy} cita(s) programada(s) para hoy:
-
-{detalle_citas if detalle_citas else 'No hay detalles disponibles'}
-
-¡Que tengas un excelente día!"""
+                    mensaje = f"Hola {prof_nombre},\n\nTienes {citas_hoy} cita(s) programada(s) para hoy."
                     
                     metadata = {
                         'tipo': 'resumen_diario',
                         'total_citas': citas_hoy,
-                        'fecha': fecha_hoy,
-                        'timestamp': datetime.now().isoformat()
+                        'fecha': fecha_hoy
                     }
                     
                     notif_id = notification_system._save_notification_db(
@@ -420,24 +312,20 @@ Tienes {citas_hoy} cita(s) programada(s) para hoy:
                     )
                     
                     if notif_id:
-                        print(f"   📨 Resumen enviado a {prof_nombre} ({citas_hoy} citas)")
+                        notificaciones_enviadas += 1
+                        print(f"✅ Resumen enviado a {prof_nombre} ({citas_hoy} citas)")
             
-            if profesionales:
-                print(f"✅ Resumen diario enviado a {len(profesionales)} profesionales")
-            else:
-                print("ℹ️ No hay profesionales con citas hoy")
+            if notificaciones_enviadas > 0:
+                print(f"📨 {notificaciones_enviadas} resumen(es) enviado(s)")
             
         except Exception as e:
             print(f"❌ Error enviando resumen diario: {e}")
-            import traceback
-            traceback.print_exc()
     
     # ==================== INICIAR SCHEDULER ====================
     
     def iniciar(self):
         """Iniciar el scheduler principal"""
-        print("🔄 Iniciando scheduler de recordatorios...")
-        print("🔔 Notificaciones web para profesionales activas")
+        print("🔄 Iniciando scheduler...")
         
         # Programar verificaciones cada minuto
         schedule.every(1).minutes.do(self.verificar_recordatorios)
@@ -448,10 +336,7 @@ Tienes {citas_hoy} cita(s) programada(s) para hoy:
         # Ejecutar inmediatamente
         self.verificar_recordatorios()
         
-        print("✅ Scheduler iniciado correctamente")
-        print("   • Recordatorios cada 1 minuto")
-        print("   • Resumen diario a las 8:00 AM")
-        print("   • Notificaciones web para profesionales activas")
+        print("✅ Scheduler iniciado")
         
         # Bucle principal
         while self.en_ejecucion:
@@ -467,7 +352,6 @@ Tienes {citas_hoy} cita(s) programada(s) para hoy:
         """Iniciar scheduler en segundo plano"""
         scheduler_thread = threading.Thread(target=self.iniciar, daemon=True)
         scheduler_thread.start()
-        print("✅ Scheduler ejecutándose en segundo plano")
         return scheduler_thread
 
 # Instancia global
@@ -480,5 +364,4 @@ def iniciar_scheduler_en_segundo_plano():
 
 # Si se ejecuta directamente, iniciar el scheduler
 if __name__ == "__main__":
-    print("🚀 Iniciando scheduler de forma independiente...")
     appointment_scheduler.iniciar()

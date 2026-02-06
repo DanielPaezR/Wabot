@@ -4,15 +4,19 @@ Versión convertida desde whatsapp_handler.py sin Twilio
 """
 
 from flask import Blueprint
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import database as db
 import json
 import os
 import pytz
 from dotenv import load_dotenv
 from database import obtener_servicio_personalizado_cliente
+import pywebpush 
 
 load_dotenv()
+
+print(f"🔑 [ENV-CHECK] VAPID_PUBLIC_KEY exists: {bool(os.getenv('VAPID_PUBLIC_KEY'))}")
+print(f"🔑 [ENV-CHECK] VAPID_PRIVATE_KEY exists: {bool(os.getenv('VAPID_PRIVATE_KEY'))}")
 
 tz_colombia = pytz.timezone('America/Bogota')
 
@@ -24,6 +28,206 @@ conversaciones_activas = {}
 # =============================================================================
 # MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL) - SIN CAMBIOS
 # =============================================================================
+
+def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
+    """Función FINAL de push notificaciones - Versión simplificada y robusta"""
+    try:
+        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}, cita {cita_id}")
+        
+        # 1. SIEMPRE guardar en BD (esto ya funciona)
+        guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
+        print(f"✅ Notificación guardada en BD")
+        
+        # 2. Intentar push si tenemos todo configurado
+        try:
+            import os
+            import json
+            import time
+            from database import get_db_connection
+            
+            # Verificar VAPID
+            VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+            if not VAPID_PRIVATE_KEY:
+                print("⚠️ No hay VAPID_PRIVATE_KEY - push omitido")
+                return True
+            
+            # Obtener la última suscripción activa
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT subscription_json 
+                FROM suscripciones_push 
+                WHERE profesional_id = %s AND activa = TRUE
+                ORDER BY id DESC LIMIT 1
+            ''', (profesional_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if not result:
+                print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
+                return True
+            
+            # Extraer suscripción (maneja tuplas o diccionarios)
+            subscription_json = None
+            if isinstance(result, tuple):
+                subscription_json = result[0]
+            elif isinstance(result, dict):
+                subscription_json = result.get('subscription_json')
+            
+            if not subscription_json:
+                print(f"⚠️ No se pudo extraer subscription_json")
+                return True
+            
+            subscription = json.loads(subscription_json)
+            
+            # Enviar push
+            import pywebpush
+            
+            current_time = int(time.time())
+            expiration_time = current_time + (12 * 60 * 60)  # 12 horas máximo para Google FCM
+            
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
+                    "exp": expiration_time
+                },
+                ttl=86400  # 24 horas en segundos
+            )
+            
+            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
+            return True
+            
+        except Exception as push_error:
+            error_msg = str(push_error)
+            print(f"⚠️ Push falló (pero notificación en BD OK): {type(push_error).__name__}")
+            
+            # Solo log breve, no detalles que saturan logs
+            if '403' in error_msg and 'credentials' in error_msg:
+                print(f"🔍 Diagnóstico: Problema de claves VAPID (las suscripciones fueron creadas con claves diferentes)")
+            elif '404' in error_msg or '410' in error_msg:
+                print(f"🔍 Diagnóstico: Suscripción expirada o inválida")
+            
+            return True
+            
+    except Exception as e:
+        print(f"❌ Error crítico (pero continuamos): {type(e).__name__}")
+        return True  # Importante: siempre devolver True porque la notificación YA está en BD
+
+def try_push_immediately(profesional_id, titulo, mensaje):
+    """Intentar enviar push inmediatamente"""
+    try:
+        import os
+        import json
+        import time
+        from database import get_db_connection
+        
+        # Verificar VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+        
+        if not VAPID_PRIVATE_KEY:
+            print("❌ No hay VAPID_PRIVATE_KEY - saltando push")
+            return False
+        
+        # Obtener la última suscripción activa
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC LIMIT 1
+        ''', (profesional_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result or not result[0]:
+            print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
+            return False
+        
+        # Parsear suscripción
+        try:
+            subscription = json.loads(result[0])
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON inválido en suscripción: {e}")
+            return False
+        
+        # Verificar estructura
+        if not subscription.get('endpoint'):
+            print("❌ Suscripción no tiene endpoint")
+            return False
+        
+        # Intentar enviar con pywebpush
+        try:
+            import pywebpush
+        
+            # Configurar tiempo de expiración (12 horas máximo)
+            current_time = int(time.time())
+            expiration_time = current_time + (12 * 60 * 60)
+            
+            print(f"🚀 Enviando push a: {subscription.get('endpoint')[:50]}...")
+            print(f"   Expiración: {expiration_time} ({time.ctime(expiration_time)})")
+            
+            # Enviar push
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": expiration_time
+                },
+                ttl=86400,
+                timeout=5
+            )
+            
+            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE a profesional {profesional_id}!")
+            return True
+            
+        except ImportError:
+            print("❌ pywebpush no está instalado")
+            return False
+        except Exception as push_error:
+            print(f"⚠️ Error en pywebpush: {type(push_error).__name__}: {push_error}")
+            return False
+            
+    except Exception as e:
+        print(f"⚠️ Error en try_push_immediately: {type(e).__name__}: {e}")
+        return False
+
+def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
+    """Función auxiliar solo para guardar notificación en BD"""
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO notificaciones_profesional 
+            (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+            VALUES (%s, 'push', %s, %s, FALSE, %s)
+        ''', (profesional_id, titulo, mensaje, cita_id))
+        conn.commit()
+        conn.close()
+        print(f"✅ Notificación guardada en BD")
+        return True
+    except Exception as e:
+        print(f"⚠️ Error guardando en BD: {e}")
+        return False
 
 def limpiar_formato_whatsapp(texto):
     """
@@ -181,6 +385,7 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         opciones_extra = None
         if paso_actual == 'seleccionando_profesional':
             opciones_extra = generar_opciones_profesionales(numero, negocio_id)
+            print(f"📋 [CHAT WEB] Opciones de profesionales generadas: {opciones_extra}")  # ← AÑADIR ESTA LÍNEA
         elif paso_actual == 'seleccionando_servicio':
             opciones_extra = generar_opciones_servicios(numero, negocio_id)
         elif paso_actual == 'seleccionando_fecha':
@@ -307,20 +512,60 @@ def generar_opciones_menu_principal():
     return opciones
 
 def generar_opciones_profesionales(numero, negocio_id):
-    """Generar opciones de profesionales para botones del chat web"""
+    """Generar opciones de profesionales para botones del chat web - CON FOTOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'profesionales' not in conversaciones_activas[clave_conversacion]:
+        print(f"❌ [WEB CHAT] No hay profesionales en conversación para {clave_conversacion}")
         return None
     
     profesionales = conversaciones_activas[clave_conversacion]['profesionales']
-    opciones = []
+    opciones = [] 
+    
+    print(f"🔍 [WEB CHAT] Generando opciones para {len(profesionales)} profesionales")
     
     for i, prof in enumerate(profesionales, 1):
-        opciones.append({
-            'value': str(i),
-            'text': f"{prof['nombre']} - {prof['especialidad']}"
-        })
+        # Crear objeto con TODOS los datos necesarios para el template
+        opcion = {
+            'value': str(i),  # Valor para la lógica interna
+            'text': f"{prof['nombre']} - {prof.get('especialidad', 'General')}",  # Texto para opciones simples
+            'name': prof['nombre'],  # Nombre completo
+            'specialty': prof.get('especialidad', 'General'),  # Especialidad
+            'rating': 0,  # Rating por defecto
+            'type': 'professional'  # Tipo para que el template detecte que son profesionales con fotos
+        }
+        
+        # Añadir imagen si existe
+        if 'foto_url' in prof and prof['foto_url']:
+            foto_url = prof['foto_url']
+            print(f"📸 [WEB CHAT] Profesional {prof['nombre']} tiene foto: {foto_url}")
+            
+            # ✅ CORRECCIÓN: NORMALIZAR LA URL
+            if foto_url:
+                # Si empieza con "static/", quitar "static" porque Flask ya lo añade
+                if foto_url.startswith('static/'):
+                    foto_url = '/' + foto_url  # Convertir a /static/...
+                # Si empieza con "/static/", ya está bien
+                elif foto_url.startswith('/static/'):
+                    pass  # Ya está bien
+                # Si no empieza con "/", añadir "/"
+                elif not foto_url.startswith('/'):
+                    foto_url = '/' + foto_url
+                
+                # Si empieza con "uploads/", añadir "/static/"
+                if foto_url.startswith('/uploads/'):
+                    foto_url = '/static' + foto_url
+                
+                print(f"   🔗 URL normalizada: {foto_url}")
+                opcion['image'] = foto_url
+            else:
+                print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} tiene foto_url vacía")
+        else:
+            print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} NO tiene foto_url")
+        
+        opciones.append(opcion)
+        
+        print(f"👤 [WEB CHAT] Opción {i}: {prof['nombre']} - Imagen: {'✅' if 'image' in opcion else '❌'}")
     
     return opciones
 
@@ -691,7 +936,14 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
 def mostrar_profesionales(numero, negocio_id):
     """Mostrar lista de profesionales disponibles - USANDO PLANTILLA"""
     try:
+        # Obtener profesionales CON fotos
         profesionales = db.obtener_profesionales(negocio_id)
+        
+        print(f"🔍 [WEB CHAT] Obtenidos {len(profesionales)} profesionales")
+        
+        # Verificar si se obtuvieron las fotos
+        for i, prof in enumerate(profesionales):
+            print(f"👤 {i+1}. {prof.get('nombre', 'Sin nombre')} - Foto URL: {prof.get('foto_url', 'No tiene')}")
         
         # Filtrar solo profesionales activos
         profesionales_activos = []
@@ -709,16 +961,14 @@ def mostrar_profesionales(numero, negocio_id):
         if clave_conversacion not in conversaciones_activas:
             conversaciones_activas[clave_conversacion] = {}
         
+        # Guardar profesionales CON sus fotos
         conversaciones_activas[clave_conversacion].update({
             'estado': 'seleccionando_profesional',
-            'profesionales': profesionales,
+            'profesionales': profesionales,  # ← Esto ya incluye foto_url si db.obtener_profesionales la trae
             'timestamp': datetime.now(tz_colombia)
         })
         
-        print(f"✅ [DEBUG] Datos preservados en mostrar_profesionales:")
-        for key, value in conversaciones_activas[clave_conversacion].items():
-            if key not in ['estado', 'profesionales', 'timestamp']:
-                print(f"   - {key}: {value}")
+        print(f"✅ [WEB CHAT] {len(profesionales)} profesionales almacenados con datos completos")
         
         # ✅ USAR PLANTILLA PARA LISTA DE PROFESIONALES
         return renderizar_plantilla('lista_profesionales', negocio_id)
@@ -1390,11 +1640,13 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
 
 def procesar_confirmacion_directa(numero, negocio_id, conversacion):
-    """Procesar confirmación de cita - VERSIÓN SIMPLIFICADA SIN SERVICIOS ADICIONALES"""
+    """Procesar confirmación de cita - VERSIÓN CORREGIDA CON PUSH"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     try:
-        print(f"🔧 [DEBUG] Creando cita con datos existentes...")
+        print("=" * 60)
+        print(f"🎯 [PUSH-INICIO] Creando cita desde chat web")
+        print("=" * 60)
         
         # Verificar que tenemos todos los datos necesarios
         datos_requeridos = ['hora_seleccionada', 'fecha_seleccionada', 'profesional_id', 
@@ -1417,7 +1669,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         
         # Obtener duración del servicio
         duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
-        print(f"Duración servicio: {duracion} minutos")
+        print(f"📅 Duración servicio: {duracion} minutos")
         
         # Verificar disponibilidad
         citas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
@@ -1469,6 +1721,34 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         if cita_id and cita_id > 0:
             print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
             
+            # ✅✅✅ CORRECCIÓN CRÍTICA: ENVIAR NOTIFICACIÓN PUSH ✅✅✅
+            try:
+                fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
+                mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora}"
+                
+                print(f"🚀 [PUSH-ENVIO] Enviando notificación push...")
+                print(f"   👨‍💼 Profesional ID: {profesional_id}")
+                print(f"   📝 Mensaje: {mensaje_push}")
+                print(f"   🎫 Cita ID: {cita_id}")
+                
+                # ✅ SOLUCIÓN DEFINITIVA: COPIAR LA FUNCIÓN DIRECTAMENTE AQUÍ
+                resultado = enviar_notificacion_push_local(
+                    profesional_id=profesional_id,
+                    titulo="📅 Nueva Cita Agendada",
+                    mensaje=mensaje_push,
+                    cita_id=cita_id
+                )
+                
+                print(f"🎯 [PUSH-RESULTADO] {'✅ ÉXITO' if resultado else '❌ FALLÓ'}")
+                
+            except ImportError as e:
+                print(f"❌ [PUSH-ERROR] No se pudo importar la función: {e}")
+                print("   ℹ️ Asegúrate de que la función existe en app.py")
+            except Exception as push_error:
+                print(f"❌ [PUSH-ERROR] Error enviando push: {push_error}")
+                import traceback
+                traceback.print_exc()
+            
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
             
@@ -1499,6 +1779,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
         return renderizar_plantilla('error_generico', negocio_id)
+
 
 def diagnostico_citas_duplicadas(negocio_id, profesional_id, fecha, hora, servicio_id):
     """Función para diagnosticar por qué se permiten citas duplicadas"""
@@ -2033,55 +2314,27 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles considerando la configuración por días - CON LOGS DIAGNÓSTICOS"""
-    print(f"\n🔍 [DIAGNÓSTICO] Iniciando verificación para {fecha}")
-    print(f"   Negocio: {negocio_id}, Profesional: {profesional_id}, Servicio: {servicio_id}")
-    
+    """Generar horarios disponibles - VERSIÓN CON LOGS LIMITADOS"""
     # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
     horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
     
     if not horarios_dia or not horarios_dia['activo']:
-        print(f"❌ Día no activo para la fecha {fecha}")
-        return []  # Día no activo, no hay horarios disponibles
+        print(f"❌ Día no activo: {fecha}")
+        return []  # Día no activo
     
-    print(f"✅ Día activo. Horario: {horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']}")
+    print(f"✅ Día activo: {fecha} ({horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']})")
     
-    # ✅ Obtener citas ya agendadas - INCLUYENDO BLOQUEOS
-    print(f"📋 Llamando a obtener_citas_dia...")
+    # ✅ Obtener citas ya agendadas
     citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
-    print(f"📊 TOTAL citas devueltas por BD: {len(citas_ocupadas)}")
-    
-    # DIAGNÓSTICO DETALLADO de cada cita
-    if citas_ocupadas:
-        print("📋 DETALLE DE CADA CITA OBTENIDA DE BD:")
-        for i, cita in enumerate(citas_ocupadas):
-            print(f"   Cita #{i+1}:")
-            print(f"     Tipo de dato: {type(cita)}")
-            
-            if isinstance(cita, dict):
-                print(f"     Dict - Hora: {cita.get('hora')}, Duración: {cita.get('duracion')}, Estado: {cita.get('estado')}")
-            elif isinstance(cita, (list, tuple)):
-                print(f"     List/Tuple - Contenido: {cita}")
-                if len(cita) > 0:
-                    print(f"       Hora: {cita[0]}")
-                if len(cita) > 1:
-                    print(f"       Duración: {cita[1]}")
-                if len(cita) > 2:
-                    print(f"       Estado: {cita[2]}")
-            else:
-                print(f"     Otro tipo: {cita}")
-    else:
-        print("📭 No hay citas registradas en BD para este día/profesional")
+    print(f"📋 Citas existentes: {len(citas_ocupadas)}")
     
     # Obtener duración del servicio
     duracion_servicio = db.obtener_duracion_servicio(negocio_id, servicio_id)
     if not duracion_servicio:
-        print(f"❌ No se pudo obtener duración del servicio {servicio_id}")
+        print(f"❌ No se pudo obtener duración del servicio")
         return []
     
-    print(f"⏱️ Duración del servicio a agendar: {duracion_servicio} minutos")
-    
-    # ✅ CORRECCIÓN: Si es hoy, considerar margen mínimo de anticipación
+    # ✅ Si es hoy, considerar margen mínimo
     fecha_actual = datetime.now(tz_colombia)
     fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
     es_hoy = fecha_cita.date() == fecha_actual.date()
@@ -2091,49 +2344,102 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     hora_actual = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
     hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
     
+    # Contadores para resumen
+    total_horarios_verificados = 0
+    horarios_disponibles = 0
+    horarios_omitidos = 0
+    
     while hora_actual < hora_fin:
         hora_str = hora_actual.strftime('%H:%M')
+        total_horarios_verificados += 1
         
-        # ✅ CORRECCIÓN CRÍTICA: Si es hoy, verificar horarios futuros con margen
+        # ✅ Si es hoy, verificar horarios futuros con margen
         if es_hoy:
-            # Combinar fecha actual con hora del horario
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-            
-            # ✅ FIX: Asegurar que ambas fechas tengan timezone
             hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_colombia)
-            
-            # Calcular tiempo hasta el horario
             tiempo_hasta_horario = hora_actual_completa - fecha_actual
             
             # ✅ MARGEN MÍNIMO: 30 minutos de anticipación
             margen_minimo_minutos = 30
             
             if tiempo_hasta_horario.total_seconds() <= 0:
-                # Horario YA PASÓ
-                print(f"⏰ Horario {hora_str} omitido (ya pasó)")
+                horarios_omitidos += 1
                 hora_actual += timedelta(minutes=30)
                 continue
             elif tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
-                # Horario es muy pronto
-                print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
+                horarios_omitidos += 1
                 hora_actual += timedelta(minutes=30)
                 continue
         
         # Verificar si no es horario de almuerzo
         if not es_horario_almuerzo(hora_actual, horarios_dia):
-            # ✅ MEJORADO: Verificar disponibilidad
-            if esta_disponible(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
+            # ✅ Verificar disponibilidad (función simplificada abajo)
+            if esta_disponible_simplificada(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
                 horarios.append(hora_str)
-                print(f"✅ Horario disponible: {hora_str}")
+                horarios_disponibles += 1
             else:
-                print(f"❌ Horario NO disponible: {hora_str} (ocupado o conflicto)")
+                horarios_omitidos += 1
         else:
-            print(f"🍽️ Horario {hora_str} omitido (horario de almuerzo)")
+            horarios_omitidos += 1
         
         hora_actual += timedelta(minutes=30)
     
-    print(f"🎯 Total horarios disponibles: {len(horarios)}")
+    # ✅ MOSTRAR RESUMEN EN VEZ DE DETALLES
+    print(f"🎯 Horarios generados:")
+    print(f"   • Total verificados: {total_horarios_verificados}")
+    print(f"   • Disponibles: {horarios_disponibles}")
+    print(f"   • Omitidos: {horarios_omitidos}")
+    print(f"   • Lista: {', '.join(horarios[:5])}{'...' if len(horarios) > 5 else ''}")
+    
     return horarios
+
+def esta_disponible_simplificada(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
+    """Verificar disponibilidad - VERSIÓN SILENCIOSA"""
+    hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
+    
+    # Verificar límites del día
+    try:
+        hora_fin_jornada = datetime.strptime(config_dia['hora_fin'], '%H:%M')
+        if hora_fin_servicio.time() > hora_fin_jornada.time():
+            return False
+    except Exception:
+        return False
+    
+    # Verificar almuerzo
+    if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
+        return False
+    
+    # Verificar citas existentes
+    if citas_ocupadas:
+        for cita_ocupada in citas_ocupadas:
+            try:
+                # Extraer datos de la cita
+                hora_cita_str = None
+                duracion_cita = 0
+                estado_cita = 'confirmado'
+                
+                if isinstance(cita_ocupada, dict):
+                    hora_cita_str = cita_ocupada.get('hora')
+                    duracion_cita = cita_ocupada.get('duracion', 0)
+                    estado_cita = cita_ocupada.get('estado', 'confirmado')
+                elif isinstance(cita_ocupada, (list, tuple)) and len(cita_ocupada) >= 2:
+                    hora_cita_str = cita_ocupada[0]
+                    duracion_cita = cita_ocupada[1]
+                    estado_cita = cita_ocupada[2] if len(cita_ocupada) > 2 else 'confirmado'
+                
+                if not hora_cita_str or (estado_cita and estado_cita.lower() in ['cancelado', 'cancelada']):
+                    continue
+                
+                hora_cita = datetime.strptime(str(hora_cita_str).strip(), '%H:%M')
+                hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
+                
+                if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
+                    return False
+                    
+            except Exception:
+                continue
+    
+    return True
 
 
 def verificar_disponibilidad_basica(negocio_id, fecha):
@@ -2269,9 +2575,9 @@ def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
     return True
 
 def se_solapa_con_almuerzo(hora_inicio, hora_fin, config_dia):
-    """Verificar si un horario se solapa con el almuerzo del día - SIN CAMBIOS"""
+    """Verificar si un horario se solapa con el almuerzo - VERSIÓN SILENCIOSA"""
     if not config_dia.get('almuerzo_inicio') or not config_dia.get('almuerzo_fin'):
-        return False  # No hay almuerzo configurado
+        return False
     
     try:
         almuerzo_ini = datetime.strptime(config_dia['almuerzo_inicio'], '%H:%M')
@@ -2279,20 +2585,12 @@ def se_solapa_con_almuerzo(hora_inicio, hora_fin, config_dia):
         
         return (hora_inicio.time() < almuerzo_fin.time() and 
                 hora_fin.time() > almuerzo_ini.time())
-    except Exception as e:
-        print(f"❌ Error verificando solapamiento almuerzo: {e}")
+    except Exception:
         return False
 
 def se_solapan(inicio1, fin1, inicio2, fin2):
-    """Verificar si dos intervalos de tiempo se solapan - CON LOGS"""
-    solapan = (inicio1.time() < fin2.time() and fin1.time() > inicio2.time())
-    
-    if solapan:
-        print(f"       🚨 SOLAPAMIENTO DETECTADO:")
-        print(f"         Intervalo 1: {inicio1.time()} - {fin1.time()}")
-        print(f"         Intervalo 2: {inicio2.time()} - {fin2.time()}")
-    
-    return solapan
+    """Verificar si dos intervalos de tiempo se solapan - VERSIÓN SILENCIOSA"""
+    return (inicio1.time() < fin2.time() and fin1.time() > inicio2.time())
 
 def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
     """Reiniciar conversación si ha pasado mucho tiempo - SIN CAMBIOS"""

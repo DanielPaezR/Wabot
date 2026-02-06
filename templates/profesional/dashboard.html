@@ -1,7 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Mi Agenda">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Mi Agenda">
+    <meta name="msapplication-navbutton-color" content="#007bff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8">  
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Agenda - {{ session.negocio_nombre }}</title>
     <style>
@@ -1443,9 +1451,71 @@
         0% { left: -100%; }
         100% { left: 100%; }
     }
+    
+    /* BOTÓN PARA NOTIFICACIONES PUSH - MANUAL */
+    .btn-push-notifications {
+        background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        color: white;
+        border: none;
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 44px;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
+        margin-left: 10px;
+    }
+    
+    .btn-push-notifications:hover {
+        background: linear-gradient(135deg, #8e44ad, #7d3c98);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+    }
+    
+    .btn-push-notifications:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(155, 89, 182, 0.3);
+    }
+    
+    .btn-push-notifications:disabled {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        cursor: default;
+        opacity: 0.9;
+        transform: none !important;
+        box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+    }
+    
+    /* Para pantallas pequeñas */
+    @media (max-width: 768px) {
+        .btn-push-notifications {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            margin-left: 0;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .section-title {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+    }
     </style>
 </head>
-<body>
+<!-- CAMBIO CRÍTICO: Agregar data-profesional-id al body -->
+ <script>
+console.log('=== DEBUG TEMPLATE ===');
+console.log('Profesional ID desde template:', '{{ session.profesional_id }}');
+console.log('Body tiene dataset profesionalId?', document.body.dataset.profesionalId ? 'SÍ' : 'NO');
+</script>
+<body data-profesional-id="{{ session.profesional_id }}">
     <!-- Notificación flotante -->
     <div id="notification" class="notification">
         ✅ Cita marcada como completada
@@ -1592,10 +1662,52 @@
     </div>
     
     <div class="container">
+        <!-- SECCIÓN MODIFICADA: Botón sin onclick, será manejado por push-notifications.js -->
         <div class="section-title">
             <h2>📅 Mis Citas de Hoy</h2>
-            <input type="date" class="date-selector" value="{{ fecha }}" 
-                   onchange="cambiarFecha(this.value)">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="date" class="date-selector" value="{{ fecha }}" 
+                       onchange="cambiarFecha(this.value)">
+                <!-- BOTÓN TEMPORAL PARA DEBUG -->
+                <button id="pushButton" 
+                        style="background: linear-gradient(135deg, #e74c3c, #c0392b); 
+                            color: white; 
+                            border: none; 
+                            padding: 12px 20px; 
+                            border-radius: 8px; 
+                            font-weight: bold; 
+                            font-size: 16px; 
+                            cursor: pointer;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            margin: 10px 0;">
+                    🔔 Activar Notificaciones Push (DEBUG)
+                </button>
+                <script>
+                // DEBUG TEMPORAL - Agrega esto JUSTO DESPUÉS del botón
+                document.getElementById('debugPushBtn').addEventListener('click', function() {
+                    console.log('=== DEBUG PUSH ===');
+                    console.log('1. Profesional ID:', document.body.dataset.profesionalId);
+                    console.log('2. PushNotifications class:', window.PushNotifications);
+                    console.log('3. Service Worker support:', 'serviceWorker' in navigator);
+                    console.log('4. PushManager support:', 'PushManager' in window);
+                    
+                    // Intentar activar manualmente
+                    if (window.PushNotifications) {
+                        const profesionalId = document.body.dataset.profesionalId;
+                        if (profesionalId) {
+                            const push = new window.PushNotifications();
+                            push.inicializar(profesionalId).then(success => {
+                                alert(success ? '✅ Activado' : '❌ Falló');
+                            });
+                        } else {
+                            alert('❌ No hay profesional_id');
+                        }
+                    } else {
+                        alert('❌ PushNotifications no está definido');
+                    }
+                });
+                </script>
+            </div>
         </div>
         
         <div class="citas-list">
@@ -1688,50 +1800,56 @@
                 <div class="action-title">Horarios</div>
                 <div class="action-desc">Bloquear horas</div>
             </a>
+
+            <a href="/profesional/perfil" class="action-card" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">
+                <div class="action-icon">👤</div>
+                <div class="action-title">Mi Perfil</div>
+                <div class="action-desc">Ver y editar mi perfil</div>
+            </a>
         </div>
         
     </div>
 
+    <!-- ==================== IMPORTANTE: Cargar push-simple.js ==================== -->
+    <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
+
     <script>
-        // ==================== FUNCIÓN PARA COMPLETAR CITAS ====================
-        async function completarCita(event, citaId) {
-            event.preventDefault(); // Prevenir envío inmediato del formulario
+        // ==================== FUNCIÓN PARA MOSTRAR NOTIFICACIONES MEJORADA ====================
+        function mostrarNotificacion(mensaje = '✅ Cita marcada como completada', tipo = 'success') {
+            const notification = document.getElementById('notification');
+            if (!notification) return;
             
-            const boton = event.target;
-            const formulario = boton.closest('.completar-cita-form');
+            // Cambiar color según tipo
+            if (tipo === 'error') {
+                notification.style.background = 'var(--danger)';
+            } else if (tipo === 'warning') {
+                notification.style.background = 'var(--warning)';
+            } else {
+                notification.style.background = 'var(--success)';
+            }
             
-            // Deshabilitar botón inmediatamente para evitar doble clic
-            boton.disabled = true;
-            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-            boton.style.opacity = '0.7';
-            boton.style.cursor = 'not-allowed';
+            notification.textContent = mensaje;
+            notification.style.display = 'block';
+            notification.style.opacity = '1';
             
-            try {
-                // Mostrar notificación inmediata
-                mostrarNotificacion();
-                
-                // Esperar un momento para que el usuario vea la notificación
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Enviar el formulario
-                formulario.submit();
-                
-            } catch (error) {
-                console.error('Error completando cita:', error);
-                boton.innerHTML = '❌ Error';
-                boton.style.background = 'var(--danger)';
-                
-                // Rehabilitar después de 3 segundos si hay error
+            // Ocultar después de 3 segundos con animación
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s ease';
                 setTimeout(() => {
-                    boton.disabled = false;
-                    boton.innerHTML = '✅ Completar';
-                    boton.style.opacity = '1';
-                    boton.style.cursor = 'pointer';
-                    boton.style.background = '';
-                }, 3000);
+                    notification.style.display = 'none';
+                    notification.style.opacity = '1';
+                    notification.style.transition = '';
+                }, 500);
+            }, 3000);
+            
+            // Vibrar si está soportado
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
             }
         }
 
+        // ==================== FUNCIÓN PARA COMPLETAR CITAS ====================
         function manejarCompletarCita(event, boton) {
             event.preventDefault();
             
@@ -1741,7 +1859,7 @@
             // Verificar que el formulario tenga CSRF token
             const csrfInput = formulario.querySelector('input[name="csrf_token"]');
             if (!csrfInput || !csrfInput.value) {
-                mostrarNotificacion('❌ Error de seguridad. Recarga la página.');
+                mostrarNotificacion('❌ Error de seguridad. Recarga la página.', 'error');
                 return false;
             }
             
@@ -1912,7 +2030,7 @@
                 if (data.success) {
                     // Recargar notificaciones
                     loadNotifications();
-                    showNotification('✅ Todas las notificaciones marcadas como leídas');
+                    mostrarNotificacion('✅ Todas las notificaciones marcadas como leídas');
                 }
             } catch (error) {
                 console.error('Error marcando todas como leídas:', error);
@@ -2120,7 +2238,7 @@
                     showModalAlert('✅ Contraseña cambiada exitosamente', 'success');
                     setTimeout(() => {
                         closePasswordModal();
-                        showNotification('✅ Contraseña actualizada correctamente');
+                        mostrarNotificacion('✅ Contraseña actualizada correctamente');
                     }, 1500);
                 } else {
                     showModalAlert(`❌ Error: ${result.message || 'No se pudo cambiar la contraseña'}`);
@@ -2183,31 +2301,6 @@
             window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
         }
 
-        function mostrarNotificacion(mensaje = '✅ Cita marcada como completada') {
-            const notification = document.getElementById('notification');
-            if (!notification) return;
-            
-            notification.textContent = mensaje;
-            notification.style.display = 'block';
-            notification.style.opacity = '1';
-            
-            // Ocultar después de 3 segundos con animación
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transition = 'opacity 0.5s ease';
-                setTimeout(() => {
-                    notification.style.display = 'none';
-                    notification.style.opacity = '1';
-                    notification.style.transition = '';
-                }, 500);
-            }, 3000);
-            
-            // Vibrar si está soportado
-            if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100]);
-            }
-        }
-
         function showNotification(message) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
@@ -2224,7 +2317,7 @@
 
         // Mostrar notificación si hay un parámetro de completado en la URL
         if (window.location.search.includes('completed=true')) {
-            setTimeout(mostrarNotificacion, 500);
+            setTimeout(() => mostrarNotificacion(), 500);
         }
 
         // Touch optimizations
@@ -2287,24 +2380,6 @@
                 }
             }
             originalHeight = window.innerHeight;
-        });
-
-        // Load animations
-        document.addEventListener('DOMContentLoaded', function() {
-            const items = document.querySelectorAll('.cita-item');
-            items.forEach((item, index) => {
-                item.style.animationDelay = `${index * 0.1}s`;
-            });
-            
-            // Añadir CSS para animación de fadeIn
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `;
-            document.head.appendChild(style);
         });
     </script>
 </body>

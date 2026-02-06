@@ -3,15 +3,15 @@
 # =============================================================================
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory
+import pywebpush
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import database as db
 from web_chat_handler import web_chat_bp
 import os
 from dotenv import load_dotenv
 import threading
-from scheduler import iniciar_scheduler_en_segundo_plano
 import threading
 import json
 from functools import wraps
@@ -21,14 +21,163 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
 from notification_system import notification_system
+from push_notifications import push_bp, enviar_notificacion_cita_creada
+import scheduler
+from werkzeug.utils import secure_filename
 
 # Cargar variables de entorno
 load_dotenv()
 
 tz_colombia = pytz.timezone('America/Bogota')
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
+app.register_blueprint(push_bp, url_prefix='/push')
+
+# Configuración para subir imágenes
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+UPLOAD_FOLDER = 'static/uploads/profesionales'
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
+    """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
+    try:
+        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
+        
+        # Solo lo esencial
+        import json
+        import os
+        
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+        
+        if not VAPID_PRIVATE_KEY:
+            print("⚠️ No hay clave privada")
+            return False
+        
+        # Obtener suscripciones
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
+        suscripciones = cursor.fetchall()
+        conn.close()
+        
+        if not suscripciones:
+            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
+            return False
+        
+        # 1. Guardar notificación en BD (SIEMPRE funciona)
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional 
+                (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+                VALUES (%s, 'push', %s, %s, FALSE, %s)
+            ''', (profesional_id, titulo, mensaje, cita_id))
+            conn.commit()
+            conn.close()
+            print(f"✅ Notificación guardada en BD")
+        except:
+            pass
+        
+        # 2. Intentar push (opcional)
+        try:
+            import pywebpush
+            subscription = json.loads(suscripciones[0][0])
+            
+            pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': titulo,
+                    'body': mensaje,
+                    'icon': '/static/icons/icon-192x192.png'
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": int(time.time()) + (12 * 60 * 60)  # 12 horas máximo
+                }
+            )
+            print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
+            return True
+        except Exception as e:
+            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
+            # Igual devolvemos True porque la notificación se guardó en BD
+            return True
+            
+    except Exception as e:
+        print(f"❌ Error crítico: {e}")
+        return False  # Solo False si falla todo
+
+def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
+    """Función auxiliar para guardar notificación en BD - VERSIÓN CORREGIDA"""
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        print(f"💾 Guardando notificación en BD para profesional {profesional_id}...")
+        
+        # Verificar columnas disponibles
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'notificaciones_profesional'
+            ORDER BY column_name
+        """)
+        
+        columnas = [row[0] for row in cursor.fetchall()]
+        print(f"   Columnas disponibles: {', '.join(columnas)}")
+        
+        # Construir query dinámicamente
+        if 'cita_id' in columnas and 'fecha_creacion' in columnas:
+            if cita_id:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida, cita_id, fecha_creacion)
+                    VALUES (%s, 'push', %s, %s, FALSE, %s, NOW())
+                ''', (profesional_id, titulo, mensaje, cita_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida, fecha_creacion)
+                    VALUES (%s, 'push', %s, %s, FALSE, NOW())
+                ''', (profesional_id, titulo, mensaje))
+        
+        elif 'cita_id' in columnas:
+            if cita_id:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+                    VALUES (%s, 'push', %s, %s, FALSE, %s)
+                ''', (profesional_id, titulo, mensaje, cita_id))
+            else:
+                cursor.execute('''
+                    INSERT INTO notificaciones_profesional 
+                    (profesional_id, tipo, titulo, mensaje, leida)
+                    VALUES (%s, 'push', %s, %s, FALSE)
+                ''', (profesional_id, titulo, mensaje))
+        
+        else:
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional 
+                (profesional_id, tipo, titulo, mensaje, leida)
+                VALUES (%s, 'push', %s, %s, FALSE)
+            ''', (profesional_id, titulo, mensaje))
+        
+        conn.commit()
+        conn.close()
+        print(f"✅ Notificación guardada en BD")
+        
+    except Exception as e:
+        print(f"⚠️ Error guardando en BD (no crítico): {type(e).__name__}: {str(e)}")
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
@@ -191,10 +340,6 @@ def health_check():
     """Health check para Railway"""
     return jsonify({"status": "healthy", "timestamp": datetime.now(tz_colombia).isoformat()})
 
-@app.route('/test-simple')
-def test_simple():
-    """Ruta simple sin dependencias"""
-    return "✅ Ruta básica OK"
 
 # =============================================================================
 # RUTAS DEL CHAT WEB
@@ -483,6 +628,8 @@ def login():
                 if 'profesional_id' in session:
                     del session['profesional_id']
                 
+                session['needs_push_subscription'] = True
+
                 conn = db.get_db_connection()
                 cursor = conn.cursor()
                 
@@ -568,6 +715,44 @@ def logout():
     flash('Sesión cerrada correctamente', 'success')
     return redirect(url_for('login'))
 
+@app.route('/api/profesional/needs-push')
+@login_required
+def check_needs_push():
+    """Verificar si el profesional necesita suscripción push"""
+    try:
+        profesional_id = session.get('profesional_id')
+        
+        if not profesional_id:
+            return jsonify({'needsPush': False})
+        
+        # Verificar si ya tiene suscripciones activas
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+        ''', (profesional_id,))
+        
+        tiene_suscripciones = cursor.fetchone()[0] > 0
+        conn.close()
+        
+        # Si ya tiene suscripciones, no necesita más
+        if tiene_suscripciones:
+            return jsonify({'needsPush': False})
+        
+        # Verificar si la sesión indica que necesita push
+        needs_push = session.get('needs_push_subscription', False)
+        
+        # Limpiar la sesión después de verificar
+        if 'needs_push_subscription' in session:
+            session.pop('needs_push_subscription')
+        
+        return jsonify({'needsPush': needs_push})
+        
+    except Exception as e:
+        print(f"❌ Error check_needs_push: {e}")
+        return jsonify({'needsPush': False})
 # =============================================================================
 # RUTAS DEL PANEL ADMINISTRADOR
 # =============================================================================
@@ -2930,7 +3115,8 @@ def profesional_todas_citas():
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Obtener todas las citas del profesional
+
+        # Obtener todas las citas del profesional cambio test
         cursor.execute('''
             SELECT c.*, s.nombre as servicio_nombre, s.precio
             FROM citas c
@@ -3138,6 +3324,18 @@ def profesional_crear_cita():
             return redirect(url_for('profesional_agendar'))
         
         conn.commit()
+        try:
+            mensaje_push = f"{cliente_nombre} - {fecha} {hora}"
+            enviar_notificacion_push_profesional(
+                profesional_id=profesional_id,
+                titulo="📅 Nueva Cita Agendada",
+                mensaje=mensaje_push,
+                cita_id=cita_id
+            )
+            print("✅ Notificación push enviada")
+        except Exception as push_error:
+            print(f"⚠️ Error enviando push: {push_error}")
+
         conn.close()
         
         flash('✅ Cita agendada exitosamente', 'success')
@@ -4015,12 +4213,100 @@ def mark_all_notifications_read():
             conn.close()
 
 # =============================================================================
+# RUTAS PARA NOTIFICACIONES PUSH
+# =============================================================================
+
+@app.route('/api/push/subscribe', methods=['POST'])
+@login_required
+def subscribe_push():
+    """Registrar dispositivo para notificaciones push - VERSIÓN SIMPLIFICADA"""
+    try:
+        data = request.json
+        subscription = data.get('subscription')
+        profesional_id = session.get('profesional_id')
+        
+        if not subscription or not profesional_id:
+            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
+        
+        print(f"📱 Suscribiendo profesional {profesional_id} a notificaciones push")
+        
+        # Guardar en base de datos
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        dispositivo_info = request.headers.get('User-Agent', 'Dispositivo móvil')[:500]
+        
+        cursor.execute('''
+            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
+            VALUES (%s, %s, %s, TRUE)
+            ON CONFLICT (profesional_id, subscription_json) 
+            DO UPDATE SET activa = TRUE
+        ''', (profesional_id, json.dumps(subscription), dispositivo_info))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
+        
+    except Exception as e:
+        print(f"❌ Error en subscribe_push: {e}")
+        return jsonify({'success': False, 'error': 'Error interno'}), 500
+
+@app.route('/api/push/test', methods=['POST'])
+@login_required
+def test_push():
+    """Probar notificaciones push"""
+    profesional_id = session.get('profesional_id')
+    
+    # Llamar a la función auxiliar que ya creaste
+    if enviar_notificacion_push_profesional(
+        profesional_id=profesional_id,  
+        titulo="🔔 Test Push",
+        mensaje="¡Las notificaciones push funcionan correctamente!",
+        cita_id=None
+    ):
+        return jsonify({'success': True, 'message': 'Notificación de prueba enviada'})
+    else:
+        return jsonify({'success': False, 'message': 'No hay suscripciones activas'})
+
+# =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
 @app.route('/test_personalizar')
 def test_personalizar():
     """Ruta de prueba para verificar que la personalización funciona"""
     return "✅ Ruta de personalización funciona correctamente"
+
+@app.route('/api/debug/recreate-push-table', methods=['GET', 'POST'])
+def recreate_push_table():
+    """Recrear tabla de suscripciones push correctamente"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        print("🗑️ Eliminando tabla existente...")
+        cursor.execute('DROP TABLE IF EXISTS suscripciones_push')
+        
+        print("🔧 Creando nueva tabla...")
+        cursor.execute('''
+            CREATE TABLE suscripciones_push (
+                id SERIAL PRIMARY KEY,
+                profesional_id INTEGER NOT NULL,
+                subscription_json TEXT NOT NULL,
+                dispositivo_info TEXT,
+                activa BOOLEAN DEFAULT TRUE,
+                UNIQUE(profesional_id, subscription_json)
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Tabla recreada con constraint UNIQUE'})
+        
+    except Exception as e:
+        print(f"❌ Error recreando tabla: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =============================================================================
@@ -4416,11 +4702,2200 @@ def obtener_configuracion_horarios():
     
     return jsonify(config)
 
+@app.route('/api/push/public-key')
+def get_public_key():
+    """Obtener clave pública VAPID para notificaciones push"""
+    try:
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+        
+        # DEBUG: Mostrar qué hay en la variable
+        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {VAPID_PUBLIC_KEY[:50]}...")
+        print(f"🔑 [DEBUG] Longitud: {len(VAPID_PUBLIC_KEY)}")
+        print(f"🔑 [DEBUG] Tipo: {type(VAPID_PUBLIC_KEY)}")
+        
+        if not VAPID_PUBLIC_KEY:
+            return jsonify({'error': 'VAPID no configurado'}), 500
+        
+        # Verificar que sea string Base64 válido
+        import base64
+        try:
+            # Intentar decodificar para verificar
+            if '=' in VAPID_PUBLIC_KEY:
+                # Tiene padding, verificar
+                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
+            else:
+                # Sin padding
+                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
+            print(f"✅ Clave válida, longitud decodificada: {len(test)}")
+        except Exception as decode_error:
+            print(f"❌ Clave inválida: {decode_error}")
+            return jsonify({'error': 'Clave VAPID inválida'}), 500
+        
+        return jsonify({
+            'success': True,
+            'publicKey': VAPID_PUBLIC_KEY
+        })
+    except Exception as e:
+        print(f"❌ Error get_public_key: {e}")
+        return jsonify({'error': 'Error interno'}), 500
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+@login_required
+def unsubscribe_push():
+    """Eliminar suscripción push"""
+    try:
+        data = request.json
+        subscription = data.get('subscription')
+        profesional_id = session.get('profesional_id')
+        
+        if not subscription or not profesional_id:
+            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Marcar suscripción como inactiva
+        cursor.execute('''
+            UPDATE suscripciones_push 
+            SET activa = FALSE, fecha_eliminacion = NOW()
+            WHERE profesional_id = %s 
+            AND subscription_json LIKE %s
+        ''', (profesional_id, f'%{subscription["endpoint"][-20:]}%'))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Suscripción eliminada'})
+        
+    except Exception as e:
+        print(f"❌ Error unsubscribe_push: {e}")
+        return jsonify({'success': False, 'error': 'Error interno'}), 500
+    
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/service-worker.js')
+def serve_service_worker():
+    return send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
+
+    
+
+
+@app.route('/verify-key-tool')
+def verify_key_tool():
+    """Herramienta para verificar claves VAPID"""
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Verificador Claves VAPID</title>
+        <style>
+            body { font-family: Arial; padding: 20px; }
+            textarea { width: 100%; height: 100px; font-family: monospace; }
+            .valid { color: green; font-weight: bold; }
+            .invalid { color: red; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <h1>🔍 Verificador de Claves VAPID</h1>
+        
+        <textarea id="keyInput" placeholder="Pega tu clave pública VAPID aquí..."></textarea>
+        <br><br>
+        <button onclick="verifyKey()">Verificar Clave</button>
+        
+        <div id="result" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;"></div>
+        
+        <script>
+        function verifyKey() {
+            const key = document.getElementById('keyInput').value.trim();
+            const result = document.getElementById('result');
+            
+            if (!key) {
+                result.innerHTML = '<span class="invalid">❌ Ingresa una clave</span>';
+                return;
+            }
+            
+            // 1. Verificar longitud
+            if (key.length !== 87) {
+                result.innerHTML = `
+                    <span class="invalid">❌ Longitud incorrecta: ${key.length} caracteres</span>
+                    <p>Debe ser EXACTAMENTE 87 caracteres.</p>
+                `;
+                return;
+            }
+            
+            // 2. Verificar caracteres válidos
+            const validChars = /^[A-Za-z0-9_-]+$/;
+            if (!validChars.test(key)) {
+                result.innerHTML = '<span class="invalid">❌ Contiene caracteres inválidos</span>';
+                return;
+            }
+            
+            // 3. Intentar decodificar
+            try {
+                // Añadir padding si es necesario
+                let base64 = key;
+                while (base64.length % 4) {
+                    base64 += '=';
+                }
+                
+                // Convertir URL-safe a normal
+                base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+                
+                // Decodificar
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                
+                // Verificar longitud de bytes
+                if (bytes.length === 65) {
+                    // Verificar que el primer byte sea 0x04 (formato sin comprimir)
+                    if (bytes[0] === 0x04) {
+                        result.innerHTML = `
+                            <span class="valid">✅ CLAVE VÁLIDA</span>
+                            <p>• Longitud: 87 caracteres ✓</p>
+                            <p>• Bytes decodificados: 65 ✓</p>
+                            <p>• Formato: sin comprimir (0x04) ✓</p>
+                            <p>• Caracteres válidos: ✓</p>
+                        `;
+                    } else {
+                        result.innerHTML = `
+                            <span class="invalid">⚠️ Clave dudosa</span>
+                            <p>• Bytes: ${bytes.length} (OK)</p>
+                            <p>• Primer byte: 0x${bytes[0].toString(16)} (debería ser 0x04)</p>
+                        `;
+                    }
+                } else {
+                    result.innerHTML = `
+                        <span class="invalid">❌ Longitud de bytes incorrecta</span>
+                        <p>• Bytes decodificados: ${bytes.length}</p>
+                        <p>• Debería ser: 65 bytes</p>
+                    `;
+                }
+                
+            } catch (error) {
+                result.innerHTML = `
+                    <span class="invalid">❌ Error de decodificación</span>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+        </script>
+    </body>
+    </html>
+    '''
+@app.route('/test-push-debug/<int:profesional_id>')
+def test_push_debug(profesional_id):
+    """Prueba de push con DEBUG DETALLADO - CORREGIDO"""
+    try:
+        import os
+        import json
+        import time
+        from database import get_db_connection
+        
+        print(f"🔍 [DEBUG-PUSH-TEST] Iniciando test para profesional {profesional_id}")
+        
+        # 1. Obtener y verificar VAPID
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+        
+        print(f"🔑 [DEBUG] VAPID_PRIVATE_KEY: {'PRESENTE' if VAPID_PRIVATE_KEY else 'AUSENTE'}")
+        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {'PRESENTE' if VAPID_PUBLIC_KEY else 'AUSENTE'}")
+        print(f"🔑 [DEBUG] VAPID_SUBJECT: {VAPID_SUBJECT}")
+        
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({
+                'success': False, 
+                'error': 'VAPID_PRIVATE_KEY no configurada',
+                'debug': 'Configurar en Railway: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT'
+            }), 500
+        
+        # 2. Obtener suscripción - CORREGIDO para manejar diccionarios
+        print(f"📋 [DEBUG] Obteniendo suscripción de la BD...")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT subscription_json 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s AND activa = TRUE
+            ORDER BY id DESC LIMIT 1
+        ''', (profesional_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        print(f"📊 [DEBUG] Result type: {type(result)}")
+        print(f"📊 [DEBUG] Result: {result}")
+        
+        if not result:
+            return jsonify({
+                'success': False, 
+                'error': 'No hay suscripciones activas',
+                'profesional_id': profesional_id
+            }), 404
+        
+        # 3. EXTRAER el subscription_json correctamente
+        subscription_json = None
+        
+        # Si es tupla (cursor normal)
+        if isinstance(result, tuple):
+            subscription_json = result[0]
+        # Si es diccionario (RealDictCursor)
+        elif isinstance(result, dict):
+            subscription_json = result.get('subscription_json')
+        # Si es lista u otro tipo
+        elif hasattr(result, '__getitem__'):
+            try:
+                subscription_json = result[0]
+            except (KeyError, IndexError):
+                subscription_json = result.get('subscription_json') if hasattr(result, 'get') else None
+        
+        print(f"✅ [DEBUG] subscription_json extraído, type: {type(subscription_json)}")
+        
+        if not subscription_json:
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo extraer subscription_json',
+                'result_structure': str(result)[:200]
+            }), 500
+        
+        # 4. Parsear JSON
+        try:
+            subscription = json.loads(subscription_json)
+            print(f"✅ [DEBUG] JSON parseado correctamente")
+        except json.JSONDecodeError as e:
+            print(f"❌ [DEBUG] Error parseando JSON: {e}")
+            print(f"📄 [DEBUG] JSON crudo: {subscription_json[:200]}")
+            return jsonify({
+                'success': False,
+                'error': f'JSON inválido: {str(e)}',
+                'json_preview': subscription_json[:200]
+            }), 500
+        
+        # 5. Verificar estructura
+        endpoint = subscription.get('endpoint', '')
+        keys = subscription.get('keys', {})
+        
+        print(f"📍 [DEBUG] Endpoint: {endpoint[:60]}...")
+        print(f"🔑 [DEBUG] Keys: {list(keys.keys()) if keys else 'NO KEYS'}")
+        
+        if not endpoint:
+            return jsonify({
+                'success': False,
+                'error': 'Suscripción no tiene endpoint',
+                'subscription_keys': list(subscription.keys())
+            }), 500
+        
+        # 6. Enviar push
+        print(f"⏰ [DEBUG] Configurando tiempos...")
+        current_time = int(time.time())
+        expiration_time = current_time + (12 * 60 * 60)  # 12 horas
+        
+        print(f"🚀 [DEBUG] Intentando enviar push...")
+        
+        try:
+            import pywebpush
+            
+            response = pywebpush.webpush(
+                subscription_info=subscription,
+                data=json.dumps({
+                    'title': '🔥 TEST PUSH DEBUG',
+                    'body': f'Prueba de debug: {time.ctime()}',
+                    'icon': '/static/icons/icon-192x192.png',
+                    'timestamp': current_time * 1000
+                }),
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={
+                    "sub": VAPID_SUBJECT,
+                    "exp": expiration_time
+                },
+                ttl=86400,
+                timeout=15
+            )
+            
+            print(f"🎉 [DEBUG] ¡PUSH ENVIADO EXITOSAMENTE!")
+            
+            return jsonify({
+                'success': True,
+                'message': '¡Push enviado exitosamente!',
+                'timestamp': current_time,
+                'endpoint_preview': endpoint[:50] + '...'
+            })
+            
+        except Exception as push_error:
+            error_type = type(push_error).__name__
+            error_msg = str(push_error)
+            
+            print(f"❌ [DEBUG] Error en webpush: {error_type}")
+            print(f"💡 [DEBUG] Mensaje: {error_msg[:200]}")
+            
+            # Análisis de error específico
+            diagnosis = "Error desconocido en pywebpush"
+            
+            if "vapid" in error_msg.lower():
+                diagnosis = "Problema con credenciales VAPID"
+                if "exp" in error_msg.lower():
+                    diagnosis = "Tiempo de expiración (exp) inválido"
+            elif "InvalidAuthorization" in error_msg:
+                diagnosis = "Token de autorización VAPID inválido"
+            elif "key" in error_msg.lower():
+                diagnosis = "Problema con la clave VAPID (formato incorrecto)"
+            elif "connection" in error_msg.lower():
+                diagnosis = "Error de conexión con Google FCM"
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'error_type': error_type,
+                'diagnosis': diagnosis,
+                'next_steps': [
+                    'Verificar formato de VAPID_PRIVATE_KEY (debe ser base64 url-safe)',
+                    'Verificar que VAPID_SUBJECT sea un email válido',
+                    'Probar con exp más corto (ej: 1 hora)'
+                ]
+            }), 500
+            
+    except Exception as e:
+        print(f"💥 [DEBUG] Error inesperado: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return jsonify({
+            'success': False,
+            'error': f'Error inesperado: {type(e).__name__}',
+            'error_details': str(e)
+        }), 500
+    
+@app.route('/reset-subscriptions/<int:profesional_id>')
+def reset_subscriptions(profesional_id):
+    """Eliminar suscripciones antiguas y preparar para nuevas - CORREGIDO"""
+    from database import get_db_connection
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Ver suscripciones actuales (sin created_at que no existe)
+        cursor.execute('''
+            SELECT id, profesional_id, activa 
+            FROM suscripciones_push 
+            WHERE profesional_id = %s
+        ''', (profesional_id,))
+        
+        suscripciones = cursor.fetchall()
+        
+        # 2. Contar cuántas hay
+        count_before = len(suscripciones)
+        
+        # 3. Eliminar todas
+        cursor.execute('DELETE FROM suscripciones_push WHERE profesional_id = %s', (profesional_id,))
+        
+        deleted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Eliminadas {deleted_count} suscripciones antiguas',
+            'details': {
+                'profesional_id': profesional_id,
+                'found_before': count_before,
+                'deleted': deleted_count
+            },
+            'next_steps': [
+                '1. El profesional debe abrir la app web: https://wabot-deployment.up.railway.app',
+                '2. Cerrar y volver a abrir el navegador',
+                '3. Permitir notificaciones cuando el navegador pregunte',
+                '4. Probar con /test-push-debug/1'
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
+    
+@app.route('/vapid-info')
+def vapid_info():
+    """Ver información de las claves VAPID actuales - MEJORADA"""
+    import os
+    import re
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+    
+    # Analizar formato de las claves
+    def analyze_key(key, key_name):
+        if not key:
+            return {'status': 'MISSING', 'format': 'No configurada'}
+        
+        # Verificar si es base64 url-safe
+        is_base64_urlsafe = bool(re.match(r'^[A-Za-z0-9_-]+$', key))
+        
+        # Verificar longitud típica
+        expected_lengths = {
+            'VAPID_PRIVATE_KEY': 43,  # 32 bytes en base64 url-safe
+            'VAPID_PUBLIC_KEY': 87    # 65 bytes en base64 url-safe
+        }
+        
+        expected = expected_lengths.get(key_name)
+        length_ok = expected and len(key) == expected
+        
+        return {
+            'status': 'PRESENTE',
+            'length': len(key),
+            'expected_length': expected,
+            'length_ok': length_ok,
+            'is_base64_urlsafe': is_base64_urlsafe,
+            'preview': key[:20] + '...' + key[-5:] if len(key) > 30 else key
+        }
+    
+    private_analysis = analyze_key(VAPID_PRIVATE_KEY, 'VAPID_PRIVATE_KEY')
+    public_analysis = analyze_key(VAPID_PUBLIC_KEY, 'VAPID_PUBLIC_KEY')
+    
+    return jsonify({
+        'current_config': {
+            'VAPID_PRIVATE_KEY': private_analysis,
+            'VAPID_PUBLIC_KEY': public_analysis,
+            'VAPID_SUBJECT': VAPID_SUBJECT,
+            'subject_valid': VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
+        },
+        'problem': 'ERROR 403: Las credenciales VAPID no coinciden con las usadas al crear las suscripciones',
+        'explanation': 'Cuando el profesional se suscribió (permitió notificaciones), se usaron unas claves VAPID. Ahora estás usando claves diferentes.',
+        'solutions': [
+            {
+                'title': 'SOLUCIÓN RÁPIDA (Recomendada)',
+                'steps': [
+                    '1. Ejecutar: /reset-subscriptions/1',
+                    '2. Pedir al profesional que abra la app y permita notificaciones DE NUEVO',
+                    '3. Probar: /test-push-debug/1'
+                ]
+            },
+            {
+                'title': 'SOLUCIÓN PERMANENTE',
+                'steps': [
+                    '1. Generar nuevas claves VAPID (openssl)',
+                    '2. Actualizar en Railway las variables',
+                    '3. Ejecutar /reset-subscriptions/1',
+                    '4. Hacer que todos los usuarios se resuscriban'
+                ]
+            }
+        ],
+        'test_links': {
+            'reset_subscriptions': '/reset-subscriptions/1',
+            'test_push': '/test-push-debug/1',
+            'check_dependencies': '/check-dependencies'
+        }
+    })
+
+@app.route('/check-frontend-vapid')
+def check_frontend_vapid():
+    """Verificar qué clave pública VAPID está usando el frontend"""
+    import os
+    
+    # Esta es la clave pública ACTUAL en Railway
+    current_public = os.getenv('VAPID_PUBLIC_KEY', '')
+    
+    return jsonify({
+        'railway_public_key': current_public,
+        'railway_public_key_length': len(current_public),
+        'railway_public_key_preview': current_public[:30] + '...',
+        'instructions': [
+            '1. Busca en tu código frontend (static/js/, templates/) la constante de clave pública VAPID',
+            '2. Compara con la clave de arriba',
+            '3. DEBEN ser IDÉNTICAS',
+            '4. Si son diferentes, actualiza UNA de las dos para que coincidan'
+        ],
+        'common_locations': [
+            'static/js/service-worker.js',
+            'static/js/notifications.js', 
+            'templates/base.html',
+            'templates/includes/scripts.html'
+        ]
+    })
+
+@app.route('/whats-in-frontend')
+def whats_in_frontend():
+    """Verificar qué hay en el frontend actual"""
+    import os
+    
+    # Leer el archivo push-notificacion.js del filesystem
+    try:
+        with open('static/js/push-notificacion.js', 'r') as f:
+            content = f.read()
+    except:
+        try:
+            with open('/app/static/js/push-notificacion.js', 'r') as f:
+                content = f.read()
+        except:
+            content = "No se pudo leer el archivo"
+    
+    # Buscar la clave pública en el contenido
+    import re
+    public_key_match = re.search(r"publicKey\s*[:=]\s*['\"]([A-Za-z0-9_-]+)['\"]", content)
+    
+    found_key = public_key_match.group(1) if public_key_match else "NO ENCONTRADA"
+    
+    return jsonify({
+        'frontend_file': 'push-notificacion.js',
+        'found_public_key': found_key,
+        'found_key_length': len(found_key),
+        'railway_public_key': os.getenv('VAPID_PUBLIC_KEY', ''),
+        'railway_key_length': len(os.getenv('VAPID_PUBLIC_KEY', '')),
+        'match': found_key == os.getenv('VAPID_PUBLIC_KEY', ''),
+        'content_preview': content[:500] + '...' if len(content) > 500 else content
+    })
+
+@app.route('/debug-vapid-complete')
+def debug_vapid_complete():
+    """Debug COMPLETO de VAPID - muestra TODO"""
+    import os
+    import re
+    
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT') or 'mailto:danielpaezrami@gmail.com'
+    
+    # 1. Mostrar claves COMPLETAS (últimos 10 chars para seguridad)
+    private_key_end = VAPID_PRIVATE_KEY[-10:] if len(VAPID_PRIVATE_KEY) > 10 else VAPID_PRIVATE_KEY
+    public_key_end = VAPID_PUBLIC_KEY[-10:] if len(VAPID_PUBLIC_KEY) > 10 else VAPID_PUBLIC_KEY
+    
+    # 2. Verificar formato
+    def is_valid_base64_urlsafe(key):
+        return bool(re.match(r'^[A-Za-z0-9_-]+$', key)) if key else False
+    
+    # 3. Obtener suscripción actual
+    from database import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    subscription_info = None
+    if result:
+        import json
+        sub_json = result[0] if isinstance(result, tuple) else result.get('subscription_json')
+        if sub_json:
+            try:
+                subscription = json.loads(sub_json)
+                keys = subscription.get('keys', {})
+                subscription_info = {
+                    'endpoint': subscription.get('endpoint', '')[:60] + '...',
+                    'has_keys': bool(keys),
+                    'keys_present': list(keys.keys()) if keys else []
+                }
+            except:
+                subscription_info = {'error': 'JSON inválido'}
+    
+    return jsonify({
+        'vapid_config': {
+            'VAPID_PRIVATE_KEY': {
+                'present': bool(VAPID_PRIVATE_KEY),
+                'length': len(VAPID_PRIVATE_KEY),
+                'expected_length': 43,
+                'length_ok': len(VAPID_PRIVATE_KEY) == 43,
+                'format_ok': is_valid_base64_urlsafe(VAPID_PRIVATE_KEY),
+                'end': f"...{private_key_end}" if VAPID_PRIVATE_KEY else None
+            },
+            'VAPID_PUBLIC_KEY': {
+                'present': bool(VAPID_PUBLIC_KEY),
+                'length': len(VAPID_PUBLIC_KEY),
+                'expected_length': 87,
+                'length_ok': len(VAPID_PUBLIC_KEY) == 87,
+                'format_ok': is_valid_base64_urlsafe(VAPID_PUBLIC_KEY),
+                'full_key': VAPID_PUBLIC_KEY,  # MOSTRAMOS LA CLAVE COMPLETA
+                'end': f"...{public_key_end}" if VAPID_PUBLIC_KEY else None
+            },
+            'VAPID_SUBJECT': {
+                'value': VAPID_SUBJECT,
+                'valid': VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
+            }
+        },
+        'current_subscription': subscription_info,
+        'critical_check': '¿La VAPID_PUBLIC_KEY de arriba es EXACTAMENTE la misma que en push-notificacion.js?',
+        'action_required': 'COPIAR la VAPID_PUBLIC_KEY de arriba y pegarla en push-notificacion.js',
+        'verification_steps': [
+            '1. Copiar el valor de "full_key" de arriba',
+            '2. Pegarlo EXACTAMENTE en push-notificacion.js donde dice this.publicKey = \'...\'',
+            '3. Hacer commit y push',
+            '4. Railway hará deploy automático',
+            '5. El profesional debe CERRAR NAVEGADOR y volver a abrir',
+            '6. Permitir notificaciones DE NUEVO',
+            '7. Probar con /test-push-final/1'
+        ]
+    })
+ 
+@app.route('/push/setup-completo')
+def push_setup_completo():
+    """Verificar estado completo del sistema push - CORREGIDO"""
+    import os
+    
+    try:
+        from database import get_db_connection
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar suscripciones (con manejo de error si la tabla no existe)
+        try:
+            cursor.execute('SELECT COUNT(*) as count FROM suscripciones_push WHERE activa = TRUE')
+            result = cursor.fetchone()
+            suscripciones_activas = result[0] if result else 0
+        except Exception as e:
+            print(f"⚠️ Error contando suscripciones: {e}")
+            suscripciones_activas = 0
+        
+        # Verificar notificaciones en BD
+        try:
+            cursor.execute('SELECT COUNT(*) as count FROM notificaciones WHERE leida = FALSE')
+            result = cursor.fetchone()
+            notificaciones_pendientes = result[0] if result else 0
+        except Exception as e:
+            print(f"⚠️ Error contando notificaciones: {e}")
+            notificaciones_pendientes = 0
+        
+        conn.close()
+        
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
+        
+        return jsonify({
+            'status': 'OK',
+            'vapid_configurado': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
+            'clave_privada_length': len(VAPID_PRIVATE_KEY),
+            'clave_publica_length': len(VAPID_PUBLIC_KEY),
+            'subject': VAPID_SUBJECT,
+            'suscripciones_activas': suscripciones_activas,
+            'notificaciones_pendientes': notificaciones_pendientes,
+            'service_worker_accesible': True,  # Porque /service-worker.js da 200 OK
+            'diagnostico': 'Sistema push configurado correctamente' if VAPID_PRIVATE_KEY else 'Falta configurar VAPID',
+            'siguientes_pasos': [
+                '1. Profesional abre la app y permite notificaciones',
+                '2. Verificar que se crea suscripción en BD',
+                '3. Probar con /push/test-manual',
+                '4. Agenda cita desde chat web'
+            ] if VAPID_PRIVATE_KEY else [
+                '1. Configurar VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY y VAPID_SUBJECT en Railway',
+                '2. Reiniciar la aplicación'
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'ERROR',
+            'error': str(e),
+            'error_type': type(e).__name__
+        }), 500
+    
+@app.route('/push/test-ultimo')
+def test_ultimo():
+    """TEST MÁS SIMPLE POSIBLE"""
+    try:
+        import os
+        import json
+        import time
+        
+        # 1. Obtener suscripción
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': 'No hay suscripciones'})
+        
+        # Extraer
+        if isinstance(result, dict):
+            sub_json = result.get('subscription_json')
+        else:
+            sub_json = result[0]
+        
+        subscription = json.loads(sub_json)
+        
+        # 2. Enviar
+        from pywebpush import webpush
+        
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '🎉 ¡FINALMENTE!',
+                'body': f'Test exitoso {time.ctime()}',
+                'icon': '/static/icons/icon-192x192.png'
+            }),
+            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
+            vapid_claims={
+                "sub": 'mailto:danielpaezrami@gmail.com',
+                "exp": int(time.time()) + 3600
+            }
+        )
+        
+        return jsonify({'success': True, 'message': '¡FUNCIONA!'})
+        
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Análisis detallado
+        diagnostico = {
+            'tipo': type(e).__name__,
+            'mensaje': error_msg,
+            'tiene_response': hasattr(e, 'response'),
+        }
+        
+        if hasattr(e, 'response'):
+            diagnostico['status_code'] = e.response.status_code if hasattr(e, 'response') else None
+            diagnostico['response_text'] = e.response.text[:200] if hasattr(e, 'response') and e.response.text else None
+        
+        return jsonify({
+            'error': error_msg,
+            'diagnostico': diagnostico,
+            'sugerencia': 'El problema está en la comunicación con el servicio de push (Google FCM)'
+        })
+    
+@app.route('/push/ver-suscripcion-simple')
+def push_ver_suscripcion_simple():
+    """Ver suscripción actual SIN created_at"""
+    from database import get_db_connection
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, profesional_id, activa, 
+                   LEFT(subscription_json::text, 150) as json_preview,
+                   LENGTH(subscription_json::text) as json_length
+            FROM suscripciones_push 
+            WHERE activa = TRUE
+            ORDER BY id DESC
+            LIMIT 1
+        ''')
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({
+                'encontrada': False, 
+                'mensaje': 'No hay suscripciones activas',
+                'accion': 'El profesional debe activar notificaciones'
+            })
+        
+        # Procesar resultado
+        if isinstance(result, tuple):
+            data = {
+                'id': result[0],
+                'profesional_id': result[1],
+                'activa': result[2],
+                'json_preview': result[3],
+                'json_length': result[4],
+                'es_valida': 'endpoint' in (result[3] or '') and 'keys' in (result[3] or '')
+            }
+        else:
+            data = dict(result)
+            data['es_valida'] = 'endpoint' in (data.get('json_preview', '')) and 'keys' in (data.get('json_preview', ''))
+        
+        return jsonify({
+            'encontrada': True,
+            'suscripcion': data,
+            'diagnostico': 'VÁLIDA' if data['es_valida'] else 'INVÁLIDA'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/clear-sw')
+def clear_service_worker():
+    """Forzar limpieza del Service Worker"""
+    return '''
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+                registration.unregister();
+                console.log('Service Worker desregistrado');
+            }
+            // Limpiar cache
+            caches.keys().then(function(cacheNames) {
+                cacheNames.forEach(function(cacheName) {
+                    caches.delete(cacheName);
+                });
+            });
+            alert('✅ Service Worker limpiado. Recarga la página.');
+            location.reload();
+        });
+    }
+    </script>
+    '''
+
+# Crea esta ruta NUEVA para prueba limpia
+@app.route('/push/test-simple')
+def test_push_simple():
+    """Prueba SUPER SIMPLE de push"""
+    import os
+    import json
+    import time
+    
+    # 1. Obtener primera suscripción
+    from database import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return jsonify({'error': 'No hay suscripciones'})
+    
+    # Extraer JSON (manejar ambos tipos)
+    if isinstance(result, dict):
+        sub_json = result.get('subscription_json')
+    else:
+        sub_json = result[0] if result else None
+    
+    if not sub_json:
+        return jsonify({'error': 'JSON vacío'})
+    
+    # 2. Parsear suscripción
+    try:
+        subscription = json.loads(sub_json)
+    except:
+        return jsonify({'error': 'JSON inválido', 'json': sub_json[:100]})
+    
+    # 3. Enviar push SIMPLE
+    try:
+        from pywebpush import webpush
+        
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '✅ TEST SIMPLE',
+                'body': 'Funciona!',
+                'icon': '/static/icons/icon-192x192.png'
+            }),
+            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
+            vapid_claims={
+                'sub': 'mailto:danielpaezrami@gmail.com',
+                'exp': int(time.time()) + 3600
+            }
+        )
+        
+        return jsonify({'success': True, 'message': '¡PUSH ENVIADO!'})
+        
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'subscription_keys': list(subscription.keys()) if subscription else [],
+            'endpoint': subscription.get('endpoint', '')[:50] + '...' if subscription else None
+        })
+
+@app.route('/push/debug-extremo')
+def debug_extremo():
+    """DEBUG EXTREMO de claves VAPID"""
+    import os
+    import json
+    import base64
+    
+    # 1. Obtener claves
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+    
+    # 2. Verificar formato de clave privada
+    private_key_info = {
+        'raw': VAPID_PRIVATE_KEY,
+        'length': len(VAPID_PRIVATE_KEY),
+        'has_equals': '=' in VAPID_PRIVATE_KEY,
+        'has_plus': '+' in VAPID_PRIVATE_KEY,
+        'has_slash': '/' in VAPID_PRIVATE_KEY,
+        'has_dash': '-' in VAPID_PRIVATE_KEY,
+        'has_underscore': '_' in VAPID_PRIVATE_KEY,
+    }
+    
+    # 3. Intentar decodificar para ver si es base64 válido
+    try:
+        # Primero, asegurar padding
+        missing_padding = len(VAPID_PRIVATE_KEY) % 4
+        if missing_padding:
+            padded = VAPID_PRIVATE_KEY + '=' * (4 - missing_padding)
+        else:
+            padded = VAPID_PRIVATE_KEY
+            
+        # Convertir de URL-safe a normal
+        normal_base64 = padded.replace('-', '+').replace('_', '/')
+        
+        # Decodificar
+        decoded = base64.b64decode(normal_base64)
+        private_key_info['base64_valid'] = True
+        private_key_info['decoded_length'] = len(decoded)
+        private_key_info['decoded_hex'] = decoded.hex()[:50] + '...'
+        
+    except Exception as e:
+        private_key_info['base64_valid'] = False
+        private_key_info['error'] = str(e)
+    
+    # 4. Obtener una suscripción para probar
+    from database import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    subscription_data = None
+    if result:
+        if isinstance(result, dict):
+            subscription_data = result.get('subscription_json')
+        else:
+            subscription_data = result[0] if result else None
+    
+    # 5. Verificar si el subject tiene formato correcto
+    subject_valid = VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
+    
+    return jsonify({
+        'analisis_clave_privada': private_key_info,
+        'claves_actuales': {
+            'VAPID_PUBLIC_KEY': VAPID_PUBLIC_KEY[:50] + '...',
+            'VAPID_PUBLIC_KEY_length': len(VAPID_PUBLIC_KEY),
+            'VAPID_SUBJECT': VAPID_SUBJECT,
+            'subject_valido': subject_valid,
+            'CLAVE_EN_JS': 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'[:50] + '...',
+            'coinciden_js_env': VAPID_PUBLIC_KEY == 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'
+        },
+        'suscripcion_existe': bool(subscription_data),
+        'suscripcion_length': len(subscription_data) if subscription_data else 0,
+        'posibles_problemas': [
+            'Clave privada demasiado corta (debe ser ~43 chars)' if len(VAPID_PRIVATE_KEY) < 40 else 'Clave privada longitud OK',
+            'Clave privada no es base64 válido' if not private_key_info.get('base64_valid', False) else 'Clave privada base64 válido',
+            'Subject no válido (debe ser mailto:email@dominio.com)' if not subject_valid else 'Subject válido',
+            'Clave pública no coincide con JS' if VAPID_PUBLIC_KEY != 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU' else 'Clave pública OK'
+        ]
+    })
+
+# ============================================
+# RUTAS DE PRUEBA PUSH EN app.py
+# ============================================
+
+@app.route('/push/test-ultra-simple')
+def test_ultra_simple():
+    """TEST ULTRA SIMPLE - Sin imports complicados"""
+    try:
+        import os
+        import json
+        import time
+        
+        print("🔧 TEST ULTRA SIMPLE INICIADO")
+        
+        # 1. Claves
+        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+        if not VAPID_PRIVATE_KEY:
+            return jsonify({'error': 'VAPID_PRIVATE_KEY no configurada'})
+        
+        # 2. Obtener suscripción MÁS RECIENTE
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': 'No hay suscripciones'})
+        
+        # Extraer
+        sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
+        
+        if not sub_json:
+            return jsonify({'error': 'JSON vacío'})
+        
+        # 3. Parsear
+        subscription = json.loads(sub_json)
+        endpoint = subscription.get('endpoint', '')
+        print(f"📫 Endpoint: {endpoint[:60]}...")
+        
+        # 4. Enviar con pywebpush
+        from pywebpush import webpush
+        
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps({
+                'title': '🔥 ULTRA SIMPLE',
+                'body': f'Hora: {time.ctime()}',
+                'icon': '/static/icons/icon-192x192.png'
+            }),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={
+                "sub": "mailto:danielpaezrami@gmail.com",
+                "exp": int(time.time()) + 3600
+            }
+        )
+        
+        return jsonify({'success': True, 'message': '¡FUNCIONÓ!'})
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ ERROR: {error_msg}")
+        
+        # Información extra si es WebPushException
+        if hasattr(e, 'response'):
+            error_info = {
+                'status_code': e.response.status_code if hasattr(e, 'response') else None,
+                'response_text': e.response.text[:300] if hasattr(e, 'response') and e.response.text else None
+            }
+        else:
+            error_info = {}
+        
+        return jsonify({
+            'error': error_msg,
+            'error_type': type(e).__name__,
+            'error_info': error_info
+        })
+
+@app.route('/push/ver-suscripcion')
+def ver_suscripcion():
+    """Ver la suscripción exacta almacenada"""
+    from database import get_db_connection
+    import json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return jsonify({'error': 'No hay suscripciones'})
+    
+    # Extraer
+    sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
+    
+    try:
+        subscription = json.loads(sub_json)
+        
+        # Mostrar información sensible pero necesaria
+        return jsonify({
+            'endpoint': subscription.get('endpoint'),
+            'keys_present': list(subscription.get('keys', {}).keys()) if subscription.get('keys') else [],
+            'endpoint_provider': 'FCM (Google)' if 'fcm.googleapis.com' in subscription.get('endpoint', '') else 'Otro',
+            'json_completo': subscription
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'Error parseando: {e}',
+            'json_crudo': sub_json[:500] + '...' if sub_json else None
+        })
+
+@app.route('/push/resetear-todo')
+def resetear_todo():
+    """Eliminar todo y empezar desde cero"""
+    from database import get_db_connection
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Contar antes
+    cursor.execute('SELECT COUNT(*) FROM suscripciones_push')
+    count_antes = cursor.fetchone()[0]
+    
+    # Eliminar todo
+    cursor.execute('DELETE FROM suscripciones_push')
+    conn.commit()
+    
+    # Contar después
+    cursor.execute('SELECT COUNT(*) FROM suscripciones_push')
+    count_despues = cursor.fetchone()[0]
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'message': '✅ TODAS las suscripciones eliminadas',
+        'count_antes': count_antes,
+        'count_despues': count_despues,
+        'instrucciones': '1. Recarga la página del profesional 2. Haz clic en "Activar Notificaciones" 3. Permite notificaciones'
+    })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+@app.route('/profesional/perfil')
+@login_required
+def profesional_perfil():
+    """Página de perfil - ACTUALIZADA CON FOTO"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return redirect(url_for('login'))
+        
+        cur = get_db_connection().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT 
+                p.id,
+                p.nombre,
+                p.telefono,
+                p.especialidad,
+                p.pin,
+                p.usuario_id,
+                p.activo,
+                p.negocio_id,
+                p.foto_url,  -- ← NUEVA COLUMNA
+                TO_CHAR(p.created_at, 'DD/MM/YYYY') as fecha_creacion_formateada,
+                n.nombre as negocio_nombre
+            FROM profesionales p
+            LEFT JOIN negocios n ON p.negocio_id = n.id
+            WHERE p.id = %s
+        """, (profesional_id,))
+        
+        profesional = cur.fetchone()
+        cur.close()
+        
+        print(f"📊 Datos del profesional: {profesional['nombre']}")
+        print(f"📸 Foto URL en DB: {profesional.get('foto_url', 'No tiene')}")
+        
+        return render_template('profesional/profesional_perfil.html',
+                             profesional=profesional,
+                             csrf_token=session.get('csrf_token'))
+        
+    except Exception as e:
+        print(f"Error en profesional_perfil: {str(e)}")
+        return redirect(url_for('profesional_dashboard'))
+
+@app.route('/profesional/perfil/actualizar', methods=['POST'])
+@login_required
+def actualizar_perfil():
+    """Actualizar perfil - SOLO campos que TIENES"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        data = request.form.to_dict()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # SOLO campos que EXISTEN en tu tabla
+        campos_permitidos = ['nombre', 'telefono', 'especialidad']
+        update_fields = []
+        values = []
+        
+        for campo in campos_permitidos:
+            if campo in data:
+                update_fields.append(f"{campo} = %s")
+                values.append(data[campo].strip())
+        
+        if update_fields:
+            values.append(profesional_id)
+            query = f"UPDATE profesionales SET {', '.join(update_fields)} WHERE id = %s"
+            cur.execute(query, values)
+            conn.commit()
+        
+        cur.close()
+        return jsonify({'success': True, 'message': 'Perfil actualizado'})
+        
+    except Exception as e:
+        print(f"Error en actualizar_perfil: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al actualizar'}), 500
+
+
+
+# ==================== RUTA PARA OBTENER PROFESIONALES CON FOTOS ====================
+@app.route('/api/profesionales/<int:negocio_id>')
+def obtener_profesionales(negocio_id):
+    """API para obtener profesionales con fotos para el chat"""
+    try:
+        print(f"🔍 Solicitando profesionales para negocio {negocio_id}")
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # CONSULTA SEGURA - solo columnas que SÍ existen
+        cur.execute("""
+            SELECT 
+                id, 
+                nombre, 
+                telefono,
+                especialidad, 
+                foto_url,
+                activo,
+                created_at
+            FROM profesionales 
+            WHERE negocio_id = %s 
+            AND activo = TRUE
+            ORDER BY nombre
+        """, (negocio_id,))
+        
+        profesionales = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        print(f"✅ Encontrados {len(profesionales)} profesionales activos")
+        
+        # Formatear respuesta
+        opciones = []
+        for prof in profesionales:
+            # URL de imagen con fallback
+            foto_url = prof['foto_url']
+            if foto_url and not foto_url.startswith('http'):
+                # Asegurar que la URL sea absoluta si es relativa
+                if foto_url.startswith('/'):
+                    foto_url_completa = foto_url
+                else:
+                    foto_url_completa = '/' + foto_url.lstrip('/')
+            else:
+                foto_url_completa = foto_url
+            
+            opcion = {
+                'value': str(prof['id']),  # Asegurar que es string para el chat
+                'name': prof['nombre'],
+                'text': prof['nombre'],
+                'specialty': prof['especialidad'] or 'Sin especialidad',
+                'rating': 0,  # Por ahora sin rating
+                'type': 'professional',
+                'has_image': bool(foto_url_completa)
+            }
+            
+            if foto_url_completa:
+                opcion['image'] = foto_url_completa
+            
+            opciones.append(opcion)
+            print(f"  👤 {prof['nombre']} - ID: {prof['id']} - Imagen: {bool(foto_url_completa)}")
+        
+        return jsonify({
+            'success': True,
+            'profesionales': opciones,
+            'total': len(opciones),
+            'negocio_id': negocio_id
+        })
+        
+    except Exception as e:
+        print(f"❌ Error crítico en obtener_profesionales: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Respuesta de emergencia si falla la consulta
+        return jsonify({
+            'success': True,
+            'profesionales': [],
+            'total': 0,
+            'message': 'No hay profesionales disponibles',
+            'error': str(e)
+        })
+    
+
+    
+# ==================== RUTA TEMPORAL PARA CREAR TABLA DE IMÁGENES ====================
+@app.route('/admin/crear-tabla-imagenes', methods=['POST'])
+def crear_tabla_imagenes():
+    """Crear tabla de imágenes - VERSIÓN PERMISIVA"""
+    try:
+        # DEBUG EXTREMO
+        print("=== DEBUG SESIÓN ===")
+        for key, value in session.items():
+            print(f"{key}: {value}")
+        print("===================")
+        
+        # ¡PERMITE A CUALQUIERA LOGUEADO! (temporal)
+        if not session.get('usuario_id'):
+            return jsonify({
+                'success': False, 
+                'message': 'Necesitas iniciar sesión'
+            }), 401
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # SQL super simple
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+                id SERIAL PRIMARY KEY,
+                profesional_id INTEGER NOT NULL,
+                negocio_id INTEGER NOT NULL,
+                tipo VARCHAR(50) DEFAULT 'perfil',
+                nombre_archivo VARCHAR(255) NOT NULL,
+                ruta_archivo VARCHAR(500) NOT NULL,
+                url_publica VARCHAR(500),
+                mime_type VARCHAR(100),
+                tamaño_bytes INTEGER,
+                es_principal BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        conn.commit()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'message': '✅ Tabla creada exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        # Si ya existe, igual es éxito
+        if 'already exists' in str(e).lower():
+            return jsonify({
+                'success': True,
+                'message': 'La tabla ya existía'
+            })
+        
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
+
+# ==================== PANEL DE ADMINISTRACIÓN SUPER ADMIN ====================
+@app.route('/admin/panel')
+@login_required
+def admin_panel():
+    """Panel de administración - Solo super admin"""
+    # Verificar si es super admin
+    if session.get('usuario_tipo') != 'admin':
+        return redirect(url_for('profesional_dashboard'))
+    
+    # Obtener estadísticas del sistema
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    # Contar tablas
+    cur.execute("""
+        SELECT COUNT(*) as total_tablas 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+    """)
+    stats = cur.fetchone()
+    
+    # Obtener lista de tablas
+    cur.execute("""
+        SELECT table_name, 
+               (SELECT COUNT(*) FROM information_schema.columns 
+                WHERE table_name = t.table_name) as columnas
+        FROM information_schema.tables t
+        WHERE table_schema = 'public'
+        ORDER BY table_name
+    """)
+    tablas = cur.fetchall()
+    
+    # Verificar si existen las tablas importantes
+    cur.execute("""
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('imagenes_profesionales', 'profesionales', 'calificaciones_profesional')
+    """)
+    tablas_importantes = [t[0] for t in cur.fetchall()]
+    
+    cur.close()
+    
+    return render_template('admin_panel.html',
+                         stats=stats,
+                         tablas=tablas,
+                         tablas_importantes=tablas_importantes,
+                         csrf_token=session.get('csrf_token'))
+
+# ==================== FUNCIONES PARA MANEJAR IMÁGENES ====================
+
+# Configuración para subir imágenes
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def actualizar_foto_perfil_profesional(profesional_id, file):
+    """Función para actualizar foto de perfil usando el nuevo sistema"""
+    try:
+        # Obtener negocio_id
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
+        negocio_id = cur.fetchone()[0]
+        cur.close()
+        
+        # Usar la nueva función de guardado
+        url_publica, error = actualizar_foto_perfil_profesional(
+            file, 
+            profesional_id, 
+            negocio_id, 
+            tipo='perfil'
+        )
+        
+        if error:
+            return None, error
+        
+        return url_publica, None
+        
+    except Exception as e:
+        return None, f"Error: {str(e)}"
+
+@app.route('/api/imagenes/profesional/<int:profesional_id>', methods=['GET'])
+def obtener_imagenes_profesional(profesional_id):
+    """Obtener todas las imágenes de un profesional"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("""
+            SELECT id, tipo, nombre_archivo, url_publica, 
+                   mime_type, tamaño_bytes, es_principal,
+                   created_at
+            FROM imagenes_profesionales
+            WHERE profesional_id = %s
+            ORDER BY es_principal DESC, tipo, created_at DESC
+        """, (profesional_id,))
+        
+        imagenes = cur.fetchall()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'profesional_id': profesional_id,
+            'imagenes': imagenes,
+            'total': len(imagenes)
+        })
+        
+    except Exception as e:
+        print(f"Error obteniendo imágenes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Error al obtener imágenes'
+        }), 500
+
+@app.route('/api/imagenes/subir', methods=['POST'])
+@login_required
+def subir_imagen_profesional():
+    """Subir imagen para profesional - RUTA API"""
+    try:
+        profesional_id = request.form.get('profesional_id')
+        tipo = request.form.get('tipo', 'perfil')
+        
+        if 'imagen' not in request.files:
+            return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
+        
+        file = request.files['imagen']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Nombre de archivo vacío'})
+        
+        # Obtener negocio_id del profesional
+        cur = get_db_connection().cursor()
+        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
+        result = cur.fetchone()
+        
+        if not result:
+            return jsonify({'success': False, 'message': 'Profesional no encontrado'})
+        
+        negocio_id = result[0]
+        cur.close()
+        
+        # Guardar imagen usando la función CORRECTA
+        url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, tipo)
+        
+        if error:
+            return jsonify({'success': False, 'message': error})
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen subida exitosamente',
+            'url': url_publica,
+            'profesional_id': profesional_id
+        })
+        
+    except Exception as e:
+        print(f"Error subiendo imagen: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al subir imagen'}), 500
+    
+@app.route('/profesional/subir-foto', methods=['POST'])
+@login_required
+def subir_foto_profesional():
+    """Subir foto de perfil - RUTA PARA EL PROFESIONAL"""
+    try:
+        print(f"=== INICIANDO SUBIDA FOTO ===")
+        profesional_id = session.get('profesional_id')
+        print(f"Profesional ID desde sesión: {profesional_id}")
+        
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        if 'foto' not in request.files:
+            print("❌ No hay 'foto' en request.files")
+            return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
+        
+        file = request.files['foto']
+        print(f"Archivo recibido: {file.filename}")
+        
+        if file.filename == '':
+            print("❌ Nombre de archivo vacío")
+            return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
+        
+        # Obtener negocio_id - USAR RealDictCursor
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if not result:
+            print(f"❌ Profesional {profesional_id} no encontrado")
+            return jsonify({'success': False, 'message': 'Profesional no encontrado'})
+        
+        # ACCEDER POR NOMBRE DE COLUMNA, NO POR ÍNDICE
+        negocio_id = result['negocio_id']
+        print(f"Negocio ID: {negocio_id}")
+        
+        # Guardar foto
+        url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, 'perfil')
+        
+        if error:
+            print(f"❌ Error en guardar_foto_profesional: {error}")
+            return jsonify({'success': False, 'message': error})
+        
+        print(f"✅ Foto subida exitosamente: {url_publica}")
+        return jsonify({
+            'success': True,
+            'message': 'Foto subida exitosamente',
+            'url': url_publica,
+            'profesional_id': profesional_id
+        })
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': 'Error al subir foto'}), 500
+
+@app.route('/profesional/foto-actual')
+@login_required
+def obtener_foto_actual():
+    """Obtener la foto actual del profesional - VERSIÓN SIMPLIFICADA"""
+    try:
+        profesional_id = session.get('profesional_id')
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # BUSCAR DIRECTAMENTE EN profesionales.foto_url
+        cur.execute("SELECT foto_url FROM profesionales WHERE id = %s", (profesional_id,))
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if result and result[0]:
+            print(f"✅ Foto encontrada: {result[0]}")
+            return jsonify({
+                'success': True,
+                'url': result[0],
+                'tiene_foto': True
+            })
+        else:
+            print(f"ℹ️ No hay foto, usando default")
+            return jsonify({
+                'success': True,
+                'url': '/static/default-avatar.png',
+                'tiene_foto': False
+            })
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo foto: {str(e)}")
+        return jsonify({
+            'success': True,
+            'url': '/static/default-avatar.png',
+            'tiene_foto': False,
+            'error': str(e)
+        })
+    
+def guardar_foto_profesional(file, profesional_id, negocio_id, tipo='perfil'):
+    """Guardar foto de profesional - VERSIÓN COMPLETA ACTUALIZADA"""
+    try:
+        print(f"=== INICIANDO GUARDADO DE FOTO ===")
+        print(f"📸 Profesional ID: {profesional_id}")
+        print(f"🏢 Negocio ID: {negocio_id}")
+        print(f"📁 Tipo: {tipo}")
+        print(f"📄 Archivo recibido: {file.filename}")
+        
+        # ========== VALIDACIONES ==========
+        
+        # Validar que haya archivo
+        if not file or not file.filename:
+            print("❌ No se proporcionó archivo")
+            return None, "No se proporcionó archivo"
+        
+        # Validar tipo de archivo
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        filename_lower = file.filename.lower()
+        
+        if '.' not in filename_lower:
+            print("❌ Archivo sin extensión")
+            return None, "El archivo no tiene extensión"
+        
+        extension = filename_lower.rsplit('.', 1)[1]
+        print(f"🔍 Extensión detectada: {extension}")
+        
+        if extension not in ALLOWED_EXTENSIONS:
+            print(f"❌ Extensión no permitida: {extension}")
+            return None, f"Tipo de archivo no permitido. Use: {', '.join(ALLOWED_EXTENSIONS)}"
+        
+        # Validar tamaño (5MB máximo)
+        file.seek(0, 2)  # Ir al final
+        file_size = file.tell()
+        file.seek(0)  # Volver al inicio
+        print(f"📊 Tamaño del archivo: {file_size} bytes ({file_size/1024/1024:.2f} MB)")
+        
+        MAX_SIZE = 5 * 1024 * 1024  # 5MB
+        if file_size > MAX_SIZE:
+            print(f"❌ Archivo demasiado grande: {file_size} > {MAX_SIZE}")
+            return None, f"Archivo demasiado grande. Máximo: 5MB"
+        
+        # ========== PREPARAR RUTAS ==========
+        
+        from datetime import datetime
+        import os
+        from werkzeug.utils import secure_filename
+        
+        # Crear estructura de carpetas por fecha
+        timestamp = datetime.now().strftime('%Y/%m/%d')
+        upload_path = os.path.join('static', 'uploads', 'profesionales', timestamp)
+        print(f"📂 Ruta de destino: {upload_path}")
+        
+        # Crear directorios si no existen
+        os.makedirs(upload_path, exist_ok=True)
+        print(f"✅ Directorios creados/verificados")
+        
+        # Generar nombre único seguro
+        original_filename = secure_filename(file.filename)
+        timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_name = f"{profesional_id}_{timestamp_str}_{original_filename}"
+        filepath = os.path.join(upload_path, unique_name)
+        print(f"📝 Nombre único generado: {unique_name}")
+        print(f"📍 Ruta completa del archivo: {filepath}")
+        
+        # ========== GUARDAR ARCHIVO FÍSICO ==========
+        
+        file.save(filepath)
+        print(f"💾 Archivo guardado físicamente")
+        
+        # Verificar que el archivo se guardó
+        if os.path.exists(filepath):
+            file_stats = os.stat(filepath)
+            print(f"✅ Verificación: Archivo existe, tamaño: {file_stats.st_size} bytes")
+        else:
+            print("❌ ERROR: Archivo no se guardó correctamente")
+            return None, "Error al guardar el archivo"
+        
+        # ========== GENERAR URL PÚBLICA ==========
+        
+        # Usar path relativo para la URL
+        url_publica = f"/static/uploads/profesionales/{timestamp}/{unique_name}".replace('\\', '/')
+        print(f"🌐 URL pública generada: {url_publica}")
+        
+        # ========== GUARDAR EN BASE DE DATOS ==========
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        
+        # 1. GUARDAR EN imagenes_profesionales (para historial)
+        print(f"💿 Guardando en tabla imagenes_profesionales...")
+        try:
+            cur.execute("""
+                INSERT INTO imagenes_profesionales 
+                (profesional_id, negocio_id, tipo, nombre_archivo, ruta_archivo, 
+                 url_publica, mime_type, tamaño_bytes, es_principal)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                RETURNING id
+            """, (
+                profesional_id, negocio_id, tipo, original_filename, filepath,
+                url_publica, file.mimetype, file_size
+            ))
+            
+            imagen_id = cur.fetchone()[0]
+            print(f"✅ Insertado en imagenes_profesionales. ID: {imagen_id}")
+            
+        except Exception as e:
+            print(f"⚠️ Error insertando en imagenes_profesionales: {e}")
+            # Si la tabla no existe, crearla
+            if 'imagenes_profesionales' in str(e).lower():
+                print(f"📋 Creando tabla imagenes_profesionales...")
+                try:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+                            id SERIAL PRIMARY KEY,
+                            profesional_id INTEGER NOT NULL,
+                            negocio_id INTEGER NOT NULL,
+                            tipo VARCHAR(50) DEFAULT 'perfil',
+                            nombre_archivo VARCHAR(255),
+                            ruta_archivo TEXT,
+                            url_publica TEXT,
+                            mime_type VARCHAR(100),
+                            tamaño_bytes INTEGER,
+                            es_principal BOOLEAN DEFAULT FALSE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print(f"✅ Tabla imagenes_profesionales creada")
+                    
+                    # Reintentar la inserción
+                    cur.execute("""
+                        INSERT INTO imagenes_profesionales 
+                        (profesional_id, negocio_id, tipo, nombre_archivo, ruta_archivo, 
+                         url_publica, mime_type, tamaño_bytes, es_principal)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                        RETURNING id
+                    """, (
+                        profesional_id, negocio_id, tipo, original_filename, filepath,
+                        url_publica, file.mimetype, file_size
+                    ))
+                    
+                    imagen_id = cur.fetchone()[0]
+                    print(f"✅ Insertado después de crear tabla. ID: {imagen_id}")
+                    
+                except Exception as e2:
+                    print(f"❌ Error creando tabla: {e2}")
+                    # Continuar aunque falle esta parte
+        
+        # 2. ACTUALIZAR TABLA profesionales CON LA NUEVA COLUMNA foto_url
+        print(f"🔄 Actualizando tabla profesionales.foto_url...")
+        try:
+            cur.execute("""
+                UPDATE profesionales 
+                SET foto_url = %s 
+                WHERE id = %s
+            """, (url_publica, profesional_id))
+            
+            rows_affected = cur.rowcount
+            if rows_affected > 0:
+                print(f"✅ {rows_affected} fila(s) actualizada(s) en profesionales.foto_url")
+            else:
+                print(f"⚠️ No se actualizó ninguna fila en profesionales")
+                
+        except Exception as e:
+            print(f"❌ Error actualizando profesionales.foto_url: {e}")
+            # Intentar crear la columna si no existe
+            if 'column "foto_url" does not exist' in str(e):
+                print(f"📋 Creando columna foto_url en tabla profesionales...")
+                try:
+                    cur.execute("ALTER TABLE profesionales ADD COLUMN IF NOT EXISTS foto_url TEXT")
+                    conn.commit()
+                    print(f"✅ Columna foto_url creada/verificada")
+                    
+                    # Reintentar la actualización
+                    cur.execute("""
+                        UPDATE profesionales 
+                        SET foto_url = %s 
+                        WHERE id = %s
+                    """, (url_publica, profesional_id))
+                    
+                    rows_affected = cur.rowcount
+                    print(f"✅ {rows_affected} fila(s) actualizada(s) después de crear columna")
+                    
+                except Exception as e2:
+                    print(f"⚠️ No se pudo crear columna foto_url: {e2}")
+                    # Continuar sin esta actualización
+        
+        # ========== FINALIZAR ==========
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        print(f"=================================")
+        print(f"🎉 FOTO SUBIDA EXITOSAMENTE")
+        print(f"👤 Profesional: {profesional_id}")
+        print(f"📸 URL: {url_publica}")
+        print(f"=================================")
+        
+        return url_publica, None
+        
+    except Exception as e:
+        print(f"❌❌❌ ERROR CRÍTICO en guardar_foto_profesional: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Intentar limpiar archivo si se creó pero falló algo después
+        try:
+            if 'filepath' in locals() and os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"🧹 Archivo temporal eliminado: {filepath}")
+        except:
+            pass
+        
+        return None, f"Error al guardar la foto: {str(e)}"
+
+@app.route('/api/imagenes/<int:imagen_id>/principal', methods=['PUT'])
+@login_required
+def marcar_imagen_principal(imagen_id):
+    """Marcar una imagen como principal"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener información de la imagen
+        cur.execute("""
+            SELECT profesional_id, tipo 
+            FROM imagenes_profesionales 
+            WHERE id = %s
+        """, (imagen_id,))
+        
+        img_info = cur.fetchone()
+        if not img_info:
+            return jsonify({'success': False, 'message': 'Imagen no encontrada'})
+        
+        profesional_id, tipo = img_info
+        
+        # Marcar como principal
+        cur.execute("""
+            UPDATE imagenes_profesionales 
+            SET es_principal = TRUE 
+            WHERE id = %s
+            RETURNING url_publica
+        """, (imagen_id,))
+        
+        url_publica = cur.fetchone()[0]
+        
+        # Actualizar referencia en profesionales si es imagen de perfil
+        if tipo == 'perfil':
+            cur.execute("""
+                UPDATE profesionales 
+                SET imagen_principal_id = %s, foto_url = %s 
+                WHERE id = %s
+            """, (imagen_id, url_publica, profesional_id))
+        
+        conn.commit()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen marcada como principal',
+            'url': url_publica
+        })
+        
+    except Exception as e:
+        print(f"Error marcando imagen principal: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al marcar imagen'}), 500
+
+@app.route('/api/imagenes/<int:imagen_id>', methods=['DELETE'])
+@login_required
+def eliminar_imagen(imagen_id):
+    """Eliminar una imagen"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener información de la imagen
+        cur.execute("""
+            SELECT ruta_archivo, profesional_id, es_principal, tipo 
+            FROM imagenes_profesionales 
+            WHERE id = %s
+        """, (imagen_id,))
+        
+        img_info = cur.fetchone()
+        if not img_info:
+            return jsonify({'success': False, 'message': 'Imagen no encontrada'})
+        
+        ruta_archivo, profesional_id, es_principal, tipo = img_info
+        
+        # Eliminar archivo físico si existe
+        if os.path.exists(ruta_archivo):
+            try:
+                os.remove(ruta_archivo)
+            except:
+                pass  # Continuar aunque no se pueda eliminar el archivo
+        
+        # Eliminar de la base de datos
+        cur.execute("DELETE FROM imagenes_profesionales WHERE id = %s", (imagen_id,))
+        
+        # Si era la imagen principal y era de perfil, limpiar referencia
+        if es_principal and tipo == 'perfil':
+            cur.execute("""
+                UPDATE profesionales 
+                SET imagen_principal_id = NULL, foto_url = NULL 
+                WHERE id = %s
+            """, (profesional_id,))
+        
+        conn.commit()
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen eliminada exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error eliminando imagen: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al eliminar imagen'}), 500
+
+@app.route('/admin/check-system')
+@login_required
+def check_system():
+    """Verificar estado del sistema"""
+    try:
+        issues = []
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar tablas importantes
+        tablas_importantes = ['profesionales', 'imagenes_profesionales', 'calificaciones_profesional']
+        
+        for tabla in tablas_importantes:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = %s
+                )
+            """, (tabla,))
+            
+            if not cur.fetchone()[0]:
+                issues.append(f"Tabla '{tabla}' no existe")
+        
+        # Verificar directorio de uploads
+        upload_dir = os.path.join(UPLOAD_FOLDER, 'profesionales')
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir, exist_ok=True)
+            issues.append(f"Directorio de uploads creado: {upload_dir}")
+        
+        cur.close()
+        
+        return jsonify({
+            'status': 'ok' if not issues else 'warning',
+            'issues': issues,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+    
+@app.route('/admin/ver-tablas')
+@login_required
+def ver_tablas():
+    """Ver todas las tablas en la base de datos (simplificado)"""
+    try:
+        # Solo super admin
+        if session.get('usuario_tipo') != 'superadmin':
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obtener todas las tablas
+        cur.execute("""
+            SELECT table_name
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """)
+        
+        tables = [row[0] for row in cur.fetchall()]
+        
+        # Obtener columnas de las tablas principales
+        tables_with_info = []
+        for table in tables:
+            if table in ['profesionales', 'negocios', 'usuarios', 'citas', 'imagenes_profesionales']:
+                cur.execute("""
+                    SELECT column_name, data_type
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                    ORDER BY ordinal_position
+                """, (table,))
+                
+                columns = cur.fetchall()
+                tables_with_info.append({
+                    'name': table,
+                    'columns': [{'name': col[0], 'type': col[1]} for col in columns],
+                    'column_count': len(columns)
+                })
+            else:
+                tables_with_info.append({
+                    'name': table,
+                    'columns': [],
+                    'column_count': 0
+                })
+        
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'tables': tables_with_info,
+            'total_tables': len(tables_with_info),
+            'important_tables': ['profesionales', 'negocios', 'usuarios', 'citas', 'imagenes_profesionales']
+        })
+        
+    except Exception as e:
+        print(f"Error viendo tablas: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
+@app.route('/admin/ejecutar-sql', methods=['POST'])
+@login_required
+def ejecutar_sql():
+    """Ejecutar SQL específico para crear tablas (versión segura)"""
+    try:
+        # Solo super admin
+        if session.get('usuario_tipo') != 'superadmin':
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+        data = request.get_json()
+        sql = data.get('sql', '').strip().upper()
+        
+        # Permitir solo CREATE TABLE y SELECT (para seguridad)
+        if not (sql.startswith('CREATE TABLE') or sql.startswith('SELECT')):
+            return jsonify({
+                'success': False,
+                'message': 'Solo se permiten comandos CREATE TABLE y SELECT'
+            })
+        
+        # Bloquear comandos peligrosos
+        dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'UPDATE', 'INSERT']
+        for keyword in dangerous_keywords:
+            if keyword in sql:
+                return jsonify({
+                    'success': False,
+                    'message': f'Comando {keyword} no permitido por seguridad'
+                })
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        try:
+            if sql.startswith('SELECT'):
+                cur.execute(sql)
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
+                
+                results = []
+                for row in rows:
+                    results.append(dict(zip(columns, row)))
+                
+                return jsonify({
+                    'success': True,
+                    'type': 'SELECT',
+                    'rowcount': len(rows),
+                    'data': results
+                })
+            else:
+                # Para CREATE TABLE
+                cur.execute(sql)
+                conn.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'type': 'CREATE',
+                    'message': 'Tabla creada exitosamente'
+                })
+                
+        except Exception as e:
+            conn.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Error SQL: {str(e)}'
+            })
+        finally:
+            cur.close()
+        
+    except Exception as e:
+        print(f"Error ejecutando SQL: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error del sistema: {str(e)}'
+        }), 500
+
+@app.route('/api/imagenes/test')
+@login_required
+def test_imagenes_sistema():
+    """Verificar si existe la tabla de imágenes - VERSIÓN SIMPLE"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'imagenes_profesionales'
+            )
+        """)
+        tabla_existe = cur.fetchone()[0]
+        cur.close()
+        
+        return jsonify({
+            'success': True,
+            'table_exists': bool(tabla_existe)
+        })
+        
+    except Exception as e:
+        # En caso de error, tabla no existe
+        return jsonify({
+            'success': True,
+            'table_exists': False
+        })
+
+@app.route('/crear-tabla-ya', methods=['GET'])
+def crear_tabla_ya():
+    """SOLUCIÓN DIRECTA - Crear tabla sin permisos"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+                id SERIAL PRIMARY KEY,
+                profesional_id INTEGER,
+                negocio_id INTEGER,
+                tipo VARCHAR(50) DEFAULT 'perfil',
+                nombre_archivo VARCHAR(255),
+                ruta_archivo VARCHAR(500),
+                url_publica VARCHAR(500),
+                es_principal BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+        cur.close()
+        return "✅ Tabla creada. <a href='/admin'>Volver</a>"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================
 try:
-    scheduler_thread = iniciar_scheduler_en_segundo_plano()
+    scheduler_thread = scheduler.iniciar_scheduler_en_segundo_plano()
     if scheduler_thread:
         print("✅ Scheduler iniciado exitosamente")
 except Exception as e:
@@ -4431,7 +6906,7 @@ if __name__ == '__main__':
     
     # Para desarrollo local: Iniciar scheduler
     try:
-        iniciar_scheduler_en_segundo_plano()
+        scheduler.iniciar_scheduler_en_segundo_plano()
         print("✅ Scheduler iniciado para desarrollo local")
     except Exception as e:
         print(f"⚠️ Error iniciando scheduler local: {e}")

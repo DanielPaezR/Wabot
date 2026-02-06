@@ -92,6 +92,7 @@
             text-decoration: none;
             color: inherit;
             transition: transform 0.3s;
+            border-left: 4px solid transparent;
         }
         
         .nav-card:hover {
@@ -109,6 +110,266 @@
         .nav-card p {
             color: #666;
             line-height: 1.5;
+        }
+
+        /* Estilos específicos para cada card */
+        .nav-card-negocios {
+            border-left-color: #3498db;
+        }
+        
+        .nav-card-negocios:hover {
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.2);
+        }
+        
+        .nav-card-usuarios {
+            border-left-color: #9b59b6;
+        }
+        
+        .nav-card-usuarios:hover {
+            box-shadow: 0 5px 15px rgba(155, 89, 182, 0.2);
+        }
+        
+        .nav-card-plantillas {
+            border-left-color: #2ecc71;
+        }
+        
+        .nav-card-plantillas:hover {
+            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.2);
+        }
+        
+        .nav-card-base-datos {
+            border-left-color: #e74c3c;
+        }
+        
+        .nav-card-base-datos:hover {
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.2);
+        }
+        
+        .nav-card-sistema {
+            border-left-color: #f39c12;
+        }
+        
+        .nav-card-sistema:hover {
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.2);
+        }
+
+        /* NUEVO: Estilos para el modal de base de datos */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #666;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-close:hover {
+            background: #f5f5f5;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-success {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #27ae60;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #856404;
+        }
+        
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .db-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .db-action-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .db-action-card:hover {
+            border-color: #3498db;
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .db-action-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .db-action-desc {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .sql-editor {
+            width: 100%;
+            min-height: 200px;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        
+        .sql-editor:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .result-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .flash-messages {
@@ -143,7 +404,7 @@
 
         .status-item {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             padding: 0.5rem 0;
             border-bottom: 1px solid #eee;
@@ -168,6 +429,10 @@
 
         .status-offline {
             color: #dc3545;
+        }
+
+        .status-warning {
+            color: #ffc107;
         }
     </style>
 </head>
@@ -211,24 +476,35 @@
         </div>
         
         <div class="nav-grid">
-            <a href="{{ url_for('admin_negocios') }}" class="nav-card">
+            <a href="{{ url_for('admin_negocios') }}" class="nav-card nav-card-negocios">
                 <h2>🏪 Gestión de Negocios</h2>
                 <p>Administra todos los negocios registrados en la plataforma. Crea, edita y desactiva negocios.</p>
             </a>
             
-            <a href="{{ url_for('admin_usuarios') }}" class="nav-card">
+            <a href="{{ url_for('admin_usuarios') }}" class="nav-card nav-card-usuarios">
                 <h2>👥 Gestión de Usuarios</h2>
                 <p>Gestiona usuarios del sistema. Crea super admins, propietarios y profesionales.</p>
             </a>
             
-            <a href="{{ url_for('admin_plantillas') }}" class="nav-card">
+            <a href="{{ url_for('admin_plantillas') }}" class="nav-card nav-card-plantillas">
                 <h2>📝 Plantillas Base</h2>
                 <p>Gestiona las plantillas base de WhatsApp para todos los negocios del sistema.</p>
             </a>
             
+            <!-- NUEVO: Card para Base de Datos -->
+            <a href="#" class="nav-card nav-card-base-datos" onclick="openDatabaseModal(event)">
+                <h2>🗄️ Base de Datos</h2>
+                <p>Administración de la base de datos. Crear tablas, ejecutar SQL y verificar sistema.</p>
+            </a>
+            
+            <!-- NUEVO: Card para Sistema -->
+            <a href="#" class="nav-card nav-card-sistema" onclick="openSystemInfoModal(event)">
+                <h2>⚙️ Información del Sistema</h2>
+                <p>Verifica el estado del sistema, tablas existentes y configuración del servidor.</p>
+            </a>
         </div>
 
-        <!-- Estado del Sistema -->
+        <!-- Estado del Sistema - VERSIÓN SIMPLIFICADA -->
         <div class="system-status">
             <h2 style="color: #333; margin-bottom: 1rem;">⚙️ Estado del Sistema</h2>
             <div class="status-item">
@@ -236,8 +512,10 @@
                 <span class="status-value status-online">🟢 Conectada</span>
             </div>
             <div class="status-item">
-                <span class="status-name">Servidor Web</span>
-                <span class="status-value status-online">🟢 En Línea</span>
+                <span class="status-name">Tabla de Imágenes</span>
+                <span id="tablaImagenesStatus" class="status-value status-warning">
+                    ⚠️ Clic en "Base de Datos" para crear
+                </span>
             </div>
             <div class="status-item">
                 <span class="status-name">Sistema de Citas</span>
@@ -279,5 +557,545 @@
         </div>
         {% endif %}
     </div>
+
+    <!-- MODAL PARA BASE DE DATOS -->
+    <div id="databaseModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🗄️ Administración de Base de Datos</h3>
+                <button class="modal-close" onclick="closeDatabaseModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <h3>⚠️ ADVERTENCIA</h3>
+                    <p>Esta sección es solo para administradores experimentados. Las operaciones pueden afectar permanentemente los datos.</p>
+                </div>
+                
+                <div class="db-actions">
+                    <div class="db-action-card" onclick="crearTablaImagenes()">
+                        <div class="db-action-title">🖼️ Crear Tabla de Imágenes</div>
+                        <div class="db-action-desc">Crea la tabla para almacenar imágenes de profesionales con su negocio y profesional asociados.</div>
+                    </div>
+                    
+                    <div class="db-action-card" onclick="verTablasSistema()">
+                        <div class="db-action-title">📊 Ver Tablas del Sistema</div>
+                        <div class="db-action-desc">Lista todas las tablas existentes en la base de datos con su estructura.</div>
+                    </div>
+                    
+                    <div class="db-action-card" onclick="openSQLModal()">
+                        <div class="db-action-title">🔧 SQL Manual</div>
+                        <div class="db-action-desc">Ejecuta comandos SQL personalizados. Usar con precaución extrema.</div>
+                    </div>
+                    
+                    <div class="db-action-card" onclick="verificarSistema()">
+                        <div class="db-action-title">🔍 Verificar Sistema</div>
+                        <div class="db-action-desc">Comprueba el estado de todas las tablas y componentes del sistema.</div>
+                    </div>
+                </div>
+                
+                <div id="databaseResult" class="result-box"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeDatabaseModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA SQL MANUAL -->
+    <div id="sqlModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🔧 SQL Manual</h3>
+                <button class="modal-close" onclick="closeSQLModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <h3>⚠️ PELIGRO</h3>
+                    <p>Ejecutar SQL manual puede dañar permanentemente la base de datos. Haz backup primero.</p>
+                </div>
+                
+                <textarea id="sqlInput" class="sql-editor" placeholder="-- Escribe tu SQL aquí
+-- Ejemplo: SELECT * FROM usuarios;
+
+-- Para crear tabla:
+-- CREATE TABLE ejemplo (
+--   id SERIAL PRIMARY KEY,
+--   nombre VARCHAR(100)
+-- );
+
+-- Para eliminar (cuidado):
+-- DROP TABLE IF EXISTS tabla_vieja;"></textarea>
+                
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button class="btn btn-primary" onclick="ejecutarSQL()">▶ Ejecutar</button>
+                    <button class="btn btn-warning" onclick="limpiarSQL()">🗑️ Limpiar</button>
+                    <button class="btn" onclick="cargarEjemplos()" style="background: #95a5a6; color: white;">📋 Ejemplos</button>
+                </div>
+                
+                <div id="sqlResult" class="result-box"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeSQLModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA INFORMACIÓN DEL SISTEMA -->
+    <div id="systemModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">⚙️ Información del Sistema</h3>
+                <button class="modal-close" onclick="closeSystemModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4 style="margin-bottom: 1rem; color: #333;">📊 Estadísticas del Sistema</h4>
+                
+                <div id="systemStats">
+                    <p>Cargando información del sistema...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeSystemModal()">Cerrar</button>
+                <button class="btn btn-primary" onclick="actualizarInfoSistema()">🔄 Actualizar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let csrfToken = '{{ session.csrf_token }}';
+        
+        // ==================== FUNCIONES PARA MODALES ====================
+        function openDatabaseModal(e) {
+            e.preventDefault();
+            document.getElementById('databaseModal').style.display = 'flex';
+        }
+        
+        function closeDatabaseModal() {
+            document.getElementById('databaseModal').style.display = 'none';
+            document.getElementById('databaseResult').style.display = 'none';
+        }
+        
+        function openSQLModal() {
+            closeDatabaseModal();
+            setTimeout(() => {
+                document.getElementById('sqlModal').style.display = 'flex';
+            }, 200);
+        }
+        
+        function closeSQLModal() {
+            document.getElementById('sqlModal').style.display = 'none';
+            document.getElementById('sqlResult').style.display = 'none';
+        }
+        
+        function openSystemInfoModal(e) {
+            e.preventDefault();
+            document.getElementById('systemModal').style.display = 'flex';
+            actualizarInfoSistema();
+        }
+        
+        function closeSystemModal() {
+            document.getElementById('systemModal').style.display = 'none';
+        }
+        
+        // Cerrar modales al hacer clic fuera
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    if (this.id === 'databaseModal') closeDatabaseModal();
+                    if (this.id === 'sqlModal') closeSQLModal();
+                    if (this.id === 'systemModal') closeSystemModal();
+                }
+            });
+        });
+        
+        // Cerrar con Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDatabaseModal();
+                closeSQLModal();
+                closeSystemModal();
+            }
+        });
+        
+        // ==================== FUNCIONES DE BASE DE DATOS ====================
+        
+        async function crearTablaImagenes() {
+            const resultDiv = document.getElementById('databaseResult');
+            
+            if (!confirm('¿Crear tabla de imágenes para profesionales?')) return;
+            
+            try {
+                resultDiv.innerHTML = '<p>⏳ Creando tabla...</p>';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result-box';
+                
+                const response = await fetch('/admin/crear-tabla-imagenes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ accion: 'crear' })
+                });
+                
+                console.log('Response Status:', response.status);
+                console.log('Response:', response);
+                
+                if (response.status === 403) {
+                    // Muestra ayuda concreta
+                    resultDiv.className = 'result-box result-error';
+                    resultDiv.innerHTML = `
+                        <p><strong>❌ Error 403 - Permisos insuficientes</strong></p>
+                        <p>Tu usuario no tiene permisos para crear tablas.</p>
+                        <p><strong>Solución:</strong></p>
+                        <ol>
+                            <li>Inicia sesión como <strong>superadmin</strong></li>
+                            <li>O ve a <a href="/debug/sesion" target="_blank">/debug/sesion</a> para ver tu tipo de usuario</li>
+                            <li>Contacta al administrador del sistema</li>
+                        </ol>
+                    `;
+                    return;
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result-box result-success';
+                    resultDiv.innerHTML = `
+                        <p><strong>✅ ${result.message}</strong></p>
+                        <p>Los profesionales ahora pueden subir fotos desde su perfil.</p>
+                    `;
+                    
+                    // Actualiza visualmente
+                    const statusSpan = document.getElementById('tablaImagenesStatus');
+                    if (statusSpan) {
+                        statusSpan.className = 'status-value status-online';
+                        statusSpan.textContent = '🟢 Configurada';
+                    }
+                    
+                } else {
+                    resultDiv.className = 'result-box result-error';
+                    resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerHTML = `
+                    <p><strong>❌ Error de sistema</strong></p>
+                    <p>${error.message}</p>
+                    <p>Intenta recargar la página o contacta soporte.</p>
+                `;
+            }
+        }
+        
+        async function verTablasSistema() {
+            const resultDiv = document.getElementById('databaseResult');
+            
+            try {
+                resultDiv.innerHTML = '<p>⏳ Cargando tablas del sistema...</p>';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result-box';
+                
+                const response = await fetch('/admin/ver-tablas');
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result-box result-success';
+                    let html = `<p><strong>✅ ${result.total_tables} tablas encontradas</strong></p>`;
+                    
+                    if (result.tables && result.tables.length > 0) {
+                        result.tables.forEach(table => {
+                            html += `
+                                <div style="margin: 1rem 0; padding: 1rem; background: white; border-radius: 5px; border-left: 3px solid #3498db;">
+                                    <strong style="color: #333;">📊 ${table.name}</strong>
+                                    <div style="font-size: 0.9rem; color: #666; margin: 0.5rem 0;">
+                                        ${table.column_count} columnas
+                                    </div>
+                                    ${table.columns.map(col => `
+                                        <div style="font-size: 0.8rem; color: #666; margin-left: 1rem; font-family: monospace;">
+                                            ${col[0]} <span style="color: #e74c3c;">${col[1]}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result-box result-error';
+                    resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        async function verificarSistema() {
+            const resultDiv = document.getElementById('databaseResult');
+            
+            try {
+                resultDiv.innerHTML = '<p>⏳ Verificando sistema...</p>';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result-box';
+                
+                const response = await fetch('/admin/check-system');
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    resultDiv.className = 'result-box result-success';
+                    resultDiv.innerHTML = `
+                        <p><strong>✅ Sistema verificado correctamente</strong></p>
+                        <p>Todos los componentes funcionan correctamente.</p>
+                        <p><strong>Hora:</strong> ${new Date(result.timestamp).toLocaleString()}</p>
+                    `;
+                } else if (result.status === 'warning') {
+                    resultDiv.className = 'result-box';
+                    resultDiv.innerHTML = `
+                        <p><strong>⚠️ Advertencias encontradas</strong></p>
+                        <ul style="margin-left: 1.5rem;">
+                            ${result.issues.map(issue => `<li>${issue}</li>`).join('')}
+                        </ul>
+                        <p><strong>Hora:</strong> ${new Date(result.timestamp).toLocaleString()}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result-box result-error';
+                    resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        // ==================== FUNCIONES PARA SQL MANUAL ====================
+        
+        function limpiarSQL() {
+            document.getElementById('sqlInput').value = '';
+            document.getElementById('sqlResult').style.display = 'none';
+        }
+        
+        function cargarEjemplos() {
+            document.getElementById('sqlInput').value = `-- Ejemplos útiles:
+
+-- 1. Ver todas las tablas
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = 'public'
+ORDER BY table_name;
+
+-- 2. Ver estructura de una tabla específica
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'profesionales'
+ORDER BY ordinal_position;
+
+-- 3. Contar registros en tablas importantes
+SELECT 'profesionales' as tabla, COUNT(*) as cantidad FROM profesionales
+UNION ALL
+SELECT 'negocios' as tabla, COUNT(*) as cantidad FROM negocios
+UNION ALL
+SELECT 'usuarios' as tabla, COUNT(*) as cantidad FROM usuarios;
+
+-- 4. Ver imágenes subidas
+SELECT p.nombre as profesional, ip.*
+FROM imagenes_profesionales ip
+JOIN profesionales p ON ip.profesional_id = p.id
+ORDER BY ip.created_at DESC
+LIMIT 10;`;
+        }
+        
+        async function ejecutarSQL() {
+            const sqlInput = document.getElementById('sqlInput');
+            const resultDiv = document.getElementById('sqlResult');
+            const sql = sqlInput.value.trim();
+            
+            if (!sql) {
+                alert('❌ Por favor, escribe algún comando SQL');
+                return;
+            }
+            
+            if (!confirm('⚠️ ¿Estás seguro de ejecutar este SQL? Esto puede afectar permanentemente los datos.')) {
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<p>⏳ Ejecutando SQL...</p>';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result-box';
+                
+                const response = await fetch('/admin/ejecutar-sql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ sql: sql })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result-box result-success';
+                    let html = `<p><strong>✅ ${result.message}</strong></p>`;
+                    
+                    if (result.results) {
+                        result.results.forEach((r, i) => {
+                            html += `<hr style="margin: 1rem 0; border-color: #ddd;">`;
+                            html += `<p><strong>Sentencia ${i + 1}:</strong> ${r.type}</p>`;
+                            
+                            if (r.type === 'SELECT') {
+                                html += `<p>Filas encontradas: ${r.rowcount}</p>`;
+                                if (r.data && r.data.length > 0) {
+                                    html += `<pre style="background: white; padding: 10px; border-radius: 5px; overflow: auto; max-height: 200px; font-size: 0.8rem;">`;
+                                    html += JSON.stringify(r.data, null, 2);
+                                    html += `</pre>`;
+                                }
+                            } else if (r.type === 'ERROR') {
+                                html += `<p style="color: #dc3545;">❌ Error: ${r.error}</p>`;
+                            } else {
+                                html += `<p>📊 ${r.message}</p>`;
+                            }
+                        });
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result-box result-error';
+                    let html = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                    
+                    if (result.results) {
+                        html += `<hr style="margin: 1rem 0; border-color: #ddd;">`;
+                        result.results.forEach((r, i) => {
+                            if (r.type === 'ERROR') {
+                                html += `<p><strong>Sentencia ${i + 1}:</strong></p>`;
+                                html += `<p style="color: #dc3545;">❌ ${r.error}</p>`;
+                            }
+                        });
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+            }
+        }
+        
+        // ==================== INFORMACIÓN DEL SISTEMA ====================
+        
+        async function actualizarInfoSistema() {
+            const statsDiv = document.getElementById('systemStats');
+            
+            try {
+                statsDiv.innerHTML = '<p>⏳ Actualizando información...</p>';
+                
+                // Verificar tabla de imágenes
+                const checkResponse = await fetch('/api/imagenes/test');
+                const checkResult = await checkResponse.json();
+                
+                // Obtener tablas
+                const tablesResponse = await fetch('/admin/ver-tablas');
+                const tablesResult = await tablesResponse.json();
+                
+                let html = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px;">
+                            <div style="font-size: 0.9rem; color: #666;">Tablas Totales</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #333;">${tablesResult.total_tables || 0}</div>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px;">
+                            <div style="font-size: 0.9rem; color: #666;">Sistema Imágenes</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; ${checkResult.table_exists ? 'color: #28a745;' : 'color: #dc3545;'}">
+                                ${checkResult.table_exists ? '✅ Activo' : '❌ Inactivo'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (checkResult.table_exists) {
+                    html += `
+                        <div style="background: #d4edda; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                            <strong>🖼️ Sistema de Imágenes</strong>
+                            <div style="margin-top: 0.5rem;">
+                                <div>Imágenes almacenadas: <strong>${checkResult.image_count}</strong></div>
+                                <div>Directorio: <code>${checkResult.upload_dir}</code></div>
+                                <div>Directorio existe: ${checkResult.upload_dir_exists ? '✅ Sí' : '❌ No'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (tablesResult.tables && tablesResult.tables.length > 0) {
+                    html += `<div style="margin-top: 1.5rem;"><strong>📋 Tablas importantes:</strong></div>`;
+                    
+                    const tablasImportantes = ['profesionales', 'negocios', 'usuarios', 'citas', 'imagenes_profesionales'];
+                    
+                    tablasImportantes.forEach(tabla => {
+                        const tablaInfo = tablesResult.tables.find(t => t.name === tabla);
+                        html += `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee;">
+                                <span>${tabla}</span>
+                                <span style="font-weight: bold; ${tablaInfo ? 'color: #28a745;' : 'color: #dc3545;'}">
+                                    ${tablaInfo ? '✅ ' + tablaInfo.column_count + ' columnas' : '❌ No existe'}
+                                </span>
+                            </div>
+                        `;
+                    });
+                }
+                
+                statsDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                statsDiv.innerHTML = `<p style="color: #dc3545;">❌ Error al cargar información: ${error.message}</p>`;
+            }
+        }
+        
+        
+        // Verificar al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            
+            // Atajos de teclado
+            document.addEventListener('keydown', function(e) {
+                // Ctrl+D para abrir base de datos
+                if (e.ctrlKey && e.key === 'd') {
+                    e.preventDefault();
+                    openDatabaseModal({ preventDefault: () => {} });
+                }
+                
+                // Ctrl+S para SQL
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    openSQLModal();
+                }
+                
+                // Ctrl+Enter para ejecutar SQL
+                if (e.ctrlKey && e.key === 'Enter' && document.getElementById('sqlModal').style.display === 'flex') {
+                    ejecutarSQL();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
