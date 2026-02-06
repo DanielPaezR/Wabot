@@ -5765,6 +5765,89 @@ def test_push_simple():
             'endpoint': subscription.get('endpoint', '')[:50] + '...' if subscription else None
         })
 
+@app.route('/push/debug-extremo')
+def debug_extremo():
+    """DEBUG EXTREMO de claves VAPID"""
+    import os
+    import json
+    import base64
+    
+    # 1. Obtener claves
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+    
+    # 2. Verificar formato de clave privada
+    private_key_info = {
+        'raw': VAPID_PRIVATE_KEY,
+        'length': len(VAPID_PRIVATE_KEY),
+        'has_equals': '=' in VAPID_PRIVATE_KEY,
+        'has_plus': '+' in VAPID_PRIVATE_KEY,
+        'has_slash': '/' in VAPID_PRIVATE_KEY,
+        'has_dash': '-' in VAPID_PRIVATE_KEY,
+        'has_underscore': '_' in VAPID_PRIVATE_KEY,
+    }
+    
+    # 3. Intentar decodificar para ver si es base64 válido
+    try:
+        # Primero, asegurar padding
+        missing_padding = len(VAPID_PRIVATE_KEY) % 4
+        if missing_padding:
+            padded = VAPID_PRIVATE_KEY + '=' * (4 - missing_padding)
+        else:
+            padded = VAPID_PRIVATE_KEY
+            
+        # Convertir de URL-safe a normal
+        normal_base64 = padded.replace('-', '+').replace('_', '/')
+        
+        # Decodificar
+        decoded = base64.b64decode(normal_base64)
+        private_key_info['base64_valid'] = True
+        private_key_info['decoded_length'] = len(decoded)
+        private_key_info['decoded_hex'] = decoded.hex()[:50] + '...'
+        
+    except Exception as e:
+        private_key_info['base64_valid'] = False
+        private_key_info['error'] = str(e)
+    
+    # 4. Obtener una suscripción para probar
+    from database import get_db_connection
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
+    result = cursor.fetchone()
+    conn.close()
+    
+    subscription_data = None
+    if result:
+        if isinstance(result, dict):
+            subscription_data = result.get('subscription_json')
+        else:
+            subscription_data = result[0] if result else None
+    
+    # 5. Verificar si el subject tiene formato correcto
+    subject_valid = VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
+    
+    return jsonify({
+        'analisis_clave_privada': private_key_info,
+        'claves_actuales': {
+            'VAPID_PUBLIC_KEY': VAPID_PUBLIC_KEY[:50] + '...',
+            'VAPID_PUBLIC_KEY_length': len(VAPID_PUBLIC_KEY),
+            'VAPID_SUBJECT': VAPID_SUBJECT,
+            'subject_valido': subject_valid,
+            'CLAVE_EN_JS': 'BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI'[:50] + '...',
+            'coinciden_js_env': VAPID_PUBLIC_KEY == 'BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI'
+        },
+        'suscripcion_existe': bool(subscription_data),
+        'suscripcion_length': len(subscription_data) if subscription_data else 0,
+        'posibles_problemas': [
+            'Clave privada demasiado corta (debe ser ~43 chars)' if len(VAPID_PRIVATE_KEY) < 40 else 'Clave privada longitud OK',
+            'Clave privada no es base64 válido' if not private_key_info.get('base64_valid', False) else 'Clave privada base64 válido',
+            'Subject no válido (debe ser mailto:email@dominio.com)' if not subject_valid else 'Subject válido',
+            'Clave pública no coincide con JS' if VAPID_PUBLIC_KEY != 'BLUUZFhnk-K2WDcQTiLXOA8IMNF6zdWvu4YuNxswOuhnYmDZpPW6BRrIoSqRKeUw5EqDQZ6HaqHZUL5nywq8GnI' else 'Clave pública OK'
+        ]
+    })
+
 
 
 
