@@ -60,7 +60,7 @@ class PushNotifications {
     
     async enviarSuscripcion(subscription) {
         try {
-            const response = await fetch('/push/api/push/subscribe', {
+            const response = await fetch('/api/push/subscribe', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
