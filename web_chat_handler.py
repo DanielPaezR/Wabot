@@ -578,13 +578,11 @@ def generar_opciones_servicios(numero, negocio_id):
     
     # Verificar si está en modo servicio personalizado
     if conversaciones_activas[clave_conversacion].get('tiene_personalizado'):
-        # Opciones para servicio personalizado
         return [
             {'value': '1', 'text': 'Seleccionar mi servicio personalizado'},
             {'value': '2', 'text': 'Ver todos los servicios'}
         ]
     
-    # Si no tiene personalizado, mostrar servicios normales
     if 'servicios' not in conversaciones_activas[clave_conversacion]:
         return None
     
@@ -593,9 +591,13 @@ def generar_opciones_servicios(numero, negocio_id):
     
     for i, servicio in enumerate(servicios, 1):
         precio_formateado = f"${servicio['precio']:,.0f}".replace(',', '.')
+        
+        # ✅ TEXTO COMPLETO PARA LOS BOTONES
+        texto_boton = f"{servicio['nombre']} - {precio_formateado} ({servicio['duracion']} min)"
+        
         opciones.append({
             'value': str(i),
-            'text': f"{servicio['nombre']} - {precio_formateado} ({servicio['duracion']} min)"
+            'text': texto_boton
         })
     
     return opciones
@@ -978,9 +980,8 @@ def mostrar_profesionales(numero, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
-    """Mostrar servicios disponibles - CON SERVICIO PERSONALIZADO Y PLANTILLAS"""
+    """Mostrar servicios disponibles - Versión simplificada"""
     try:
-        # PRIMERO: Verificar si el cliente tiene teléfono registrado en la conversación
         clave_conversacion = f"{numero}_{negocio_id}"
         
         telefono_cliente = None
@@ -990,34 +991,28 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         servicio_personalizado = None
         tiene_personalizado = False
         
-        # VERIFICAR SI EL CLIENTE YA ELIGIÓ VER TODOS LOS SERVICIOS
+        # Verificar servicio personalizado (igual que antes)
         if clave_conversacion in conversaciones_activas and conversaciones_activas[clave_conversacion].get('mostrar_todos_servicios'):
-            print(f"🔍 Cliente eligió ver todos los servicios, omitiendo servicio personalizado")
-            # Eliminar la bandera después de usarla
             del conversaciones_activas[clave_conversacion]['mostrar_todos_servicios']
         elif telefono_cliente:
-            # Buscar servicio personalizado usando la nueva función
             try:
                 from database import obtener_servicio_personalizado_cliente
                 servicio_personalizado = obtener_servicio_personalizado_cliente(telefono_cliente, negocio_id)
-                
                 if servicio_personalizado:
                     tiene_personalizado = True
             except Exception as e:
                 print(f"⚠️ Error buscando servicio personalizado: {e}")
         
-        # Si tiene servicio personalizado, mostrarlo primero
+        # Si tiene servicio personalizado
         if servicio_personalizado:
             print(f"🎯 Mostrando servicio personalizado para cliente")
             
-            # ✅ USAR PLANTILLA PARA SERVICIO PERSONALIZADO
             mensaje = renderizar_plantilla('servicio_personalizado_opciones', negocio_id, {
                 'nombre_personalizado': servicio_personalizado['nombre_personalizado'],
                 'duracion_personalizada': servicio_personalizado['duracion_personalizada'],
                 'precio_personalizado': servicio_personalizado['precio_personalizado']
             })
             
-            # Guardar en conversación activa
             if clave_conversacion not in conversaciones_activas:
                 conversaciones_activas[clave_conversacion] = {}
             
@@ -1028,8 +1023,8 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
             
             return mensaje
         
-        # Si no tiene servicio personalizado, continuar normal
-        print(f"🔍 No hay servicio personalizado, mostrando servicios normales")
+        # Si no tiene personalizado, obtener servicios normales
+        print(f"🔍 Mostrando servicios normales")
         
         servicios = db.obtener_servicios(negocio_id)
         
@@ -1053,19 +1048,9 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         conversaciones_activas[clave_conversacion]['tiene_personalizado'] = False
         
-        # ✅ USAR PLANTILLA PARA LISTA DE SERVICIOS
-        mensaje = renderizar_plantilla('lista_servicios', negocio_id, {
-            'profesional_nombre': profesional_nombre
-        })
-        
-        # Agregar lista de servicios al mensaje
-        for i, servicio in enumerate(servicios, 1):
-            mensaje += f"\n{i}️⃣ - *{servicio['nombre']}*"
-            mensaje += f"\n   ⏱️ {servicio['duracion']} min | 💵 ${servicio['precio']:,.0f}"
-            if servicio.get('descripcion'):
-                mensaje += f"\n   📝 {servicio['descripcion']}"
-        
-        mensaje += "\n\n🔢 *Responde con el número del servicio que deseas*"
+        # ✅ MENSAJE SIMPLIFICADO - SIN LISTA DE SERVICIOS
+        mensaje = f"📋 *Selecciona un servicio con {profesional_nombre}:*\n\n"
+        mensaje += "Usa los botones de abajo para elegir el servicio que deseas."
         
         return mensaje
         
