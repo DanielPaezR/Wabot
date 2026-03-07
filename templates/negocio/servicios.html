@@ -92,7 +92,7 @@
             padding: 1rem;
         }
         
-        /* ✅ CORRECCIÓN 1: Navegación responsive mejorada */
+        /* Navegación responsive */
         .nav-buttons {
             margin-bottom: 2rem;
             display: flex;
@@ -188,6 +188,37 @@
             font-size: 1.1rem;
         }
         
+        /* ✅ NUEVO: Estilos para badges de tipo de precio */
+        .badge-container {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .badge-fijo {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .badge-rango {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .badge-variable {
+            background: #9b59b6;
+            color: white;
+        }
+        
         .servicio-precio {
             background: #27ae60;
             color: white;
@@ -195,6 +226,10 @@
             border-radius: 20px;
             font-weight: bold;
             font-size: 0.9rem;
+        }
+        
+        .servicio-precio-rango {
+            background: #f39c12;
         }
         
         .servicio-info {
@@ -286,7 +321,7 @@
             border: 1px solid #f5c6cb;
         }
 
-        /* ✅ Estilos responsive adicionales */
+        /* Estilos responsive */
         @media (max-width: 768px) {
             .servicios-grid {
                 grid-template-columns: 1fr;
@@ -356,7 +391,7 @@
     </div>
     
     <div class="container">
-        <!-- ✅ CORRECCIÓN 1: Navegación mejorada con botón de Profesionales -->
+        <!-- Navegación -->
         <div class="nav-buttons">
             <a href="{{ url_for('negocio_dashboard') }}" class="nav-btn">📋 Dashboard</a>
             <a href="{{ url_for('negocio_citas') }}" class="nav-btn">📅 Citas</a>
@@ -384,7 +419,31 @@
                 <div class="servicio-card">
                     <div class="servicio-header">
                         <div class="servicio-nombre">{{ servicio.nombre }}</div>
-                        <div class="servicio-precio">${{ "{:,.0f}".format(servicio.precio) }}</div>
+                        <div class="badge-container">
+                            <!-- ✅ NUEVO: Badge según tipo de precio -->
+                            {% if servicio.tipo_precio == 'rango' %}
+                                <span class="badge badge-rango">📊 Rango</span>
+                            {% elif servicio.tipo_precio == 'variable' %}
+                                <span class="badge badge-variable">💬 Variable</span>
+                            {% else %}
+                                <span class="badge badge-fijo">💰 Fijo</span>
+                            {% endif %}
+                            
+                            <!-- Precio con formato según tipo -->
+                            {% if servicio.tipo_precio == 'rango' and servicio.precio_maximo %}
+                                <div class="servicio-precio servicio-precio-rango">
+                                    ${{ "{:,.0f}".format(servicio.precio) }} - ${{ "{:,.0f}".format(servicio.precio_maximo) }}
+                                </div>
+                            {% elif servicio.tipo_precio == 'variable' %}
+                                <div class="servicio-precio servicio-precio-rango">
+                                    Desde ${{ "{:,.0f}".format(servicio.precio) }}
+                                </div>
+                            {% else %}
+                                <div class="servicio-precio">
+                                    ${{ "{:,.0f}".format(servicio.precio) }}
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                     
                     <div class="servicio-info">
@@ -403,7 +462,6 @@
                         <a href="{{ url_for('negocio_editar_servicio', servicio_id=servicio.id) }}" class="btn-edit">
                             ✏️ Editar
                         </a>
-                        <!-- ✅ CORRECCIÓN 2: Form con CSRF token -->
                         <form method="POST" action="{{ url_for('negocio_eliminar_servicio', servicio_id=servicio.id) }}" 
                               class="form-inline"
                               onsubmit="return confirm('¿Estás seguro de que quieres eliminar este servicio?');">
@@ -432,7 +490,6 @@
             
             editButtons.forEach(button => {
                 button.addEventListener('click', function(e) {
-                    // Verificar que el enlace sea válido
                     const href = this.getAttribute('href');
                     if (!href || href === '#' || href.includes('undefined')) {
                         e.preventDefault();
@@ -440,10 +497,8 @@
                     }
                 });
             });
-        });
 
-        // Confirmación mejorada para eliminación
-        document.addEventListener('DOMContentLoaded', function() {
+            // Confirmación mejorada para eliminación
             const deleteForms = document.querySelectorAll('form[onsubmit*="eliminar"]');
             
             deleteForms.forEach(form => {

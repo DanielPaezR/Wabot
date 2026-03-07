@@ -221,6 +221,8 @@ def _crear_tablas(cursor):
             descripcion TEXT,
             activo BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            tipo_precio VARCHAR(20) DEFAULT 'fijo',
+            precio_maximo DECIMAL(10,2),
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
@@ -1271,26 +1273,142 @@ def obtener_profesionales(negocio_id):
 
 
 def obtener_servicios(negocio_id):
-    """Obtener servicios activos de un negocio"""
+    """Obtener servicios activos de un negocio - CON TIPO DE PRECIO Y PRECIO MÁXIMO"""
     conn = get_db_connection()
-    sql = '''
-        SELECT id, nombre, duracion, precio 
-        FROM servicios 
-        WHERE negocio_id = ? AND activo = TRUE
-        ORDER BY nombre
-    '''
-    servicios = fetch_all(conn.cursor(), sql, (negocio_id,))
+    
+    if is_postgresql():
+        sql = '''
+            SELECT id, nombre, duracion, precio, descripcion, activo, created_at,
+                   tipo_precio, precio_maximo
+            FROM servicios 
+            WHERE negocio_id = %s AND activo = TRUE
+            ORDER BY nombre
+        '''
+        servicios = fetch_all(conn.cursor(), sql, (negocio_id,))
+    else:
+        sql = '''
+            SELECT id, nombre, duracion, precio, descripcion, activo, created_at,
+                   tipo_precio, precio_maximo
+            FROM servicios 
+            WHERE negocio_id = ? AND activo = TRUE
+            ORDER BY nombre
+        '''
+        servicios = fetch_all(conn.cursor(), sql, (negocio_id,))
+    
     conn.close()
-    return servicios
+    
+    # Procesar resultados para asegurar que todos los campos están presentes
+    servicios_procesados = []
+    for servicio in servicios:
+        if isinstance(servicio, dict):
+            # Si ya es diccionario, asegurar campos por defecto
+            if 'tipo_precio' not in servicio:
+                servicio['tipo_precio'] = 'fijo'
+            if 'precio_maximo' not in servicio:
+                servicio['precio_maximo'] = None
+            servicios_procesados.append(servicio)
+        else:
+            # Si es tupla, convertir a diccionario
+            servicios_procesados.append({
+                'id': servicio[0],
+                'nombre': servicio[1],
+                'duracion': servicio[2],
+                'precio': servicio[3],
+                'descripcion': servicio[4] if len(servicio) > 4 else '',
+                'activo': servicio[5] if len(servicio) > 5 else True,
+                'created_at': servicio[6] if len(servicio) > 6 else None,
+                'tipo_precio': servicio[7] if len(servicio) > 7 else 'fijo',
+                'precio_maximo': servicio[8] if len(servicio) > 8 else None
+            })
+    
+    return servicios_procesados
 
 
 def obtener_servicio_por_id(servicio_id, negocio_id):
-    """Obtener un servicio específico por ID"""
+    """Obtener un servicio específico por ID - CON TIPO DE PRECIO Y PRECIO MÁXIMO"""
     conn = get_db_connection()
-    sql = 'SELECT * FROM servicios WHERE id = ? AND negocio_id = ?'
-    servicio = fetch_one(conn.cursor(), sql, (servicio_id, negocio_id))
+    
+    if is_postgresql():
+        sql = 'SELECT * FROM servicios WHERE id = %s AND negocio_id = %s'
+        servicio = fetch_one(conn.cursor(), sql, (servicio_id, negocio_id))
+    else:
+        sql = 'SELECT * FROM servicios WHERE id = ? AND negocio_id = ?'
+        servicio = fetch_one(conn.cursor(), sql, (servicio_id, negocio_id))
+    
     conn.close()
+    
+    if servicio:
+        # Asegurar que los campos existen
+        if 'tipo_precio' not in servicio:
+            servicio['tipo_precio'] = 'fijo'
+        if 'precio_maximo' not in servicio:
+            servicio['precio_maximo'] = None
+    
     return servicio
+
+def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, 
+                     descripcion='', activo=True, tipo_precio='fijo', precio_maximo=None):
+    """Guardar o actualizar un servicio - CON TIPO DE PRECIO"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if servicio_id and servicio_id > 0:
+            # Actualizar servicio existente
+            if is_postgresql():
+                sql = '''
+                    UPDATE servicios 
+                    SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, 
+                        activo = %s, tipo_precio = %s, precio_maximo = %s
+                    WHERE id = %s AND negocio_id = %s
+                '''
+                cursor.execute(sql, (nombre, duracion, precio, descripcion, activo, 
+                                   tipo_precio, precio_maximo, servicio_id, negocio_id))
+            else:
+                sql = '''
+                    UPDATE servicios 
+                    SET nombre = ?, duracion = ?, precio = ?, descripcion = ?, 
+                        activo = ?, tipo_precio = ?, precio_maximo = ?
+                    WHERE id = ? AND negocio_id = ?
+                '''
+                cursor.execute(sql, (nombre, duracion, precio, descripcion, activo, 
+                                   tipo_precio, precio_maximo, servicio_id, negocio_id))
+            
+            mensaje = f"Servicio '{nombre}' actualizado exitosamente"
+        else:
+            # Crear nuevo servicio
+            if is_postgresql():
+                sql = '''
+                    INSERT INTO servicios 
+                    (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                '''
+                cursor.execute(sql, (negocio_id, nombre, duracion, precio, descripcion, 
+                                   activo, tipo_precio, precio_maximo))
+                result = cursor.fetchone()
+                servicio_id = result[0] if isinstance(result, tuple) else result['id']
+            else:
+                sql = '''
+                    INSERT INTO servicios 
+                    (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                '''
+                cursor.execute(sql, (negocio_id, nombre, duracion, precio, descripcion, 
+                                   activo, tipo_precio, precio_maximo))
+                servicio_id = cursor.lastrowid
+            
+            mensaje = f"Servicio '{nombre}' creado exitosamente"
+        
+        conn.commit()
+        return {'success': True, 'id': servicio_id, 'message': mensaje}
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error guardando servicio: {e}")
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
 
 
 def obtener_nombre_profesional(negocio_id, profesional_id):
