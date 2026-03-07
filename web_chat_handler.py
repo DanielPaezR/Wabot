@@ -1298,38 +1298,84 @@ def mostrar_fechas_disponibles(numero, negocio_id):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
-    """Mostrar horarios disponibles - USANDO PLANTILLA"""
+    """Mostrar horarios disponibles - CON DIAGNÓSTICO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    print(f"🔧 [DEBUG] mostrar_disponibilidad - fecha_seleccionada: {fecha_seleccionada}")
+    print("="*60)
+    print(f"🔍 [DISPONIBILIDAD-CHAT] INICIANDO DIAGNÓSTICO")
+    print(f"📌 Clave conversación: {clave_conversacion}")
+    print(f"📅 Fecha seleccionada (recibida): {fecha_seleccionada}")
+    
+    # Verificar que existe la conversación
+    if clave_conversacion not in conversaciones_activas:
+        print(f"❌ [ERROR] No hay conversación activa para {clave_conversacion}")
+        return renderizar_plantilla('error_generico', negocio_id)
+    
+    print(f"📊 Estado de conversación:")
+    print(f"   - profesional_id: {conversaciones_activas[clave_conversacion].get('profesional_id')}")
+    print(f"   - servicio_id: {conversaciones_activas[clave_conversacion].get('servicio_id')}")
+    print(f"   - profesional_nombre: {conversaciones_activas[clave_conversacion].get('profesional_nombre')}")
     
     if not fecha_seleccionada:
-        fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', 
+                                                                             datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        print(f"📅 Fecha obtenida de conversación: {fecha_seleccionada}")
     
-    print(f"🔧 [DEBUG] Fecha a usar: {fecha_seleccionada}")
+    print(f"📅 Fecha final a usar: {fecha_seleccionada}")
     
     # Verificar disponibilidad básica
-    if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
+    print("🔍 Verificando disponibilidad básica...")
+    disponible_basica = verificar_disponibilidad_basica(negocio_id, fecha_seleccionada)
+    print(f"   Resultado: {disponible_basica}")
+    
+    if not disponible_basica:
         fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
+        print(f"❌ No hay disponibilidad básica para {fecha_formateada}")
         return f"❌ No hay horarios disponibles para el {fecha_formateada}.\n\nPor favor, selecciona otra fecha."
     
     # Obtener datos de la conversación
     if 'profesional_id' not in conversaciones_activas[clave_conversacion]:
+        print(f"❌ [ERROR] No hay profesional_id en la conversación")
         return renderizar_plantilla('error_generico', negocio_id)
     
     profesional_id = conversaciones_activas[clave_conversacion]['profesional_id']
     servicio_id = conversaciones_activas[clave_conversacion]['servicio_id']
     pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
     
-    print(f"🔧 [DEBUG] Generando horarios para: profesional_id={profesional_id}, servicio_id={servicio_id}")
+    print(f"👤 Profesional ID: {profesional_id}")
+    print(f"💼 Servicio ID: {servicio_id}")
+    print(f"📄 Página: {pagina}")
+    
+    # Obtener configuración del día para diagnóstico
+    try:
+        import database as db
+        horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha_seleccionada)
+        print(f"📋 Configuración del día: {horarios_dia}")
+    except Exception as e:
+        print(f"⚠️ Error obteniendo configuración: {e}")
+    
+    # Obtener citas del día para diagnóstico
+    try:
+        citas_dia = db.obtener_citas_dia(negocio_id, profesional_id, fecha_seleccionada)
+        print(f"📋 Citas del día ({len(citas_dia)}):")
+        for c in citas_dia:
+            print(f"   - {c}")
+    except Exception as e:
+        print(f"⚠️ Error obteniendo citas: {e}")
     
     # Generar horarios disponibles
+    print("🔄 Generando horarios disponibles...")
     horarios_disponibles = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha_seleccionada, servicio_id)
     
-    print(f"🔧 [DEBUG] Horarios generados: {len(horarios_disponibles)}")
+    print(f"📊 Horarios generados: {len(horarios_disponibles)}")
+    if horarios_disponibles:
+        print(f"   Primeros 5: {horarios_disponibles[:5]}")
+    else:
+        print("   ⚠️ No se generaron horarios")
     
     if not horarios_disponibles:
         fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
+        print(f"❌ No hay horarios disponibles para {fecha_formateada}")
         return f"❌ No hay horarios disponibles para el {fecha_formateada}."
     
     # Datos para el mensaje
@@ -1345,7 +1391,10 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
-    # ✅ USAR PLANTILLA PARA SELECCIÓN DE HORARIO
+    print("✅ Horarios guardados en conversación")
+    print(f"📊 Total horarios: {len(horarios_disponibles)}")
+    print("="*60)
+    
     return renderizar_plantilla('seleccion_horario', negocio_id, {
         'profesional_nombre': profesional_nombre,
         'fecha_formateada': fecha_formateada,
@@ -2006,7 +2055,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     return mostrar_fechas_disponibles(numero, negocio_id)
 
 def procesar_seleccion_fecha(numero, mensaje, negocio_id):
-    """Procesar selección de fecha - SIN CAMBIOS"""
+    """Procesar selección de fecha - CORREGIDO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -2026,13 +2075,12 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     
     # Guardar fecha seleccionada
     fecha_index = int(mensaje) - 1
-    fecha_seleccionada = fechas_disponibles[fecha_index]['fecha']  # YA está en formato YYYY-MM-DD
+    fecha_seleccionada = fechas_disponibles[fecha_index]['fecha']
     
-    print(f"🔧 [DEBUG] Fecha seleccionada: {fecha_seleccionada} (índice: {fecha_index})")
-    print(f"🔧 [DEBUG] Datos completos: {fechas_disponibles[fecha_index]}")
+    print(f"🔧 [DEBUG] Fecha seleccionada: {fecha_seleccionada}")
     
     conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
-    conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
+    # ✅ NO CAMBIAR EL ESTADO AÚN - mantener 'seleccionando_fecha'
     conversaciones_activas[clave_conversacion]['pagina_horarios'] = 0
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
