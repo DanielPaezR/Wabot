@@ -146,6 +146,58 @@
             border: 1px solid #f5c6cb;
             margin-bottom: 1rem;
         }
+
+        /* ✅ NUEVOS ESTILOS PARA TIPO DE PRECIO */
+        .tipo-precio-options {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tipo-precio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tipo-precio-option input[type="radio"] {
+            width: auto;
+            transform: scale(1.2);
+        }
+
+        .precio-maximo-group {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #3498db;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+
+        .badge-info {
+            background: #3498db;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .help-text {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
     </style>
 </head>
 <body>
@@ -186,24 +238,59 @@
 
         <div class="form-container">
             <form method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
                 <div class="form-group">
-                    <label class="form-label">Nombre del Servicio</label>
+                    <label class="form-label">Nombre del Servicio *</label>
                     <input type="text" class="form-control" name="nombre" required 
                            placeholder="Ej: Corte Básico, Manicure, Masaje Relajante...">
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Duración (minutos)</label>
-                        <input type="number" class="form-control" name="duracion" required 
-                               min="15" max="240" value="60">
+                <div class="form-group">
+                    <label class="form-label">Duración (minutos) *</label>
+                    <input type="number" class="form-control" name="duracion" required 
+                           min="15" max="240" value="60">
+                </div>
+                
+                <!-- ✅ NUEVA SECCIÓN: TIPO DE PRECIO -->
+                <div class="form-group">
+                    <label class="form-label">Tipo de Precio *</label>
+                    <div class="tipo-precio-options">
+                        <div class="tipo-precio-option">
+                            <input type="radio" id="precio_fijo" name="tipo_precio" value="fijo" checked>
+                            <label for="precio_fijo">💰 Precio Fijo</label>
+                        </div>
+                        <div class="tipo-precio-option">
+                            <input type="radio" id="precio_rango" name="tipo_precio" value="rango">
+                            <label for="precio_rango">📊 Rango de Precios</label>
+                        </div>
+                        <div class="tipo-precio-option">
+                            <input type="radio" id="precio_variable" name="tipo_precio" value="variable">
+                            <label for="precio_variable">💬 Precio Variable (Consultar)</label>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Precio ($)</label>
-                        <input type="number" class="form-control" name="precio" required 
-                               min="0" step="0.01" placeholder="0.00">
+                    <div class="help-text">Selecciona cómo se mostrará el precio al cliente</div>
+                </div>
+
+                <!-- ✅ CAMPO: Precio Base (siempre visible) -->
+                <div class="form-group">
+                    <label class="form-label">Precio Base ($) * 
+                        <span class="badge badge-info">Mínimo</span>
+                    </label>
+                    <input type="number" class="form-control" name="precio" required 
+                           min="0" step="1000" placeholder="Ej: 20000">
+                    <div class="help-text">Para precio fijo: valor único. Para rango: valor mínimo.</div>
+                </div>
+
+                <!-- ✅ CAMPO: Precio Máximo (solo para rango, oculto por defecto) -->
+                <div class="precio-maximo-group" id="precioMaximoGroup" style="display: none;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Precio Máximo ($) 
+                            <span class="badge badge-warning">Rango Superior</span>
+                        </label>
+                        <input type="number" class="form-control" id="precio_maximo" name="precio_maximo" 
+                               min="0" step="1000" placeholder="Ej: 50000">
+                        <div class="help-text">Solo para rangos: el precio máximo que puede alcanzar el servicio.</div>
                     </div>
                 </div>
                 
@@ -211,6 +298,7 @@
                     <label class="form-label">Descripción (opcional)</label>
                     <textarea class="form-control" name="descripcion" rows="3" 
                               placeholder="Describe brevemente el servicio..."></textarea>
+                    <div class="help-text">Incluye aquí cualquier detalle sobre rangos de precios si es necesario.</div>
                 </div>
                 
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
@@ -224,5 +312,57 @@
             </form>
         </div>
     </div>
+
+    <!-- ✅ SCRIPT PARA CONTROLAR VISIBILIDAD DEL CAMPO PRECIO MÁXIMO -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const radioFijo = document.getElementById('precio_fijo');
+            const radioRango = document.getElementById('precio_rango');
+            const radioVariable = document.getElementById('precio_variable');
+            const precioMaximoGroup = document.getElementById('precioMaximoGroup');
+            const precioMaximoInput = document.getElementById('precio_maximo');
+            
+            function togglePrecioMaximo() {
+                if (radioRango.checked) {
+                    precioMaximoGroup.style.display = 'block';
+                    precioMaximoInput.required = true;
+                    if (!precioMaximoInput.value) {
+                        precioMaximoInput.placeholder = 'Ej: 50000 (requerido)';
+                    }
+                } else {
+                    precioMaximoGroup.style.display = 'none';
+                    precioMaximoInput.required = false;
+                    precioMaximoInput.value = '';
+                }
+            }
+            
+            // Event listeners
+            radioFijo.addEventListener('change', togglePrecioMaximo);
+            radioRango.addEventListener('change', togglePrecioMaximo);
+            radioVariable.addEventListener('change', togglePrecioMaximo);
+            
+            // Ejecutar al cargar para estado inicial
+            togglePrecioMaximo();
+            
+            // Validación adicional al enviar el formulario
+            document.querySelector('form').addEventListener('submit', function(e) {
+                if (radioRango.checked) {
+                    if (!precioMaximoInput.value || precioMaximoInput.value <= 0) {
+                        e.preventDefault();
+                        alert('❌ Para servicios con rango de precios, debes especificar el precio máximo.');
+                        return;
+                    }
+                    
+                    const precioBase = parseFloat(document.querySelector('input[name="precio"]').value);
+                    const precioMax = parseFloat(precioMaximoInput.value);
+                    
+                    if (precioMax <= precioBase) {
+                        e.preventDefault();
+                        alert('❌ El precio máximo debe ser mayor que el precio base.');
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>

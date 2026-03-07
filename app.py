@@ -2434,7 +2434,7 @@ def negocio_personalizar_servicio(cita_id):
 @app.route('/negocio/servicios')
 @role_required(['propietario', 'superadmin'])
 def negocio_servicios():
-    """Gestión de servicios del negocio"""
+    """Gestión de servicios del negocio - CON TIPO DE PRECIO"""
     negocio_id = session.get('negocio_id', 1)
     servicios = db.obtener_servicios(negocio_id)
     
@@ -2445,7 +2445,7 @@ def negocio_servicios():
 @app.route('/negocio/servicios/nuevo', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_nuevo_servicio():
-    """Crear nuevo servicio para el negocio"""
+    """Crear nuevo servicio para el negocio - CON TIPO DE PRECIO"""
     if session['usuario_rol'] == 'propietario':
         negocio_id = session['negocio_id']
     else:
@@ -2462,33 +2462,45 @@ def negocio_nuevo_servicio():
         precio = float(request.form['precio'])
         descripcion = request.form.get('descripcion', '')
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # ✅ NUEVOS CAMPOS
+        tipo_precio = request.form.get('tipo_precio', 'fijo')
+        precio_maximo = None
         
-        try:
-            cursor.execute('''
-                INSERT INTO servicios (negocio_id, nombre, duracion, precio, descripcion)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-            ''', (negocio_id, nombre, duracion, precio, descripcion))
-            
-            conn.commit()
-            flash('✅ Servicio creado exitosamente', 'success')
+        if tipo_precio == 'rango':
+            precio_maximo_str = request.form.get('precio_maximo', '').strip()
+            if precio_maximo_str:
+                try:
+                    precio_maximo = float(precio_maximo_str)
+                except ValueError:
+                    flash('❌ El precio máximo debe ser un número válido', 'error')
+                    return redirect(url_for('negocio_nuevo_servicio'))
+        
+        # Usar la nueva función guardar_servicio con servicio_id=None para crear nuevo
+        resultado = db.guardar_servicio(
+            negocio_id=negocio_id,
+            servicio_id=None,  # None indica que es nuevo
+            nombre=nombre,
+            duracion=duracion,
+            precio=precio,
+            descripcion=descripcion,
+            activo=True,
+            tipo_precio=tipo_precio,
+            precio_maximo=precio_maximo
+        )
+        
+        if resultado['success']:
+            flash(resultado['message'], 'success')
             return redirect(url_for('negocio_servicios'))
-            
-        except Exception as e:
-            conn.rollback()
-            print(f"❌ Error creando servicio: {e}")
-            flash('❌ Error al crear el servicio', 'error')
-        finally:
-            conn.close()
+        else:
+            flash(f'❌ Error: {resultado.get("error", "Error al crear el servicio")}', 'error')
+            return redirect(url_for('negocio_nuevo_servicio'))
     
     return render_template('negocio/nuevo_servicio.html', negocio_id=negocio_id)
 
 @app.route('/negocio/servicios/<int:servicio_id>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_servicio(servicio_id):
-    """Editar servicio del negocio - VERSIÓN CORREGIDA"""
+    """Editar servicio del negocio - CON TIPO DE PRECIO Y RANGO"""
     servicio = db.obtener_servicio_por_id(servicio_id, session['negocio_id'])
     if not servicio:
         flash('Servicio no encontrado', 'error')
@@ -2504,29 +2516,41 @@ def negocio_editar_servicio(servicio_id):
         duracion = int(request.form['duracion'])
         precio = float(request.form['precio'])
         descripcion = request.form.get('descripcion', '')
-        # ✅ CORRECCIÓN: Por defecto activo si no se especifica
         activo = request.form.get('activo', 'off') == 'on'
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # ✅ NUEVOS CAMPOS
+        tipo_precio = request.form.get('tipo_precio', 'fijo')
+        precio_maximo = None
         
-        try:
-            cursor.execute('''
-                UPDATE servicios 
-                SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, activo = %s
-                WHERE id = %s AND negocio_id = %s
-            ''', (nombre, duracion, precio, descripcion, activo, servicio_id, session['negocio_id']))
-            
-            conn.commit()
-            flash('✅ Servicio actualizado exitosamente', 'success')
+        if tipo_precio == 'rango':
+            # Si es rango, obtener el precio máximo
+            precio_maximo_str = request.form.get('precio_maximo', '').strip()
+            if precio_maximo_str:
+                try:
+                    precio_maximo = float(precio_maximo_str)
+                except ValueError:
+                    flash('❌ El precio máximo debe ser un número válido', 'error')
+                    return redirect(url_for('negocio_editar_servicio', servicio_id=servicio_id))
+        
+        # Usar la nueva función guardar_servicio
+        resultado = db.guardar_servicio(
+            negocio_id=session['negocio_id'],
+            servicio_id=servicio_id,
+            nombre=nombre,
+            duracion=duracion,
+            precio=precio,
+            descripcion=descripcion,
+            activo=activo,
+            tipo_precio=tipo_precio,
+            precio_maximo=precio_maximo
+        )
+        
+        if resultado['success']:
+            flash(resultado['message'], 'success')
             return redirect(url_for('negocio_servicios'))
-            
-        except Exception as e:
-            conn.rollback()
-            print(f"❌ Error actualizando servicio: {e}")
-            flash('❌ Error al actualizar el servicio', 'error')
-        finally:
-            conn.close()
+        else:
+            flash(f'❌ Error: {resultado.get("error", "Error al guardar")}', 'error')
+            return redirect(url_for('negocio_editar_servicio', servicio_id=servicio_id))
     
     # Convertir a diccionario si es necesario
     if hasattr(servicio, '_asdict'):
@@ -2540,7 +2564,9 @@ def negocio_editar_servicio(servicio_id):
             'precio': servicio.precio,
             'duracion': servicio.duracion,
             'descripcion': servicio.descripcion,
-            'activo': servicio.activo
+            'activo': servicio.activo,
+            'tipo_precio': getattr(servicio, 'tipo_precio', 'fijo'),
+            'precio_maximo': getattr(servicio, 'precio_maximo', None)
         }
     
     return render_template('negocio/editar_servicio.html', 
