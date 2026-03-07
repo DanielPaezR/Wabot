@@ -1354,40 +1354,60 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
     })
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - USANDO PLANTILLA"""
+    """Mostrar citas del cliente - VERSIÓN CORREGIDA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
     
-    # Verificar si ya tenemos teléfono
+    # Obtener teléfono REAL (prioridad: conversación > parámetro)
     telefono_real = None
     if clave_conversacion in conversaciones_activas:
         telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
         print(f"🔧 [DEBUG] Teléfono en conversación: {telefono_real}")
     
+    # Si no hay en conversación, usar el número que llegó como parámetro
     if not telefono_real:
-        # En el nuevo flujo, siempre deberíamos tener teléfono
+        telefono_real = numero
+        print(f"🔧 [DEBUG] Usando número directo: {telefono_real}")
+    
+    # Validar que sea un número de teléfono (no un UUID)
+    if len(str(telefono_real)) > 15 or '-' in str(telefono_real):
+        print(f"❌ [DEBUG] Se recibió UUID en lugar de teléfono: {telefono_real}")
         return renderizar_plantilla('error_generico', negocio_id)
     
     print(f"🔧 [DEBUG] Buscando citas CONFIRMADAS con teléfono: {telefono_real}")
     
     try:
-        from database import get_db_connection
+        from database import get_db_connection, is_postgresql
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ Buscar citas confirmadas
-        cursor.execute('''
-            SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
-            FROM citas c
-            JOIN servicios s ON c.servicio_id = s.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.cliente_telefono = %s 
-            AND c.negocio_id = %s 
-            AND (c.fecha)::date >= CURRENT_DATE
-            AND c.estado = 'confirmado'
-            ORDER BY (c.fecha)::date, c.hora
-        ''', (telefono_real, negocio_id))
+        # ✅ CORREGIDO: Mejor manejo de fechas según base de datos
+        if is_postgresql():
+            cursor.execute('''
+                SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                JOIN profesionales p ON c.profesional_id = p.id
+                WHERE c.cliente_telefono = %s 
+                AND c.negocio_id = %s 
+                AND c.estado = 'confirmado'
+                AND (c.fecha)::date >= CURRENT_DATE
+                ORDER BY (c.fecha)::date, c.hora
+            ''', (telefono_real, negocio_id))
+        else:
+            # Para SQLite
+            cursor.execute('''
+                SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                JOIN profesionales p ON c.profesional_id = p.id
+                WHERE c.cliente_telefono = ? 
+                AND c.negocio_id = ? 
+                AND c.estado = 'confirmado'
+                AND date(c.fecha) >= date('now')
+                ORDER BY date(c.fecha), c.hora
+            ''', (telefono_real, negocio_id))
         
         citas_confirmadas = cursor.fetchall()
         conn.close()
@@ -1398,15 +1418,23 @@ def mostrar_mis_citas(numero, negocio_id):
         nombre_cliente = 'Cliente'
         if clave_conversacion in conversaciones_activas:
             nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
+        else:
+            # Intentar obtener nombre de la primera cita si existe
+            if citas_confirmadas and len(citas_confirmadas) > 0:
+                primera_cita = citas_confirmadas[0]
+                if isinstance(primera_cita, dict):
+                    nombre_cliente = primera_cita.get('cliente_nombre', 'Cliente')
+                elif len(primera_cita) > 4:  # La posición del nombre depende de tu estructura
+                    # Esto puede necesitar ajuste según tu estructura real
+                    pass
         
         # Verificar si hay citas confirmadas
         if not citas_confirmadas or len(citas_confirmadas) == 0:
-            # ✅ USAR PLANTILLA PARA SIN CITAS
             return renderizar_plantilla('sin_citas', negocio_id, {
                 'nombre_cliente': nombre_cliente
             })
         
-        # Construir respuesta usando plantilla base
+        # Construir respuesta
         respuesta = renderizar_plantilla('mis_citas_lista', negocio_id, {
             'nombre_cliente': nombre_cliente
         })
@@ -1421,15 +1449,19 @@ def mostrar_mis_citas(numero, negocio_id):
                     estado = cita.get('estado')
                     profesional_nombre = cita.get('profesional_nombre')
                 else:
+                    # Asumiendo orden: id, fecha, hora, servicio, estado, profesional_nombre
                     id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
                 
                 # Formatear fecha
                 try:
                     if isinstance(fecha, str):
-                        fecha_str = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m')
+                        fecha_dt = datetime.strptime(fecha, '%Y-%m-%d')
+                        fecha_str = fecha_dt.strftime('%d/%m')
                     else:
+                        # Si es objeto datetime
                         fecha_str = fecha.strftime('%d/%m')
-                except:
+                except Exception as e:
+                    print(f"⚠️ Error formateando fecha {fecha}: {e}")
                     fecha_str = str(fecha)
                 
                 respuesta += f"\n\n✅ *{fecha_str}* - **{hora}**"
@@ -1445,6 +1477,8 @@ def mostrar_mis_citas(numero, negocio_id):
         # Volver al menú principal
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+            # Guardar el teléfono para futuras consultas
+            conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono_real
         
         return respuesta
         
