@@ -570,7 +570,7 @@ def generar_opciones_profesionales(numero, negocio_id):
     return opciones
 
 def generar_opciones_servicios(numero, negocio_id):
-    """Generar opciones de servicios para botones del chat web"""
+    """Generar opciones de servicios para botones del chat web - CON RANGO COMPLETO"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas:
@@ -590,14 +590,33 @@ def generar_opciones_servicios(numero, negocio_id):
     opciones = []
     
     for i, servicio in enumerate(servicios, 1):
-        precio_formateado = f"${servicio['precio']:,.0f}".replace(',', '.')
+        # ✅ Obtener tipo de precio y valores
+        tipo_precio = servicio.get('tipo_precio', 'fijo')
+        precio_base = servicio['precio']
+        precio_maximo = servicio.get('precio_maximo')
+        
+        # Formatear precios
+        precio_min_formateado = f"${precio_base:,.0f}".replace(',', '.')
+        
+        # ✅ Construir texto según tipo de precio
+        if tipo_precio == 'rango' and precio_maximo:
+            precio_max_formateado = f"${precio_maximo:,.0f}".replace(',', '.')
+            texto_precio = f"{precio_min_formateado} - {precio_max_formateado}"
+        elif tipo_precio == 'variable':
+            texto_precio = f"Desde {precio_min_formateado} (Consultar)"
+        else:
+            texto_precio = precio_min_formateado
         
         # ✅ TEXTO COMPLETO PARA LOS BOTONES
-        texto_boton = f"{servicio['nombre']} - {precio_formateado} ({servicio['duracion']} min)"
+        texto_boton = f"{servicio['nombre']} - {texto_precio} ({servicio['duracion']} min)"
         
         opciones.append({
             'value': str(i),
-            'text': texto_boton
+            'text': texto_boton,
+            # Metadata útil para el frontend
+            'tipo_precio': tipo_precio,
+            'precio_min': precio_base,
+            'precio_max': precio_maximo
         })
     
     return opciones
