@@ -1377,26 +1377,25 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         return renderizar_plantilla('error_generico', negocio_id)
 
 def mostrar_mis_citas(numero, negocio_id):
-    """Mostrar citas del cliente - VERSIÓN CORREGIDA"""
+    """Mostrar citas del cliente - VERSIÓN CORREGIDA QUE BUSCA EN TODAS LAS FUENTES"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] mostrar_mis_citas - Clave: {clave_conversacion}")
     
-    # Obtener teléfono REAL (prioridad: conversación > parámetro)
+    # PASO 1: Obtener el teléfono REAL (prioridad: conversación > parámetro)
     telefono_real = None
     if clave_conversacion in conversaciones_activas:
         telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
         print(f"🔧 [DEBUG] Teléfono en conversación: {telefono_real}")
     
-    # Si no hay en conversación, usar el número que llegó como parámetro
     if not telefono_real:
-        telefono_real = numero
-        print(f"🔧 [DEBUG] Usando número directo: {telefono_real}")
-    
-    # Validar que sea un número de teléfono (no un UUID)
-    if len(str(telefono_real)) > 15 or '-' in str(telefono_real):
-        print(f"❌ [DEBUG] Se recibió UUID en lugar de teléfono: {telefono_real}")
-        return renderizar_plantilla('error_generico', negocio_id)
+        # Si es UUID, NO puede ser teléfono
+        if len(str(numero)) > 15 or '-' in str(numero):
+            print(f"⚠️ [DEBUG] Se recibió UUID, no se puede buscar citas: {numero}")
+            return renderizar_plantilla('error_generico', negocio_id)
+        else:
+            telefono_real = numero
+            print(f"🔧 [DEBUG] Usando número directo: {telefono_real}")
     
     print(f"🔧 [DEBUG] Buscando citas CONFIRMADAS con teléfono: {telefono_real}")
     
@@ -1405,75 +1404,99 @@ def mostrar_mis_citas(numero, negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ CORREGIDO: Mejor manejo de fechas según base de datos
+        # ✅ PASO 2: Buscar en TODAS las citas (sin filtro de fecha primero)
         if is_postgresql():
             cursor.execute('''
-                SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
+                SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre,
+                       c.cliente_nombre
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 JOIN profesionales p ON c.profesional_id = p.id
                 WHERE c.cliente_telefono = %s 
                 AND c.negocio_id = %s 
                 AND c.estado = 'confirmado'
-                AND (c.fecha)::date >= CURRENT_DATE
-                ORDER BY (c.fecha)::date, c.hora
+                ORDER BY c.fecha DESC, c.hora DESC
             ''', (telefono_real, negocio_id))
         else:
-            # Para SQLite
             cursor.execute('''
-                SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre
+                SELECT c.id, c.fecha, c.hora, s.nombre as servicio, c.estado, p.nombre as profesional_nombre,
+                       c.cliente_nombre
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 JOIN profesionales p ON c.profesional_id = p.id
                 WHERE c.cliente_telefono = ? 
                 AND c.negocio_id = ? 
                 AND c.estado = 'confirmado'
-                AND date(c.fecha) >= date('now')
-                ORDER BY date(c.fecha), c.hora
+                ORDER BY c.fecha DESC, c.hora DESC
             ''', (telefono_real, negocio_id))
         
-        citas_confirmadas = cursor.fetchall()
-        conn.close()
+        todas_citas = cursor.fetchall()
+        print(f"🔧 [DEBUG] TOTAL de citas encontradas (sin filtrar): {len(todas_citas)}")
         
-        print(f"🔧 [DEBUG] Citas CONFIRMADAS encontradas: {len(citas_confirmadas) if citas_confirmadas else 0}")
+        # PASO 3: Filtrar solo citas futuras
+        fecha_actual = datetime.now(tz_colombia).date()
+        citas_futuras = []
         
-        # Obtener nombre del cliente
+        for cita in todas_citas:
+            try:
+                if isinstance(cita, dict):
+                    fecha_cita = cita.get('fecha')
+                    if isinstance(fecha_cita, str):
+                        fecha_cita_obj = datetime.strptime(fecha_cita, '%Y-%m-%d').date()
+                    else:
+                        fecha_cita_obj = fecha_cita.date() if hasattr(fecha_cita, 'date') else fecha_cita
+                else:
+                    fecha_cita = cita[1]  # índice de fecha
+                    if isinstance(fecha_cita, str):
+                        fecha_cita_obj = datetime.strptime(fecha_cita, '%Y-%m-%d').date()
+                    else:
+                        fecha_cita_obj = fecha_cita.date() if hasattr(fecha_cita, 'date') else fecha_cita
+                
+                if fecha_cita_obj >= fecha_actual:
+                    citas_futuras.append(cita)
+            except Exception as e:
+                print(f"⚠️ Error procesando fecha de cita: {e}")
+                continue
+        
+        print(f"🔧 [DEBUG] Citas FUTURAS encontradas: {len(citas_futuras)}")
+        
+        # PASO 4: Obtener nombre del cliente
         nombre_cliente = 'Cliente'
         if clave_conversacion in conversaciones_activas:
             nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
-        else:
-            # Intentar obtener nombre de la primera cita si existe
-            if citas_confirmadas and len(citas_confirmadas) > 0:
-                primera_cita = citas_confirmadas[0]
-                if isinstance(primera_cita, dict):
-                    nombre_cliente = primera_cita.get('cliente_nombre', 'Cliente')
-                elif len(primera_cita) > 4:  # La posición del nombre depende de tu estructura
-                    # Esto puede necesitar ajuste según tu estructura real
-                    pass
+        elif todas_citas and len(todas_citas) > 0:
+            # Intentar obtener nombre de la primera cita
+            primera_cita = todas_citas[0]
+            if isinstance(primera_cita, dict):
+                nombre_cliente = primera_cita.get('cliente_nombre', 'Cliente')
+            elif len(primera_cita) > 6:  # Si hay índice para cliente_nombre
+                nombre_cliente = primera_cita[6] or 'Cliente'
         
-        # Verificar si hay citas confirmadas
-        if not citas_confirmadas or len(citas_confirmadas) == 0:
+        # PASO 5: Si no hay citas futuras pero hay citas pasadas
+        if not citas_futuras and len(todas_citas) > 0:
+            return f"📋 Tienes {len(todas_citas)} cita(s) agendada(s), pero todas son en fechas pasadas.\n\nPara ver el historial completo o agendar una nueva, selecciona *1*"
+        
+        # PASO 6: Si no hay citas en absoluto
+        if not citas_futuras:
             return renderizar_plantilla('sin_citas', negocio_id, {
                 'nombre_cliente': nombre_cliente
             })
         
-        # Construir respuesta
+        # PASO 7: Construir respuesta con citas futuras
         respuesta = renderizar_plantilla('mis_citas_lista', negocio_id, {
             'nombre_cliente': nombre_cliente
         })
         
-        for cita in citas_confirmadas:
+        for cita in citas_futuras:
             try:
                 if isinstance(cita, dict):
                     id_cita = cita.get('id')
                     fecha = cita.get('fecha')
                     hora = cita.get('hora')
                     servicio = cita.get('servicio')
-                    estado = cita.get('estado')
                     profesional_nombre = cita.get('profesional_nombre')
                 else:
-                    # Asumiendo orden: id, fecha, hora, servicio, estado, profesional_nombre
-                    id_cita, fecha, hora, servicio, estado, profesional_nombre = cita
+                    id_cita, fecha, hora, servicio, _, profesional_nombre, _ = cita
                 
                 # Formatear fecha
                 try:
@@ -1481,10 +1504,8 @@ def mostrar_mis_citas(numero, negocio_id):
                         fecha_dt = datetime.strptime(fecha, '%Y-%m-%d')
                         fecha_str = fecha_dt.strftime('%d/%m')
                     else:
-                        # Si es objeto datetime
                         fecha_str = fecha.strftime('%d/%m')
-                except Exception as e:
-                    print(f"⚠️ Error formateando fecha {fecha}: {e}")
+                except:
                     fecha_str = str(fecha)
                 
                 respuesta += f"\n\n✅ *{fecha_str}* - **{hora}**"
@@ -1500,7 +1521,7 @@ def mostrar_mis_citas(numero, negocio_id):
         # Volver al menú principal
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-            # Guardar el teléfono para futuras consultas
+            # Guardar teléfono para futuras consultas
             conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono_real
         
         return respuesta

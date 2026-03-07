@@ -2821,33 +2821,36 @@ def actualizar_formato_precios_plantillas():
 def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio, 
                                  duracion_minutos=60, motivo="", sobreescribir=False):
     """
-    Bloquear un horario para un profesional - VERSIÓN CORREGIDA
+    Bloquear un horario para un profesional - CANCELA TODAS LAS CITAS AFECTADAS
     """
-    print(f"🔒 [BLOQUEO] Bloqueando horario: {fecha} {hora_inicio} por {duracion_minutos} minutos")
+    print(f"🔒 [BLOQUEO] Bloqueando {fecha} {hora_inicio} por {duracion_minutos} minutos")
+    print(f"📝 Motivo: {motivo}")
+    print(f"🔄 Sobreescribir: {sobreescribir}")
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # 1. Verificar si ya hay un BLOQUEO en ese horario
+        # 1. Verificar si ya hay bloqueo exactamente en ese horario
         cursor.execute('''
-            SELECT id, hora 
-            FROM citas 
+            SELECT id FROM citas 
             WHERE negocio_id = %s AND profesional_id = %s 
             AND fecha = %s AND hora = %s
             AND estado = 'bloqueado'
         ''', (negocio_id, profesional_id, fecha, hora_inicio))
         
-        bloqueo_existente = cursor.fetchone()
-        
-        if bloqueo_existente:
-            print(f"⚠️ Ya existe un bloqueo en {hora_inicio}")
-            conn.close()
+        if cursor.fetchone():
             return {'success': False, 'error': 'Ya existe un bloqueo en ese horario'}
         
-        # 2. Obtener TODAS las citas del día (incluyendo las que vamos a cancelar si sobreescribir=True)
+        # 2. Calcular rango del bloqueo
+        hora_obj = datetime.strptime(hora_inicio, '%H:%M')
+        hora_fin_bloqueo = hora_obj + timedelta(minutes=duracion_minutos)
+        
+        print(f"⏰ Rango bloqueo: {hora_inicio} a {hora_fin_bloqueo.strftime('%H:%M')}")
+        
+        # 3. Obtener TODAS las citas del día CON SU DURACIÓN
         cursor.execute('''
-            SELECT c.id, c.hora, s.duracion, c.estado
+            SELECT c.id, c.hora, s.duracion, c.estado, c.cliente_nombre
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
@@ -2857,71 +2860,75 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
         ''', (negocio_id, profesional_id, fecha))
         
         citas_activas = cursor.fetchall()
+        print(f"📋 Citas activas encontradas: {len(citas_activas)}")
         
-        # 3. Calcular hora de fin del bloqueo
-        hora_obj = datetime.strptime(hora_inicio, '%H:%M')
-        hora_fin_bloqueo = hora_obj + timedelta(minutes=duracion_minutos)
-        
-        print(f"⏰ Bloqueo de {hora_inicio} a {hora_fin_bloqueo.strftime('%H:%M')}")
-        
+        # 4. Identificar TODAS las citas que se solapan
         citas_a_cancelar = []
-        conflicto_con_confirmadas = False
         
-        # 4. Verificar cada cita
         for cita in citas_activas:
-            # Extraer datos
-            if hasattr(cita, 'keys'):
+            # Extraer datos según formato
+            if hasattr(cita, 'keys'):  # Diccionario
                 cita_id = cita['id']
                 cita_hora = cita['hora']
                 cita_duracion = cita['duracion']
                 cita_estado = cita['estado']
-            else:
+                cita_cliente = cita.get('cliente_nombre', 'Cliente')
+            else:  # Tupla
                 cita_id = cita[0]
                 cita_hora = cita[1]
                 cita_duracion = cita[2]
                 cita_estado = cita[3]
+                cita_cliente = cita[4] if len(cita) > 4 else 'Cliente'
             
-            # Calcular hora de fin de la cita
+            # Calcular rango de la cita
             cita_hora_obj = datetime.strptime(str(cita_hora), '%H:%M')
             cita_fin_obj = cita_hora_obj + timedelta(minutes=int(cita_duracion))
             
-            print(f"🔍 Comparando con cita {cita_hora} a {cita_fin_obj.strftime('%H:%M')}")
+            # ✅ VERIFICAR SOLAPAMIENTO COMPLETO
+            # Una cita se solapa si:
+            # - Empieza antes y termina después del inicio del bloqueo
+            # - Empieza dentro del bloqueo
+            # - Termina dentro del bloqueo
+            se_solapa = (
+                (cita_hora_obj.time() < hora_fin_bloqueo.time() and 
+                 cita_fin_obj.time() > hora_obj.time())
+            )
             
-            # Verificar si la cita SE SOLAPA con el bloqueo
-            if (cita_hora_obj.time() < hora_fin_bloqueo.time() and 
-                cita_fin_obj.time() > hora_obj.time()):
+            if se_solapa:
+                print(f"⚠️ Conflicto con cita {cita_hora}-{cita_fin_obj.strftime('%H:%M')} (cliente: {cita_cliente})")
                 
-                print(f"⚠️ Conflicto con cita {cita_hora} (estado: {cita_estado})")
-                
-                if cita_estado == 'confirmado':
-                    if sobreescribir:
-                        citas_a_cancelar.append(cita_id)
-                        print(f"   → Se cancelará (sobreescribir=True)")
-                    else:
-                        conflicto_con_confirmadas = True
-                        print(f"   → NO se puede bloquear (sobreescribir=False)")
+                if sobreescribir:
+                    citas_a_cancelar.append(cita_id)
+                    print(f"   → Se cancelará (sobreescribir=True)")
+                else:
+                    print(f"   → NO se puede bloquear (sobreescribir=False)")
+                    conn.close()
+                    return {
+                        'success': False,
+                        'error': f'El bloqueo se solapa con cita de {cita_hora} (cliente: {cita_cliente})',
+                        'needs_override': True,
+                        'cita_conflicto': {
+                            'id': cita_id,
+                            'hora': cita_hora,
+                            'cliente': cita_cliente
+                        }
+                    }
         
-        # 5. Si hay conflicto y no se permite sobreescribir, error
-        if conflicto_con_confirmadas and not sobreescribir:
-            conn.close()
-            return {
-                'success': False, 
-                'error': 'El horario se solapa con citas confirmadas',
-                'needs_override': True
-            }
-        
-        # 6. Cancelar las citas que se solapan (si sobreescribir=True)
+        # 5. Si hay citas para cancelar y sobreescribir=True, cancelarlas TODAS
         if sobreescribir and citas_a_cancelar:
+            print(f"🔄 Cancelando {len(citas_a_cancelar)} cita(s): {citas_a_cancelar}")
+            
+            # Cancelar cada cita individualmente (para tener registro)
             for cita_id in citas_a_cancelar:
                 cursor.execute('''
                     UPDATE citas 
                     SET estado = 'cancelado' 
                     WHERE id = %s
                 ''', (cita_id,))
-                print(f"✅ Cita {cita_id} cancelada")
+                print(f"   ✅ Cita {cita_id} cancelada")
         
-        # 7. Crear el bloqueo
-        # Primero obtener un servicio_id válido
+        # 6. Crear el bloqueo
+        # Obtener un servicio_id válido
         cursor.execute('''
             SELECT id FROM servicios 
             WHERE negocio_id = %s AND activo = TRUE 
@@ -2929,7 +2936,6 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
         ''', (negocio_id,))
         
         servicio_result = cursor.fetchone()
-        
         if not servicio_result:
             conn.close()
             return {'success': False, 'error': 'No hay servicios activos'}
@@ -2947,7 +2953,7 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
             negocio_id,
             profesional_id,
             'BLOQUEO_SISTEMA',
-            f"Bloqueo - {motivo}" if motivo else "Horario no disponible",
+            f"Bloqueado: {motivo}" if motivo else "Horario no disponible",
             fecha,
             hora_inicio,
             servicio_id
@@ -2958,9 +2964,12 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
         
         conn.commit()
         
-        mensaje = f'✅ Horario bloqueado: {fecha} {hora_inicio} por {duracion_minutos} minutos'
+        # 7. Preparar mensaje de respuesta
         if citas_a_cancelar:
-            mensaje += f' (se cancelaron {len(citas_a_cancelar)} citas)'
+            mensaje = f'✅ Horario bloqueado: {fecha} {hora_inicio} por {duracion_minutos} minutos\n'
+            mensaje += f'   Se cancelaron {len(citas_a_cancelar)} cita(s) afectada(s)'
+        else:
+            mensaje = f'✅ Horario bloqueado: {fecha} {hora_inicio} por {duracion_minutos} minutos'
         
         print(mensaje)
         
@@ -2968,7 +2977,8 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
             'success': True,
             'bloqueo_id': bloqueo_id,
             'message': mensaje,
-            'citas_canceladas': len(citas_a_cancelar)
+            'citas_canceladas': len(citas_a_cancelar),
+            'citas_canceladas_ids': citas_a_cancelar
         }
         
     except Exception as e:
