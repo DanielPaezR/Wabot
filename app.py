@@ -3932,7 +3932,7 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CON ZONA HORARIA CORREGIDA"""
+    """API para obtener horarios disponibles - VERSIÓN CON DURACIÓN COMPLETA"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -3943,12 +3943,9 @@ def api_horarios_disponibles():
         if not all([profesional_id, fecha, servicio_id]):
             return jsonify({'error': 'Parámetros incompletos'}), 400
         
-        # ✅ CORRECCIÓN: Configurar zona horaria de Colombia
+        # Configurar zona horaria de Colombia
         tz_colombia = pytz.timezone('America/Bogota')
         fecha_actual_colombia = datetime.now(tz_colombia)
-        
-        print(f"🔍 Hora UTC del servidor: {datetime.utcnow()}")
-        print(f"🔍 Hora Colombia: {fecha_actual_colombia}")
         
         # Obtener negocio_id del profesional
         conn = get_db_connection()
@@ -3962,6 +3959,7 @@ def api_horarios_disponibles():
         
         negocio_id = profesional['negocio_id']
         
+        # Obtener duración del servicio
         cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
         servicio = cursor.fetchone()
         
@@ -3970,10 +3968,10 @@ def api_horarios_disponibles():
             return jsonify({'error': 'Servicio no encontrado'}), 404
         
         duracion_minutos = servicio['duracion']
-        print(f"🔍 Duración del servicio: {duracion_minutos} minutos, Negocio ID: {negocio_id}")
+        print(f"🔍 Duración del servicio: {duracion_minutos} minutos")
         
+        # Obtener configuración de horarios para el día
         horarios_config = db.obtener_horarios_por_dia(negocio_id, fecha)
-        print(f"🔍 Configuración de horarios obtenida: {horarios_config}")
         
         if not horarios_config or not horarios_config['activo']:
             conn.close()
@@ -3984,32 +3982,28 @@ def api_horarios_disponibles():
         almuerzo_inicio_str = horarios_config.get('almuerzo_inicio')
         almuerzo_fin_str = horarios_config.get('almuerzo_fin')
         
-        print(f"🔍 Horario configurado: {hora_inicio_str} a {hora_fin_str}, Almuerzo: {almuerzo_inicio_str} a {almuerzo_fin_str}")
+        # Obtener TODAS las citas del día con su duración
+        cursor.execute('''
+            SELECT c.hora, s.duracion, c.estado
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.profesional_id = %s 
+            AND c.fecha = %s 
+            AND c.estado NOT IN ('cancelado', 'cancelada')
+            ORDER BY c.hora
+        ''', (profesional_id, fecha))
+        
+        citas_ocupadas = cursor.fetchall()
+        conn.close()
+        
+        print(f"📋 Citas existentes: {len(citas_ocupadas)}")
+        for c in citas_ocupadas:
+            print(f"   - {c['hora']} (dur. {c['duracion']} min)")
         
         fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d').date()
         es_hoy = fecha_solicitada == fecha_actual_colombia.date()
         
-        print(f"🔍 Fecha actual Colombia: {fecha_actual_colombia}")
-        print(f"🔍 Fecha solicitada: {fecha_solicitada}")
-        print(f"🔍 ¿Es hoy en Colombia?: {es_hoy}")
-        print(f"🔍 Hora actual en Colombia: {fecha_actual_colombia.strftime('%H:%M')}")
-        
-        # ✅ CORRECCIÓN: Si es HOY, verificar si ya pasó la hora de cierre
-        if es_hoy:
-            hora_fin_hoy_colombia = tz_colombia.localize(
-                datetime.combine(fecha_solicitada, datetime.strptime(hora_fin_str, '%H:%M').time())
-            )
-            print(f"🔍 Hora de cierre hoy en Colombia: {hora_fin_hoy_colombia.strftime('%Y-%m-%d %H:%M')}")
-            
-            if fecha_actual_colombia >= hora_fin_hoy_colombia:
-                print(f"⏰ EL NEGOCIO YA CERRÓ HOY EN COLOMBIA ({hora_fin_str}). No hay horarios disponibles.")
-                conn.close()
-                return jsonify({
-                    'horarios': [],
-                    'mensaje': f'El negocio ya cerró hoy a las {hora_fin_str}. No hay horarios disponibles para hoy.'
-                })
-        
-        # Convertir strings a datetime para cálculos
+        # Generar horarios disponibles
         hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
         hora_fin = datetime.strptime(hora_fin_str, '%H:%M')
         
@@ -4020,53 +4014,30 @@ def api_horarios_disponibles():
                 almuerzo_inicio = datetime.strptime(almuerzo_inicio_str, '%H:%M')
                 almuerzo_fin = datetime.strptime(almuerzo_fin_str, '%H:%M')
             except ValueError:
-                print("⚠️ Error parseando horario de almuerzo, ignorando...")
-        
-        # Obtener citas ya agendadas
-        cursor.execute('''
-            SELECT hora FROM citas 
-            WHERE profesional_id = %s 
-            AND fecha = %s 
-            AND estado NOT IN ('cancelada', 'cancelado')
-            ORDER BY hora
-        ''', (profesional_id, fecha))
-        
-        citas_ocupadas_result = cursor.fetchall()
-        citas_ocupadas = [cita['hora'] for cita in citas_ocupadas_result]
-        print(f"🔍 Citas ocupadas: {citas_ocupadas}")
-        
-        conn.close()
+                print("⚠️ Error parseando horario de almuerzo")
         
         # ✅ CORRECCIÓN: Si es HOY, empezar desde la hora actual + margen
         if es_hoy:
-            # Calcular la hora mínima para agendar (hora actual + 30 minutos)
             hora_minima_colombia = fecha_actual_colombia + timedelta(minutes=30)
             hora_minima_time = hora_minima_colombia.time()
             
-            print(f"🔍 Hora actual Colombia: {fecha_actual_colombia.strftime('%H:%M')}")
-            print(f"🔍 Hora mínima para agendar hoy (Colombia): {hora_minima_colombia.strftime('%H:%M')}")
-            
             # Si la hora mínima es después del horario de cierre, no hay horarios
             if hora_minima_time >= datetime.strptime(hora_fin_str, '%H:%M').time():
-                print(f"⏰ La hora mínima ({hora_minima_colombia.strftime('%H:%M')}) es después del cierre ({hora_fin_str})")
                 return jsonify({
                     'horarios': [],
                     'mensaje': 'No hay horarios disponibles para hoy en el horario laboral restante.'
                 })
             
-            # ✅ CORRECCIÓN: Redondear correctamente a intervalos de 30 minutos
+            # Ajustar hora actual
             hora_minima_dt = datetime.combine(fecha_solicitada, hora_minima_time)
             hora_inicio_dt = datetime.combine(fecha_solicitada, hora_inicio.time())
             
             hora_actual = max(hora_minima_dt, hora_inicio_dt)
             
-            # ✅ CORRECCIÓN DEL ERROR: Redondear minutos correctamente
+            # Redondear a intervalos de 30 minutos
             minutos = hora_actual.minute
             if minutos % 30 != 0:
-                # Calcular los minutos redondeados
                 minutos_redondeados = ((minutos // 30) + 1) * 30
-                
-                # ✅ CORRECCIÓN: Si minutos_redondeados es 60, ajustar a 0 y sumar 1 hora
                 if minutos_redondeados == 60:
                     hora_actual = hora_actual.replace(
                         hour=hora_actual.hour + 1,
@@ -4080,16 +4051,14 @@ def api_horarios_disponibles():
                         second=0,
                         microsecond=0
                     )
-            
-            print(f"🔍 Hora actual ajustada para hoy (Colombia): {hora_actual.strftime('%H:%M')}")
         else:
-            # Para días futuros, empezar desde la hora de apertura normal
+            # Para días futuros, empezar desde la hora de apertura
             hora_actual = datetime.combine(fecha_solicitada, hora_inicio.time())
         
-        # Convertir hora_fin a datetime completo para comparación
+        # Convertir hora_fin a datetime completo
         hora_fin_completa = datetime.combine(fecha_solicitada, hora_fin.time())
         
-        # Generar slots
+        # Generar slots verificando disponibilidad COMPLETA
         intervalos_disponibles = []
         
         while hora_actual < hora_fin_completa:
@@ -4112,39 +4081,33 @@ def api_horarios_disponibles():
                     dentro_almuerzo = True
             
             if not dentro_almuerzo:
-                # Verificar si el slot está ocupado
+                # ✅ VERIFICAR DISPONIBILIDAD CONSIDERANDO DURACIÓN
                 hora_str = hora_actual.strftime('%H:%M')
-                ocupado = False
+                disponible = True
                 
-                for cita_hora in citas_ocupadas:
-                    cita_hora_str = str(cita_hora)
-                    if ':' in cita_hora_str:
-                        cita_hora_str = cita_hora_str[:5]
-                    
-                    if cita_hora_str == hora_str:
-                        ocupado = True
-                        break
-                
-                if not ocupado:
-                    # ✅ CORRECCIÓN: Si es HOY, verificar margen con hora de Colombia
-                    if es_hoy:
-                        horario_colombia = tz_colombia.localize(hora_actual)
-                        tiempo_hasta_horario = horario_colombia - fecha_actual_colombia
-                        margen_minimo = 30 * 60  # segundos
+                for cita in citas_ocupadas:
+                    try:
+                        hora_cita = datetime.strptime(str(cita['hora']), '%H:%M')
+                        hora_fin_cita = hora_cita + timedelta(minutes=int(cita['duracion']))
                         
-                        if tiempo_hasta_horario.total_seconds() < margen_minimo:
-                            print(f"⏰ Horario {hora_str} omitido (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos, mínimo 30 requeridos)")
-                        else:
-                            intervalos_disponibles.append(hora_str)
-                            print(f"✅ Horario {hora_str} DISPONIBLE (faltan {int(tiempo_hasta_horario.total_seconds()/60)} minutos)")
-                    else:
-                        intervalos_disponibles.append(hora_str)
-                        print(f"✅ Horario {hora_str} DISPONIBLE (día futuro)")
+                        # Verificar solapamiento
+                        if (hora_actual.time() < hora_fin_cita.time() and 
+                            hora_fin_slot.time() > hora_cita.time()):
+                            disponible = False
+                            print(f"❌ {hora_str} - Conflicto con cita {cita['hora']} (dur. {cita['duracion']} min)")
+                            break
+                    except Exception as e:
+                        print(f"⚠️ Error procesando cita: {e}")
+                        continue
+                
+                if disponible:
+                    intervalos_disponibles.append(hora_str)
+                    print(f"✅ {hora_str} DISPONIBLE (ocupará hasta {hora_fin_slot.strftime('%H:%M')})")
             
             # Avanzar al siguiente slot (30 minutos)
             hora_actual += timedelta(minutes=30)
         
-        print(f"🔍 Horarios disponibles encontrados: {len(intervalos_disponibles)}: {intervalos_disponibles}")
+        print(f"🔍 Horarios disponibles: {len(intervalos_disponibles)}: {intervalos_disponibles}")
         
         if not intervalos_disponibles:
             mensaje = 'No hay horarios disponibles para esta fecha'
@@ -4153,20 +4116,12 @@ def api_horarios_disponibles():
             
             return jsonify({
                 'horarios': [],
-                'mensaje': mensaje,
-                'hora_actual_colombia': fecha_actual_colombia.strftime('%H:%M'),
-                'hora_minima_requerida': (fecha_actual_colombia + timedelta(minutes=30)).strftime('%H:%M') if es_hoy else None
+                'mensaje': mensaje
             })
         
         return jsonify({
             'horarios': intervalos_disponibles,
-            'duracion': duracion_minutos,
-            'hora_actual_colombia': fecha_actual_colombia.strftime('%H:%M') if es_hoy else None,
-            'horario_laboral': {
-                'inicio': hora_inicio_str,
-                'fin': hora_fin_str,
-                'almuerzo': f"{almuerzo_inicio_str} - {almuerzo_fin_str}" if almuerzo_inicio_str and almuerzo_fin_str else None
-            }
+            'duracion': duracion_minutos
         })
         
     except Exception as e:
