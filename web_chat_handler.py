@@ -2318,27 +2318,29 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles - VERSIÓN CON LOGS LIMITADOS"""
-    # ✅ VERIFICAR SI EL DÍA ESTÁ ACTIVO
+    """Generar horarios disponibles - VERSIÓN CORREGIDA CON BLOQUEO POR DURACIÓN"""
+    # Verificar si el día está activo
     horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
     
     if not horarios_dia or not horarios_dia['activo']:
         print(f"❌ Día no activo: {fecha}")
-        return []  # Día no activo
+        return []
     
     print(f"✅ Día activo: {fecha} ({horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']})")
     
-    # ✅ Obtener citas ya agendadas
+    # Obtener citas ya agendadas CON SU DURACIÓN
     citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
     print(f"📋 Citas existentes: {len(citas_ocupadas)}")
     
-    # Obtener duración del servicio
+    # Obtener duración del servicio que se quiere agendar
     duracion_servicio = db.obtener_duracion_servicio(negocio_id, servicio_id)
     if not duracion_servicio:
         print(f"❌ No se pudo obtener duración del servicio")
         return []
     
-    # ✅ Si es hoy, considerar margen mínimo
+    print(f"⏱️ Duración del servicio a agendar: {duracion_servicio} minutos")
+    
+    # Si es hoy, considerar margen mínimo
     fecha_actual = datetime.now(tz_colombia)
     fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
     es_hoy = fecha_cita.date() == fecha_actual.date()
@@ -2357,38 +2359,53 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         hora_str = hora_actual.strftime('%H:%M')
         total_horarios_verificados += 1
         
-        # ✅ Si es hoy, verificar horarios futuros con margen
+        # Calcular hora de fin del servicio
+        hora_fin_servicio = hora_actual + timedelta(minutes=duracion_servicio)
+        
+        # Verificar que el servicio no se pase de la hora de cierre
+        if hora_fin_servicio.time() > hora_fin.time():
+            print(f"⏰ {hora_str} - Servicio terminaría después del cierre ({hora_fin_servicio.strftime('%H:%M')} > {horarios_dia['hora_fin']})")
+            hora_actual += timedelta(minutes=30)
+            continue
+        
+        # Si es hoy, verificar horarios futuros con margen
         if es_hoy:
             hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
             hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_colombia)
             tiempo_hasta_horario = hora_actual_completa - fecha_actual
             
-            # ✅ MARGEN MÍNIMO: 30 minutos de anticipación
+            # MARGEN MÍNIMO: 30 minutos de anticipación
             margen_minimo_minutos = 30
             
             if tiempo_hasta_horario.total_seconds() <= 0:
+                print(f"⏰ {hora_str} - Ya pasó esta hora")
                 horarios_omitidos += 1
                 hora_actual += timedelta(minutes=30)
                 continue
             elif tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
+                print(f"⏰ {hora_str} - Muy cerca (faltan {int(tiempo_hasta_horario.total_seconds()/60)} min, mínimo {margen_minimo_minutos})")
                 horarios_omitidos += 1
                 hora_actual += timedelta(minutes=30)
                 continue
         
         # Verificar si no es horario de almuerzo
         if not es_horario_almuerzo(hora_actual, horarios_dia):
-            # ✅ Verificar disponibilidad (función simplificada abajo)
-            if esta_disponible_simplificada(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
+            # ✅ VERIFICAR DISPONIBILIDAD COMPLETA (no solo la hora de inicio)
+            if esta_disponible_por_duracion(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
                 horarios.append(hora_str)
                 horarios_disponibles += 1
+                print(f"✅ {hora_str} DISPONIBLE (ocupará hasta {hora_fin_servicio.strftime('%H:%M')})")
             else:
+                print(f"❌ {hora_str} NO DISPONIBLE - Conflicto con otra cita")
                 horarios_omitidos += 1
         else:
+            print(f"⏰ {hora_str} - Horario de almuerzo")
             horarios_omitidos += 1
         
+        # Avanzar al siguiente slot (30 minutos)
         hora_actual += timedelta(minutes=30)
     
-    # ✅ MOSTRAR RESUMEN EN VEZ DE DETALLES
+    # Mostrar resumen
     print(f"🎯 Horarios generados:")
     print(f"   • Total verificados: {total_horarios_verificados}")
     print(f"   • Disponibles: {horarios_disponibles}")
@@ -2397,20 +2414,28 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
     
     return horarios
 
-def esta_disponible_simplificada(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """Verificar disponibilidad - VERSIÓN SILENCIOSA"""
+def esta_disponible_por_duracion(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
+    """
+    Verificar si un horario está disponible considerando la DURACIÓN COMPLETA del servicio.
+    Versión mejorada que bloquea todo el tiempo que dure el servicio.
+    """
     hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
+    hora_inicio_str = hora_inicio.strftime('%H:%M')
+    hora_fin_str = hora_fin_servicio.strftime('%H:%M')
     
     # Verificar límites del día
     try:
         hora_fin_jornada = datetime.strptime(config_dia['hora_fin'], '%H:%M')
         if hora_fin_servicio.time() > hora_fin_jornada.time():
+            print(f"     ❌ {hora_inicio_str} - Se pasa del horario de cierre (termina {hora_fin_str})")
             return False
-    except Exception:
+    except Exception as e:
+        print(f"❌ Error verificando horario cierre: {e}")
         return False
     
     # Verificar almuerzo
     if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
+        print(f"     ❌ {hora_inicio_str} - Se solapa con horario de almuerzo")
         return False
     
     # Verificar citas existentes
@@ -2434,15 +2459,24 @@ def esta_disponible_simplificada(hora_inicio, duracion_servicio, citas_ocupadas,
                 if not hora_cita_str or (estado_cita and estado_cita.lower() in ['cancelado', 'cancelada']):
                     continue
                 
+                # Convertir a datetime
                 hora_cita = datetime.strptime(str(hora_cita_str).strip(), '%H:%M')
                 hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
                 
+                # ✅ VERIFICAR SOLAPAMIENTO COMPLETO
                 if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
+                    print(f"     ❌ {hora_inicio_str} - Conflicto con cita {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')} (dur. {duracion_cita} min)")
                     return False
+                else:
+                    print(f"     ✓ {hora_inicio_str} - No hay conflicto con cita {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')}")
                     
-            except Exception:
+            except Exception as e:
+                print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
                 continue
+    else:
+        print(f"     ✓ {hora_inicio_str} - No hay citas para comparar")
     
+    print(f"     ✅ {hora_inicio_str} DISPONIBLE (ocupará hasta {hora_fin_str})")
     return True
 
 
@@ -2593,7 +2627,7 @@ def se_solapa_con_almuerzo(hora_inicio, hora_fin, config_dia):
         return False
 
 def se_solapan(inicio1, fin1, inicio2, fin2):
-    """Verificar si dos intervalos de tiempo se solapan - VERSIÓN SILENCIOSA"""
+    """Verificar si dos intervalos de tiempo se solapan"""
     return (inicio1.time() < fin2.time() and fin1.time() > inicio2.time())
 
 def reiniciar_conversacion_si_es_necesario(numero, negocio_id):

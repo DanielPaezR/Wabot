@@ -1664,7 +1664,7 @@ def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id,
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
-    """Obtener todas las citas de un profesional en un día específico - CON VERIFICACIÓN"""
+    """Obtener todas las citas de un profesional en un día específico - CON DURACIÓN"""
     print(f"\n📋 [DB-DIAGNÓSTICO] obtener_citas_dia llamado con:")
     print(f"   negocio_id: {negocio_id}")
     print(f"   profesional_id: {profesional_id}")
@@ -1694,37 +1694,33 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
         '''
         params = (negocio_id, profesional_id, fecha)
     
-    print(f"📋 SQL a ejecutar: {sql}")
-    print(f"📋 Parámetros: {params}")
-    
     cursor = conn.cursor()
     cursor.execute(sql, params)
     
     resultados = cursor.fetchall()
     conn.close()
     
-    print(f"📋 Resultados crudos de BD: {resultados}")
-    print(f"📋 Número de resultados: {len(resultados)}")
-    
     # Convertir resultados a formato consistente
     citas = []
     for row in resultados:
         if isinstance(row, dict):
-            citas.append(row)
+            citas.append({
+                'hora': row.get('hora'),
+                'duracion': row.get('duracion', 0),
+                'estado': row.get('estado', 'confirmado')
+            })
         elif isinstance(row, (list, tuple)):
-            # Convertir tupla a dict
-            cita_dict = {}
-            if len(row) > 0:
-                cita_dict['hora'] = row[0]
-            if len(row) > 1:
-                cita_dict['duracion'] = row[1]
-            if len(row) > 2:
-                cita_dict['estado'] = row[2]
-            else:
-                cita_dict['estado'] = 'confirmado'
+            cita_dict = {
+                'hora': row[0] if len(row) > 0 else None,
+                'duracion': row[1] if len(row) > 1 else 0,
+                'estado': row[2] if len(row) > 2 else 'confirmado'
+            }
             citas.append(cita_dict)
     
-    print(f"📋 Citas procesadas para retornar: {citas}")
+    print(f"📋 Citas procesadas para retornar: {len(citas)}")
+    for c in citas:
+        print(f"   - {c['hora']} (dur. {c['duracion']} min, estado: {c['estado']})")
+    
     return citas
 
 
