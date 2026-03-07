@@ -1673,14 +1673,13 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
     conn = get_db_connection()
     
     if is_postgresql():
-        # ✅ CORREGIDO: Incluir 'bloqueado' en la consulta
         sql = '''
             SELECT c.hora, s.duracion, c.estado
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
             AND c.fecha::DATE = %s::DATE 
-            AND c.estado IN ('confirmado', 'completado', 'bloqueado')
+            AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')
             ORDER BY c.hora
         '''
         params = (negocio_id, profesional_id, fecha)
@@ -2855,7 +2854,7 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
             AND c.fecha = %s
-            AND c.estado IN ('confirmado', 'completado')
+            AND c.estado IN ('confirmado', 'confirmada', 'completado')
             ORDER BY c.hora
         ''', (negocio_id, profesional_id, fecha))
         

@@ -1414,7 +1414,7 @@ def mostrar_mis_citas(numero, negocio_id):
                 JOIN profesionales p ON c.profesional_id = p.id
                 WHERE c.cliente_telefono = %s 
                 AND c.negocio_id = %s 
-                AND c.estado = 'confirmado'
+                AND c.estado IN ('confirmado', 'confirmada')
                 ORDER BY c.fecha DESC, c.hora DESC
             ''', (telefono_real, negocio_id))
         else:
