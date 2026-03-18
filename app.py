@@ -753,6 +753,133 @@ def check_needs_push():
     except Exception as e:
         print(f"❌ Error check_needs_push: {e}")
         return jsonify({'needsPush': False})
+    
+@app.route('/profesional/cancelar-cita/<int:cita_id>', methods=['POST'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_cancelar_cita(cita_id):
+    """Cancelar una cita desde el panel del profesional"""
+    conn = None
+    try:
+        print(f"🔍 [CANCELAR_CITA] Iniciando para cita #{cita_id}")
+        
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Error de seguridad'})
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('profesional_dashboard'))
+        
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        
+        print(f"🔍 [CANCELAR_CITA] profesional_id={profesional_id}, negocio_id={negocio_id}")
+        
+        if not profesional_id:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'No autorizado'})
+            flash('No autorizado', 'error')
+            return redirect(url_for('login'))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Verificar que la cita pertenezca al profesional
+        cursor.execute('''
+            SELECT id, cliente_nombre, fecha, hora, estado
+            FROM citas 
+            WHERE id = %s AND profesional_id = %s AND negocio_id = %s
+        ''', (cita_id, profesional_id, negocio_id))
+        
+        cita = cursor.fetchone()
+        
+        if not cita:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Cita no encontrada'})
+            flash('Cita no encontrada', 'error')
+            return redirect(url_for('profesional_dashboard'))
+        
+        if cita['estado'] == 'cancelado':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'La cita ya está cancelada'})
+            flash('La cita ya está cancelada', 'warning')
+            return redirect(url_for('profesional_dashboard'))
+        
+        if cita['estado'] == 'completado':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'No se puede cancelar una cita completada'})
+            flash('No se puede cancelar una cita completada', 'error')
+            return redirect(url_for('profesional_dashboard'))
+        
+        # Cancelar la cita
+        cursor.execute('''
+            UPDATE citas 
+            SET estado = 'cancelado'
+            WHERE id = %s
+            RETURNING id, cliente_nombre, fecha, hora
+        ''', (cita_id,))
+        
+        cita_cancelada = cursor.fetchone()
+        
+        # Registrar en historial si existe la tabla
+        try:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'historial_citas'
+                )
+            """)
+            existe_historial = cursor.fetchone()['exists']
+            
+            if existe_historial:
+                cursor.execute('''
+                    INSERT INTO historial_citas 
+                    (cita_id, negocio_id, profesional_id, accion, detalles)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (
+                    cita_id,
+                    negocio_id,
+                    profesional_id,
+                    'cancelada',
+                    f'Cita cancelada por profesional (cliente: {cita_cancelada["cliente_nombre"]})'
+                ))
+        except Exception as e:
+            print(f"⚠️ Error en historial (no crítico): {e}")
+        
+        conn.commit()
+        
+        # Obtener fecha para redirección
+        fecha = request.args.get('fecha') or request.form.get('fecha') or cita['fecha']
+        
+        # Para respuesta AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'message': f'Cita cancelada para {cita_cancelada["cliente_nombre"]}',
+                'cita_id': cita_id,
+                'cliente_nombre': cita_cancelada['cliente_nombre']
+            })
+        
+        flash(f'✅ Cita cancelada para {cita_cancelada["cliente_nombre"]}', 'success')
+        
+        return redirect(url_for('profesional_dashboard', fecha=fecha, profesional_id=profesional_id))
+        
+    except Exception as e:
+        print(f"❌ Error cancelando cita: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        if conn:
+            conn.rollback()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': str(e)})
+        
+        flash('Error al cancelar la cita', 'error')
+        return redirect(url_for('profesional_dashboard'))
+        
+    finally:
+        if conn:
+            conn.close()
 # =============================================================================
 # RUTAS DEL PANEL ADMINISTRADOR
 # =============================================================================

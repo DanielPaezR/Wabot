@@ -1649,6 +1649,60 @@
             padding: 0;
         }
     }
+    /* BOTÓN DE CANCELAR - ESTILOS */
+    .btn-cancelar {
+        background: var(--danger);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 44px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-cancelar:active:not(:disabled) {
+        transform: scale(0.95);
+    }
+
+    .btn-cancelar:disabled {
+        background: #95a5a6 !important;
+        cursor: not-allowed !important;
+        opacity: 0.7 !important;
+        transform: none !important;
+    }
+
+    .btn-cancelar .spinner-border-sm {
+        width: 0.8rem;
+        height: 0.8rem;
+        border-width: 0.15em;
+    }
+
+    /* Para pantallas pequeñas */
+    @media (max-width: 480px) {
+        .btn-cancelar {
+            padding: 10px 15px;
+            font-size: 0.85rem;
+        }
+    }
+
+    /* Modo oscuro */
+    @media (prefers-color-scheme: dark) {
+        .btn-cancelar {
+            background: #c0392b;
+        }
+        
+        .btn-cancelar:hover {
+            background: #a93226;
+        }
+    }
     </style>
 </head>
 <!-- CAMBIO CRÍTICO: Agregar data-profesional-id al body -->
@@ -1851,24 +1905,38 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
                                         </span>
                                     {% else %}
                                         <form method="POST" 
-                                        action="{{ url_for('completar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" 
-                                        class="completar-cita-form" 
-                                        style="display: inline;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <input type="hidden" name="fecha" value="{{ fecha }}">
-                                        <input type="hidden" name="profesional_id" value="{{ profesional_id }}">
-                                        <button type="submit" 
-                                                class="btn-complete completar-btn"
-                                                data-cita-id="{{ cita.id }}"
-                                                onclick="return manejarCompletarCita(event, this);">
-                                            ✅ Completar
-                                        </button>
-                                    </form>
+                                            action="{{ url_for('completar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" 
+                                            class="completar-cita-form" 
+                                            style="display: inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" 
+                                                    class="btn-complete completar-btn"
+                                                    data-cita-id="{{ cita.id }}"
+                                                    onclick="return manejarCompletarCita(event, this);">
+                                                ✅ Completar
+                                            </button>
+                                        </form>
+                                        
+                                        <!-- 🔥 NUEVO BOTÓN DE CANCELAR 🔥 -->
+                                        <form method="POST" 
+                                            action="{{ url_for('profesional_cancelar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" 
+                                            class="cancelar-cita-form" 
+                                            style="display: inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" 
+                                                    class="btn-cancelar cancelar-btn"
+                                                    data-cita-id="{{ cita.id }}"
+                                                    data-cliente="{{ cita.cliente_nombre }}"
+                                                    onclick="return manejarCancelarCita(event, this);">
+                                                ❌ Cancelar
+                                            </button>
+                                        </form>
                                     {% endif %}
+                                    
                                     <!-- Botón Personalizar - SIEMPRE VISIBLE -->
                                     <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
                                     class="btn-personalizar">
-                                    <span>⚙️</span> Personalizar
+                                        <span>⚙️</span> Personalizar
                                     </a>
                                 </div>
                                 
@@ -2261,6 +2329,113 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
             } catch (error) {
                 console.error('Error marcando todas como leídas:', error);
             }
+        }
+
+        async function manejarCancelarCita(event, boton) {
+            event.preventDefault();
+            
+            const formulario = boton.closest('form');
+            const citaId = boton.dataset.citaId;
+            const clienteNombre = boton.dataset.cliente;
+            const csrfToken = formulario.querySelector('input[name="csrf_token"]').value;
+            const fecha = document.querySelector('.date-selector').value;
+            const profesionalId = document.body.dataset.profesionalId;
+            
+            console.log('=== CANCELAR CITA ===');
+            console.log('Cita ID:', citaId);
+            console.log('Cliente:', clienteNombre);
+            
+            // Confirmación con el profesional
+            const confirmacion = confirm(
+                `⚠️ ¿Estás seguro de cancelar la cita de ${clienteNombre}?\n\n` +
+                `Esta acción no se puede deshacer y el cliente no recibirá notificación automática.`
+            );
+            
+            if (!confirmacion) {
+                return false;
+            }
+            
+            // Guardar el contenido original del botón
+            const botonOriginal = boton.innerHTML;
+            
+            // Mostrar estado de carga
+            boton.disabled = true;
+            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Cancelando...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('csrf_token', csrfToken);
+                
+                // Agregar headers para indicar que es una petición AJAX
+                const response = await fetch(formulario.action + `?fecha=${fecha}&profesional_id=${profesionalId}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // ✅ ANIMACIÓN DE DESAPARICIÓN
+                    const citaItem = boton.closest('.cita-item');
+                    
+                    // Añadir clase para animación de salida
+                    citaItem.style.transition = 'all 0.3s ease';
+                    citaItem.style.opacity = '0';
+                    citaItem.style.transform = 'translateX(20px)';
+                    citaItem.style.height = citaItem.offsetHeight + 'px';
+                    citaItem.style.backgroundColor = 'rgba(231, 76, 60, 0.1)'; // Rojo suave
+                    
+                    // Esperar a que termine la animación y luego eliminar el elemento
+                    setTimeout(() => {
+                        citaItem.style.margin = '0';
+                        citaItem.style.padding = '0';
+                        citaItem.style.height = '0';
+                        
+                        setTimeout(() => {
+                            citaItem.remove();
+                            
+                            // ✅ ACTUALIZAR CONTADORES
+                            actualizarContadores();
+                            
+                            // ✅ MOSTRAR MENSAJE DE ÉXITO
+                            mostrarNotificacion(`❌ Cita de ${clienteNombre} cancelada`, 'warning');
+                            
+                            // ✅ VERIFICAR SI YA NO HAY CITAS
+                            verificarListaVacia();
+                            
+                        }, 300);
+                    }, 300);
+                    
+                } else {
+                    throw new Error(result.message || 'Error al cancelar la cita');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarNotificacion('❌ Error al cancelar la cita', 'error');
+                
+                // Restaurar botón
+                boton.disabled = false;
+                boton.innerHTML = botonOriginal;
+            }
+            
+            return false;
+        }
+
+        // También necesitas modificar la función actualizarContadores para que funcione con ambos casos
+        function actualizarContadores() {
+            // Actualizar contador de citas
+            const totalCitasElement = document.querySelector('.stat-number');
+            if (totalCitasElement) {
+                const totalActual = parseInt(totalCitasElement.textContent) || 0;
+                totalCitasElement.textContent = Math.max(0, totalActual - 1);
+            }
+            
+            // Actualizar ganancia estimada (solo si es una cita completada, no cancelada)
+            // Por ahora, mantenemos la ganancia igual porque no se ganó dinero
         }
         
         // Cargar notificaciones al inicio
