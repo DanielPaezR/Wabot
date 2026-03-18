@@ -144,6 +144,11 @@
             color: white;
         }
         
+        .btn-mobile-warning {
+            background: var(--warning);
+            color: white;
+        }
+        
         .btn-mobile-sm {
             min-height: 36px;
             min-width: 36px;
@@ -379,7 +384,7 @@
             color: var(--dark);
             margin: 0;
             display: flex;
-                align-items: center;
+            align-items: center;
             gap: 10px;
         }
         
@@ -434,6 +439,10 @@
             background: var(--primary);
         }
         
+        .toast-warning {
+            background: var(--warning);
+        }
+        
         @keyframes toastSlideUp {
             from {
                 transform: translateY(100px);
@@ -473,6 +482,12 @@
             border-color: #bee5eb;
         }
         
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+        }
+        
         /* ==================== UTILIDADES ==================== */
         .text-truncate-2 {
             display: -webkit-box;
@@ -504,6 +519,11 @@
         .badge-warning {
             background: #fff3cd;
             color: #856404;
+        }
+        
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
         }
         
         .spinner {
@@ -657,7 +677,7 @@
         <div id="toastContent"></div>
     </div>
 
-    <!-- Modal para bloquear horario -->
+    <!-- Modal para bloquear horario (puntual) -->
     <div id="modalBloquear" class="modal-mobile-overlay">
         <div class="modal-mobile-content">
             <div class="modal-mobile-header">
@@ -700,6 +720,7 @@
                             <option value="90">1.5 horas</option>
                             <option value="120">2 horas</option>
                             <option value="180">3 horas</option>
+                            <option value="480">Día completo (8 horas)</option>
                         </select>
                     </div>
                     
@@ -730,6 +751,140 @@
         </div>
     </div>
 
+    <!-- Modal para bloqueo semanal recurrente (NUEVO) -->
+    <div id="modalBloqueoSemanal" class="modal-mobile-overlay">
+        <div class="modal-mobile-content">
+            <div class="modal-mobile-header">
+                <h3 class="modal-mobile-title">
+                    <i class="fas fa-calendar-week"></i> Bloqueo Semanal
+                </h3>
+            </div>
+            
+            <form id="formBloqueoSemanal">
+                <div class="modal-mobile-body">
+                    <input type="hidden" id="csrf_token_semanal" value="{{ csrf_token() }}">
+                    
+                    <div class="alert-mobile alert-warning">
+                        <i class="fas fa-clock-rotate-left me-2"></i>
+                        <strong>¿Qué es esto?</strong><br>
+                        Este bloqueo se repetirá TODOS los días de la semana seleccionados.
+                        Ideal para días de descanso fijos (ej: todos los martes no trabajo).
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label class="form-label-mobile">
+                            <i class="fas fa-calendar-alt me-1"></i> Días de la semana
+                        </label>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 5px;">
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="1"> Lunes
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="2"> Martes
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="3"> Miércoles
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="4"> Jueves
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="5"> Viernes
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="6"> Sábado
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="0"> Domingo
+                                </label>
+                            </div>
+                        </div>
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Selecciona uno o más días que quieras bloquear cada semana
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="horaInicioSemanal" class="form-label-mobile">
+                            <i class="fas fa-clock me-1"></i> Hora de inicio
+                        </label>
+                        <select class="form-control-mobile" id="horaInicioSemanal" name="hora_inicio" required>
+                            <option value="">Seleccionar hora...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="horaFinSemanal" class="form-label-mobile">
+                            <i class="fas fa-clock me-1"></i> Hora de fin
+                        </label>
+                        <select class="form-control-mobile" id="horaFinSemanal" name="hora_fin" required>
+                            <option value="">Seleccionar hora...</option>
+                        </select>
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Bloqueará todo el día si seleccionas inicio y fin completos
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="motivoSemanal" class="form-label-mobile">
+                            <i class="fas fa-comment me-1"></i> Motivo (opcional)
+                        </label>
+                        <input type="text" class="form-control-mobile" id="motivoSemanal" name="motivo" 
+                               placeholder="Ej: Día de descanso, Estudio, etc.">
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="fechaInicioSemanal" class="form-label-mobile">
+                            <i class="fas fa-calendar-alt me-1"></i> Aplicar desde (opcional)
+                        </label>
+                        <input type="date" class="form-control-mobile" id="fechaInicioSemanal" name="fecha_inicio">
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Si se deja vacío, aplica desde hoy
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="fechaFinSemanal" class="form-label-mobile">
+                            <i class="fas fa-calendar-alt me-1"></i> Aplicar hasta (opcional)
+                        </label>
+                        <input type="date" class="form-control-mobile" id="fechaFinSemanal" name="fecha_fin">
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Si se deja vacío, aplica indefinidamente
+                        </small>
+                    </div>
+                    
+                    <div class="alert-mobile alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Importante:</strong> Este bloqueo se aplicará automáticamente
+                        a todas las fechas futuras que coincidan con los días seleccionados.
+                    </div>
+                </div>
+                
+                <div class="modal-mobile-footer">
+                    <button type="button" class="btn-mobile btn-mobile-secondary" onclick="closeModalSemanal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-mobile btn-mobile-primary" id="btnBloquearSemanal">
+                        <i class="fas fa-save me-1"></i> Guardar bloqueo semanal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Header móvil -->
     <header class="mobile-header">
         <div class="header-content">
@@ -743,6 +898,10 @@
             </h1>
             
             <div class="header-actions">
+                <button class="btn-mobile btn-mobile-warning" onclick="openModalSemanal()" title="Bloqueo semanal recurrente">
+                    <i class="fas fa-calendar-week"></i>
+                    <span class="d-none d-sm-inline">Semanal</span>
+                </button>
                 <button class="btn-mobile btn-mobile-success" onclick="openModal()">
                     <i class="fas fa-plus"></i>
                     <span class="d-none d-sm-inline">Nuevo</span>
@@ -773,85 +932,195 @@
             </form>
         </div>
 
-        <!-- Mensajes flash -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert-mobile alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }}">
-                        <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'error' else 'info-circle' }} me-2"></i>
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+        <!-- Pestañas de navegación (NUEVO) -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; background: white; border-radius: 10px; padding: 10px; box-shadow: var(--shadow);">
+            <button id="tabPuntuales" class="btn-mobile btn-mobile-primary" style="flex: 1;" onclick="cambiarTabs('puntuales')">
+                <i class="fas fa-clock"></i> Puntuales
+            </button>
+            <button id="tabRecurrentes" class="btn-mobile btn-mobile-secondary" style="flex: 1;" onclick="cambiarTabs('recurrentes')">
+                <i class="fas fa-calendar-week"></i> Recurrentes
+            </button>
+        </div>
 
-        <!-- Tarjeta de contenido -->
-        <div class="mobile-card">
-            <div class="card-header-mobile">
-                <i class="fas fa-list me-2"></i> Horarios Bloqueados
-            </div>
-            
-            <div class="card-body-mobile">
-                {% if bloqueos %}
-                    <div class="table-responsive-mobile">
-                        <table class="table-mobile">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Hora</th>
-                                    <th>Motivo</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for bloqueo in bloqueos %}
-                                <tr>
-                                    <td>{{ bloqueo.fecha }}</td>
-                                    <td>
-                                        <strong>{{ bloqueo.hora[:5] if bloqueo.hora|length > 5 else bloqueo.hora }}</strong>
-                                    </td>
-                                    <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo especificado' }}">
-                                        {{ bloqueo.motivo or "Sin motivo" }}
-                                    </td>
-                                    <td>
-                                        <form method="POST" 
-                                              action="{{ url_for('profesional_desbloquear_horario', bloqueo_id=bloqueo.id) }}"
-                                              onsubmit="return confirmDesbloqueo(this);"
-                                              class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="btn-mobile btn-mobile-danger btn-mobile-sm">
-                                                <i class="fas fa-unlock me-1"></i>
-                                                <span class="d-none d-md-inline">Desbloquear</span>
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <!-- Resumen -->
-                    <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 500;">
-                                <i class="fas fa-clock me-1"></i> Total bloqueados:
-                            </span>
-                            <span style="font-weight: 600; color: var(--primary);">
-                                {{ bloqueos|length }} horario(s)
-                            </span>
+        <!-- Sección de bloqueos puntuales -->
+        <div id="seccionPuntuales">
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert-mobile alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'error' else 'info-circle' }} me-2"></i>
+                            {{ message }}
                         </div>
-                    </div>
-                {% else %}
-                    <div class="empty-state-mobile">
-                        <i class="fas fa-calendar-check empty-icon"></i>
-                        <p class="empty-text">No hay horarios bloqueados</p>
-                        <p class="empty-subtext">Para esta fecha seleccionada</p>
-                        <button class="btn-mobile btn-mobile-success mt-3" onclick="openModal()">
-                            <i class="fas fa-plus me-1"></i> Bloquear primer horario
-                        </button>
-                    </div>
+                    {% endfor %}
                 {% endif %}
+            {% endwith %}
+
+            <!-- Tarjeta de contenido - Bloqueos puntuales -->
+            <div class="mobile-card">
+                <div class="card-header-mobile">
+                    <i class="fas fa-clock me-2"></i> Bloqueos Puntuales
+                </div>
+                
+                <div class="card-body-mobile">
+                    {% if bloqueos_puntuales %}
+                        <div class="table-responsive-mobile">
+                            <table class="table-mobile">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Hora</th>
+                                        <th>Duración</th>
+                                        <th>Motivo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bloqueo in bloqueos_puntuales %}
+                                    <tr>
+                                        <td>{{ bloqueo.fecha }}</td>
+                                        <td>
+                                            <strong>{{ bloqueo.hora[:5] if bloqueo.hora|length > 5 else bloqueo.hora }}</strong>
+                                        </td>
+                                        <td>{{ bloqueo.duracion }} min</td>
+                                        <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo especificado' }}">
+                                            {{ bloqueo.motivo or "Sin motivo" }}
+                                        </td>
+                                        <td>
+                                            <form method="POST" 
+                                                  action="{{ url_for('profesional_desbloquear_horario', bloqueo_id=bloqueo.id) }}"
+                                                  onsubmit="return confirmDesbloqueo(this, false);"
+                                                  class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <input type="hidden" name="tipo" value="puntual">
+                                                <button type="submit" class="btn-mobile btn-mobile-danger btn-mobile-sm">
+                                                    <i class="fas fa-unlock me-1"></i>
+                                                    <span class="d-none d-md-inline">Desbloquear</span>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Resumen -->
+                        <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500;">
+                                    <i class="fas fa-clock me-1"></i> Total puntuales:
+                                </span>
+                                <span style="font-weight: 600; color: var(--primary);">
+                                    {{ bloqueos_puntuales|length }} horario(s)
+                                </span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state-mobile">
+                            <i class="fas fa-clock empty-icon"></i>
+                            <p class="empty-text">No hay bloqueos puntuales</p>
+                            <p class="empty-subtext">Para esta fecha seleccionada</p>
+                            <button class="btn-mobile btn-mobile-success mt-3" onclick="openModal()">
+                                <i class="fas fa-plus me-1"></i> Crear bloqueo puntual
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de bloqueos recurrentes (NUEVO) -->
+        <div id="seccionRecurrentes" style="display: none;">
+            <div class="mobile-card">
+                <div class="card-header-mobile" style="background: linear-gradient(135deg, var(--warning), #e67e22);">
+                    <i class="fas fa-calendar-week me-2"></i> Bloqueos Recurrentes (Semanales)
+                </div>
+                
+                <div class="card-body-mobile">
+                    {% if bloqueos_recurrentes %}
+                        <div class="table-responsive-mobile">
+                            <table class="table-mobile">
+                                <thead>
+                                    <tr>
+                                        <th>Días</th>
+                                        <th>Horario</th>
+                                        <th>Motivo</th>
+                                        <th>Vigencia</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bloqueo in bloqueos_recurrentes %}
+                                    <tr>
+                                        <td>
+                                            {% set dias = bloqueo.dias_semana|from_json %}
+                                            {% for dia_num in dias %}
+                                                {% if dia_num == '1' %}Lun{% endif %}
+                                                {% if dia_num == '2' %}Mar{% endif %}
+                                                {% if dia_num == '3' %}Mié{% endif %}
+                                                {% if dia_num == '4' %}Jue{% endif %}
+                                                {% if dia_num == '5' %}Vie{% endif %}
+                                                {% if dia_num == '6' %}Sáb{% endif %}
+                                                {% if dia_num == '0' %}Dom{% endif %}
+                                                {% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td>{{ bloqueo.hora_inicio[:5] }} - {{ bloqueo.hora_fin[:5] }}</td>
+                                        <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo' }}">
+                                            {{ bloqueo.motivo or "Sin motivo" }}
+                                        </td>
+                                        <td>
+                                            {% if bloqueo.fecha_inicio %}
+                                                Desde {{ bloqueo.fecha_inicio }}
+                                            {% endif %}
+                                            {% if bloqueo.fecha_fin %}
+                                                <br>Hasta {{ bloqueo.fecha_fin }}
+                                            {% endif %}
+                                            {% if not bloqueo.fecha_inicio and not bloqueo.fecha_fin %}
+                                                Indefinido
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <form method="POST" 
+                                                  action="{{ url_for('profesional_eliminar_bloqueo_recurrente', bloqueo_id=bloqueo.id) }}"
+                                                  onsubmit="return confirmDesbloqueo(this, true);"
+                                                  class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn-mobile btn-mobile-danger btn-mobile-sm">
+                                                    <i class="fas fa-trash me-1"></i>
+                                                    <span class="d-none d-md-inline">Eliminar</span>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Resumen -->
+                        <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500;">
+                                    <i class="fas fa-calendar-week me-1"></i> Total recurrentes:
+                                </span>
+                                <span style="font-weight: 600; color: var(--warning);">
+                                    {{ bloqueos_recurrentes|length }} bloqueo(s)
+                                </span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state-mobile">
+                            <i class="fas fa-calendar-week empty-icon"></i>
+                            <p class="empty-text">No hay bloqueos recurrentes</p>
+                            <p class="empty-subtext">Configura días de descanso semanales</p>
+                            <button class="btn-mobile btn-mobile-warning mt-3" onclick="openModalSemanal()">
+                                <i class="fas fa-plus me-1"></i> Crear bloqueo semanal
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </main>
@@ -859,6 +1128,7 @@
     <script>
         // Variables globales
         let horariosOcupados = {};
+        let horariosLaborales = [];
         
         // Configuración inicial
         document.addEventListener('DOMContentLoaded', function() {
@@ -875,11 +1145,16 @@
             if (window.location.hash === '#bloquear') {
                 openModal();
             }
+            if (window.location.hash === '#semanal') {
+                openModalSemanal();
+            }
             
             // Configurar la fecha mínima como hoy
             const hoy = new Date().toISOString().split('T')[0];
             const fechaInput = document.getElementById('fechaBloqueo');
             const fechaFilter = document.getElementById('fecha');
+            const fechaInicioSemanal = document.getElementById('fechaInicioSemanal');
+            const fechaFinSemanal = document.getElementById('fechaFinSemanal');
             
             if (fechaInput) {
                 fechaInput.min = hoy;
@@ -887,9 +1162,55 @@
             if (fechaFilter) {
                 fechaFilter.min = hoy;
             }
+            if (fechaInicioSemanal) {
+                fechaInicioSemanal.min = hoy;
+            }
+            if (fechaFinSemanal) {
+                fechaFinSemanal.min = hoy;
+            }
+            
+            // Cargar horarios para el modal semanal
+            cargarHorariosLaborales();
+            
+            // Verificar si hay parámetro de pestaña en URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab === 'recurrentes') {
+                cambiarTabs('recurrentes');
+            }
         });
         
-        // Funciones del modal
+        // Función para cambiar entre pestañas
+        function cambiarTabs(tab) {
+            const seccionPuntuales = document.getElementById('seccionPuntuales');
+            const seccionRecurrentes = document.getElementById('seccionRecurrentes');
+            const tabPuntuales = document.getElementById('tabPuntuales');
+            const tabRecurrentes = document.getElementById('tabRecurrentes');
+            
+            if (tab === 'puntuales') {
+                seccionPuntuales.style.display = 'block';
+                seccionRecurrentes.style.display = 'none';
+                tabPuntuales.className = 'btn-mobile btn-mobile-primary';
+                tabRecurrentes.className = 'btn-mobile btn-mobile-secondary';
+                
+                // Actualizar URL sin recargar
+                const url = new URL(window.location);
+                url.searchParams.set('tab', 'puntuales');
+                window.history.pushState({}, '', url);
+            } else {
+                seccionPuntuales.style.display = 'none';
+                seccionRecurrentes.style.display = 'block';
+                tabPuntuales.className = 'btn-mobile btn-mobile-secondary';
+                tabRecurrentes.className = 'btn-mobile btn-mobile-primary';
+                
+                // Actualizar URL sin recargar
+                const url = new URL(window.location);
+                url.searchParams.set('tab', 'recurrentes');
+                window.history.pushState({}, '', url);
+            }
+        }
+        
+        // Funciones del modal puntual
         function openModal() {
             const modal = document.getElementById('modalBloquear');
             modal.style.display = 'flex';
@@ -921,19 +1242,156 @@
             }
         }
         
-        // Cerrar modal al hacer clic fuera
+        // Funciones del modal semanal (NUEVO)
+        function openModalSemanal() {
+            const modal = document.getElementById('modalBloqueoSemanal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Limpiar selecciones
+            document.querySelectorAll('input[name="dias_semana"]').forEach(cb => cb.checked = false);
+            document.getElementById('motivoSemanal').value = '';
+            
+            // Fechas por defecto
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('fechaInicioSemanal').value = hoy;
+            document.getElementById('fechaFinSemanal').value = '';
+            
+            // Cargar horarios disponibles
+            cargarHorariosLaborales();
+            
+            setTimeout(() => {
+                document.getElementById('horaInicioSemanal').focus({ preventScroll: true });
+            }, 100);
+        }
+        
+        function closeModalSemanal() {
+            const modal = document.getElementById('modalBloqueoSemanal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+        }
+        
+        // Cerrar modales al hacer clic fuera
         document.getElementById('modalBloquear').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeModal();
             }
         });
         
-        // Cerrar con Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && document.getElementById('modalBloquear').style.display === 'flex') {
-                closeModal();
+        document.getElementById('modalBloqueoSemanal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModalSemanal();
             }
         });
+        
+        // Cerrar con Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (document.getElementById('modalBloquear').style.display === 'flex') {
+                    closeModal();
+                }
+                if (document.getElementById('modalBloqueoSemanal').style.display === 'flex') {
+                    closeModalSemanal();
+                }
+            }
+        });
+        
+        // Cargar horarios laborales para el modal semanal
+        async function cargarHorariosLaborales() {
+            try {
+                const response = await fetch('/api/horarios/configuracion?fecha=' + new Date().toISOString().split('T')[0]);
+                const config = await response.json();
+                
+                if (!config.activo) {
+                    return;
+                }
+                
+                const horarios = [];
+                const horaInicio = parseInt(config.hora_inicio.split(':')[0]);
+                const minutoInicio = parseInt(config.hora_inicio.split(':')[1]);
+                const horaFin = parseInt(config.hora_fin.split(':')[0]);
+                const minutoFin = parseInt(config.hora_fin.split(':')[1]);
+                
+                const inicioMinutos = horaInicio * 60 + minutoInicio;
+                const finMinutos = horaFin * 60 + minutoFin;
+                
+                for (let minutos = inicioMinutos; minutos <= finMinutos; minutos += 30) {
+                    const hora = Math.floor(minutos / 60);
+                    const minuto = minutos % 60;
+                    const horaStr = hora.toString().padStart(2, '0');
+                    const minutoStr = minuto.toString().padStart(2, '0');
+                    
+                    // Verificar si cae en horario de almuerzo
+                    const esAlmuerzo = config.almuerzo_inicio && config.almuerzo_fin && 
+                                    minutos >= convertirHoraAMinutos(config.almuerzo_inicio) &&
+                                    minutos < convertirHoraAMinutos(config.almuerzo_fin);
+                    
+                    if (!esAlmuerzo) {
+                        horarios.push(`${horaStr}:${minutoStr}`);
+                    }
+                }
+                
+                horariosLaborales = horarios;
+                cargarSelectHorarios(horarios);
+                
+            } catch (error) {
+                console.error('Error cargando horarios:', error);
+                // Horario por defecto
+                const horariosDefecto = [];
+                for (let hora = 9; hora < 18; hora++) {
+                    for (let minuto = 0; minuto < 60; minuto += 30) {
+                        const horaStr = hora.toString().padStart(2, '0');
+                        const minutoStr = minuto.toString().padStart(2, '0');
+                        horariosDefecto.push(`${horaStr}:${minutoStr}`);
+                    }
+                }
+                horariosLaborales = horariosDefecto;
+                cargarSelectHorarios(horariosDefecto);
+            }
+        }
+        
+        function cargarSelectHorarios(horarios) {
+            const selectInicio = document.getElementById('horaInicioSemanal');
+            const selectFin = document.getElementById('horaFinSemanal');
+            
+            if (!selectInicio || !selectFin) return;
+            
+            selectInicio.innerHTML = '<option value="">Seleccionar hora inicio...</option>';
+            selectFin.innerHTML = '<option value="">Seleccionar hora fin...</option>';
+            
+            horarios.forEach(hora => {
+                const optionInicio = document.createElement('option');
+                optionInicio.value = hora;
+                optionInicio.textContent = hora;
+                selectInicio.appendChild(optionInicio);
+                
+                const optionFin = document.createElement('option');
+                optionFin.value = hora;
+                optionFin.textContent = hora;
+                selectFin.appendChild(optionFin);
+            });
+            
+            // Opción para día completo
+            const optionCompletoInicio = document.createElement('option');
+            optionCompletoInicio.value = horarios[0];
+            optionCompletoInicio.textContent = `${horarios[0]} (inicio del día)`;
+            selectInicio.appendChild(optionCompletoInicio);
+            
+            const optionCompletoFin = document.createElement('option');
+            optionCompletoFin.value = horarios[horarios.length - 1];
+            optionCompletoFin.textContent = `${horarios[horarios.length - 1]} (fin del día)`;
+            selectFin.appendChild(optionCompletoFin);
+        }
+        
+        function convertirHoraAMinutos(horaStr) {
+            if (!horaStr) return 0;
+            const [hora, minuto] = horaStr.split(':').map(Number);
+            return hora * 60 + minuto;
+        }
         
         // Función para cargar TODAS las citas usando la ruta existente /api/citas
         async function cargarTodasLasCitas(fecha) {
@@ -941,7 +1399,7 @@
             if (!horaSelect || !fecha) return;
             
             // Mostrar loading
-            horaSelect.innerHTML = '<option value="">Selecionar horario...</option>';
+            horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
             horaSelect.disabled = true;
             
             try {
@@ -982,12 +1440,13 @@
                 // Generar horarios de 9:00 a 18:00 (ajusta según tu horario laboral)
                 const horariosCompletos = await obtenerHorariosConfigurados(fecha);
                 
-                
                 if (horariosCompletos.length === 0) {
                     horaSelect.innerHTML = '<option value="">Día no laboral</option>';
                     horaSelect.disabled = true;
                     return;
                 }
+                
+                horaSelect.innerHTML = '<option value="">Seleccionar horario...</option>';
                 
                 horariosCompletos.forEach(hora => {
                     const option = document.createElement('option');
@@ -1052,7 +1511,7 @@
             }
         }
         
-        // Generar horarios laborales de 9:00 a 18:00
+        // Generar horarios laborales configurados
         async function obtenerHorariosConfigurados(fecha) {
             try {
                 // Obtener configuración de horarios del negocio
@@ -1099,12 +1558,6 @@
             }
         }
 
-        function convertirHoraAMinutos(horaStr) {
-            if (!horaStr) return 0;
-            const [hora, minuto] = horaStr.split(':').map(Number);
-            return hora * 60 + minuto;
-        }
-
         function generarHorariosPorDefecto() {
             const horarios = [];
             const horaInicio = 9; // 9:00 AM
@@ -1120,12 +1573,20 @@
             return horarios;
         }
         
-        // Event listeners para el modal
+        // Event listeners para el modal puntual
         document.getElementById('fechaBloqueo').addEventListener('change', function() {
             cargarTodasLasCitas(this.value);
         });
         
-        // Manejar envío del formulario
+        // Validación para hora fin mayor que hora inicio en modal semanal
+        document.getElementById('horaInicioSemanal').addEventListener('change', function() {
+            const horaFin = document.getElementById('horaFinSemanal');
+            if (horaFin.value && this.value > horaFin.value) {
+                horaFin.value = '';
+            }
+        });
+        
+        // Manejar envío del formulario puntual
         document.getElementById('formBloquear').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -1210,6 +1671,98 @@
             }
         });
         
+        // Manejar envío del formulario semanal (NUEVO)
+        document.getElementById('formBloqueoSemanal').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btnBloquear = document.getElementById('btnBloquearSemanal');
+            const btnOriginal = btnBloquear.innerHTML;
+            
+            // Validar días seleccionados
+            const diasSeleccionados = [];
+            document.querySelectorAll('input[name="dias_semana"]:checked').forEach(cb => {
+                diasSeleccionados.push(cb.value);
+            });
+            
+            if (diasSeleccionados.length === 0) {
+                showToast('error', 'Error', 'Debes seleccionar al menos un día de la semana');
+                return;
+            }
+            
+            // Validar horas
+            const horaInicio = document.getElementById('horaInicioSemanal').value;
+            const horaFin = document.getElementById('horaFinSemanal').value;
+            
+            if (!horaInicio || !horaFin) {
+                showToast('error', 'Error', 'Debes seleccionar hora de inicio y fin');
+                return;
+            }
+            
+            if (horaInicio >= horaFin) {
+                showToast('error', 'Error', 'La hora de inicio debe ser menor a la hora de fin');
+                return;
+            }
+            
+            // Confirmación
+            const confirmacion = confirm(
+                `¿Estás seguro de crear este bloqueo SEMANAL?\n\n` +
+                `Días: ${diasSeleccionados.length} día(s) por semana\n` +
+                `Horario: ${horaInicio} - ${horaFin}\n\n` +
+                `Esto se aplicará a TODAS las semanas futuras.`
+            );
+            
+            if (!confirmacion) {
+                return;
+            }
+            
+            // Mostrar loading
+            btnBloquear.innerHTML = '<span class="spinner"></span> Creando...';
+            btnBloquear.disabled = true;
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('csrf_token', document.getElementById('csrf_token_semanal').value);
+            formData.append('dias_semana', JSON.stringify(diasSeleccionados));
+            formData.append('hora_inicio', horaInicio);
+            formData.append('hora_fin', horaFin);
+            formData.append('motivo', document.getElementById('motivoSemanal').value || '');
+            formData.append('fecha_inicio', document.getElementById('fechaInicioSemanal').value || '');
+            formData.append('fecha_fin', document.getElementById('fechaFinSemanal').value || '');
+            
+            try {
+                const response = await fetch('{{ url_for("profesional_crear_bloqueo_recurrente") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('success', '¡Éxito!', data.message || 'Bloqueo semanal creado correctamente');
+                    
+                    // Cerrar modal
+                    setTimeout(() => {
+                        closeModalSemanal();
+                        
+                        // Cambiar a pestaña de recurrentes y recargar
+                        setTimeout(() => {
+                            cambiarTabs('recurrentes');
+                            window.location.reload();
+                        }, 1500);
+                    }, 1500);
+                } else {
+                    showToast('error', 'Error', data.error || 'No se pudo crear el bloqueo semanal');
+                    btnBloquear.innerHTML = btnOriginal;
+                    btnBloquear.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error de conexión', 'Por favor, intenta nuevamente');
+                btnBloquear.innerHTML = btnOriginal;
+                btnBloquear.disabled = false;
+            }
+        });
+        
         // Función para mostrar toast
         function showToast(type, title, message) {
             const toast = document.getElementById('toast');
@@ -1234,8 +1787,12 @@
         }
         
         // Confirmación para desbloquear
-        function confirmDesbloqueo(form) {
-            if (confirm('¿Estás seguro de que deseas desbloquear este horario?\nLos clientes podrán agendar citas en este horario nuevamente.')) {
+        function confirmDesbloqueo(form, esRecurrente = false) {
+            const mensaje = esRecurrente 
+                ? '¿Estás seguro de eliminar este bloqueo RECURRENTE?\nEsto afectará a TODAS las semanas futuras.'
+                : '¿Estás seguro de que deseas desbloquear este horario?\nLos clientes podrán agendar citas en este horario nuevamente.';
+            
+            if (confirm(mensaje)) {
                 // Mostrar loading en el botón
                 const btn = form.querySelector('button');
                 const originalHTML = btn.innerHTML;

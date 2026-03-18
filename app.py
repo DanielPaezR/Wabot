@@ -4608,6 +4608,115 @@ def profesional_desbloquear_horario(bloqueo_id):
         print(f"❌ Error desbloqueando horario: {e}")
         flash('Error al desbloquear el horario', 'error')
         return redirect(url_for('profesional_bloqueos'))
+    
+# =============================================================================
+# RUTAS PARA BLOQUEOS RECURRENTES
+# =============================================================================
+
+@app.route('/profesional/crear-bloqueo-recurrente', methods=['POST'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_crear_bloqueo_recurrente():
+    """Crear bloqueo recurrente (semanal)"""
+    try:
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            return jsonify({'success': False, 'error': 'Error de seguridad'})
+        
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        
+        # Obtener datos del formulario
+        dias_semana_str = request.form.get('dias_semana', '[]')
+        hora_inicio = request.form.get('hora_inicio')
+        hora_fin = request.form.get('hora_fin')
+        motivo = request.form.get('motivo', '')
+        fecha_inicio = request.form.get('fecha_inicio', '')
+        fecha_fin = request.form.get('fecha_fin', '')
+        
+        # Parsear días de la semana
+        try:
+            dias_semana = json.loads(dias_semana_str)
+        except:
+            dias_semana = []
+        
+        # Validaciones
+        if not dias_semana:
+            return jsonify({'success': False, 'error': 'Debes seleccionar al menos un día'})
+        
+        if not hora_inicio or not hora_fin:
+            return jsonify({'success': False, 'error': 'Debes seleccionar hora de inicio y fin'})
+        
+        if hora_inicio >= hora_fin:
+            return jsonify({'success': False, 'error': 'La hora de inicio debe ser menor a la hora de fin'})
+        
+        # Llamar a la función de la base de datos
+        from database import crear_bloqueo_recurrente
+        
+        resultado = crear_bloqueo_recurrente(
+            negocio_id=negocio_id,
+            profesional_id=profesional_id,
+            dias_semana=dias_semana,
+            hora_inicio=hora_inicio,
+            hora_fin=hora_fin,
+            motivo=motivo,
+            fecha_inicio=fecha_inicio if fecha_inicio else None,
+            fecha_fin=fecha_fin if fecha_fin else None
+        )
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"❌ Error creando bloqueo recurrente: {e}")
+        return jsonify({'success': False, 'error': 'Error interno del servidor'})
+
+@app.route('/profesional/eliminar-bloqueo-recurrente/<int:bloqueo_id>', methods=['POST'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_eliminar_bloqueo_recurrente(bloqueo_id):
+    """Eliminar bloqueo recurrente"""
+    try:
+        # Validar CSRF
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('profesional_bloqueos', tab='recurrentes'))
+        
+        profesional_id = session.get('profesional_id')
+        
+        from database import eliminar_bloqueo_recurrente
+        
+        resultado = eliminar_bloqueo_recurrente(bloqueo_id, profesional_id=profesional_id)
+        
+        if resultado['success']:
+            flash('✅ Bloqueo recurrente eliminado exitosamente', 'success')
+        else:
+            flash(f"❌ {resultado.get('error', 'Error al eliminar')}", 'error')
+        
+        return redirect(url_for('profesional_bloqueos', tab='recurrentes'))
+        
+    except Exception as e:
+        print(f"❌ Error eliminando bloqueo recurrente: {e}")
+        flash('Error al eliminar el bloqueo recurrente', 'error')
+        return redirect(url_for('profesional_bloqueos', tab='recurrentes'))
+
+@app.route('/profesional/api/bloqueos-recurrentes')
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_api_bloqueos_recurrentes():
+    """API para obtener bloqueos recurrentes"""
+    try:
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        
+        from database import obtener_bloqueos_recurrentes
+        
+        bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
+        
+        return jsonify({
+            'success': True,
+            'bloqueos': bloqueos
+        })
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo bloqueos recurrentes: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/profesional/api/horarios-disponibles')
 @role_required(['profesional', 'propietario', 'superadmin'])

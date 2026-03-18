@@ -3192,3 +3192,575 @@ def desactivar_suscripcion_push(profesional_id, subscription_json):
         return False
     finally:
         conn.close()
+
+# =============================================================================
+# BLOQUEOS RECURRENTES (SEMANALES)
+# =============================================================================
+
+def crear_tabla_bloqueos_recurrentes():
+    """Crear tabla para bloqueos recurrentes si no existe"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = '''
+        CREATE TABLE IF NOT EXISTS bloqueos_recurrentes (
+            id SERIAL PRIMARY KEY,
+            negocio_id INTEGER NOT NULL,
+            profesional_id INTEGER NOT NULL,
+            dias_semana TEXT NOT NULL,  -- JSON array de días [1,2,3] (1=lunes, 7=domingo)
+            hora_inicio TIME NOT NULL,
+            hora_fin TIME NOT NULL,
+            motivo TEXT,
+            fecha_inicio DATE,
+            fecha_fin DATE,
+            activo BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (negocio_id) REFERENCES negocios (id) ON DELETE CASCADE,
+            FOREIGN KEY (profesional_id) REFERENCES profesionales (id) ON DELETE CASCADE
+        )
+    '''
+    
+    if is_postgresql():
+        sql = sql.replace('CURRENT_TIMESTAMP', 'NOW()')
+    
+    execute_sql(cursor, sql)
+    conn.commit()
+    conn.close()
+    print("✅ Tabla bloqueos_recurrentes creada/verificada")
+
+def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inicio, 
+                            hora_fin, motivo='', fecha_inicio=None, fecha_fin=None):
+    """
+    Crear un bloqueo recurrente (semanal)
+    
+    Args:
+        negocio_id: ID del negocio
+        profesional_id: ID del profesional
+        dias_semana: Lista de días [1,2,3,4,5,6,7] (1=lunes, 7=domingo)
+        hora_inicio: Hora de inicio (HH:MM)
+        hora_fin: Hora de fin (HH:MM)
+        motivo: Motivo del bloqueo
+        fecha_inicio: Fecha desde la que aplica (opcional)
+        fecha_fin: Fecha hasta la que aplica (opcional)
+    
+    Returns:
+        dict: {'success': True, 'id': bloqueo_id} o {'success': False, 'error': mensaje}
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Validar que los días estén en el rango correcto
+        dias_validos = [int(d) for d in dias_semana if 1 <= int(d) <= 7]
+        if not dias_validos:
+            return {'success': False, 'error': 'Debe seleccionar al menos un día válido'}
+        
+        # Convertir lista de días a JSON string
+        dias_json = json.dumps(dias_validos)
+        
+        # Insertar bloqueo recurrente
+        if is_postgresql():
+            sql = '''
+                INSERT INTO bloqueos_recurrentes 
+                (negocio_id, profesional_id, dias_semana, hora_inicio, hora_fin, 
+                 motivo, fecha_inicio, fecha_fin, activo, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE, NOW(), NOW())
+                RETURNING id
+            '''
+            cursor.execute(sql, (
+                negocio_id, profesional_id, dias_json, hora_inicio, hora_fin,
+                motivo, fecha_inicio if fecha_inicio else None, 
+                fecha_fin if fecha_fin else None
+            ))
+            
+            result = cursor.fetchone()
+            if hasattr(result, 'keys'):
+                bloqueo_id = result['id']
+            else:
+                bloqueo_id = result[0] if result else None
+        else:
+            sql = '''
+                INSERT INTO bloqueos_recurrentes 
+                (negocio_id, profesional_id, dias_semana, hora_inicio, hora_fin, 
+                 motivo, fecha_inicio, fecha_fin, activo, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            '''
+            cursor.execute(sql, (
+                negocio_id, profesional_id, dias_json, hora_inicio, hora_fin,
+                motivo, fecha_inicio if fecha_inicio else None, 
+                fecha_fin if fecha_fin else None
+            ))
+            bloqueo_id = cursor.lastrowid
+        
+        conn.commit()
+        
+        # Opcional: Crear bloqueos inmediatos para fechas futuras cercanas
+        try:
+            _aplicar_bloqueo_recurrente_a_fechas_futuras(
+                conn, negocio_id, profesional_id, dias_validos, 
+                hora_inicio, hora_fin, fecha_inicio, fecha_fin, bloqueo_id
+            )
+        except Exception as e:
+            print(f"⚠️ Error aplicando bloqueos inmediatos: {e}")
+            # No fallamos la operación principal si esto falla
+        
+        return {'success': True, 'id': bloqueo_id, 'message': 'Bloqueo recurrente creado'}
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error creando bloqueo recurrente: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+def _aplicar_bloqueo_recurrente_a_fechas_futuras(conn, negocio_id, profesional_id, dias_semana,
+                                                hora_inicio, hora_fin, fecha_inicio, fecha_fin, bloqueo_id):
+    """
+    Función interna para aplicar bloqueos a fechas futuras cercanas
+    """
+    try:
+        cursor = conn.cursor()
+        
+        # Determinar rango de fechas a aplicar (próximos 30 días)
+        hoy = datetime.now().date()
+        fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date() if fecha_inicio else hoy
+        fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date() if fecha_fin else (hoy + timedelta(days=90))
+        
+        # Limitar a máximo 90 días en el futuro
+        fecha_max = hoy + timedelta(days=90)
+        if fecha_fin_obj > fecha_max:
+            fecha_fin_obj = fecha_max
+        
+        # Obtener un servicio_id válido para los bloqueos
+        cursor.execute('''
+            SELECT id FROM servicios 
+            WHERE negocio_id = %s AND activo = TRUE 
+            LIMIT 1
+        ''', (negocio_id,))
+        servicio_result = cursor.fetchone()
+        
+        if not servicio_result:
+            print("⚠️ No hay servicios activos para crear bloqueos")
+            return
+        
+        servicio_id = servicio_result[0] if isinstance(servicio_result, tuple) else servicio_result['id']
+        
+        # Calcular duración del bloqueo en minutos
+        hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M')
+        hora_fin_obj = datetime.strptime(hora_fin, '%H:%M')
+        duracion_minutos = int((hora_fin_obj - hora_inicio_obj).total_seconds() / 60)
+        
+        if duracion_minutos <= 0:
+            duracion_minutos = 60  # Valor por defecto
+        
+        # Para cada fecha en el rango
+        fecha_actual = fecha_inicio_obj
+        contador = 0
+        
+        while fecha_actual <= fecha_fin_obj:
+            # Verificar si el día de la semana está en la lista
+            dia_semana = fecha_actual.isoweekday()  # 1=lunes, 7=domingo
+            
+            if dia_semana in dias_semana:
+                fecha_str = fecha_actual.strftime('%Y-%m-%d')
+                
+                # Verificar si ya existe un bloqueo en ese horario
+                cursor.execute('''
+                    SELECT id FROM citas 
+                    WHERE negocio_id = %s AND profesional_id = %s 
+                    AND fecha = %s AND hora = %s
+                    AND estado = 'bloqueado'
+                ''', (negocio_id, profesional_id, fecha_str, hora_inicio))
+                
+                if not cursor.fetchone():
+                    # Crear bloqueo puntual
+                    cursor.execute('''
+                        INSERT INTO citas (
+                            negocio_id, profesional_id, cliente_telefono, cliente_nombre,
+                            fecha, hora, servicio_id, estado, created_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'bloqueado', NOW())
+                    ''', (
+                        negocio_id,
+                        profesional_id,
+                        'BLOQUEO_RECURRENTE',
+                        f'Recurrente ID:{bloqueo_id} - {fecha_str}',
+                        fecha_str,
+                        hora_inicio,
+                        servicio_id
+                    ))
+                    contador += 1
+            
+            fecha_actual += timedelta(days=1)
+        
+        print(f"✅ {contador} bloqueos puntuales creados para el recurrente #{bloqueo_id}")
+        
+    except Exception as e:
+        print(f"⚠️ Error en _aplicar_bloqueo_recurrente_a_fechas_futuras: {e}")
+        # No lanzamos la excepción para no afectar la operación principal
+
+def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=True):
+    """
+    Obtener todos los bloqueos recurrentes de un profesional o negocio
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        sql = '''
+            SELECT 
+                id,
+                negocio_id,
+                profesional_id,
+                dias_semana,
+                hora_inicio,
+                hora_fin,
+                motivo,
+                fecha_inicio,
+                fecha_fin,
+                activo,
+                created_at,
+                updated_at
+            FROM bloqueos_recurrentes
+            WHERE negocio_id = %s
+        '''
+        
+        params = [negocio_id]
+        
+        if profesional_id:
+            sql += ' AND profesional_id = %s'
+            params.append(profesional_id)
+        
+        if solo_activos:
+            sql += ' AND activo = TRUE'
+        
+        sql += ' ORDER BY created_at DESC'
+        
+        cursor.execute(sql, params)
+        bloqueos = cursor.fetchall()
+        
+        resultado = []
+        for bloqueo in bloqueos:
+            bloqueo_dict = dict(bloqueo)
+            # Parsear días_semana de JSON string a lista
+            try:
+                bloqueo_dict['dias_semana'] = json.loads(bloqueo_dict['dias_semana'])
+            except:
+                bloqueo_dict['dias_semana'] = []
+            
+            # Formatear horas para mostrar
+            if bloqueo_dict['hora_inicio']:
+                hora_obj = bloqueo_dict['hora_inicio']
+                if hasattr(hora_obj, 'strftime'):
+                    bloqueo_dict['hora_inicio_str'] = hora_obj.strftime('%H:%M')
+                else:
+                    bloqueo_dict['hora_inicio_str'] = str(hora_obj)[:5]
+            
+            if bloqueo_dict['hora_fin']:
+                hora_obj = bloqueo_dict['hora_fin']
+                if hasattr(hora_obj, 'strftime'):
+                    bloqueo_dict['hora_fin_str'] = hora_obj.strftime('%H:%M')
+                else:
+                    bloqueo_dict['hora_fin_str'] = str(hora_obj)[:5]
+            
+            # Formatear fechas
+            if bloqueo_dict['fecha_inicio']:
+                fecha_obj = bloqueo_dict['fecha_inicio']
+                if hasattr(fecha_obj, 'strftime'):
+                    bloqueo_dict['fecha_inicio_str'] = fecha_obj.strftime('%Y-%m-%d')
+                else:
+                    bloqueo_dict['fecha_inicio_str'] = str(fecha_obj)[:10]
+            
+            if bloqueo_dict['fecha_fin']:
+                fecha_obj = bloqueo_dict['fecha_fin']
+                if hasattr(fecha_obj, 'strftime'):
+                    bloqueo_dict['fecha_fin_str'] = fecha_obj.strftime('%Y-%m-%d')
+                else:
+                    bloqueo_dict['fecha_fin_str'] = str(fecha_obj)[:10]
+            
+            resultado.append(bloqueo_dict)
+        
+        return resultado
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo bloqueos recurrentes: {e}")
+        return []
+    finally:
+        conn.close()
+
+def eliminar_bloqueo_recurrente(bloqueo_id, profesional_id=None, negocio_id=None):
+    """
+    Eliminar un bloqueo recurrente y todos los bloqueos puntuales asociados
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar permisos
+        sql_verificar = '''
+            SELECT negocio_id, profesional_id, dias_semana 
+            FROM bloqueos_recurrentes 
+            WHERE id = %s
+        '''
+        
+        if is_postgresql():
+            cursor.execute(sql_verificar, (bloqueo_id,))
+        else:
+            sql_verificar = sql_verificar.replace('%s', '?')
+            cursor.execute(sql_verificar, (bloqueo_id,))
+        
+        bloqueo = cursor.fetchone()
+        
+        if not bloqueo:
+            return {'success': False, 'error': 'Bloqueo recurrente no encontrado'}
+        
+        # Si se proporcionan profesional_id o negocio_id, verificar que coincidan
+        if profesional_id:
+            bloqueo_profesional_id = bloqueo[1] if isinstance(bloqueo, tuple) else bloqueo['profesional_id']
+            if bloqueo_profesional_id != profesional_id:
+                return {'success': False, 'error': 'No tienes permiso para eliminar este bloqueo'}
+        
+        # Eliminar TODOS los bloqueos puntuales asociados a este recurrente
+        # Buscamos por el patrón en cliente_nombre: 'Recurrente ID:{bloqueo_id}'
+        patron_busqueda = f'Recurrente ID:{bloqueo_id}'
+        
+        cursor.execute('''
+            DELETE FROM citas 
+            WHERE cliente_telefono = 'BLOQUEO_RECURRENTE'
+            AND cliente_nombre LIKE %s
+            AND estado = 'bloqueado'
+        ''', (f'%{patron_busqueda}%',))
+        
+        puntuales_eliminados = cursor.rowcount
+        print(f"🗑️ Eliminados {puntuales_eliminados} bloqueos puntuales asociados")
+        
+        # Eliminar el bloqueo recurrente
+        cursor.execute('''
+            DELETE FROM bloqueos_recurrentes 
+            WHERE id = %s
+        ''', (bloqueo_id,))
+        
+        conn.commit()
+        
+        return {
+            'success': True, 
+            'message': 'Bloqueo recurrente eliminado',
+            'puntuales_eliminados': puntuales_eliminados
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error eliminando bloqueo recurrente: {e}")
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+def actualizar_bloqueo_recurrente(bloqueo_id, dias_semana=None, hora_inicio=None, 
+                                 hora_fin=None, motivo=None, fecha_inicio=None, 
+                                 fecha_fin=None, activo=None):
+    """
+    Actualizar un bloqueo recurrente existente
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        update_fields = []
+        params = []
+        
+        if dias_semana is not None:
+            update_fields.append('dias_semana = %s')
+            params.append(json.dumps(dias_semana))
+        
+        if hora_inicio is not None:
+            update_fields.append('hora_inicio = %s')
+            params.append(hora_inicio)
+        
+        if hora_fin is not None:
+            update_fields.append('hora_fin = %s')
+            params.append(hora_fin)
+        
+        if motivo is not None:
+            update_fields.append('motivo = %s')
+            params.append(motivo)
+        
+        if fecha_inicio is not None:
+            update_fields.append('fecha_inicio = %s')
+            params.append(fecha_inicio if fecha_inicio else None)
+        
+        if fecha_fin is not None:
+            update_fields.append('fecha_fin = %s')
+            params.append(fecha_fin if fecha_fin else None)
+        
+        if activo is not None:
+            update_fields.append('activo = %s')
+            params.append(activo)
+        
+        update_fields.append('updated_at = NOW()')
+        
+        if not update_fields:
+            return {'success': False, 'error': 'No hay campos para actualizar'}
+        
+        params.append(bloqueo_id)
+        
+        sql = f'''
+            UPDATE bloqueos_recurrentes 
+            SET {', '.join(update_fields)}
+            WHERE id = %s
+        '''
+        
+        if is_postgresql():
+            cursor.execute(sql, params)
+        else:
+            sql = sql.replace('%s', '?')
+            cursor.execute(sql, params)
+        
+        conn.commit()
+        
+        return {'success': True, 'message': 'Bloqueo recurrente actualizado'}
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error actualizando bloqueo recurrente: {e}")
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+def generar_bloqueos_desde_recurrentes(negocio_id=None, profesional_id=None, fecha_inicio=None, fecha_fin=None):
+    """
+    Generar bloqueos puntuales a partir de todos los bloqueos recurrentes activos
+    Útil para ejecutar periódicamente o cuando se crea un nuevo recurrente
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        # Obtener todos los bloqueos recurrentes activos
+        sql = '''
+            SELECT * FROM bloqueos_recurrentes 
+            WHERE activo = TRUE
+        '''
+        
+        params = []
+        
+        if negocio_id:
+            sql += ' AND negocio_id = %s'
+            params.append(negocio_id)
+        
+        if profesional_id:
+            sql += ' AND profesional_id = %s'
+            params.append(profesional_id)
+        
+        cursor.execute(sql, params if params else None)
+        recurrentes = cursor.fetchall()
+        
+        print(f"🔄 Generando bloqueos desde {len(recurrentes)} recurrentes")
+        
+        # Obtener un servicio_id válido
+        cursor.execute('''
+            SELECT id FROM servicios 
+            WHERE negocio_id = %s AND activo = TRUE 
+            LIMIT 1
+        ''', (recurrentes[0]['negocio_id'] if recurrentes else 1,))
+        servicio_result = cursor.fetchone()
+        
+        if not servicio_result:
+            return {'success': False, 'error': 'No hay servicios activos'}
+        
+        servicio_id = servicio_result['id']
+        
+        # Rango de fechas a generar (próximos 90 días)
+        hoy = datetime.now().date()
+        fecha_limite = hoy + timedelta(days=90)
+        
+        total_creados = 0
+        
+        for recurrente in recurrentes:
+            try:
+                dias_semana = json.loads(recurrente['dias_semana'])
+                hora_inicio = recurrente['hora_inicio']
+                hora_fin = recurrente['hora_fin']
+                
+                # Calcular duración
+                if isinstance(hora_inicio, str):
+                    hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M')
+                else:
+                    hora_inicio_obj = hora_inicio
+                
+                if isinstance(hora_fin, str):
+                    hora_fin_obj = datetime.strptime(hora_fin, '%H:%M')
+                else:
+                    hora_fin_obj = hora_fin
+                
+                duracion_minutos = int((hora_fin_obj - hora_inicio_obj).total_seconds() / 60)
+                if duracion_minutos <= 0:
+                    duracion_minutos = 60
+                
+                # Determinar rango de fechas para este recurrente
+                fecha_inicio_obj = recurrente['fecha_inicio'] or hoy
+                fecha_fin_obj = recurrente['fecha_fin'] or fecha_limite
+                
+                if fecha_fin_obj > fecha_limite:
+                    fecha_fin_obj = fecha_limite
+                
+                fecha_actual = max(hoy, fecha_inicio_obj)
+                
+                while fecha_actual <= fecha_fin_obj:
+                    dia_semana = fecha_actual.isoweekday()
+                    
+                    if dia_semana in dias_semana:
+                        fecha_str = fecha_actual.strftime('%Y-%m-%d')
+                        
+                        # Verificar si ya existe bloqueo
+                        cursor.execute('''
+                            SELECT id FROM citas 
+                            WHERE negocio_id = %s AND profesional_id = %s 
+                            AND fecha = %s AND hora = %s
+                            AND estado = 'bloqueado'
+                        ''', (recurrente['negocio_id'], recurrente['profesional_id'], fecha_str, hora_inicio))
+                        
+                        if not cursor.fetchone():
+                            cursor.execute('''
+                                INSERT INTO citas (
+                                    negocio_id, profesional_id, cliente_telefono, cliente_nombre,
+                                    fecha, hora, servicio_id, estado, created_at
+                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'bloqueado', NOW())
+                            ''', (
+                                recurrente['negocio_id'],
+                                recurrente['profesional_id'],
+                                'BLOQUEO_RECURRENTE',
+                                f'Recurrente ID:{recurrente["id"]} - {fecha_str}',
+                                fecha_str,
+                                hora_inicio,
+                                servicio_id
+                            ))
+                            total_creados += 1
+                    
+                    fecha_actual += timedelta(days=1)
+                    
+            except Exception as e:
+                print(f"⚠️ Error procesando recurrente #{recurrente['id']}: {e}")
+                continue
+        
+        conn.commit()
+        
+        return {
+            'success': True,
+            'message': f'Generados {total_creados} bloqueos puntuales',
+            'total': total_creados
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error generando bloqueos desde recurrentes: {e}")
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+# Ejecutar al iniciar para asegurar que la tabla existe
+try:
+    crear_tabla_bloqueos_recurrentes()
+except Exception as e:
+    print(f"⚠️ Error creando tabla de bloqueos recurrentes: {e}")
