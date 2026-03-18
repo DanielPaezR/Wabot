@@ -4732,6 +4732,27 @@ def from_json_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
+@app.route('/profesional/test-bloqueos')
+@login_required
+def test_bloqueos():
+    """Ruta de prueba para ver los bloqueos recurrentes en formato JSON"""
+    try:
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        
+        from database import obtener_bloqueos_recurrentes
+        
+        bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
+        
+        return jsonify({
+            'success': True,
+            'total': len(bloqueos),
+            'bloqueos': bloqueos
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/profesional/api/horarios-disponibles')
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_api_horarios_disponibles():
