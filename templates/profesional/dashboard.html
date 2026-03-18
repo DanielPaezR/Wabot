@@ -1938,8 +1938,15 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
             const fecha = document.querySelector('.date-selector').value;
             const profesionalId = document.body.dataset.profesionalId;
             
-            // Mostrar estado de carga
+            console.log('=== DEBUG COMPLETAR CITA AJAX ===');
+            console.log('Cita ID:', citaId);
+            console.log('Fecha:', fecha);
+            console.log('Profesional ID:', profesionalId);
+            
+            // Guardar el contenido original del botón
             const botonOriginal = boton.innerHTML;
+            
+            // Mostrar estado de carga
             boton.disabled = true;
             boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Completando...';
             
@@ -1947,9 +1954,13 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
                 const formData = new FormData();
                 formData.append('csrf_token', csrfToken);
                 
-                const response = await fetch(formulario.action, {
+                // Agregar headers para indicar que es una petición AJAX
+                const response = await fetch(formulario.action + `?fecha=${fecha}&profesional_id=${profesionalId}`, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
                 
                 const result = await response.json();
@@ -1960,15 +1971,21 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
                     citaItem.classList.add('completed');
                     
                     // Reemplazar el botón con el texto "Completado"
-                    const accionesDiv = boton.closest('.cita-actions');
-                    const completarDiv = boton.closest('div[style*="display: flex"]');
+                    const contenedorBotones = boton.closest('div[style*="display: flex"]');
                     
-                    if (completarDiv) {
-                        completarDiv.innerHTML = `
+                    if (contenedorBotones) {
+                        contenedorBotones.innerHTML = `
                             <span style="color: var(--success); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
                                 <span>✅</span> Completado
                             </span>
                         `;
+                    }
+                    
+                    // Actualizar el estado badge
+                    const statusBadge = citaItem.querySelector('.status-badge');
+                    if (statusBadge) {
+                        statusBadge.className = 'status-badge status-completado';
+                        statusBadge.textContent = 'completado';
                     }
                     
                     mostrarNotificacion('✅ Cita completada exitosamente');
@@ -1977,6 +1994,10 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
                     if (typeof loadNotifications === 'function') {
                         loadNotifications();
                     }
+                    
+                    // Opcional: Actualizar estadísticas
+                    actualizarEstadisticas();
+                    
                 } else {
                     throw new Error(result.message || 'Error al completar la cita');
                 }
@@ -1991,6 +2012,15 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
             }
             
             return false;
+        }
+
+        // Función auxiliar para actualizar estadísticas (opcional)
+        function actualizarEstadisticas() {
+            const totalCitasElement = document.querySelector('.stat-number');
+            if (totalCitasElement) {
+                const totalActual = parseInt(totalCitasElement.textContent) || 0;
+                totalCitasElement.textContent = totalActual - 1;
+            }
         }
 
         // ==================== FUNCIONES DE NOTIFICACIONES WEB ====================
