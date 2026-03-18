@@ -3377,7 +3377,7 @@ def profesional_crear_cita():
 @app.route('/profesional/completar-cita/<int:cita_id>', methods=['POST'])
 @role_required(['profesional', 'propietario', 'superadmin'])
 def completar_cita(cita_id):
-    """Marcar cita como completada desde el panel del profesional"""
+    """Marcar cita como completada - VERSIÓN CORREGIDA (sin updated_at)"""
     conn = None
     try:
         print(f"🔍 [COMPLETAR_CITA] Iniciando para cita #{cita_id}")
@@ -3386,7 +3386,15 @@ def completar_cita(cita_id):
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             print("❌ [COMPLETAR_CITA] CSRF inválido")
-            return redirect(url_for('profesional_dashboard'))
+            
+            # Obtener parámetros para redirección
+            fecha = request.args.get('fecha') or request.form.get('fecha')
+            profesional_id = request.args.get('profesional_id') or request.form.get('profesional_id')
+            
+            if fecha and profesional_id:
+                return redirect(url_for('profesional_dashboard', fecha=fecha, profesional_id=profesional_id, error='csrf'))
+            else:
+                return redirect(url_for('profesional_dashboard', error='csrf'))
         
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
@@ -3399,7 +3407,7 @@ def completar_cita(cita_id):
             return redirect(url_for('profesional_dashboard'))
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # 1. Primero obtener info de la cita actual
         cursor.execute('''
@@ -3414,65 +3422,123 @@ def completar_cita(cita_id):
             flash('❌ Cita no encontrada', 'error')
             print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada para profesional {profesional_id}")
             conn.close()
-            return redirect(url_for('profesional_dashboard'))
+            
+            fecha = request.args.get('fecha') or request.form.get('fecha')
+            profesional_id_param = request.args.get('profesional_id') or request.form.get('profesional_id')
+            
+            if fecha and profesional_id_param:
+                return redirect(url_for('profesional_dashboard', fecha=fecha, profesional_id=profesional_id_param, error='not_found'))
+            else:
+                return redirect(url_for('profesional_dashboard', error='not_found'))
         
         print(f"✅ [COMPLETAR_CITA] Cita encontrada: {cita_actual}")
         print(f"   Estado actual: {cita_actual['estado']}")
         
-        # 2. Actualizar estado a 'completado' (MASCULINO, no 'completada')
-        cursor.execute('''
-            UPDATE citas 
-            SET estado = 'completado', 
-                updated_at = NOW()
-            WHERE id = %s
-            RETURNING id, estado, cliente_nombre
-        ''', (cita_id,))
+        # 2. Actualizar estado a 'completado' - SIN updated_at
+        # Verificar qué columnas existen en la tabla citas
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'citas'
+        """)
+        columnas = [row['column_name'] for row in cursor.fetchall()]
+        print(f"📋 Columnas disponibles en citas: {columnas}")
+        
+        # Construir query según las columnas disponibles
+        if 'updated_at' in columnas:
+            # Si existe updated_at, usarlo
+            cursor.execute('''
+                UPDATE citas 
+                SET estado = 'completado', updated_at = NOW()
+                WHERE id = %s
+                RETURNING id, estado, cliente_nombre
+            ''', (cita_id,))
+        else:
+            # Si no existe updated_at, solo actualizar estado
+            cursor.execute('''
+                UPDATE citas 
+                SET estado = 'completado'
+                WHERE id = %s
+                RETURNING id, estado, cliente_nombre
+            ''', (cita_id,))
         
         resultado_update = cursor.fetchone()
         print(f"✅ [COMPLETAR_CITA] Resultado UPDATE: {resultado_update}")
         
         if resultado_update:
-            # 3. Opcional: Registrar en historial
+            # 3. Opcional: Registrar en historial (si existe la tabla)
             try:
-                cursor.execute('''
-                    INSERT INTO historial_citas 
-                    (cita_id, negocio_id, profesional_id, accion, detalles)
-                    VALUES (%s, %s, %s, %s, %s)
-                ''', (
-                    cita_id,
-                    negocio_id,
-                    profesional_id,
-                    'completada',
-                    f'Cita marcada como completada por profesional'
-                ))
-                print(f"📝 [COMPLETAR_CITA] Historial registrado")
+                # Verificar si existe la tabla historial_citas
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'historial_citas'
+                    )
+                """)
+                existe_historial = cursor.fetchone()['exists']
+                
+                if existe_historial:
+                    cursor.execute('''
+                        INSERT INTO historial_citas 
+                        (cita_id, negocio_id, profesional_id, accion, detalles)
+                        VALUES (%s, %s, %s, %s, %s)
+                    ''', (
+                        cita_id,
+                        negocio_id,
+                        profesional_id,
+                        'completada',
+                        f'Cita marcada como completada por profesional'
+                    ))
+                    print(f"📝 [COMPLETAR_CITA] Historial registrado")
             except Exception as hist_error:
                 print(f"⚠️ [COMPLETAR_CITA] Error en historial (no crítico): {hist_error}")
             
-            # 4. Crear notificación
+            # 4. Crear notificación (si existe la tabla)
             try:
-                cursor.execute('''
-                    INSERT INTO notificaciones 
-                    (negocio_id, profesional_id, tipo, titulo, mensaje, fecha_creacion, leido)
-                    VALUES (%s, %s, %s, %s, %s, NOW(), false)
-                ''', (
-                    negocio_id, 
-                    profesional_id,
-                    'success',
-                    '✅ Servicio Completado',
-                    f'Has completado el servicio para {resultado_update["cliente_nombre"]}'
-                ))
-                print(f"📢 [COMPLETAR_CITA] Notificación creada")
+                # Verificar si existe la tabla notificaciones
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'notificaciones'
+                    )
+                """)
+                existe_notificaciones = cursor.fetchone()['exists']
+                
+                if existe_notificaciones:
+                    cursor.execute('''
+                        INSERT INTO notificaciones 
+                        (negocio_id, profesional_id, tipo, titulo, mensaje, fecha_creacion, leido)
+                        VALUES (%s, %s, %s, %s, %s, NOW(), false)
+                    ''', (
+                        negocio_id, 
+                        profesional_id,
+                        'success',
+                        '✅ Servicio Completado',
+                        f'Has completado el servicio para {resultado_update["cliente_nombre"]}'
+                    ))
+                    print(f"📢 [COMPLETAR_CITA] Notificación creada")
             except Exception as notif_error:
                 print(f"⚠️ [COMPLETAR_CITA] Error en notificación (no crítico): {notif_error}")
             
             conn.commit()
             print(f"✅ [COMPLETAR_CITA] Commit exitoso")
             
+            # Para respuesta AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': True,
+                    'message': f'Cita completada para {resultado_update["cliente_nombre"]}',
+                    'cita_id': cita_id
+                })
+            
             flash(f'✅ Cita completada para {resultado_update["cliente_nombre"]}', 'success')
             
         else:
             print(f"❌ [COMPLETAR_CITA] UPDATE no devolvió resultado")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Error al actualizar la cita'})
+            
             flash('❌ Error al actualizar la cita', 'error')
             conn.rollback()
         
@@ -3485,6 +3551,9 @@ def completar_cita(cita_id):
             conn.rollback()
             print("🔄 [COMPLETAR_CITA] Rollback realizado")
         
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': str(e)})
+        
         flash('❌ Error al completar la cita', 'error')
         
     finally:
@@ -3492,8 +3561,14 @@ def completar_cita(cita_id):
             conn.close()
             print("🔒 [COMPLETAR_CITA] Conexión cerrada")
     
-    # Redirigir con parámetro para notificación
-    return redirect(url_for('profesional_dashboard', fecha=request.args.get('fecha', ''), completed='true'))
+    # Obtener parámetros para redirección
+    fecha = request.args.get('fecha') or request.form.get('fecha')
+    profesional_id_param = request.args.get('profesional_id') or request.form.get('profesional_id')
+    
+    if fecha and profesional_id_param:
+        return redirect(url_for('profesional_dashboard', fecha=fecha, profesional_id=profesional_id_param))
+    else:
+        return redirect(url_for('profesional_dashboard'))
     
 
 @app.route('/profesional/cambiar-password', methods=['POST'])

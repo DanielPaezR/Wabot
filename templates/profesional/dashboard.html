@@ -1616,6 +1616,39 @@
             padding: 6px 8px;
         }
     }
+
+    /* Agrega esto al final de tu sección de estilos */
+    .cita-item {
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+    .cita-item.removing {
+        opacity: 0;
+        transform: translateX(20px);
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .citas-list {
+        transition: opacity 0.3s ease;
+    }
+
+    @keyframes slideOut {
+        0% {
+            opacity: 1;
+            transform: translateX(0);
+            height: auto;
+        }
+        100% {
+            opacity: 0;
+            transform: translateX(20px);
+            height: 0;
+            margin: 0;
+            padding: 0;
+        }
+    }
     </style>
 </head>
 <!-- CAMBIO CRÍTICO: Agregar data-profesional-id al body -->
@@ -1817,19 +1850,20 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
                                             <span>✅</span> Completado
                                         </span>
                                     {% else %}
-                                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}" 
-                                            class="completar-cita-form" 
-                                            style="display: inline;">
-
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                                            <button type="submit" 
-                                                    class="btn-complete completar-btn"
-                                                    data-cita-id="{{ cita.id }}"
-                                                    onclick="return manejarCompletarCita(event, this);">
-                                                ✅ Completar
-                                            </button>
-                                        </form>
+                                        <form method="POST" 
+                                        action="{{ url_for('completar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" 
+                                        class="completar-cita-form" 
+                                        style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="fecha" value="{{ fecha }}">
+                                        <input type="hidden" name="profesional_id" value="{{ profesional_id }}">
+                                        <button type="submit" 
+                                                class="btn-complete completar-btn"
+                                                data-cita-id="{{ cita.id }}"
+                                                onclick="return manejarCompletarCita(event, this);">
+                                            ✅ Completar
+                                        </button>
+                                    </form>
                                     {% endif %}
                                     <!-- Botón Personalizar - SIEMPRE VISIBLE -->
                                     <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" 
@@ -1898,6 +1932,7 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
             if (!notification) return;
             
             // Cambiar color según tipo
+            notification.className = 'notification';
             if (tipo === 'error') {
                 notification.style.background = 'var(--danger)';
             } else if (tipo === 'warning') {
@@ -1910,52 +1945,165 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
             notification.style.display = 'block';
             notification.style.opacity = '1';
             
-            // Ocultar después de 3 segundos con animación
+            // Ocultar después de 2 segundos
             setTimeout(() => {
                 notification.style.opacity = '0';
-                notification.style.transition = 'opacity 0.5s ease';
+                notification.style.transition = 'opacity 0.3s ease';
                 setTimeout(() => {
                     notification.style.display = 'none';
                     notification.style.opacity = '1';
                     notification.style.transition = '';
-                }, 500);
-            }, 3000);
+                }, 300);
+            }, 2000);
             
-            // Vibrar si está soportado
+            // Vibrar si está soportado (solo en móviles)
             if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100]);
+                navigator.vibrate(50);
             }
         }
 
         // ==================== FUNCIÓN PARA COMPLETAR CITAS ====================
-        function manejarCompletarCita(event, boton) {
+
+        async function manejarCompletarCita(event, boton) {
             event.preventDefault();
             
             const formulario = boton.closest('form');
+            const citaId = boton.dataset.citaId;
+            const csrfToken = formulario.querySelector('input[name="csrf_token"]').value;
+            const fecha = document.querySelector('.date-selector').value;
+            const profesionalId = document.body.dataset.profesionalId;
+            
+            console.log('=== DEBUG COMPLETAR CITA AJAX ===');
+            console.log('Cita ID:', citaId);
+            console.log('Fecha:', fecha);
+            console.log('Profesional ID:', profesionalId);
+            
+            // Guardar el contenido original del botón
             const botonOriginal = boton.innerHTML;
             
-            // Verificar que el formulario tenga CSRF token
-            const csrfInput = formulario.querySelector('input[name="csrf_token"]');
-            if (!csrfInput || !csrfInput.value) {
-                mostrarNotificacion('❌ Error de seguridad. Recarga la página.', 'error');
-                return false;
+            // Mostrar estado de carga
+            boton.disabled = true;
+            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Completando...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('csrf_token', csrfToken);
+                
+                // Agregar headers para indicar que es una petición AJAX
+                const response = await fetch(formulario.action + `?fecha=${fecha}&profesional_id=${profesionalId}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // ✅ ANIMACIÓN DE DESAPARICIÓN - La cita se elimina de la lista
+                    const citaItem = boton.closest('.cita-item');
+                    
+                    // Añadir clase para animación de salida
+                    citaItem.style.transition = 'all 0.3s ease';
+                    citaItem.style.opacity = '0';
+                    citaItem.style.transform = 'translateX(20px)';
+                    citaItem.style.height = citaItem.offsetHeight + 'px';
+                    
+                    // Esperar a que termine la animación y luego eliminar el elemento
+                    setTimeout(() => {
+                        citaItem.style.margin = '0';
+                        citaItem.style.padding = '0';
+                        citaItem.style.height = '0';
+                        
+                        setTimeout(() => {
+                            citaItem.remove();
+                            
+                            // ✅ ACTUALIZAR CONTADORES
+                            actualizarContadores();
+                            
+                            // ✅ MOSTRAR MENSAJE DE ÉXITO
+                            mostrarNotificacion('✅ Cita completada exitosamente');
+                            
+                            // ✅ VERIFICAR SI YA NO HAY CITAS
+                            verificarListaVacia();
+                            
+                        }, 300);
+                    }, 300);
+                    
+                    // Opcional: Recargar las notificaciones
+                    if (typeof loadNotifications === 'function') {
+                        loadNotifications();
+                    }
+                    
+                } else {
+                    throw new Error(result.message || 'Error al completar la cita');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarNotificacion('❌ Error al completar la cita', 'error');
+                
+                // Restaurar botón
+                boton.disabled = false;
+                boton.innerHTML = botonOriginal;
             }
             
-            // Deshabilitar botón
-            boton.disabled = true;
-            boton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-            boton.style.opacity = '0.7';
-            boton.style.cursor = 'not-allowed';
-            
-            // Mostrar notificación
-            mostrarNotificacion('✅ Completando cita...');
-            
-            // Enviar formulario después de breve pausa
-            setTimeout(() => {
-                formulario.submit();
-            }, 800);
-            
             return false;
+        }
+
+        // ✅ NUEVA FUNCIÓN: Actualizar contadores después de eliminar una cita
+        function actualizarContadores() {
+            // Actualizar contador de citas
+            const totalCitasElement = document.querySelector('.stat-number');
+            if (totalCitasElement) {
+                const totalActual = parseInt(totalCitasElement.textContent) || 0;
+                totalCitasElement.textContent = totalActual - 1;
+            }
+            
+            // Actualizar ganancia estimada (asumiendo un valor promedio)
+            // Si quieres calcular la ganancia real, necesitarías obtener el precio de la cita
+            const gananciaElement = document.querySelectorAll('.stat-number')[1];
+            if (gananciaElement) {
+                // Esto es un cálculo aproximado, puedes ajustarlo según necesites
+                const gananciaActual = parseInt(gananciaElement.textContent.replace('$', '')) || 0;
+                // Asumimos un valor promedio de $20,000 por cita
+                gananciaElement.textContent = '$' + (gananciaActual - 20000);
+            }
+        }
+
+        // ✅ NUEVA FUNCIÓN: Verificar si la lista de citas quedó vacía
+        function verificarListaVacia() {
+            const citasRestantes = document.querySelectorAll('.cita-item').length;
+            const citasList = document.querySelector('.citas-list');
+            
+            if (citasRestantes === 0) {
+                // Crear y mostrar el mensaje de "No hay citas"
+                const emptyStateHTML = `
+                    <div class="empty-state">
+                        <h3>🎉 No hay citas para hoy</h3>
+                        <p>Disfruta de tu día</p>
+                    </div>
+                `;
+                
+                // Animar la transición
+                citasList.style.transition = 'all 0.3s ease';
+                citasList.style.opacity = '0';
+                
+                setTimeout(() => {
+                    citasList.innerHTML = emptyStateHTML;
+                    citasList.style.opacity = '1';
+                }, 300);
+            }
+        }
+
+        // Función auxiliar para actualizar estadísticas (opcional)
+        function actualizarEstadisticas() {
+            const totalCitasElement = document.querySelector('.stat-number');
+            if (totalCitasElement) {
+                const totalActual = parseInt(totalCitasElement.textContent) || 0;
+                totalCitasElement.textContent = totalActual - 1;
+            }
         }
 
         // ==================== FUNCIONES DE NOTIFICACIONES WEB ====================
