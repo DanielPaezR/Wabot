@@ -4718,6 +4718,20 @@ def profesional_api_bloqueos_recurrentes():
         print(f"❌ Error obteniendo bloqueos recurrentes: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+# =============================================================================
+# FILTROS PERSONALIZADOS PARA JINJA2
+# =============================================================================
+
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Convierte un string JSON a objeto Python"""
+    try:
+        if value:
+            return json.loads(value)
+        return []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
 @app.route('/profesional/api/horarios-disponibles')
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_api_horarios_disponibles():
