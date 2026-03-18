@@ -1053,19 +1053,7 @@
                                 <tbody>
                                     {% for bloqueo in bloqueos_recurrentes %}
                                     <tr>
-                                        <td>
-                                            {% set dias = bloqueo.dias_semana|from_json %}
-                                            {% for dia_num in dias %}
-                                                {% if dia_num == '1' %}Lun{% endif %}
-                                                {% if dia_num == '2' %}Mar{% endif %}
-                                                {% if dia_num == '3' %}Mié{% endif %}
-                                                {% if dia_num == '4' %}Jue{% endif %}
-                                                {% if dia_num == '5' %}Vie{% endif %}
-                                                {% if dia_num == '6' %}Sáb{% endif %}
-                                                {% if dia_num == '0' %}Dom{% endif %}
-                                                {% if not loop.last %}, {% endif %}
-                                            {% endfor %}
-                                        </td>
+                                        <td>{{ bloqueo.dias_legibles or 'No especificado' }}</td>
                                         <td>{{ bloqueo.hora_inicio[:5] }} - {{ bloqueo.hora_fin[:5] }}</td>
                                         <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo' }}">
                                             {{ bloqueo.motivo or "Sin motivo" }}

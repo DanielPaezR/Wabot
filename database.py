@@ -3233,19 +3233,6 @@ def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inici
                             hora_fin, motivo='', fecha_inicio=None, fecha_fin=None):
     """
     Crear un bloqueo recurrente (semanal)
-    
-    Args:
-        negocio_id: ID del negocio
-        profesional_id: ID del profesional
-        dias_semana: Lista de días [1,2,3,4,5,6,7] (1=lunes, 7=domingo)
-        hora_inicio: Hora de inicio (HH:MM)
-        hora_fin: Hora de fin (HH:MM)
-        motivo: Motivo del bloqueo
-        fecha_inicio: Fecha desde la que aplica (opcional)
-        fecha_fin: Fecha hasta la que aplica (opcional)
-    
-    Returns:
-        dict: {'success': True, 'id': bloqueo_id} o {'success': False, 'error': mensaje}
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -3258,6 +3245,7 @@ def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inici
         
         # Convertir lista de días a JSON string
         dias_json = json.dumps(dias_validos)
+        print(f"📝 [DB] Guardando días: {dias_json}")
         
         # Insertar bloqueo recurrente
         if is_postgresql():
@@ -3265,7 +3253,7 @@ def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inici
                 INSERT INTO bloqueos_recurrentes 
                 (negocio_id, profesional_id, dias_semana, hora_inicio, hora_fin, 
                  motivo, fecha_inicio, fecha_fin, activo, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE, NOW(), NOW())
+                VALUES (%s, %s, %s::jsonb, %s, %s, %s, %s, %s, TRUE, NOW(), NOW())
                 RETURNING id
             '''
             cursor.execute(sql, (
@@ -3294,6 +3282,7 @@ def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inici
             bloqueo_id = cursor.lastrowid
         
         conn.commit()
+        print(f"✅ [DB] Bloqueo recurrente creado con ID: {bloqueo_id}")
         
         # Opcional: Crear bloqueos inmediatos para fechas futuras cercanas
         try:
@@ -3438,17 +3427,47 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
         
         sql += ' ORDER BY created_at DESC'
         
+        print(f"🔍 [DB] Ejecutando consulta: {sql}")
+        print(f"🔍 [DB] Parámetros: {params}")
+        
         cursor.execute(sql, params)
         bloqueos = cursor.fetchall()
         
+        print(f"🔍 [DB] Encontrados {len(bloqueos)} bloqueos recurrentes")
+        
         resultado = []
-        for bloqueo in bloqueos:
+        for i, bloqueo in enumerate(bloqueos):
+            print(f"🔍 [DB] Procesando bloqueo #{i+1}: {bloqueo}")
             bloqueo_dict = dict(bloqueo)
+            
             # Parsear días_semana de JSON string a lista
             try:
-                bloqueo_dict['dias_semana'] = json.loads(bloqueo_dict['dias_semana'])
-            except:
-                bloqueo_dict['dias_semana'] = []
+                if isinstance(bloqueo_dict['dias_semana'], str):
+                    bloqueo_dict['dias_semana_lista'] = json.loads(bloqueo_dict['dias_semana'])
+                else:
+                    # Si ya es una lista, usarla directamente
+                    bloqueo_dict['dias_semana_lista'] = bloqueo_dict['dias_semana']
+                
+                print(f"  📅 Días parseados: {bloqueo_dict['dias_semana_lista']}")
+                
+            except Exception as e:
+                print(f"  ⚠️ Error parseando días: {e}")
+                bloqueo_dict['dias_semana_lista'] = []
+            
+            # Crear una versión legible de los días
+            dias_nombres = []
+            nombres = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+            
+            for dia_num in bloqueo_dict['dias_semana_lista']:
+                try:
+                    dia_int = int(dia_num)
+                    if 1 <= dia_int <= 7:
+                        dias_nombres.append(nombres[dia_int-1])
+                except (ValueError, TypeError):
+                    continue
+            
+            bloqueo_dict['dias_legibles'] = ', '.join(dias_nombres)
+            print(f"  📆 Días legibles: {bloqueo_dict['dias_legibles']}")
             
             # Formatear horas para mostrar
             if bloqueo_dict['hora_inicio']:
@@ -3457,6 +3476,8 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                     bloqueo_dict['hora_inicio_str'] = hora_obj.strftime('%H:%M')
                 else:
                     bloqueo_dict['hora_inicio_str'] = str(hora_obj)[:5]
+            else:
+                bloqueo_dict['hora_inicio_str'] = ''
             
             if bloqueo_dict['hora_fin']:
                 hora_obj = bloqueo_dict['hora_fin']
@@ -3464,6 +3485,8 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                     bloqueo_dict['hora_fin_str'] = hora_obj.strftime('%H:%M')
                 else:
                     bloqueo_dict['hora_fin_str'] = str(hora_obj)[:5]
+            else:
+                bloqueo_dict['hora_fin_str'] = ''
             
             # Formatear fechas
             if bloqueo_dict['fecha_inicio']:
@@ -3472,6 +3495,8 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                     bloqueo_dict['fecha_inicio_str'] = fecha_obj.strftime('%Y-%m-%d')
                 else:
                     bloqueo_dict['fecha_inicio_str'] = str(fecha_obj)[:10]
+            else:
+                bloqueo_dict['fecha_inicio_str'] = ''
             
             if bloqueo_dict['fecha_fin']:
                 fecha_obj = bloqueo_dict['fecha_fin']
@@ -3479,13 +3504,18 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                     bloqueo_dict['fecha_fin_str'] = fecha_obj.strftime('%Y-%m-%d')
                 else:
                     bloqueo_dict['fecha_fin_str'] = str(fecha_obj)[:10]
+            else:
+                bloqueo_dict['fecha_fin_str'] = ''
             
             resultado.append(bloqueo_dict)
         
+        print(f"✅ [DB] Retornando {len(resultado)} bloqueos procesados")
         return resultado
         
     except Exception as e:
         print(f"❌ Error obteniendo bloqueos recurrentes: {e}")
+        import traceback
+        traceback.print_exc()
         return []
     finally:
         conn.close()
