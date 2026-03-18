@@ -4744,6 +4744,7 @@ def test_bloqueos():
         
         bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
+        # Ahora todos los objetos time y date ya son strings
         return jsonify({
             'success': True,
             'total': len(bloqueos),
@@ -4751,6 +4752,9 @@ def test_bloqueos():
         })
         
     except Exception as e:
+        print(f"❌ Error en test_bloqueos: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/profesional/api/horarios-disponibles')
