@@ -24,6 +24,7 @@ from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler
 from werkzeug.utils import secure_filename
+from database import agregar_cita, normalizar_hora
 
 # Cargar variables de entorno
 load_dotenv()
