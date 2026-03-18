@@ -128,14 +128,14 @@
         
         .horarios-grid { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); 
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); 
             gap: 0.5rem; 
             margin-top: 1rem; 
         }
 
         @media (max-width: 480px) {
             .horarios-grid {
-                grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
                 gap: 0.3rem;
             }
         }
@@ -149,11 +149,13 @@
             text-align: center; 
             font-size: 0.9rem;
             transition: all 0.3s;
+            font-weight: 500;
         }
 
         .hora-btn:hover {
             border-color: #3498db;
             transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .hora-btn.selected { 
@@ -161,6 +163,7 @@
             color: white; 
             border-color: #3498db;
             transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
         }
         
         .flash { 
@@ -196,6 +199,7 @@
             text-align: center;
             padding: 1rem;
             color: #7f8c8d;
+            font-style: italic;
         }
 
         /* Prevenir zoom en inputs en iOS */
@@ -249,7 +253,7 @@
                 <div class="form-group">
                     <label for="cliente_telefono">📞 Teléfono:</label>
                     <input type="tel" id="cliente_telefono" name="cliente_telefono" required 
-                           placeholder="Ej: +573001234567">
+                           placeholder="Ej: 3101234567">
                 </div>
                 
                 <div class="form-group">
@@ -287,28 +291,44 @@
     </div>
 
     <script>
-        // SOLUCIÓN: Obtener el profesional_id desde el data attribute del formulario
+        // ==================== FUNCIÓN PARA CONVERTIR A 12 HORAS ====================
+        function convertirAFormato12Horas(hora24) {
+            if (!hora24) return hora24;
+            
+            try {
+                // Si ya está en formato 12h, devolverlo igual
+                if (hora24.includes('AM') || hora24.includes('PM')) {
+                    return hora24;
+                }
+                
+                const partes = hora24.split(':');
+                if (partes.length < 2) return hora24;
+                
+                let hora = parseInt(partes[0]);
+                const minutos = partes[1];
+                
+                const ampm = hora >= 12 ? 'PM' : 'AM';
+                
+                hora = hora % 12;
+                hora = hora ? hora : 12; // La hora 0 se convierte en 12
+                
+                // Formatear con dos dígitos para la hora
+                const horaStr = hora.toString();
+                
+                return `${horaStr}:${minutos} ${ampm}`;
+            } catch (e) {
+                console.error('Error convirtiendo hora:', e);
+                return hora24;
+            }
+        }
+
+        // ==================== FUNCIÓN PARA OBTENER PROFESIONAL ID ====================
         function getProfesionalId() {
             var form = document.getElementById('agendarForm');
             return form.getAttribute('data-profesional-id') || 1;
         }
         
-        // Asignar eventos después de que la página cargue
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('fecha').addEventListener('change', cargarHorarios);
-            document.getElementById('servicio_id').addEventListener('change', cargarHorarios);
-            
-            // Validar formulario antes de enviar
-            document.getElementById('agendarForm').addEventListener('submit', function(e) {
-                const horaSeleccionada = document.getElementById('hora').value;
-                if (!horaSeleccionada) {
-                    e.preventDefault();
-                    alert('⚠️ Por favor selecciona un horario disponible');
-                    return false;
-                }
-            });
-        });
-        
+        // ==================== FUNCIÓN PARA CARGAR HORARIOS ====================
         function cargarHorarios() {
             var fecha = document.getElementById('fecha').value;
             var servicio = document.getElementById('servicio_id').value;
@@ -340,7 +360,10 @@
                         if (data.horarios && data.horarios.length > 0) {
                             var html = '<div class="horarios-grid">';
                             for (var i = 0; i < data.horarios.length; i++) {
-                                html += '<div class="hora-btn" data-hora="' + data.horarios[i] + '">' + data.horarios[i] + '</div>';
+                                var horaOriginal = data.horarios[i];
+                                // ✅ CONVERTIR A FORMATO 12 HORAS
+                                var hora12 = convertirAFormato12Horas(horaOriginal);
+                                html += '<div class="hora-btn" data-hora="' + horaOriginal + '">' + hora12 + '</div>';
                             }
                             html += '</div>';
                             container.innerHTML = html;
@@ -355,6 +378,7 @@
                                     }
                                     // Seleccionar este
                                     this.classList.add('selected');
+                                    // Guardar la hora ORIGINAL en el input oculto (formato 24h para el backend)
                                     document.getElementById('hora').value = this.getAttribute('data-hora');
                                     
                                     // Feedback visual
@@ -364,6 +388,9 @@
                                     }, 150);
                                 });
                             }
+                            
+                            // Mostrar cuántos horarios se encontraron
+                            console.log(`✅ ${data.horarios.length} horarios disponibles`);
                         } else {
                             container.innerHTML = '<p class="text-danger">❌ No hay horarios disponibles para esta fecha</p>';
                         }
@@ -390,14 +417,47 @@
             xhr.send();
         }
 
-        // Establecer fecha mínima como hoy
+        // ==================== INICIALIZACIÓN ====================
         document.addEventListener('DOMContentLoaded', function() {
+            // Establecer fecha mínima como hoy
             const today = new Date().toISOString().split('T')[0];
             const fechaInput = document.getElementById('fecha');
             if (!fechaInput.value) {
                 fechaInput.value = today;
             }
             fechaInput.min = today;
+            
+            // Asignar eventos
+            document.getElementById('fecha').addEventListener('change', cargarHorarios);
+            document.getElementById('servicio_id').addEventListener('change', cargarHorarios);
+            
+            // Si ya hay fecha y servicio seleccionados (por ejemplo, después de un error), cargar horarios
+            if (fechaInput.value && document.getElementById('servicio_id').value) {
+                cargarHorarios();
+            }
+            
+            // Validar formulario antes de enviar
+            document.getElementById('agendarForm').addEventListener('submit', function(e) {
+                const horaSeleccionada = document.getElementById('hora').value;
+                if (!horaSeleccionada) {
+                    e.preventDefault();
+                    alert('⚠️ Por favor selecciona un horario disponible');
+                    return false;
+                }
+                
+                // Validar teléfono (10 dígitos, empieza con 3)
+                const telefono = document.getElementById('cliente_telefono').value.trim();
+                if (!/^3\d{9}$/.test(telefono)) {
+                    e.preventDefault();
+                    alert('⚠️ El teléfono debe tener 10 dígitos y empezar con 3');
+                    return false;
+                }
+            });
+            
+            // Formatear teléfono mientras se escribe
+            document.getElementById('cliente_telefono').addEventListener('input', function(e) {
+                this.value = this.value.replace(/\D/g, ''); // Solo números
+            });
         });
     </script>
 </body>
