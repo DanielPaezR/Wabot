@@ -1030,7 +1030,7 @@
             </div>
         </div>
 
-        <!-- Sección de bloqueos recurrentes (NUEVO) -->
+        <!-- Sección de bloqueos recurrentes -->
         <div id="seccionRecurrentes" style="display: none;">
             <div class="mobile-card">
                 <div class="card-header-mobile" style="background: linear-gradient(135deg, var(--warning), #e67e22);">
@@ -1038,7 +1038,7 @@
                 </div>
                 
                 <div class="card-body-mobile">
-                    {% if bloqueos_recurrentes %}
+                    {% if bloqueos_recurrentes %}  <!-- ← AQUÍ DEBE SER bloqueos_recurrentes -->
                         <div class="table-responsive-mobile">
                             <table class="table-mobile">
                                 <thead>
@@ -1051,10 +1051,10 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for bloqueo in bloqueos_recurrentes %}
+                                    {% for bloqueo in bloqueos_recurrentes %}  <!-- ← Y AQUÍ TAMBIÉN -->
                                     <tr>
                                         <td>{{ bloqueo.dias_legibles or 'No especificado' }}</td>
-                                        <td>{{ bloqueo.hora_inicio[:5] }} - {{ bloqueo.hora_fin[:5] }}</td>
+                                        <td>{{ bloqueo.hora_inicio }} - {{ bloqueo.hora_fin }}</td>
                                         <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo' }}">
                                             {{ bloqueo.motivo or "Sin motivo" }}
                                         </td>
@@ -1071,9 +1071,9 @@
                                         </td>
                                         <td>
                                             <form method="POST" 
-                                                  action="{{ url_for('profesional_eliminar_bloqueo_recurrente', bloqueo_id=bloqueo.id) }}"
-                                                  onsubmit="return confirmDesbloqueo(this, true);"
-                                                  class="d-inline">
+                                                action="{{ url_for('profesional_eliminar_bloqueo_recurrente', bloqueo_id=bloqueo.id) }}"
+                                                onsubmit="return confirmDesbloqueo(this, true);"
+                                                class="d-inline">
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                 <button type="submit" class="btn-mobile btn-mobile-danger btn-mobile-sm">
                                                     <i class="fas fa-trash me-1"></i>
@@ -1170,33 +1170,28 @@
         
         // Función para cambiar entre pestañas
         function cambiarTabs(tab) {
-            const seccionPuntuales = document.getElementById('seccionPuntuales');
-            const seccionRecurrentes = document.getElementById('seccionRecurrentes');
-            const tabPuntuales = document.getElementById('tabPuntuales');
-            const tabRecurrentes = document.getElementById('tabRecurrentes');
-            
-            if (tab === 'puntuales') {
-                seccionPuntuales.style.display = 'block';
-                seccionRecurrentes.style.display = 'none';
-                tabPuntuales.className = 'btn-mobile btn-mobile-primary';
-                tabRecurrentes.className = 'btn-mobile btn-mobile-secondary';
-                
-                // Actualizar URL sin recargar
-                const url = new URL(window.location);
-                url.searchParams.set('tab', 'puntuales');
-                window.history.pushState({}, '', url);
-            } else {
-                seccionPuntuales.style.display = 'none';
-                seccionRecurrentes.style.display = 'block';
-                tabPuntuales.className = 'btn-mobile btn-mobile-secondary';
-                tabRecurrentes.className = 'btn-mobile btn-mobile-primary';
-                
-                // Actualizar URL sin recargar
-                const url = new URL(window.location);
-                url.searchParams.set('tab', 'recurrentes');
-                window.history.pushState({}, '', url);
-            }
+        const seccionPuntuales = document.getElementById('seccionPuntuales');
+        const seccionRecurrentes = document.getElementById('seccionRecurrentes');
+        const tabPuntuales = document.getElementById('tabPuntuales');
+        const tabRecurrentes = document.getElementById('tabRecurrentes');
+        
+        if (tab === 'puntuales') {
+            seccionPuntuales.style.display = 'block';
+            seccionRecurrentes.style.display = 'none';
+            tabPuntuales.className = 'btn-mobile btn-mobile-primary';
+            tabRecurrentes.className = 'btn-mobile btn-mobile-secondary';
+        } else {
+            seccionPuntuales.style.display = 'none';
+            seccionRecurrentes.style.display = 'block';
+            tabPuntuales.className = 'btn-mobile btn-mobile-secondary';
+            tabRecurrentes.className = 'btn-mobile btn-mobile-primary';
         }
+        
+        // Actualizar URL sin recargar
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tab);
+        window.history.pushState({}, '', url);
+    }
         
         // Funciones del modal puntual
         function openModal() {
@@ -1825,6 +1820,19 @@
             }
             lastTouchEnd = now;
         }, false);
+
+    // Manejar pestaña activa desde URL
+    document.addEventListener('DOMContentLoaded', function() {
+        // Obtener el parámetro 'tab' de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        
+        if (tab === 'recurrentes') {
+            cambiarTabs('recurrentes');
+        } else {
+            cambiarTabs('puntuales');
+        }
+    });
     </script>
 </body>
 </html>

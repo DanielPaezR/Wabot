@@ -4517,10 +4517,15 @@ def profesional_bloqueos():
         
         # Fecha por defecto: hoy
         fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        tab = request.args.get('tab', 'puntuales')  # Para saber qué pestaña mostrar
         
-        # Obtener bloqueos del profesional
+        # Obtener bloqueos PUNTUALES del profesional
         from database import obtener_bloqueos_profesional
-        bloqueos = obtener_bloqueos_profesional(negocio_id, profesional_id, fecha)
+        bloqueos_puntuales = obtener_bloqueos_profesional(negocio_id, profesional_id, fecha)
+        
+        # Obtener bloqueos RECURRENTES del profesional
+        from database import obtener_bloqueos_recurrentes
+        bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
         # Obtener información del profesional
         conn = get_db_connection()
@@ -4529,14 +4534,21 @@ def profesional_bloqueos():
         profesional_info = cursor.fetchone()
         conn.close()
         
+        print(f"📊 [DEBUG] Bloqueos puntuales: {len(bloqueos_puntuales)}")
+        print(f"📊 [DEBUG] Bloqueos recurrentes: {len(bloqueos_recurrentes)}")
+        
         return render_template('profesional/bloqueos.html',
-                            bloqueos=bloqueos,
+                            bloqueos_puntuales=bloqueos_puntuales,
+                            bloqueos_recurrentes=bloqueos_recurrentes,
                             fecha_seleccionada=fecha,
+                            tab_activo=tab,  # Para mantener la pestaña activa
                             profesional_id=profesional_id,
                             profesional_nombre=profesional_info['nombre'])
         
     except Exception as e:
         print(f"❌ Error en profesional_bloqueos: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Error al cargar la página de bloqueos', 'error')
         return redirect(url_for('profesional_dashboard'))
 
