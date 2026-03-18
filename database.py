@@ -1808,8 +1808,10 @@ def obtener_nombre_cliente(telefono, negocio_id):
 
 
 def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
-    """Obtener citas ACTIVAS de un profesional para una fecha específica (excluye completadas y canceladas)"""
+    """Obtener citas ACTIVAS de un profesional para una fecha específica"""
     conn = get_db_connection()
+    
+    print(f"🔍 [DB] Buscando citas para profesional {profesional_id} en fecha {fecha}")
     
     sql = '''
         SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion,
@@ -1821,12 +1823,16 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
         LEFT JOIN servicios s ON c.servicio_id = s.id
         WHERE c.negocio_id = %s AND c.profesional_id = %s 
         AND c.fecha = %s
-        AND c.estado IN ('confirmado', 'bloqueado')  /* ← SOLO citas activas y bloqueos */
+        AND c.estado IN ('confirmado', 'bloqueado')
         ORDER BY c.hora
     '''
     
     citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
     conn.close()
+    
+    print(f"✅ [DB] Encontradas {len(citas)} citas activas")
+    for cita in citas:
+        print(f"  - {cita['hora']}: {cita['cliente_nombre']} - {cita['servicio_nombre']} (estado: {cita['estado']})")
     
     # Procesar citas para marcar bloqueos
     for cita in citas:
