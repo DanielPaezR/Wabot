@@ -26,6 +26,23 @@ web_chat_bp = Blueprint('web_chat', __name__)
 conversaciones_activas = {}
 
 # =============================================================================
+# FUNCIÓN PARA CONVERTIR A FORMATO 12 HORAS
+# =============================================================================
+
+def convertir_a_formato_12_horas(hora_24):
+    """
+    Convierte una hora en formato 24 horas (HH:MM) a formato 12 horas (HH:MM AM/PM)
+    """
+    try:
+        # Parsear la hora en formato 24 horas
+        hora_obj = datetime.strptime(hora_24, '%H:%M')
+        # Formatear a 12 horas con AM/PM
+        return hora_obj.strftime('%I:%M %p').lstrip('0')  # lstrip('0') quita el cero inicial
+    except Exception as e:
+        print(f"Error convirtiendo hora {hora_24}: {e}")
+        return hora_24  # Si hay error, devolver la original
+
+# =============================================================================
 # MOTOR DE PLANTILLAS (CORREGIDO PARA POSTGRESQL) - SIN CAMBIOS
 # =============================================================================
 
@@ -640,7 +657,7 @@ def generar_opciones_fechas(numero, negocio_id):
     return opciones
 
 def generar_opciones_horarios(numero, negocio_id):
-    """Generar opciones de horarios para botones del chat web"""
+    """Generar opciones de horarios para botones del chat web - MODIFICADO PARA 12 HORAS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'todos_horarios' not in conversaciones_activas[clave_conversacion]:
@@ -657,11 +674,17 @@ def generar_opciones_horarios(numero, negocio_id):
     
     opciones = []
     
-    # Agregar opciones de horarios
+    # Agregar opciones de horarios (convertidas a 12 horas)
     for i, hora in enumerate(horarios_pagina, 1):
+        # Asegurarse de que está en formato 12 horas
+        hora_12h = hora
+        # Si por alguna razón la hora está en 24h, convertirla
+        if ':' in hora and not ('AM' in hora or 'PM' in hora):
+            hora_12h = convertir_a_formato_12_horas(hora)
+        
         opciones.append({
             'value': str(i),
-            'text': f"{hora}"
+            'text': f"{hora_12h}"
         })
     
     # Agregar opciones de navegación como elementos adicionales del array
@@ -1361,13 +1384,20 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
         conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
         
+        # Tomar los primeros 3 horarios como ejemplo y convertirlos a 12h
+        ejemplos_horarios = []
+        for i, hora in enumerate(horarios_disponibles[:3]):
+            hora_12h = convertir_a_formato_12_horas(hora) if ':' in hora and not ('AM' in hora or 'PM' in hora) else hora
+            ejemplos_horarios.append(hora_12h)
+        
         print("✅ Todo OK, renderizando plantilla")
         
         return renderizar_plantilla('seleccion_horario', negocio_id, {
             'profesional_nombre': profesional_nombre,
             'fecha_formateada': fecha_formateada,
             'servicio_nombre': servicio_nombre,
-            'servicio_precio': servicio_precio
+            'servicio_precio': servicio_precio,
+            'ejemplos_horarios': ', '.join(ejemplos_horarios)  # Para mostrar ejemplos
         })
         
     except Exception as e:
@@ -2395,7 +2425,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles - VERSIÓN CORREGIDA CON BLOQUEO POR DURACIÓN"""
+    """Generar horarios disponibles - VERSIÓN CORREGIDA CON BLOQUEO POR DURACIÓN Y FORMATO 12 HORAS"""
     # Verificar si el día está activo
     horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
     
@@ -2469,9 +2499,11 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         if not es_horario_almuerzo(hora_actual, horarios_dia):
             # ✅ VERIFICAR DISPONIBILIDAD COMPLETA (no solo la hora de inicio)
             if esta_disponible_por_duracion(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
-                horarios.append(hora_str)
+                # Convertir a formato 12 horas antes de agregar
+                hora_12h = convertir_a_formato_12_horas(hora_str)
+                horarios.append(hora_12h)
                 horarios_disponibles += 1
-                print(f"✅ {hora_str} DISPONIBLE (ocupará hasta {hora_fin_servicio.strftime('%H:%M')})")
+                print(f"   ✅ {hora_str} -> {hora_12h} DISPONIBLE (ocupará hasta {hora_fin_servicio.strftime('%H:%M')})")
             else:
                 print(f"❌ {hora_str} NO DISPONIBLE - Conflicto con otra cita")
                 horarios_omitidos += 1
