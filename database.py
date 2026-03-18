@@ -1808,7 +1808,7 @@ def obtener_nombre_cliente(telefono, negocio_id):
 
 
 def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
-    """Obtener citas de un profesional para una fecha específica - CON BLOQUEOS"""
+    """Obtener citas ACTIVAS de un profesional para una fecha específica (excluye completadas y canceladas)"""
     conn = get_db_connection()
     
     sql = '''
@@ -1821,6 +1821,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
         LEFT JOIN servicios s ON c.servicio_id = s.id
         WHERE c.negocio_id = %s AND c.profesional_id = %s 
         AND c.fecha = %s
+        AND c.estado IN ('confirmado', 'bloqueado')  /* ← SOLO citas activas y bloqueos */
         ORDER BY c.hora
     '''
     
