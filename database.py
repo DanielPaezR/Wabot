@@ -1442,16 +1442,47 @@ def obtener_duracion_servicio(negocio_id, servicio_id):
 # GESTIÓN DE CITAS
 # =============================================================================
 
+def normalizar_hora(hora_str):
+    """Convierte cualquier formato de hora a HH:MM (24h)"""
+    if not hora_str:
+        return hora_str
+    
+    try:
+        # Si ya está en formato 24h (ej: "16:00")
+        if ':' in hora_str and not ('AM' in hora_str or 'PM' in hora_str):
+            partes = hora_str.split(':')
+            if len(partes) >= 2:
+                hora = int(partes[0])
+                minuto = partes[1][:2]
+                return f"{hora:02d}:{minuto}"
+        
+        # Si está en formato 12h (ej: "3:00 PM")
+        if 'AM' in hora_str or 'PM' in hora_str:
+            from datetime import datetime
+            hora_limpia = hora_str.strip()
+            hora_obj = datetime.strptime(hora_limpia, '%I:%M %p')
+            return hora_obj.strftime('%H:%M')
+        
+        return hora_str
+    except Exception as e:
+        print(f"⚠️ Error normalizando hora '{hora_str}': {e}")
+        return hora_str
+
+
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
-    """Agregar nueva cita a la base de datos y enviar confirmación inmediata"""
+    """Agregar nueva cita a la base de datos"""
     print(f"🔍 [DEBUG agregar_cita] Iniciando inserción:")
     print(f"   - negocio_id: {negocio_id}")
     print(f"   - profesional_id: {profesional_id}")
     print(f"   - cliente_telefono: {cliente_telefono}")
     print(f"   - cliente_nombre: {cliente_nombre}")
     print(f"   - fecha: {fecha}")
-    print(f"   - hora: {hora}")
+    print(f"   - hora original: {hora}")
     print(f"   - servicio_id: {servicio_id}")
+    
+    # ✅ NORMALIZAR LA HORA (convertir de 12h a 24h si es necesario)
+    hora_normalizada = normalizar_hora(hora)
+    print(f"   - hora normalizada: {hora_normalizada}")
     
     conn = get_db_connection()
     if not conn:
@@ -1472,7 +1503,7 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         '''
         
         cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
-                           fecha, hora, servicio_id))
+                           fecha, hora_normalizada, servicio_id))
         
         result = cursor.fetchone()
         
@@ -1484,12 +1515,7 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         conn.commit()
         
         print(f"✅ [DEBUG] ¡ÉXITO! Cita agregada con ID: {cita_id}")
-        
-        # ✅ ENVIAR CONFIRMACIÓN INMEDIATA
-        if cita_id and cita_id > 0:
-            enviar_confirmacion_despues_de_guardar(cita_id, negocio_id, profesional_id, 
-                                                  cliente_telefono, cliente_nombre, 
-                                                  fecha, hora, servicio_id)
+        print(f"   - Hora guardada en BD: {hora_normalizada}")
         
         return cita_id
         
@@ -1497,7 +1523,8 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         print(f"❌ [DEBUG] Error CRÍTICO al agregar cita: {e}")
         import traceback
         traceback.print_exc()
-        conn.rollback()
+        if conn:
+            conn.rollback()
         return 0
     finally:
         if conn:
@@ -1808,8 +1835,10 @@ def obtener_nombre_cliente(telefono, negocio_id):
 
 
 def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
-    """Obtener citas de un profesional para una fecha específica - CON BLOQUEOS"""
+    """Obtener citas ACTIVAS de un profesional para una fecha específica"""
     conn = get_db_connection()
+    
+    print(f"🔍 [DB] Buscando citas para profesional {profesional_id} en fecha {fecha}")
     
     sql = '''
         SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion,
@@ -1821,11 +1850,31 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
         LEFT JOIN servicios s ON c.servicio_id = s.id
         WHERE c.negocio_id = %s AND c.profesional_id = %s 
         AND c.fecha = %s
+        AND c.estado IN ('confirmado', 'bloqueado')
         ORDER BY c.hora
     '''
     
     citas = fetch_all(conn.cursor(), sql, (negocio_id, profesional_id, fecha))
     conn.close()
+    
+    # ✅ NORMALIZAR HORAS para comparación
+    for cita in citas:
+        if isinstance(cita, dict) and 'hora' in cita:
+            # Normalizar para mostrar en el dashboard
+            hora_original = cita['hora']
+            try:
+                if 'AM' in hora_original or 'PM' in hora_original:
+                    from datetime import datetime
+                    hora_obj = datetime.strptime(hora_original.strip(), '%I:%M %p')
+                    cita['hora_display'] = hora_obj.strftime('%I:%M %p').lstrip('0')
+                else:
+                    cita['hora_display'] = hora_original
+            except:
+                cita['hora_display'] = hora_original
+    
+    print(f"✅ [DB] Encontradas {len(citas)} citas activas")
+    for cita in citas:
+        print(f"  - {cita.get('hora_display', cita['hora'])}: {cita['cliente_nombre']} - {cita['servicio_nombre']}")
     
     # Procesar citas para marcar bloqueos
     for cita in citas:

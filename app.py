@@ -24,6 +24,7 @@ from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler
 from werkzeug.utils import secure_filename
+from database import agregar_cita, normalizar_hora
 
 # Cargar variables de entorno
 load_dotenv()
@@ -3019,38 +3020,28 @@ def negocio_eliminar_profesional(profesional_id):
 def profesional_dashboard():
     """Dashboard móvil para profesionales"""
     try:
+        print("="*60)
+        print("🚨 [DEBUG] CARGANDO DASHBOARD")
+        
         negocio_id = session.get('negocio_id', 1)
         fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
         
         profesional_id = session.get('profesional_id')
         
-        print(f"🔍 DEBUG - profesional_dashboard: negocio_id={negocio_id}, fecha={fecha}, profesional_id={profesional_id}")
+        print(f"🔍 [DEBUG] Dashboard - negocio_id={negocio_id}, fecha={fecha}, profesional_id={profesional_id}")
         
         if not profesional_id:
             usuario_id = session.get('usuario_id')
-            if usuario_id:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute('SELECT id FROM profesionales WHERE usuario_id = %s AND negocio_id = %s', 
-                             (usuario_id, negocio_id))
-                profesional = cursor.fetchone()
-                conn.close()
-                
-                if profesional:
-                    profesional_id = profesional[0]
-                    session['profesional_id'] = profesional_id
+            print(f"⚠️ [DEBUG] No hay profesional_id, buscando por usuario_id={usuario_id}")
+            # ... resto del código ...
         
-        if not profesional_id:
-            flash('No se pudo identificar al profesional', 'error')
-            return render_template('profesional/dashboard.html', 
-                                citas=[], 
-                                total_citas=0, 
-                                ganancia_estimada=0,
-                                profesional_id=None,
-                                fecha=fecha)
-
         # Obtener citas del profesional
+        print(f"🔍 [DEBUG] Llamando a obtener_citas_para_profesional({negocio_id}, {profesional_id}, {fecha})")
         citas = db.obtener_citas_para_profesional(negocio_id, profesional_id, fecha)
+        
+        print(f"✅ [DEBUG] Citas encontradas: {len(citas)}")
+        for i, cita in enumerate(citas):
+            print(f"  Cita {i+1}: {cita['hora']} - {cita['cliente_nombre']} ({cita['estado']})")
         
         total_citas = len(citas)
         ganancia_estimada = sum(cita.get('precio', 0) for cita in citas if cita.get('estado') != 'cancelado')
@@ -3335,8 +3326,12 @@ def profesional_agendar():
 def profesional_crear_cita():
     """Crear cita desde el panel del profesional - VERSIÓN COMPLETA CORREGIDA"""
     try:
+        print("="*60)
+        print("🚨 [DEBUG] INICIANDO profesional_crear_cita")
+        
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
+            print("❌ [DEBUG] CSRF inválido")
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             return redirect(url_for('profesional_agendar'))
         
@@ -3349,153 +3344,63 @@ def profesional_crear_cita():
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
-        print(f"🔍 DEBUG crear-cita: cliente_nombre={cliente_nombre}, telefono={cliente_telefono}, servicio={servicio_id}, fecha={fecha}, hora={hora}, profesional={profesional_id}, negocio={negocio_id}")
+        print(f"🔍 [DEBUG] Datos recibidos:")
+        print(f"  - cliente_nombre: {cliente_nombre}")
+        print(f"  - cliente_telefono: {cliente_telefono}")
+        print(f"  - servicio_id: {servicio_id}")
+        print(f"  - fecha: {fecha}")
+        print(f"  - hora: {hora}")
+        print(f"  - profesional_id: {profesional_id}")
+        print(f"  - negocio_id: {negocio_id}")
         
         if not all([cliente_nombre, cliente_telefono, servicio_id, fecha, hora, profesional_id, negocio_id]):
+            print("❌ [DEBUG] Faltan campos requeridos")
             flash('Todos los campos son requeridos', 'error')
             return redirect(url_for('profesional_agendar'))
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # ✅ LLAMADA A agregar_cita
+        print("🔍 [DEBUG] Llamando a agregar_cita...")
+        cita_id = agregar_cita(
+            negocio_id=negocio_id,
+            profesional_id=profesional_id,
+            cliente_telefono=cliente_telefono,
+            fecha=fecha,
+            hora=hora,
+            servicio_id=servicio_id,
+            cliente_nombre=cliente_nombre
+        )
         
-        # ✅ 1. PRIMERO: Crear o actualizar cliente en tabla `clientes`
-        print(f"🔍 [CLIENTE] Verificando/creando cliente con teléfono: {cliente_telefono}")
+        print(f"✅ [DEBUG] Resultado de agregar_cita: cita_id={cita_id}")
         
-        try:
-            # Verificar si el cliente ya existe
-            cursor.execute('''
-                SELECT id, nombre FROM clientes 
-                WHERE telefono = %s AND negocio_id = %s
-                LIMIT 1
-            ''', (cliente_telefono, negocio_id))
+        if cita_id and cita_id > 0:
+            print(f"✅ [DEBUG] Cita creada exitosamente con ID: {cita_id}")
             
-            cliente_existente = cursor.fetchone()
-            
-            if cliente_existente:
-                # ✅ Cliente existe - actualizar si es necesario
-                if hasattr(cliente_existente, 'keys'):  # Diccionario
-                    cliente_id = cliente_existente['id']
-                    nombre_actual = cliente_existente['nombre']
-                else:  # Tupla
-                    cliente_id = cliente_existente[0]
-                    nombre_actual = cliente_existente[1]
-                
-                print(f"✅ [CLIENTE] Cliente existente encontrado: ID={cliente_id}, Nombre actual: '{nombre_actual}'")
-                
-                # Actualizar nombre si es diferente
-                if nombre_actual != cliente_nombre:
-                    cursor.execute('''
-                        UPDATE clientes 
-                        SET nombre = %s, updated_at = NOW()
-                        WHERE id = %s
-                    ''', (cliente_nombre, cliente_id))
-                    print(f"✅ [CLIENTE] Nombre actualizado: '{nombre_actual}' -> '{cliente_nombre}'")
-                else:
-                    print(f"✅ [CLIENTE] Manteniendo nombre existente: '{nombre_actual}'")
-            else:
-                # ✅ Cliente nuevo - crear registro
-                cursor.execute('''
-                    INSERT INTO clientes (
-                        negocio_id, 
-                        telefono, 
-                        nombre, 
-                        created_at, 
-                        updated_at
-                    ) VALUES (%s, %s, %s, NOW(), NOW())
-                    RETURNING id
-                ''', (negocio_id, cliente_telefono, cliente_nombre))
-                
-                cliente_result = cursor.fetchone()
-                if hasattr(cliente_result, 'keys'):
-                    cliente_id = cliente_result['id']
-                else:
-                    cliente_id = cliente_result[0]
-                
-                print(f"✅ [CLIENTE] Nuevo cliente creado: ID={cliente_id}, Nombre='{cliente_nombre}'")
-                
-        except Exception as e:
-            print(f"⚠️ [CLIENTE] Error procesando cliente: {e}")
-            # Continuamos aunque falle, la cita se puede crear igual
-        
-        # ✅ 2. Verificar disponibilidad
-        cursor.execute('''
-            SELECT id FROM citas 
-            WHERE profesional_id = %s AND fecha = %s AND hora = %s AND estado != 'cancelada'
-        ''', (profesional_id, fecha, hora))
-        
-        cita_existente = cursor.fetchone()
-        if cita_existente:
-            flash('❌ Ya existe una cita en ese horario', 'error')
-            conn.close()
-            return redirect(url_for('profesional_agendar'))
-        
-        # ✅ 3. Crear la cita
-        cursor.execute('''
-            INSERT INTO citas (
-                negocio_id, 
-                profesional_id, 
-                cliente_telefono, 
-                cliente_nombre, 
-                fecha, 
-                hora, 
-                servicio_id, 
-                estado, 
-                created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmada', NOW())
-            RETURNING id
-        ''', (
-            negocio_id, 
-            profesional_id, 
-            cliente_telefono, 
-            cliente_nombre, 
-            fecha, 
-            hora, 
-            servicio_id
-        ))
-        
-        result = cursor.fetchone()
-        if result:
-            if hasattr(result, 'keys'):
-                cita_id = result['id']
-            else:
-                cita_id = result[0]
-            
-            print(f"✅ [CITA] Cita creada exitosamente. ID: {cita_id}")
-            
-            # ✅ 4. OPCIONAL: Notificación (puedes activarlo después)
+            # ✅ NOTIFICACIÓN PUSH
             try:
-                # Aquí podrías enviar notificación al cliente
-                # enviar_notificacion_cita(cita_id, cliente_telefono, cliente_nombre, fecha, hora)
-                pass
-            except Exception as e:
-                print(f"⚠️ [NOTIFICACIÓN] Error enviando notificación: {e}")
-        
+                mensaje_push = f"{cliente_nombre} - {fecha} {hora}"
+                enviar_notificacion_push_profesional(
+                    profesional_id=profesional_id,
+                    titulo="📅 Nueva Cita Agendada",
+                    mensaje=mensaje_push,
+                    cita_id=cita_id
+                )
+                print("✅ Notificación push enviada")
+            except Exception as push_error:
+                print(f"⚠️ Error enviando push: {push_error}")
+            
+            flash('✅ Cita agendada exitosamente', 'success')
+            
+            # ✅ REDIRECCIÓN
+            print(f"🔍 [DEBUG] Redirigiendo a dashboard con fecha={fecha}, profesional_id={profesional_id}")
+            return redirect(url_for('profesional_dashboard', fecha=fecha, profesional_id=profesional_id))
+            
         else:
-            flash('❌ Error al crear la cita en la base de datos', 'error')
-            conn.rollback()
-            conn.close()
+            print(f"❌ [DEBUG] Error al crear la cita. ID retornado: {cita_id}")
+            flash('❌ Error al agendar la cita', 'error')
             return redirect(url_for('profesional_agendar'))
-        
-        conn.commit()
-        try:
-            mensaje_push = f"{cliente_nombre} - {fecha} {hora}"
-            enviar_notificacion_push_profesional(
-                profesional_id=profesional_id,
-                titulo="📅 Nueva Cita Agendada",
-                mensaje=mensaje_push,
-                cita_id=cita_id
-            )
-            print("✅ Notificación push enviada")
-        except Exception as push_error:
-            print(f"⚠️ Error enviando push: {push_error}")
-
-        conn.close()
-        
-        flash('✅ Cita agendada exitosamente', 'success')
-        return redirect(url_for('profesional_dashboard'))
-        
+            
     except Exception as e:
-        print(f"❌ Error creando cita: {e}")
+        print(f"❌ [DEBUG] Error general: {e}")
         import traceback
         traceback.print_exc()
         flash('❌ Error al agendar la cita', 'error')
