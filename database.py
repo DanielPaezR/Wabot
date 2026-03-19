@@ -1706,12 +1706,11 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
             AND c.fecha::DATE = %s::DATE 
-            AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')
+            AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')  /* ← INCLUIR BLOQUEADOS */
             ORDER BY c.hora
         '''
         params = (negocio_id, profesional_id, fecha)
     else:
-        # Para SQLite
         sql = '''
             SELECT c.hora, s.duracion, c.estado
             FROM citas c 
