@@ -11,7 +11,8 @@ import os
 import pytz
 from dotenv import load_dotenv
 from database import obtener_servicio_personalizado_cliente
-import pywebpush 
+import pywebpush
+import database as db 
 from database import obtener_citas_dia, obtener_horarios_por_dia, obtener_duracion_servicio
 
 load_dotenv()
@@ -2485,6 +2486,7 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
     """Generar horarios disponibles - VERSIÓN CORREGIDA CON BLOQUEO POR DURACIÓN Y FORMATO 12 HORAS"""
+    from datetime import datetime, timedelta
     try:
         # Verificar si el día está activo
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
@@ -2594,6 +2596,9 @@ def esta_disponible_por_duracion(hora_inicio, duracion_servicio, citas_ocupadas,
     Verificar si un horario está disponible considerando la DURACIÓN COMPLETA del servicio.
     Versión mejorada que bloquea todo el tiempo que dure el servicio.
     """
+    # ✅ IMPORTAR DATETIME DENTRO DE LA FUNCIÓN
+    from datetime import datetime, timedelta
+    
     hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
     hora_inicio_str = hora_inicio.strftime('%H:%M')
     hora_fin_str = hora_fin_servicio.strftime('%H:%M')
@@ -2638,7 +2643,6 @@ def esta_disponible_por_duracion(hora_inicio, duracion_servicio, citas_ocupadas,
                 hora_cita_str_normalizada = hora_cita_str
                 if 'AM' in hora_cita_str or 'PM' in hora_cita_str:
                     try:
-                        from datetime import datetime
                         hora_obj = datetime.strptime(hora_cita_str.strip(), '%I:%M %p')
                         hora_cita_str_normalizada = hora_obj.strftime('%H:%M')
                     except:
