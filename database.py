@@ -1232,12 +1232,12 @@ def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, acti
 # =============================================================================
 
 def obtener_profesionales(negocio_id):
-    """Obtener profesionales de un negocio - INCLUYENDO FOTOS"""
+    """Obtener profesionales de un negocio - SOLO LOS QUE TIENEN HORARIOS DISPONIBLES"""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # ✅ IMPORTANTE: Incluir foto_url en la consulta
+        # Obtener TODOS los profesionales activos
         cur.execute("""
             SELECT 
                 id, 
@@ -1251,21 +1251,20 @@ def obtener_profesionales(negocio_id):
                 created_at,
                 negocio_id
             FROM profesionales 
-            WHERE negocio_id = %s
+            WHERE negocio_id = %s AND activo = TRUE
             ORDER BY nombre
         """, (negocio_id,))
         
-        resultados = cur.fetchall()
+        profesionales = cur.fetchall()
         cur.close()
         conn.close()
         
-        print(f"📊 [DB] Obtenidos {len(resultados)} profesionales para negocio {negocio_id}")
+        # Aquí podríamos filtrar pero es más complejo porque necesitamos fecha/horario
+        # Por ahora, devolvemos todos y el filtro se hará en web_chat_handler
         
-        # Verificar que tenemos las fotos
-        for prof in resultados:
-            print(f"  👤 {prof['nombre']} - Foto: {'✅' if prof['foto_url'] else '❌'}")
+        print(f"📊 [DB] Obtenidos {len(profesionales)} profesionales para negocio {negocio_id}")
         
-        return resultados
+        return profesionales
         
     except Exception as e:
         print(f"❌ Error obteniendo profesionales: {str(e)}")
@@ -1706,12 +1705,11 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
             AND c.fecha::DATE = %s::DATE 
-            AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')
+            AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')  /* ← INCLUIR BLOQUEADOS */
             ORDER BY c.hora
         '''
         params = (negocio_id, profesional_id, fecha)
     else:
-        # Para SQLite
         sql = '''
             SELECT c.hora, s.duracion, c.estado
             FROM citas c 
@@ -3519,7 +3517,6 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                 if isinstance(bloqueo_dict['dias_semana'], str):
                     bloqueo_dict['dias_semana_lista'] = json.loads(bloqueo_dict['dias_semana'])
                 else:
-                    # Si ya es una lista, usarla directamente
                     bloqueo_dict['dias_semana_lista'] = bloqueo_dict['dias_semana']
                 
                 print(f"  📅 Días parseados: {bloqueo_dict['dias_semana_lista']}")
@@ -3541,54 +3538,24 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                     continue
             
             bloqueo_dict['dias_legibles'] = ', '.join(dias_nombres)
-            print(f"  📆 Días legibles: {bloqueo_dict['dias_legibles']}")
             
-            # ✅ CONVERTIR OBJETOS TIME A STRINGS
-            # Convertir hora_inicio a string
+            # Convertir horas a strings si son objetos time
             if bloqueo_dict['hora_inicio']:
-                hora_obj = bloqueo_dict['hora_inicio']
-                if hasattr(hora_obj, 'strftime'):
-                    bloqueo_dict['hora_inicio'] = hora_obj.strftime('%H:%M')
-                else:
-                    bloqueo_dict['hora_inicio'] = str(hora_obj)[:5]
+                if hasattr(bloqueo_dict['hora_inicio'], 'strftime'):
+                    bloqueo_dict['hora_inicio'] = bloqueo_dict['hora_inicio'].strftime('%H:%M')
             
-            # Convertir hora_fin a string
             if bloqueo_dict['hora_fin']:
-                hora_obj = bloqueo_dict['hora_fin']
-                if hasattr(hora_obj, 'strftime'):
-                    bloqueo_dict['hora_fin'] = hora_obj.strftime('%H:%M')
-                else:
-                    bloqueo_dict['hora_fin'] = str(hora_obj)[:5]
+                if hasattr(bloqueo_dict['hora_fin'], 'strftime'):
+                    bloqueo_dict['hora_fin'] = bloqueo_dict['hora_fin'].strftime('%H:%M')
             
-            # ✅ CONVERTIR FECHAS A STRINGS
+            # Convertir fechas a strings
             if bloqueo_dict['fecha_inicio']:
-                fecha_obj = bloqueo_dict['fecha_inicio']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['fecha_inicio'] = fecha_obj.strftime('%Y-%m-%d')
-                else:
-                    bloqueo_dict['fecha_inicio'] = str(fecha_obj)[:10]
+                if hasattr(bloqueo_dict['fecha_inicio'], 'strftime'):
+                    bloqueo_dict['fecha_inicio'] = bloqueo_dict['fecha_inicio'].strftime('%Y-%m-%d')
             
             if bloqueo_dict['fecha_fin']:
-                fecha_obj = bloqueo_dict['fecha_fin']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['fecha_fin'] = fecha_obj.strftime('%Y-%m-%d')
-                else:
-                    bloqueo_dict['fecha_fin'] = str(fecha_obj)[:10]
-            
-            # ✅ CONVERTIR created_at Y updated_at A STRINGS
-            if bloqueo_dict['created_at']:
-                fecha_obj = bloqueo_dict['created_at']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['created_at'] = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    bloqueo_dict['created_at'] = str(fecha_obj)
-            
-            if bloqueo_dict['updated_at']:
-                fecha_obj = bloqueo_dict['updated_at']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['updated_at'] = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    bloqueo_dict['updated_at'] = str(fecha_obj)
+                if hasattr(bloqueo_dict['fecha_fin'], 'strftime'):
+                    bloqueo_dict['fecha_fin'] = bloqueo_dict['fecha_fin'].strftime('%Y-%m-%d')
             
             resultado.append(bloqueo_dict)
         

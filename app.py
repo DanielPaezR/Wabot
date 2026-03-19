@@ -4039,7 +4039,7 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CON DURACIÓN COMPLETA"""
+    """API para obtener horarios disponibles - VERSIÓN CORREGIDA (excluye bloqueados)"""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -4089,7 +4089,7 @@ def api_horarios_disponibles():
         almuerzo_inicio_str = horarios_config.get('almuerzo_inicio')
         almuerzo_fin_str = horarios_config.get('almuerzo_fin')
         
-        # Obtener TODAS las citas del día con su duración
+        # Obtener TODAS las citas del día con su duración - INCLUYENDO BLOQUEADOS
         cursor.execute('''
             SELECT c.hora, s.duracion, c.estado
             FROM citas c
@@ -4105,7 +4105,7 @@ def api_horarios_disponibles():
         
         print(f"📋 Citas existentes: {len(citas_ocupadas)}")
         for c in citas_ocupadas:
-            print(f"   - {c['hora']} (dur. {c['duracion']} min)")
+            print(f"   - {c['hora']} (dur. {c['duracion']} min, estado: {c['estado']})")
         
         fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d').date()
         es_hoy = fecha_solicitada == fecha_actual_colombia.date()
@@ -4188,21 +4188,46 @@ def api_horarios_disponibles():
                     dentro_almuerzo = True
             
             if not dentro_almuerzo:
-                # ✅ VERIFICAR DISPONIBILIDAD CONSIDERANDO DURACIÓN
+                # ✅ VERIFICAR DISPONIBILIDAD CONSIDERANDO DURACIÓN Y ESTADO BLOQUEADO
                 hora_str = hora_actual.strftime('%H:%M')
                 disponible = True
                 
                 for cita in citas_ocupadas:
                     try:
-                        hora_cita = datetime.strptime(str(cita['hora']), '%H:%M')
+                        hora_cita_str = str(cita['hora']).strip()
+                        
+                        # ✅ NORMALIZAR HORAS si es necesario
+                        if 'AM' in hora_cita_str or 'PM' in hora_cita_str:
+                            from datetime import datetime
+                            try:
+                                hora_cita_obj = datetime.strptime(hora_cita_str, '%I:%M %p')
+                                hora_cita_str_normalizada = hora_cita_obj.strftime('%H:%M')
+                            except:
+                                hora_cita_str_normalizada = hora_cita_str
+                        else:
+                            hora_cita_str_normalizada = hora_cita_str
+                        
+                        # Convertir a datetime para comparar
+                        hora_cita = datetime.strptime(hora_cita_str_normalizada, '%H:%M')
                         hora_fin_cita = hora_cita + timedelta(minutes=int(cita['duracion']))
                         
-                        # Verificar solapamiento
-                        if (hora_actual.time() < hora_fin_cita.time() and 
-                            hora_fin_slot.time() > hora_cita.time()):
-                            disponible = False
-                            print(f"❌ {hora_str} - Conflicto con cita {cita['hora']} (dur. {cita['duracion']} min)")
-                            break
+                        # ✅ CRÍTICO: Si la cita está BLOQUEADA, no está disponible
+                        if cita['estado'].lower() == 'bloqueado':
+                            # Verificar si el bloqueo afecta este horario
+                            if (hora_actual.time() < hora_fin_cita.time() and 
+                                hora_fin_slot.time() > hora_cita.time()):
+                                disponible = False
+                                print(f"❌ {hora_str} - Horario BLOQUEADO de {cita['hora']} a {hora_fin_cita.strftime('%H:%M')}")
+                                break
+                        
+                        # Verificar solapamiento con citas confirmadas
+                        elif cita['estado'].lower() in ['confirmado', 'confirmada']:
+                            if (hora_actual.time() < hora_fin_cita.time() and 
+                                hora_fin_slot.time() > hora_cita.time()):
+                                disponible = False
+                                print(f"❌ {hora_str} - Conflicto con cita {hora_cita_str} (dur. {cita['duracion']} min)")
+                                break
+                                
                     except Exception as e:
                         print(f"⚠️ Error procesando cita: {e}")
                         continue
