@@ -980,7 +980,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
 # =============================================================================
 
 def mostrar_profesionales(numero, negocio_id):
-    """Mostrar lista de profesionales disponibles - FILTRANDO POR DISPONIBILIDAD"""
+    """Mostrar lista de profesionales disponibles - SIN FILTRAR POR DISPONIBILIDAD HOY"""
     try:
         # Obtener profesionales CON fotos
         profesionales = db.obtener_profesionales(negocio_id)
@@ -993,21 +993,8 @@ def mostrar_profesionales(numero, negocio_id):
             if prof.get('activo', True):
                 profesionales_activos.append(prof)
         
-        # Verificar disponibilidad para cada profesional
-        profesionales_con_disponibilidad = []
-        fecha_actual = datetime.now(tz_colombia).strftime('%Y-%m-%d')
-        
-        for prof in profesionales_activos:
-            # Verificar si el profesional tiene horarios disponibles hoy
-            tiene_disponibilidad = verificar_disponibilidad_profesional(negocio_id, prof['id'], fecha_actual)
-            
-            if tiene_disponibilidad:
-                profesionales_con_disponibilidad.append(prof)
-                print(f"✅ {prof['nombre']} - Disponible")
-            else:
-                print(f"❌ {prof['nombre']} - Sin disponibilidad (bloqueado/fuera de horario)")
-        
-        profesionales = profesionales_con_disponibilidad
+        # ✅ NO FILTRAR POR DISPONIBILIDAD - mostrar todos los profesionales activos
+        profesionales = profesionales_activos
         
         if not profesionales:
             return renderizar_plantilla('error_generico', negocio_id)
@@ -1024,7 +1011,7 @@ def mostrar_profesionales(numero, negocio_id):
             'timestamp': datetime.now(tz_colombia)
         })
         
-        print(f"✅ [WEB CHAT] {len(profesionales)} profesionales disponibles guardados")
+        print(f"✅ [WEB CHAT] {len(profesionales)} profesionales guardados")
         
         # ✅ USAR PLANTILLA PARA LISTA DE PROFESIONALES
         return renderizar_plantilla('lista_profesionales', negocio_id)
@@ -1035,52 +1022,6 @@ def mostrar_profesionales(numero, negocio_id):
         traceback.print_exc()
         return renderizar_plantilla('error_generico', negocio_id)
     
-def verificar_disponibilidad_profesional(negocio_id, profesional_id, fecha):
-    """Verifica si un profesional tiene al menos un horario disponible en una fecha"""
-    try:
-        # Obtener un servicio cualquiera para verificar disponibilidad
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
-        # Obtener cualquier servicio activo del negocio
-        if db.is_postgresql():
-            cursor.execute('''
-                SELECT id FROM servicios 
-                WHERE negocio_id = %s AND activo = TRUE 
-                LIMIT 1
-            ''', (negocio_id,))
-        else:
-            cursor.execute('''
-                SELECT id FROM servicios 
-                WHERE negocio_id = ? AND activo = TRUE 
-                LIMIT 1
-            ''', (negocio_id,))
-        
-        servicio_result = cursor.fetchone()
-        conn.close()
-        
-        if not servicio_result:
-            print(f"⚠️ No hay servicios activos para negocio {negocio_id}")
-            return False
-        
-        if hasattr(servicio_result, 'keys'):
-            servicio_id = servicio_result['id']
-        else:
-            servicio_id = servicio_result[0]
-        
-        # Generar horarios disponibles para este profesional
-        horarios = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id)
-        
-        # Si hay al menos un horario disponible, el profesional es visible
-        return len(horarios) > 0
-        
-    except Exception as e:
-        print(f"⚠️ Error verificando disponibilidad de profesional {profesional_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        # En caso de error, mostrar el profesional por seguridad
-        return True
-
 def mostrar_servicios(numero, profesional_nombre, negocio_id):
     """Mostrar servicios disponibles - Versión simplificada"""
     try:
