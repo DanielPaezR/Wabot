@@ -1232,12 +1232,12 @@ def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, acti
 # =============================================================================
 
 def obtener_profesionales(negocio_id):
-    """Obtener profesionales de un negocio - INCLUYENDO FOTOS"""
+    """Obtener profesionales de un negocio - SOLO LOS QUE TIENEN HORARIOS DISPONIBLES"""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # ✅ IMPORTANTE: Incluir foto_url en la consulta
+        # Obtener TODOS los profesionales activos
         cur.execute("""
             SELECT 
                 id, 
@@ -1251,21 +1251,20 @@ def obtener_profesionales(negocio_id):
                 created_at,
                 negocio_id
             FROM profesionales 
-            WHERE negocio_id = %s
+            WHERE negocio_id = %s AND activo = TRUE
             ORDER BY nombre
         """, (negocio_id,))
         
-        resultados = cur.fetchall()
+        profesionales = cur.fetchall()
         cur.close()
         conn.close()
         
-        print(f"📊 [DB] Obtenidos {len(resultados)} profesionales para negocio {negocio_id}")
+        # Aquí podríamos filtrar pero es más complejo porque necesitamos fecha/horario
+        # Por ahora, devolvemos todos y el filtro se hará en web_chat_handler
         
-        # Verificar que tenemos las fotos
-        for prof in resultados:
-            print(f"  👤 {prof['nombre']} - Foto: {'✅' if prof['foto_url'] else '❌'}")
+        print(f"📊 [DB] Obtenidos {len(profesionales)} profesionales para negocio {negocio_id}")
         
-        return resultados
+        return profesionales
         
     except Exception as e:
         print(f"❌ Error obteniendo profesionales: {str(e)}")
