@@ -3517,7 +3517,6 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                 if isinstance(bloqueo_dict['dias_semana'], str):
                     bloqueo_dict['dias_semana_lista'] = json.loads(bloqueo_dict['dias_semana'])
                 else:
-                    # Si ya es una lista, usarla directamente
                     bloqueo_dict['dias_semana_lista'] = bloqueo_dict['dias_semana']
                 
                 print(f"  📅 Días parseados: {bloqueo_dict['dias_semana_lista']}")
@@ -3539,54 +3538,24 @@ def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=T
                     continue
             
             bloqueo_dict['dias_legibles'] = ', '.join(dias_nombres)
-            print(f"  📆 Días legibles: {bloqueo_dict['dias_legibles']}")
             
-            # ✅ CONVERTIR OBJETOS TIME A STRINGS
-            # Convertir hora_inicio a string
+            # Convertir horas a strings si son objetos time
             if bloqueo_dict['hora_inicio']:
-                hora_obj = bloqueo_dict['hora_inicio']
-                if hasattr(hora_obj, 'strftime'):
-                    bloqueo_dict['hora_inicio'] = hora_obj.strftime('%H:%M')
-                else:
-                    bloqueo_dict['hora_inicio'] = str(hora_obj)[:5]
+                if hasattr(bloqueo_dict['hora_inicio'], 'strftime'):
+                    bloqueo_dict['hora_inicio'] = bloqueo_dict['hora_inicio'].strftime('%H:%M')
             
-            # Convertir hora_fin a string
             if bloqueo_dict['hora_fin']:
-                hora_obj = bloqueo_dict['hora_fin']
-                if hasattr(hora_obj, 'strftime'):
-                    bloqueo_dict['hora_fin'] = hora_obj.strftime('%H:%M')
-                else:
-                    bloqueo_dict['hora_fin'] = str(hora_obj)[:5]
+                if hasattr(bloqueo_dict['hora_fin'], 'strftime'):
+                    bloqueo_dict['hora_fin'] = bloqueo_dict['hora_fin'].strftime('%H:%M')
             
-            # ✅ CONVERTIR FECHAS A STRINGS
+            # Convertir fechas a strings
             if bloqueo_dict['fecha_inicio']:
-                fecha_obj = bloqueo_dict['fecha_inicio']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['fecha_inicio'] = fecha_obj.strftime('%Y-%m-%d')
-                else:
-                    bloqueo_dict['fecha_inicio'] = str(fecha_obj)[:10]
+                if hasattr(bloqueo_dict['fecha_inicio'], 'strftime'):
+                    bloqueo_dict['fecha_inicio'] = bloqueo_dict['fecha_inicio'].strftime('%Y-%m-%d')
             
             if bloqueo_dict['fecha_fin']:
-                fecha_obj = bloqueo_dict['fecha_fin']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['fecha_fin'] = fecha_obj.strftime('%Y-%m-%d')
-                else:
-                    bloqueo_dict['fecha_fin'] = str(fecha_obj)[:10]
-            
-            # ✅ CONVERTIR created_at Y updated_at A STRINGS
-            if bloqueo_dict['created_at']:
-                fecha_obj = bloqueo_dict['created_at']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['created_at'] = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    bloqueo_dict['created_at'] = str(fecha_obj)
-            
-            if bloqueo_dict['updated_at']:
-                fecha_obj = bloqueo_dict['updated_at']
-                if hasattr(fecha_obj, 'strftime'):
-                    bloqueo_dict['updated_at'] = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    bloqueo_dict['updated_at'] = str(fecha_obj)
+                if hasattr(bloqueo_dict['fecha_fin'], 'strftime'):
+                    bloqueo_dict['fecha_fin'] = bloqueo_dict['fecha_fin'].strftime('%Y-%m-%d')
             
             resultado.append(bloqueo_dict)
         

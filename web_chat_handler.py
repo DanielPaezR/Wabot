@@ -2485,8 +2485,9 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles - VERSIÓN CORREGIDA CON BLOQUEO POR DURACIÓN Y FORMATO 12 HORAS"""
+    """Generar horarios disponibles - VERIFICANDO BLOQUEOS RECURRENTES Y PUNTUALES"""
     from datetime import datetime, timedelta
+    
     try:
         # Verificar si el día está activo
         horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
@@ -2497,9 +2498,37 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         
         print(f"✅ Día activo: {fecha} ({horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']})")
         
-        # Obtener citas ya agendadas CON SU DURACIÓN (INCLUYENDO BLOQUEADOS)
+        # Obtener citas ya agendadas CON SU DURACIÓN (INCLUYENDO BLOQUEADOS PUNTUALES)
         citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
         print(f"📋 Citas existentes: {len(citas_ocupadas)}")
+        
+        # ✅ VERIFICAR BLOQUEOS RECURRENTES
+        from database import obtener_bloqueos_recurrentes
+        bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
+        
+        # Determinar si el día de la semana está bloqueado recurrentemente
+        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+        dia_semana = fecha_obj.isoweekday()  # 1=lunes, 7=domingo
+        
+        bloqueo_recurrente_activo = None
+        for bloqueo in bloqueos_recurrentes:
+            if bloqueo['activo']:
+                dias_bloqueados = bloqueo.get('dias_semana_lista', [])
+                if dia_semana in dias_bloqueados:
+                    # Verificar rango de fechas
+                    fecha_inicio = bloqueo.get('fecha_inicio')
+                    fecha_fin = bloqueo.get('fecha_fin')
+                    
+                    aplicar = True
+                    if fecha_inicio and fecha_obj.date() < datetime.strptime(fecha_inicio, '%Y-%m-%d').date():
+                        aplicar = False
+                    if fecha_fin and fecha_obj.date() > datetime.strptime(fecha_fin, '%Y-%m-%d').date():
+                        aplicar = False
+                    
+                    if aplicar:
+                        bloqueo_recurrente_activo = bloqueo
+                        print(f"🚫 Día bloqueado recurrentemente: {bloqueo['motivo']} ({bloqueo['hora_inicio']} - {bloqueo['hora_fin']})")
+                        break
         
         # Obtener duración del servicio que se quiere agendar
         duracion_servicio = db.obtener_duracion_servicio(negocio_id, servicio_id)
@@ -2518,6 +2547,16 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         horarios = []
         hora_actual = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
         hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
+        
+        # Si hay bloqueo recurrente, determinar rango de horas bloqueadas
+        hora_inicio_bloqueo = None
+        hora_fin_bloqueo = None
+        if bloqueo_recurrente_activo:
+            try:
+                hora_inicio_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_inicio'], '%H:%M')
+                hora_fin_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_fin'], '%H:%M')
+            except:
+                pass
         
         # Contadores para resumen
         total_horarios_verificados = 0
@@ -2557,20 +2596,32 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
                     hora_actual += timedelta(minutes=30)
                     continue
             
-            # Verificar si no es horario de almuerzo
-            if not es_horario_almuerzo(hora_actual, horarios_dia):
-                # ✅ VERIFICAR DISPONIBILIDAD COMPLETA (no solo la hora de inicio)
-                if esta_disponible_por_duracion(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
-                    # Convertir a formato 12 horas antes de agregar
-                    hora_12h = convertir_a_formato_12_horas(hora_str)
-                    horarios.append(hora_12h)
-                    horarios_disponibles += 1
-                    print(f"   ✅ {hora_str} -> {hora_12h} DISPONIBLE (ocupará hasta {hora_fin_servicio.strftime('%H:%M')})")
-                else:
-                    print(f"❌ {hora_str} NO DISPONIBLE - Conflicto con otra cita o bloqueo")
-                    horarios_omitidos += 1
-            else:
+            # Verificar si está en horario de almuerzo
+            if es_horario_almuerzo(hora_actual, horarios_dia):
                 print(f"⏰ {hora_str} - Horario de almuerzo")
+                horarios_omitidos += 1
+                hora_actual += timedelta(minutes=30)
+                continue
+            
+            # ✅ VERIFICAR BLOQUEO RECURRENTE
+            if bloqueo_recurrente_activo and hora_inicio_bloqueo and hora_fin_bloqueo:
+                # Verificar si el horario se solapa con el bloqueo recurrente
+                if (hora_actual.time() < hora_fin_bloqueo.time() and 
+                    hora_fin_servicio.time() > hora_inicio_bloqueo.time()):
+                    print(f"🚫 {hora_str} - Bloqueado por recurrente: {bloqueo_recurrente_activo['motivo']}")
+                    horarios_omitidos += 1
+                    hora_actual += timedelta(minutes=30)
+                    continue
+            
+            # ✅ VERIFICAR DISPONIBILIDAD COMPLETA con citas existentes
+            if esta_disponible_por_duracion(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
+                # Convertir a formato 12 horas antes de agregar
+                hora_12h = convertir_a_formato_12_horas(hora_str)
+                horarios.append(hora_12h)
+                horarios_disponibles += 1
+                print(f"   ✅ {hora_str} -> {hora_12h} DISPONIBLE (ocupará hasta {hora_fin_servicio.strftime('%H:%M')})")
+            else:
+                print(f"❌ {hora_str} NO DISPONIBLE - Conflicto con otra cita o bloqueo puntual")
                 horarios_omitidos += 1
             
             # Avanzar al siguiente slot (30 minutos)
