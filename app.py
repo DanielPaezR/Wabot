@@ -4039,7 +4039,10 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CORREGIDA (excluye bloqueados)"""
+    """API para obtener horarios disponibles - VERSIÓN CORREGIDA"""
+    # ✅ IMPORTAR datetime AQUÍ
+    from datetime import datetime, timedelta
+    
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
@@ -4101,6 +4104,33 @@ def api_horarios_disponibles():
         ''', (profesional_id, fecha))
         
         citas_ocupadas = cursor.fetchall()
+        
+        # ✅ VERIFICAR BLOQUEOS RECURRENTES
+        from database import obtener_bloqueos_recurrentes
+        bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
+        
+        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+        dia_semana = fecha_obj.isoweekday()
+        
+        bloqueo_recurrente_activo = None
+        for bloqueo in bloqueos_recurrentes:
+            if bloqueo.get('activo'):
+                dias_bloqueados = bloqueo.get('dias_semana_lista', [])
+                if dia_semana in dias_bloqueados:
+                    fecha_inicio = bloqueo.get('fecha_inicio')
+                    fecha_fin = bloqueo.get('fecha_fin')
+                    
+                    aplicar = True
+                    if fecha_inicio and fecha_obj.date() < datetime.strptime(fecha_inicio, '%Y-%m-%d').date():
+                        aplicar = False
+                    if fecha_fin and fecha_obj.date() > datetime.strptime(fecha_fin, '%Y-%m-%d').date():
+                        aplicar = False
+                    
+                    if aplicar:
+                        bloqueo_recurrente_activo = bloqueo
+                        print(f"🚫 Día bloqueado recurrentemente: {bloqueo['motivo']} ({bloqueo['hora_inicio']} - {bloqueo['hora_fin']})")
+                        break
+        
         conn.close()
         
         print(f"📋 Citas existentes: {len(citas_ocupadas)}")
@@ -4123,22 +4153,29 @@ def api_horarios_disponibles():
             except ValueError:
                 print("⚠️ Error parseando horario de almuerzo")
         
-        # ✅ CORRECCIÓN: Si es HOY, empezar desde la hora actual + margen
+        # Si hay bloqueo recurrente, determinar rango de horas bloqueadas
+        hora_inicio_bloqueo = None
+        hora_fin_bloqueo = None
+        if bloqueo_recurrente_activo:
+            try:
+                hora_inicio_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_inicio'], '%H:%M')
+                hora_fin_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_fin'], '%H:%M')
+            except:
+                pass
+        
+        # Si es HOY, empezar desde la hora actual + margen
         if es_hoy:
             hora_minima_colombia = fecha_actual_colombia + timedelta(minutes=30)
             hora_minima_time = hora_minima_colombia.time()
             
-            # Si la hora mínima es después del horario de cierre, no hay horarios
             if hora_minima_time >= datetime.strptime(hora_fin_str, '%H:%M').time():
                 return jsonify({
                     'horarios': [],
                     'mensaje': 'No hay horarios disponibles para hoy en el horario laboral restante.'
                 })
             
-            # Ajustar hora actual
             hora_minima_dt = datetime.combine(fecha_solicitada, hora_minima_time)
             hora_inicio_dt = datetime.combine(fecha_solicitada, hora_inicio.time())
-            
             hora_actual = max(hora_minima_dt, hora_inicio_dt)
             
             # Redondear a intervalos de 30 minutos
@@ -4159,23 +4196,20 @@ def api_horarios_disponibles():
                         microsecond=0
                     )
         else:
-            # Para días futuros, empezar desde la hora de apertura
             hora_actual = datetime.combine(fecha_solicitada, hora_inicio.time())
         
-        # Convertir hora_fin a datetime completo
         hora_fin_completa = datetime.combine(fecha_solicitada, hora_fin.time())
         
-        # Generar slots verificando disponibilidad COMPLETA
+        # Generar slots verificando disponibilidad
         intervalos_disponibles = []
         
         while hora_actual < hora_fin_completa:
             hora_fin_slot = hora_actual + timedelta(minutes=duracion_minutos)
             
-            # Si el slot se pasa del horario de fin, no es válido
             if hora_fin_slot > hora_fin_completa:
                 break
             
-            # Verificar si está dentro del horario de almuerzo
+            # Verificar horario de almuerzo
             dentro_almuerzo = False
             if almuerzo_inicio and almuerzo_fin:
                 hora_actual_time = hora_actual.time()
@@ -4188,68 +4222,44 @@ def api_horarios_disponibles():
                     dentro_almuerzo = True
             
             if not dentro_almuerzo:
-                # ✅ VERIFICAR DISPONIBILIDAD CONSIDERANDO DURACIÓN Y ESTADO BLOQUEADO
-                hora_str = hora_actual.strftime('%H:%M')
+                # ✅ Verificar bloqueo recurrente
                 disponible = True
+                hora_str = hora_actual.strftime('%H:%M')
                 
-                for cita in citas_ocupadas:
-                    try:
-                        hora_cita_str = str(cita['hora']).strip()
-                        
-                        # ✅ NORMALIZAR HORAS si es necesario
-                        if 'AM' in hora_cita_str or 'PM' in hora_cita_str:
-                            from datetime import datetime
-                            try:
+                if bloqueo_recurrente_activo and hora_inicio_bloqueo and hora_fin_bloqueo:
+                    if (hora_actual.time() < hora_fin_bloqueo.time() and 
+                        hora_fin_slot.time() > hora_inicio_bloqueo.time()):
+                        disponible = False
+                        print(f"🚫 {hora_str} - Bloqueado por recurrente")
+                
+                # Verificar citas existentes
+                if disponible:
+                    for cita in citas_ocupadas:
+                        try:
+                            hora_cita_str = str(cita['hora']).strip()
+                            if 'AM' in hora_cita_str or 'PM' in hora_cita_str:
                                 hora_cita_obj = datetime.strptime(hora_cita_str, '%I:%M %p')
-                                hora_cita_str_normalizada = hora_cita_obj.strftime('%H:%M')
-                            except:
-                                hora_cita_str_normalizada = hora_cita_str
-                        else:
-                            hora_cita_str_normalizada = hora_cita_str
-                        
-                        # Convertir a datetime para comparar
-                        hora_cita = datetime.strptime(hora_cita_str_normalizada, '%H:%M')
-                        hora_fin_cita = hora_cita + timedelta(minutes=int(cita['duracion']))
-                        
-                        # ✅ CRÍTICO: Si la cita está BLOQUEADA, no está disponible
-                        if cita['estado'].lower() == 'bloqueado':
-                            # Verificar si el bloqueo afecta este horario
+                                hora_cita_str = hora_cita_obj.strftime('%H:%M')
+                            
+                            hora_cita = datetime.strptime(hora_cita_str, '%H:%M')
+                            hora_fin_cita = hora_cita + timedelta(minutes=int(cita['duracion']))
+                            
                             if (hora_actual.time() < hora_fin_cita.time() and 
                                 hora_fin_slot.time() > hora_cita.time()):
                                 disponible = False
-                                print(f"❌ {hora_str} - Horario BLOQUEADO de {cita['hora']} a {hora_fin_cita.strftime('%H:%M')}")
+                                print(f"❌ {hora_str} - Conflicto con cita")
                                 break
-                        
-                        # Verificar solapamiento con citas confirmadas
-                        elif cita['estado'].lower() in ['confirmado', 'confirmada']:
-                            if (hora_actual.time() < hora_fin_cita.time() and 
-                                hora_fin_slot.time() > hora_cita.time()):
-                                disponible = False
-                                print(f"❌ {hora_str} - Conflicto con cita {hora_cita_str} (dur. {cita['duracion']} min)")
-                                break
-                                
-                    except Exception as e:
-                        print(f"⚠️ Error procesando cita: {e}")
-                        continue
+                        except Exception as e:
+                            print(f"⚠️ Error procesando cita: {e}")
+                            continue
                 
                 if disponible:
                     intervalos_disponibles.append(hora_str)
-                    print(f"✅ {hora_str} DISPONIBLE (ocupará hasta {hora_fin_slot.strftime('%H:%M')})")
+                    print(f"✅ {hora_str} DISPONIBLE")
             
-            # Avanzar al siguiente slot (30 minutos)
             hora_actual += timedelta(minutes=30)
         
         print(f"🔍 Horarios disponibles: {len(intervalos_disponibles)}: {intervalos_disponibles}")
-        
-        if not intervalos_disponibles:
-            mensaje = 'No hay horarios disponibles para esta fecha'
-            if es_hoy:
-                mensaje = 'No hay horarios disponibles para hoy con el margen requerido'
-            
-            return jsonify({
-                'horarios': [],
-                'mensaje': mensaje
-            })
         
         return jsonify({
             'horarios': intervalos_disponibles,
