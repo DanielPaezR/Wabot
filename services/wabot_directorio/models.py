@@ -122,3 +122,15 @@ class Servicio(Base):
     activo = Column(Boolean, default=True)
     
     negocio = relationship("Negocio")
+
+class ConfiguracionHorario(Base):
+    __tablename__ = 'configuracion_horarios'
+    
+    id = Column(Integer, primary_key=True)
+    negocio_id = Column(Integer, ForeignKey('negocios.id'))
+    dia_semana = Column(Integer)  # 0=Lunes, 6=Domingo
+    hora_inicio = Column(String(10))
+    hora_fin = Column(String(10))
+    activo = Column(Boolean, default=True)
+    
+    negocio = relationship("Negocio")
