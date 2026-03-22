@@ -107,26 +107,24 @@ def pagina_negocio(negocio_id):
                 5: 'Viernes', 6: 'Sábado', 7: 'Domingo'}
     
     # Función para convertir hora 24h a 12h
-    def convertir_a_12h(hora_str):
-        if not hora_str:
+    def convertir_a_12h(hora_valor):
+        if not hora_valor:
             return ""
         try:
-            # Eliminar espacios y cualquier carácter extra
-            hora_str = hora_str.strip()
-            
-            # Manejar diferentes formatos
-            if ':' in hora_str:
-                partes = hora_str.split(':')
-                hora = int(partes[0])
-                minutos = partes[1][:2] if len(partes) > 1 else "00"
+            # Si es objeto time
+            if hasattr(hora_valor, 'hour'):
+                hora = hora_valor.hour
+                minutos = hora_valor.minute
             else:
-                # Si es solo número, asumir que es la hora
-                hora = int(hora_str)
-                minutos = "00"
-            
-            # Validar hora
-            if hora < 0 or hora > 23:
-                return hora_str
+                # Si es string
+                hora_str = str(hora_valor).strip()
+                if ':' in hora_str:
+                    partes = hora_str.split(':')
+                    hora = int(partes[0])
+                    minutos = int(partes[1]) if len(partes) > 1 else 0
+                else:
+                    hora = int(hora_str)
+                    minutos = 0
             
             # Convertir a formato 12h
             if hora == 0:
@@ -142,13 +140,10 @@ def pagina_negocio(negocio_id):
                 hora_12 = hora - 12
                 periodo = 'PM'
             
-            # Formatear minutos con dos dígitos
-            minutos_str = minutos.zfill(2)
-            
-            return f"{hora_12}:{minutos_str} {periodo}"
+            return f"{hora_12}:{minutos:02d} {periodo}"
         except Exception as e:
-            print(f"Error convirtiendo hora {hora_str}: {e}")
-            return hora_str
+            print(f"Error convirtiendo hora {hora_valor}: {e}")
+            return str(hora_valor)
     
     # Crear lista de horarios formateados
     horarios_formateados = []
