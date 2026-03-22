@@ -2,56 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mi Perfil - {{ profesional.nombre if profesional else 'Profesional' }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root {
-            --primary: #667eea;
-            --success: #27ae60;
-            --danger: #e74c3c;
-            --warning: #f39c12;
-            --info: #3498db;
-            --dark: #2c3e50;
-            --light: #f5f6fa;
-            --text: #333;
-            --text-light: #666;
-            --white: #ffffff;
-            --shadow: 0 2px 10px rgba(0,0,0,0.1);
-            --radius: 12px;
-        }
-        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--light);
-            color: var(--text);
-            line-height: 1.4;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            padding-bottom: 20px;
         }
         
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, var(--primary), #764ba2);
-            color: var(--white);
-            padding: 1.5rem 1rem;
+        /* Header con degradado */
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem 1.5rem 4rem 1.5rem;
             position: relative;
-            overflow: hidden;
         }
         
-        .header-content {
-            position: relative;
-            z-index: 2;
+        .header-top {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
         
         .back-btn {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255,255,255,0.2);
             border: none;
             color: white;
             width: 44px;
@@ -62,29 +46,28 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
         }
         
         .back-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.02);
         }
         
-        .header-info h1 {
-            font-size: 1.4rem;
-            margin-bottom: 0.3rem;
+        /* Avatar grande */
+        .avatar-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-top: -2rem;
+            position: relative;
+            z-index: 2;
         }
         
-        .header-info p {
-            opacity: 0.9;
-            font-size: 0.9rem;
-        }
-        
-        /* Avatar */
         .avatar-container {
             position: relative;
-            width: 100px;
-            height: 100px;
-            flex-shrink: 0;
+            width: 120px;
+            height: 120px;
         }
         
         .avatar-img {
@@ -93,14 +76,15 @@
             border-radius: 50%;
             border: 4px solid white;
             object-fit: cover;
-            background: var(--light);
+            background: #e2e8f0;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
         
         .avatar-upload-btn {
             position: absolute;
-            bottom: 0;
-            right: 0;
-            background: var(--info);
+            bottom: 4px;
+            right: 4px;
+            background: #3498db;
             color: white;
             border: 2px solid white;
             border-radius: 50%;
@@ -111,79 +95,167 @@
             align-items: center;
             justify-content: center;
             font-size: 0.9rem;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         
         .avatar-upload-btn:hover {
             background: #2980b9;
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
         
-        /* Main Content */
-        .container {
-            padding: 1rem;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .section {
-            background: var(--white);
-            border-radius: var(--radius);
+        /* Tarjeta de información */
+        .info-card {
+            background: white;
+            margin: 1rem 1rem 0 1rem;
             padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow);
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        .profesional-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .specialty-badge {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin: 0 auto 1rem auto;
+            width: fit-content;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1.5rem 0;
+            padding: 1rem 0;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            color: #475569;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-row i {
+            width: 24px;
+            color: #667eea;
+            font-size: 1rem;
+        }
+        
+        /* Secciones */
+        .section {
+            background: white;
+            margin: 1rem;
+            border-radius: 24px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #eef2ff;
         }
         
         .section-title {
-            font-size: 1.2rem;
-            margin-bottom: 1.2rem;
-            color: var(--dark);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #0f172a;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--light);
+            gap: 8px;
         }
         
-        .section-title .add-btn {
-            background: var(--success);
+        .section-title i {
+            color: #667eea;
+        }
+        
+        .add-btn {
+            background: #10b981;
             color: white;
             border: none;
-            padding: 6px 12px;
-            border-radius: 20px;
+            padding: 6px 14px;
+            border-radius: 30px;
             font-size: 0.8rem;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
+            transition: all 0.2s;
         }
         
-        /* Form */
+        .add-btn:hover {
+            background: #059669;
+            transform: scale(1.02);
+        }
+        
+        /* Formulario */
         .form-group {
-            margin-bottom: 1.2rem;
+            margin-bottom: 1rem;
         }
         
         .form-label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
-            color: var(--dark);
-            font-size: 0.95rem;
+            font-size: 0.85rem;
+            color: #334155;
         }
         
         .form-control {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.2s ease;
+            padding: 12px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            font-family: inherit;
         }
         
         .form-control:focus {
             outline: none;
-            border-color: var(--primary);
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
         /* Galería de trabajos */
@@ -191,21 +263,26 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            margin-top: 1rem;
         }
         
         .trabajo-card {
             position: relative;
             aspect-ratio: 1;
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
             background: #e2e8f0;
+            cursor: pointer;
         }
         
         .trabajo-card img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transition: transform 0.2s;
+        }
+        
+        .trabajo-card:hover img {
+            transform: scale(1.05);
         }
         
         .trabajo-card .delete-btn {
@@ -225,74 +302,89 @@
             font-size: 12px;
             transition: all 0.2s;
             opacity: 0;
+            backdrop-filter: blur(2px);
         }
         
         .trabajo-card:hover .delete-btn {
             opacity: 1;
         }
         
+        .delete-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+        
         .add-trabajo-card {
             aspect-ratio: 1;
-            border-radius: 12px;
-            background: #f1f5f9;
+            border-radius: 16px;
+            background: #f8fafc;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            color: #94a3b8;
             border: 2px dashed #cbd5e1;
             transition: all 0.2s;
         }
         
         .add-trabajo-card:hover {
-            border-color: var(--primary);
-            color: var(--primary);
+            border-color: #667eea;
             background: #eef2ff;
         }
         
         .add-trabajo-card i {
-            font-size: 32px;
+            font-size: 28px;
+            color: #94a3b8;
             margin-bottom: 8px;
         }
         
+        .add-trabajo-card:hover i {
+            color: #667eea;
+        }
+        
         .add-trabajo-card span {
-            font-size: 12px;
+            font-size: 11px;
+            color: #64748b;
         }
         
         .empty-gallery {
             text-align: center;
             padding: 2rem;
             color: #94a3b8;
+            grid-column: 1 / -1;
         }
         
-        /* Buttons */
-        .btn {
-            padding: 12px 20px;
+        /* Botón guardar */
+        .save-btn {
+            width: calc(100% - 2rem);
+            margin: 0 1rem 1rem 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
-            border-radius: 8px;
+            padding: 14px;
+            border-radius: 40px;
             font-weight: 600;
+            font-size: 1rem;
             cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.95rem;
-            display: inline-flex;
+            transition: all 0.2s;
+            display: flex;
             align-items: center;
-            gap: 0.5rem;
-            text-decoration: none;
-        }
-        
-        .btn-primary {
-            background: var(--primary);
-            color: var(--white);
-        }
-        
-        .btn-primary:hover {
-            background: #5a6fd8;
-        }
-        
-        .btn-block {
-            width: 100%;
             justify-content: center;
+            gap: 8px;
+        }
+        
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .save-btn:active {
+            transform: translateY(0);
+        }
+        
+        .save-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
         }
         
         /* Toast */
@@ -307,10 +399,12 @@
             border-radius: 50px;
             z-index: 1100;
             display: none;
-            font-size: 14px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
-        /* Modal para ver fotos */
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -322,6 +416,7 @@
             z-index: 2000;
             justify-content: center;
             align-items: center;
+            backdrop-filter: blur(4px);
         }
         
         .modal img {
@@ -337,78 +432,58 @@
             color: white;
             font-size: 32px;
             cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* Responsive */
-        @media (max-width: 576px) {
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-                gap: 1rem;
-            }
-            
+        @media (max-width: 480px) {
             .avatar-container {
-                width: 80px;
-                height: 80px;
+                width: 100px;
+                height: 100px;
             }
             
-            .section {
-                padding: 1rem;
+            .profesional-name {
+                font-size: 1.4rem;
+            }
+            
+            .stats-grid {
+                gap: 0.5rem;
+            }
+            
+            .stat-value {
+                font-size: 1.2rem;
             }
             
             .galeria-grid {
-                grid-template-columns: repeat(3, 1fr);
                 gap: 8px;
             }
         }
         
-        /* Info boxes */
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .info-item {
-            background: rgba(255,255,255,0.1);
-            padding: 0.8rem;
-            border-radius: 8px;
-        }
-        
-        .info-label {
-            font-size: 0.8rem;
-            opacity: 0.8;
-        }
-        
-        .info-value {
-            font-weight: bold;
-        }
-        
-        /* Error message */
+        /* Error */
         .error-container {
             text-align: center;
-            padding: 40px 20px;
+            padding: 3rem 1.5rem;
         }
         
         .error-icon {
             font-size: 3rem;
             margin-bottom: 1rem;
-            color: var(--danger);
-        }
-        
-        .error-message {
-            color: var(--danger);
-            margin-bottom: 1.5rem;
         }
         
         .retry-btn {
-            background: var(--primary);
+            background: #667eea;
             color: white;
             border: none;
             padding: 10px 20px;
-            border-radius: 8px;
+            border-radius: 40px;
             cursor: pointer;
+            margin-top: 1rem;
         }
     </style>
 </head>
@@ -416,116 +491,133 @@
     {% if not profesional %}
     <div class="error-container">
         <div class="error-icon">❌</div>
-        <h2 class="error-message">Error al cargar el perfil</h2>
+        <h2>Error al cargar el perfil</h2>
         <p>No se pudo cargar la información de tu perfil.</p>
         <button class="retry-btn" onclick="window.location.reload()">Reintentar</button>
-        <button class="retry-btn" onclick="window.history.back()" style="background: var(--text-light); margin-left: 10px;">Volver</button>
+        <button class="retry-btn" onclick="window.history.back()" style="background: #64748b; margin-left: 10px;">Volver</button>
     </div>
     {% else %}
     
-    <div class="header">
-        <div class="header-content">
-            <button class="back-btn" onclick="window.history.back()">←</button>
-            <div class="avatar-container">
-                {% if profesional.foto_url %}
-                <img id="avatarImg" src="{{ profesional.foto_url }}" 
-                    alt="{{ profesional.nombre }}" class="avatar-img">
-                {% else %}
-                <img id="avatarImg" src="/static/default-avatar.png" 
-                    alt="{{ profesional.nombre }}" class="avatar-img">
-                {% endif %}
-                <button class="avatar-upload-btn" onclick="subirFoto()">📷</button>
-                <input type="file" id="fotoInput" accept="image/*" style="display: none;" 
-                    onchange="handleFotoChange(event)">
-            </div>
-            <div class="header-info">
-                <h1>{{ profesional.nombre }}</h1>
-                
-                {% if profesional.negocio_nombre %}
-                <p>🏢 {{ profesional.negocio_nombre }}</p>
-                {% endif %}
-                
-                {% if profesional.especialidad %}
-                <p>📋 {{ profesional.especialidad }}</p>
-                {% endif %}
-                
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Estado</div>
-                        <div class="info-value">
-                            {% if profesional.activo %}
-                                <span style="color: #27ae60;">✅ Activo</span>
-                            {% else %}
-                                <span style="color: #e74c3c;">❌ Inactivo</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    {% if profesional.telefono %}
-                    <div class="info-item">
-                        <div class="info-label">📞 Teléfono</div>
-                        <div class="info-value">{{ profesional.telefono }}</div>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="info-item">
-                        <div class="info-label">⭐ Calificación</div>
-                        <div class="info-value">{{ profesional.calificacion_promedio or 0 }} / 5</div>
-                    </div>
-                </div>
-            </div>
+    <!-- Header con degradado -->
+    <div class="profile-header">
+        <div class="header-top">
+            <button class="back-btn" onclick="window.history.back()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div style="width: 44px;"></div>
         </div>
     </div>
     
-    <div class="container">
-        <!-- Formulario de Perfil -->
-        <div class="section">
-            <h2 class="section-title">👤 Editar Información</h2>
-            <form id="profileForm">
-                <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token }}">
-                
-                <div class="form-group">
-                    <label class="form-label">Nombre Completo *</label>
-                    <input type="text" class="form-control" id="nombre" 
-                           value="{{ profesional.nombre }}" required>
+    <!-- Avatar -->
+    <div class="avatar-wrapper">
+        <div class="avatar-container">
+            {% if profesional.foto_url %}
+            <img id="avatarImg" src="{{ profesional.foto_url }}" alt="{{ profesional.nombre }}" class="avatar-img">
+            {% else %}
+            <img id="avatarImg" src="/static/default-avatar.png" alt="{{ profesional.nombre }}" class="avatar-img">
+            {% endif %}
+            <button class="avatar-upload-btn" onclick="subirFoto()">
+                <i class="fas fa-camera"></i>
+            </button>
+            <input type="file" id="fotoInput" accept="image/*" style="display: none;" onchange="handleFotoChange(event)">
+        </div>
+    </div>
+    
+    <!-- Tarjeta de información -->
+    <div class="info-card">
+        <h1 class="profesional-name">{{ profesional.nombre }}</h1>
+        
+        {% if profesional.especialidad %}
+        <div class="specialty-badge">
+            <i class="fas fa-tag"></i> {{ profesional.especialidad }}
+        </div>
+        {% endif %}
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ profesional.total_opiniones or 0 }}</div>
+                <div class="stat-label">Opiniones</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ profesional.calificacion_promedio or 0 }}</div>
+                <div class="stat-label">⭐ Calificación</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">
+                    {% if profesional.activo %}✅{% else %}❌{% endif %}
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Teléfono</label>
-                    <input type="tel" class="form-control" id="telefono" 
-                           value="{{ profesional.telefono if profesional.telefono else '' }}"
-                           placeholder="Ej: +57 300 123 4567">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Especialidad</label>
-                    <input type="text" class="form-control" id="especialidad" 
-                           value="{{ profesional.especialidad if profesional.especialidad else '' }}"
-                           placeholder="Ej: Cortes de cabello, Barba, Coloración...">
-                </div>
-                
-                <button type="submit" class="btn btn-primary btn-block" id="saveBtn">
-                    💾 Guardar Cambios
-                </button>
-            </form>
+                <div class="stat-label">{{ 'Activo' if profesional.activo else 'Inactivo' }}</div>
+            </div>
         </div>
         
-        <!-- Galería de Trabajos -->
-        <div class="section">
+        {% if profesional.telefono %}
+        <div class="info-row">
+            <i class="fas fa-phone"></i>
+            <span>{{ profesional.telefono }}</span>
+        </div>
+        {% endif %}
+        
+        {% if profesional.negocio_nombre %}
+        <div class="info-row">
+            <i class="fas fa-store"></i>
+            <span>{{ profesional.negocio_nombre }}</span>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Formulario de edición -->
+    <div class="section">
+        <div class="section-header">
             <div class="section-title">
-                <span>📸 Mis Trabajos</span>
-                <button class="add-btn" onclick="subirTrabajo()">+ Agregar foto</button>
+                <i class="fas fa-user-edit"></i>
+                Editar Información
             </div>
-            <div id="trabajosGrid" class="galeria-grid">
-                <!-- Las fotos se cargarán dinámicamente -->
+        </div>
+        <form id="profileForm">
+            <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div class="form-group">
+                <label class="form-label">Nombre Completo *</label>
+                <input type="text" class="form-control" id="nombre" value="{{ profesional.nombre }}" required>
             </div>
+            
+            <div class="form-group">
+                <label class="form-label">Teléfono</label>
+                <input type="tel" class="form-control" id="telefono" value="{{ profesional.telefono if profesional.telefono else '' }}" placeholder="Ej: +57 300 123 4567">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Especialidad</label>
+                <input type="text" class="form-control" id="especialidad" value="{{ profesional.especialidad if profesional.especialidad else '' }}" placeholder="Ej: Cortes de cabello, Barba, Coloración...">
+            </div>
+        </form>
+    </div>
+    
+    <!-- Galería de trabajos -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">
+                <i class="fas fa-scissors"></i>
+                Mis Trabajos
+            </div>
+            <button class="add-btn" onclick="subirTrabajo()">
+                <i class="fas fa-plus"></i> Agregar
+            </button>
+        </div>
+        <div id="trabajosGrid" class="galeria-grid">
+            <!-- Las fotos se cargan dinámicamente -->
         </div>
     </div>
     
-    <!-- Toast para notificaciones -->
+    <!-- Botón guardar -->
+    <button class="save-btn" id="saveBtn" onclick="guardarPerfil()">
+        <i class="fas fa-save"></i> Guardar Cambios
+    </button>
+    
+    <!-- Toast -->
     <div id="toast" class="toast">✅ Cambios guardados</div>
     
-    <!-- Modal para ver fotos -->
+    <!-- Modal -->
     <div id="modal" class="modal" onclick="cerrarModal()">
         <span class="modal-close">&times;</span>
         <img id="modal-img" src="">
@@ -554,7 +646,7 @@
             if (!file) return;
             
             if (file.size > 5 * 1024 * 1024) {
-                showToast('❌ La imagen es demasiado grande (máx 5MB)', true);
+                showToast('❌ Imagen demasiado grande (máx 5MB)', true);
                 return;
             }
             
@@ -567,11 +659,6 @@
             formData.append('foto', file);
             
             try {
-                const saveBtn = document.getElementById('saveBtn');
-                const originalText = saveBtn.innerHTML;
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '⏳ Subiendo...';
-                
                 const response = await fetch('/profesional/subir-foto', {
                     method: 'POST',
                     body: formData
@@ -580,7 +667,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast('✅ Foto actualizada correctamente');
+                    showToast('✅ Foto actualizada');
                     const separator = result.url.includes('?') ? '&' : '?';
                     const newUrl = result.url + separator + 't=' + new Date().getTime();
                     document.getElementById('avatarImg').src = newUrl;
@@ -589,10 +676,6 @@
                 }
             } catch (error) {
                 showToast('❌ Error de conexión', true);
-            } finally {
-                const saveBtn = document.getElementById('saveBtn');
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '💾 Guardar Cambios';
             }
             
             event.target.value = '';
@@ -614,7 +697,6 @@
                 
                 const formData = new FormData();
                 formData.append('foto', file);
-                formData.append('descripcion', '');
                 
                 try {
                     const response = await fetch('/profesional/subir-trabajo', {
@@ -637,7 +719,7 @@
             input.click();
         }
         
-        // Cargar trabajos del profesional
+        // Cargar trabajos
         async function cargarTrabajos() {
             try {
                 const response = await fetch('/profesional/mis-trabajos');
@@ -657,10 +739,10 @@
             
             if (trabajosList.length === 0) {
                 grid.innerHTML = `
-                    <div class="empty-gallery" style="grid-column: 1 / -1;">
+                    <div class="empty-gallery">
                         <i class="fas fa-camera" style="font-size: 48px; margin-bottom: 12px; display: block;"></i>
                         <p>No tienes trabajos publicados</p>
-                        <button class="btn btn-primary" style="margin-top: 12px;" onclick="subirTrabajo()">Subir mi primer trabajo</button>
+                        <button class="add-btn" style="margin-top: 12px;" onclick="subirTrabajo()">Subir mi primer trabajo</button>
                     </div>
                 `;
                 return;
@@ -669,13 +751,12 @@
             grid.innerHTML = trabajosList.map(trabajo => `
                 <div class="trabajo-card" data-id="${trabajo.id}">
                     <img src="${trabajo.url}" onclick="abrirModal('${trabajo.url}')">
-                    <button class="delete-btn" onclick="eliminarTrabajo(${trabajo.id})">
+                    <button class="delete-btn" onclick="event.stopPropagation(); eliminarTrabajo(${trabajo.id})">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
             `).join('');
             
-            // Agregar botón de añadir al final
             grid.innerHTML += `
                 <div class="add-trabajo-card" onclick="subirTrabajo()">
                     <i class="fas fa-plus"></i>
@@ -689,10 +770,7 @@
             
             try {
                 const response = await fetch(`/profesional/eliminar-trabajo/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    method: 'DELETE'
                 });
                 
                 const result = await response.json();
@@ -708,26 +786,8 @@
             }
         }
         
-        // Modal de fotos
-        function abrirModal(src) {
-            document.getElementById('modal-img').src = src;
-            document.getElementById('modal').style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-        
-        function cerrarModal() {
-            document.getElementById('modal').style.display = 'none';
-            document.body.style.overflow = '';
-        }
-        
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') cerrarModal();
-        });
-        
         // Guardar perfil
-        document.getElementById('profileForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
+        async function guardarPerfil() {
             const saveBtn = document.getElementById('saveBtn');
             const originalText = saveBtn.innerHTML;
             
@@ -745,7 +805,7 @@
             
             try {
                 saveBtn.disabled = true;
-                saveBtn.innerHTML = '⏳ Guardando...';
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
                 
                 const response = await fetch('/profesional/perfil/actualizar', {
                     method: 'POST',
@@ -759,12 +819,18 @@
                 
                 if (result.success) {
                     showToast('✅ Perfil actualizado');
-                    document.querySelector('.header-info h1').textContent = data.nombre;
+                    document.querySelector('.profesional-name').textContent = data.nombre;
                     
                     if (data.especialidad) {
-                        const especialidadElement = document.querySelector('.header-info p:nth-child(3)');
-                        if (especialidadElement && especialidadElement.textContent.includes('📋')) {
-                            especialidadElement.textContent = '📋 ' + data.especialidad;
+                        const badge = document.querySelector('.specialty-badge');
+                        if (badge) {
+                            badge.innerHTML = `<i class="fas fa-tag"></i> ${data.especialidad}`;
+                        } else if (data.especialidad) {
+                            const infoCard = document.querySelector('.info-card');
+                            const newBadge = document.createElement('div');
+                            newBadge.className = 'specialty-badge';
+                            newBadge.innerHTML = `<i class="fas fa-tag"></i> ${data.especialidad}`;
+                            infoCard.insertBefore(newBadge, infoCard.children[1]);
                         }
                     }
                 } else {
@@ -776,6 +842,22 @@
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
             }
+        }
+        
+        // Modal
+        function abrirModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function cerrarModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cerrarModal();
         });
         
         // Inicializar
