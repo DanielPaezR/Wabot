@@ -7707,40 +7707,43 @@ def negocio_productos_nuevo():
         imagen_url = request.form.get('imagen_url', '')
         disponible = request.form.get('disponible', 'off') == 'on'
         
+        print(f"📝 [PRODUCTO] Datos recibidos:")
+        print(f"   negocio_id: {negocio_id}")
+        print(f"   nombre: {nombre}")
+        print(f"   precio: {precio}")
+        print(f"   descripcion: {descripcion[:50] if descripcion else 'None'}...")
+        print(f"   imagen_url: {imagen_url[:50] if imagen_url else 'None'}...")
+        print(f"   disponible: {disponible}")
+        
         if not nombre:
             flash('El nombre del producto es requerido', 'error')
             return redirect(url_for('negocio_productos_nuevo'))
         
         try:
             precio = float(precio)
-        except:
+        except Exception as e:
+            print(f"❌ Error convirtiendo precio: {e}")
             precio = 0
         
-        # ✅ Crear una conexión NUEVA con cursor normal (sin RealDictCursor)
         conn = get_db_connection()
-        cursor = conn.cursor()  # Esto es una tupla normal
+        cursor = conn.cursor()
         
         try:
+            print(f"🔍 [PRODUCTO] Ejecutando INSERT...")
             cursor.execute('''
-                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id
+                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
             ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
             
-            result = cursor.fetchone()
-            # result es una tupla, acceder con índice 0
-            producto_id = result[0] if result else None
-            
+            print(f"✅ [PRODUCTO] Filas afectadas: {cursor.rowcount}")
             conn.commit()
+            flash('✅ Producto creado exitosamente', 'success')
             
-            if producto_id:
-                flash('✅ Producto creado exitosamente', 'success')
-            else:
-                flash('❌ Error al crear el producto', 'error')
-                
         except Exception as e:
             conn.rollback()
             print(f"❌ Error insertando producto: {e}")
+            import traceback
+            traceback.print_exc()
             flash(f'❌ Error al crear el producto: {str(e)}', 'error')
         finally:
             conn.close()
