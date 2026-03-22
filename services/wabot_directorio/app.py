@@ -16,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuración de base de datos
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://user:pass@localhost/dbname')
+DATABASE_URL = os.environ.get('DATABASE_URL')
 engine = create_engine(DATABASE_URL)
 db_session = scoped_session(sessionmaker(bind=engine))
 
@@ -87,5 +87,5 @@ def perfil_profesional(profesional_id):
                          fotos_trabajo=fotos_trabajo)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
