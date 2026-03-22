@@ -7278,9 +7278,11 @@ def negocio_editor_guardar():
     """Guardar cambios del editor visual"""
     try:
         data = request.get_json()
-        negocio_id = session.get('negocio_id', 1)
+        print(f"📥 Datos recibidos: {data}")  # Debug
         
-        # Actualizar campos básicos
+        negocio_id = session.get('negocio_id', 1)
+        print(f"🏢 Negocio ID: {negocio_id}")
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -7290,37 +7292,25 @@ def negocio_editor_guardar():
         if 'nombre' in data:
             campos.append("nombre = %s")
             valores.append(data['nombre'])
+            print(f"  ✓ nombre: {data['nombre']}")
         
         if 'direccion' in data:
             campos.append("direccion = %s")
             valores.append(data['direccion'])
+            print(f"  ✓ direccion: {data['direccion']}")
         
         if 'descripcion' in data:
             campos.append("descripcion = %s")
             valores.append(data['descripcion'])
+            print(f"  ✓ descripcion: {data['descripcion']}")
         
         if 'telefono_whatsapp' in data:
             telefono = data['telefono_whatsapp']
-            if not telefono.startswith('whatsapp:'):
+            if telefono and not telefono.startswith('whatsapp:'):
                 telefono = f"whatsapp:{telefono}"
             campos.append("telefono_whatsapp = %s")
             valores.append(telefono)
-        
-        if 'tipo_negocio' in data:
-            campos.append("tipo_negocio = %s")
-            valores.append(data['tipo_negocio'])
-        
-        if 'emoji' in data:
-            campos.append("emoji = %s")
-            valores.append(data['emoji'])
-        
-        if 'foto_portada' in data:
-            campos.append("foto_portada = %s")
-            valores.append(data['foto_portada'])
-        
-        if 'foto_perfil' in data:
-            campos.append("foto_perfil = %s")
-            valores.append(data['foto_perfil'])
+            print(f"  ✓ telefono_whatsapp: {telefono}")
         
         # Actualizar configuración general (JSON)
         config_actual = {}
@@ -7329,11 +7319,13 @@ def negocio_editor_guardar():
         if result and result[0]:
             try:
                 config_actual = json.loads(result[0])
+                print(f"  📦 Config actual: {config_actual}")
             except:
                 pass
         
         if 'horario_atencion' in data:
             config_actual['horario_atencion'] = data['horario_atencion']
+            print(f"  ✓ horario_atencion: {data['horario_atencion']}")
         
         if 'saludo_personalizado' in data:
             config_actual['saludo_personalizado'] = data['saludo_personalizado']
@@ -7346,19 +7338,27 @@ def negocio_editor_guardar():
         
         campos.append("configuracion = %s")
         valores.append(json.dumps(config_actual))
+        print(f"  📦 Nueva config: {config_actual}")
         
         if campos:
             valores.append(negocio_id)
             query = f"UPDATE negocios SET {', '.join(campos)} WHERE id = %s"
+            print(f"  📝 Query: {query}")
+            print(f"  📝 Valores: {valores}")
             cursor.execute(query, valores)
+            conn.commit()
+            print(f"  ✅ {cursor.rowcount} fila(s) actualizada(s)")
+        else:
+            print("  ⚠️ No hay campos para actualizar")
         
-        conn.commit()
         conn.close()
         
         return jsonify({'success': True, 'message': 'Cambios guardados'})
         
     except Exception as e:
         print(f"❌ Error guardando: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/negocio/editor/subir-foto', methods=['POST'])
