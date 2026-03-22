@@ -95,16 +95,25 @@ def pagina_negocio(negocio_id):
     dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
                 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
     
-    # Función para convertir hora 24h a 12h
+    # Función para convertir hora 24h a 12h (formato AM/PM)
     def convertir_a_12h(hora_str):
+        if not hora_str:
+            return ""
         try:
-            hora, minuto = map(int, hora_str.split(':'))
+            # Manejar formatos como "19:00" o "19:00:00"
+            partes = hora_str.split(':')
+            hora = int(partes[0])
+            minuto = partes[1].split('.')[0]  # por si viene con segundos
+            minuto_int = int(minuto)
+            
             periodo = 'AM' if hora < 12 else 'PM'
             hora_12 = hora % 12
             if hora_12 == 0:
                 hora_12 = 12
-            return f"{hora_12}:{minuto:02d} {periodo}"
-        except:
+            
+            return f"{hora_12}:{minuto_int:02d} {periodo}"
+        except Exception as e:
+            print(f"Error convirtiendo hora {hora_str}: {e}")
             return hora_str
     
     # Crear lista de horarios formateados
@@ -115,10 +124,14 @@ def pagina_negocio(negocio_id):
         if dia_nombre in ['7', 7]:
             continue
             
+        # Convertir horas a formato 12h
+        hora_inicio_12h = convertir_a_12h(h.hora_inicio) if h.hora_inicio else ''
+        hora_fin_12h = convertir_a_12h(h.hora_fin) if h.hora_fin else ''
+        
         horarios_formateados.append({
             'dia': dia_nombre,
-            'hora_inicio': convertir_a_12h(h.hora_inicio) if h.hora_inicio else '',
-            'hora_fin': convertir_a_12h(h.hora_fin) if h.hora_fin else '',
+            'hora_inicio': hora_inicio_12h,
+            'hora_fin': hora_fin_12h,
             'activo': h.activo
         })
     
