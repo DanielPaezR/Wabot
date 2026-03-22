@@ -504,7 +504,7 @@
             </div>
             {% for horario in horarios %}
             <div class="horario-row">
-                <span class="horario-dia">{{ horario.dia_semana }}</span>
+                <span class="horario-dia">{{ horario.dia }}</span>
                 {% if not horario.activo %}
                     <span class="horario-cerrado">Cerrado</span>
                 {% else %}

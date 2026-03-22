@@ -80,22 +80,30 @@ def pagina_negocio(negocio_id):
     if not negocio:
         return "Negocio no encontrado", 404
     
-    # Obtener servicios (ya no necesitas importar dentro)
+    # Obtener servicios
     servicios = db_session.query(Servicio).filter(
         Servicio.negocio_id == negocio_id,
         Servicio.activo == True
     ).all()
     
-    # Obtener horarios
-    horarios = db_session.query(ConfiguracionHorario).filter(
+    # Obtener horarios - NO modificar los objetos originales
+    horarios_db = db_session.query(ConfiguracionHorario).filter(
         ConfiguracionHorario.negocio_id == negocio_id
     ).order_by(ConfiguracionHorario.dia_semana).all()
     
-    # Mapear números de día a nombres
+    # Mapear números de día a nombres - crear un nuevo objeto para la plantilla
     dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
                 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
-    for h in horarios:
-        h.dia_semana = dias_map.get(h.dia_semana, str(h.dia_semana))
+    
+    # Crear lista de horarios formateados para la plantilla (sin modificar los objetos originales)
+    horarios_formateados = []
+    for h in horarios_db:
+        horarios_formateados.append({
+            'dia': dias_map.get(h.dia_semana, str(h.dia_semana)),
+            'hora_inicio': h.hora_inicio,
+            'hora_fin': h.hora_fin,
+            'activo': h.activo
+        })
     
     fotos = db_session.query(FotoNegocio).filter(FotoNegocio.negocio_id == negocio_id).order_by(FotoNegocio.orden).all()
     profesionales = db_session.query(Profesional).filter(
@@ -110,7 +118,7 @@ def pagina_negocio(negocio_id):
     return render_template('directorio/negocio.html',
                          negocio=negocio,
                          servicios=servicios,
-                         horarios=horarios,
+                         horarios=horarios_formateados,
                          fotos=fotos,
                          profesionales=profesionales,
                          productos=productos)
