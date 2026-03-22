@@ -5,15 +5,15 @@ Versión convertida desde whatsapp_handler.py sin Twilio
 
 from flask import Blueprint
 from datetime import datetime, time, timedelta
-import services.wabot_chat.database as db
+import database as db
 import json
 import os
 import pytz
 from dotenv import load_dotenv
-from services.wabot_chat.database import obtener_servicio_personalizado_cliente
+from database import obtener_servicio_personalizado_cliente
 import pywebpush
-import services.wabot_chat.database as db 
-from services.wabot_chat.database import obtener_citas_dia, obtener_horarios_por_dia, obtener_duracion_servicio
+import database as db 
+from database import obtener_citas_dia, obtener_horarios_por_dia, obtener_duracion_servicio
 
 load_dotenv()
 
@@ -62,7 +62,7 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
             import os
             import json
             import time
-            from services.wabot_chat.database import get_db_connection
+            from database import get_db_connection
             
             # Verificar VAPID
             VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
@@ -147,7 +147,7 @@ def try_push_immediately(profesional_id, titulo, mensaje):
         import os
         import json
         import time
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         
         # Verificar VAPID
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
@@ -232,7 +232,7 @@ def try_push_immediately(profesional_id, titulo, mensaje):
 def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
     """Función auxiliar solo para guardar notificación en BD"""
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
@@ -818,7 +818,7 @@ def buscar_cliente_existente(telefono, negocio_id):
     
     # Método 1: Buscar en tabla clientes
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -853,7 +853,7 @@ def buscar_cliente_existente(telefono, negocio_id):
     
     # Método 2: Buscar en citas anteriores
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -931,7 +931,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
         telefono = conversaciones_activas[clave_conversacion]['telefono_cliente']
         fecha_actual = datetime.now(tz_colombia).strftime('%Y-%m-%d %H:%M:%S')
         
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -1039,7 +1039,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
             del conversaciones_activas[clave_conversacion]['mostrar_todos_servicios']
         elif telefono_cliente:
             try:
-                from services.wabot_chat.database import obtener_servicio_personalizado_cliente
+                from database import obtener_servicio_personalizado_cliente
                 servicio_personalizado = obtener_servicio_personalizado_cliente(telefono_cliente, negocio_id)
                 if servicio_personalizado:
                     tiene_personalizado = True
@@ -1431,7 +1431,7 @@ def mostrar_mis_citas(numero, negocio_id):
     print(f"🔧 [DEBUG] Buscando citas CONFIRMADAS con teléfono: {telefono_real}")
     
     try:
-        from services.wabot_chat.database import get_db_connection, is_postgresql
+        from database import get_db_connection, is_postgresql
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -1585,7 +1585,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
     print(f"🔧 [DEBUG] Buscando citas para cancelar con teléfono: {telefono_real}")
     
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -2265,7 +2265,7 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
             return renderizar_plantilla('error_generico', negocio_id)
         
         # Actualizar estado en base de datos
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -2342,7 +2342,7 @@ def procesar_cancelacion_directa(numero, cita_id, negocio_id):
     
     # Cancelar cita directamente
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -2479,7 +2479,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         print(f"📋 Citas existentes: {len(citas_ocupadas)}")
         
         # ✅ VERIFICAR BLOQUEOS RECURRENTES
-        from services.wabot_chat.database import obtener_bloqueos_recurrentes
+        from database import obtener_bloqueos_recurrentes
         bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
         # Determinar si el día de la semana está bloqueado recurrentemente

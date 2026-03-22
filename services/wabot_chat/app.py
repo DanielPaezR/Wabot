@@ -7,24 +7,24 @@ import pywebpush
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import secrets
 from datetime import datetime, time, timedelta
-import services.wabot_chat.database as db
-from services.wabot_chat.web_chat_handler import web_chat_bp
+import database as db
+from web_chat_handler import web_chat_bp
 import os
 from dotenv import load_dotenv
 import threading
 import threading
 import json
 from functools import wraps
-from services.wabot_chat.database import get_db_connection
+from database import get_db_connection
 import pytz
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid 
 from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
-import services.wabot_chat.scheduler as scheduler
+import scheduler as scheduler
 from werkzeug.utils import secure_filename
-from services.wabot_chat.database import agregar_cita, normalizar_hora
+from database import agregar_cita, normalizar_hora
 
 # Cargar variables de entorno
 load_dotenv()
@@ -119,7 +119,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
 def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
     """Función auxiliar para guardar notificación en BD - VERSIÓN CORREGIDA"""
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -378,7 +378,7 @@ def chat_send():
             return jsonify({'error': 'Mensaje vacío'}), 400
         
         # Importar aquí para evitar dependencia circular
-        from services.wabot_chat.web_chat_handler import procesar_mensaje_chat
+        from web_chat_handler import procesar_mensaje_chat
         response = procesar_mensaje_chat(
             user_message=user_message,
             session_id=session_id,
@@ -2324,7 +2324,7 @@ def negocio_configuracion():
 @app.route('/actualizar-cache/<int:negocio_id>')
 def actualizar_cache(negocio_id):
     """Forzar actualización de cache para un negocio"""
-    from services.wabot_chat.database import notificar_cambio_horarios
+    from database import notificar_cambio_horarios
     
     if notificar_cambio_horarios(negocio_id):
         return f"✅ Cache actualizado para negocio {negocio_id}"
@@ -4106,7 +4106,7 @@ def api_horarios_disponibles():
         citas_ocupadas = cursor.fetchall()
         
         # ✅ VERIFICAR BLOQUEOS RECURRENTES
-        from services.wabot_chat.database import obtener_bloqueos_recurrentes
+        from database import obtener_bloqueos_recurrentes
         bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
         fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
@@ -4662,11 +4662,11 @@ def profesional_bloqueos():
         tab = request.args.get('tab', 'puntuales')  # Para saber qué pestaña mostrar
         
         # Obtener bloqueos PUNTUALES del profesional
-        from services.wabot_chat.database import obtener_bloqueos_profesional
+        from database import obtener_bloqueos_profesional
         bloqueos_puntuales = obtener_bloqueos_profesional(negocio_id, profesional_id, fecha)
         
         # Obtener bloqueos RECURRENTES del profesional
-        from services.wabot_chat.database import obtener_bloqueos_recurrentes
+        from database import obtener_bloqueos_recurrentes
         bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
         # Obtener información del profesional
@@ -4719,7 +4719,7 @@ def profesional_bloquear_horario():
         print(f"🔒 Bloqueando horario: {fecha} {hora} por profesional {profesional_id}")
         
         # Llamar a la función de bloqueo
-        from services.wabot_chat.database import bloquear_horario_profesional
+        from database import bloquear_horario_profesional
         resultado = bloquear_horario_profesional(
             negocio_id=negocio_id,
             profesional_id=profesional_id,
@@ -4748,7 +4748,7 @@ def profesional_desbloquear_horario(bloqueo_id):
         
         profesional_id = session.get('profesional_id')
         
-        from services.wabot_chat.database import desbloquear_horario
+        from database import desbloquear_horario
         resultado = desbloquear_horario(bloqueo_id, profesional_id)
         
         if resultado['success']:
@@ -4804,7 +4804,7 @@ def profesional_crear_bloqueo_recurrente():
             return jsonify({'success': False, 'error': 'La hora de inicio debe ser menor a la hora de fin'})
         
         # Llamar a la función de la base de datos
-        from services.wabot_chat.database import crear_bloqueo_recurrente
+        from database import crear_bloqueo_recurrente
         
         resultado = crear_bloqueo_recurrente(
             negocio_id=negocio_id,
@@ -4835,7 +4835,7 @@ def profesional_eliminar_bloqueo_recurrente(bloqueo_id):
         
         profesional_id = session.get('profesional_id')
         
-        from services.wabot_chat.database import eliminar_bloqueo_recurrente
+        from database import eliminar_bloqueo_recurrente
         
         resultado = eliminar_bloqueo_recurrente(bloqueo_id, profesional_id=profesional_id)
         
@@ -4859,7 +4859,7 @@ def profesional_api_bloqueos_recurrentes():
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
-        from services.wabot_chat.database import obtener_bloqueos_recurrentes
+        from database import obtener_bloqueos_recurrentes
         
         bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
@@ -4894,7 +4894,7 @@ def test_bloqueos():
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
-        from services.wabot_chat.database import obtener_bloqueos_recurrentes
+        from database import obtener_bloqueos_recurrentes
         
         bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
         
@@ -4921,7 +4921,7 @@ def profesional_api_horarios_disponibles():
         fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
         
         # Reutilizar la misma lógica que usan los clientes
-        from services.wabot_chat.web_chat_handler import generar_horarios_disponibles_actualizado
+        from web_chat_handler import generar_horarios_disponibles_actualizado
         
         # Necesitamos un servicio_id para la función, usamos el primero
         conn = get_db_connection()
@@ -4939,7 +4939,7 @@ def profesional_api_horarios_disponibles():
         horarios = generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id)
         
         # Obtener horarios ya bloqueados para marcarlos
-        from services.wabot_chat.database import obtener_bloqueos_profesional
+        from database import obtener_bloqueos_profesional
         bloqueos = obtener_bloqueos_profesional(negocio_id, profesional_id, fecha)
         
         # Formatear respuesta
@@ -5178,7 +5178,7 @@ def test_push_debug(profesional_id):
         import os
         import json
         import time
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         
         print(f"🔍 [DEBUG-PUSH-TEST] Iniciando test para profesional {profesional_id}")
         
@@ -5357,7 +5357,7 @@ def test_push_debug(profesional_id):
 @app.route('/reset-subscriptions/<int:profesional_id>')
 def reset_subscriptions(profesional_id):
     """Eliminar suscripciones antiguas y preparar para nuevas - CORREGIDO"""
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     
     try:
         conn = get_db_connection()
@@ -5556,7 +5556,7 @@ def debug_vapid_complete():
         return bool(re.match(r'^[A-Za-z0-9_-]+$', key)) if key else False
     
     # 3. Obtener suscripción actual
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
@@ -5623,7 +5623,7 @@ def push_setup_completo():
     import os
     
     try:
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -5689,7 +5689,7 @@ def test_ultimo():
         import time
         
         # 1. Obtener suscripción
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
@@ -5749,7 +5749,7 @@ def test_ultimo():
 @app.route('/push/ver-suscripcion-simple')
 def push_ver_suscripcion_simple():
     """Ver suscripción actual SIN created_at"""
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     
     try:
         conn = get_db_connection()
@@ -5831,7 +5831,7 @@ def test_push_simple():
     import time
     
     # 1. Obtener primera suscripción
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
@@ -5930,7 +5930,7 @@ def debug_extremo():
         private_key_info['error'] = str(e)
     
     # 4. Obtener una suscripción para probar
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
@@ -5987,7 +5987,7 @@ def test_ultra_simple():
             return jsonify({'error': 'VAPID_PRIVATE_KEY no configurada'})
         
         # 2. Obtener suscripción MÁS RECIENTE
-        from services.wabot_chat.database import get_db_connection
+        from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
@@ -6049,7 +6049,7 @@ def test_ultra_simple():
 @app.route('/push/ver-suscripcion')
 def ver_suscripcion():
     """Ver la suscripción exacta almacenada"""
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     import json
     
     conn = get_db_connection()
@@ -6085,7 +6085,7 @@ def ver_suscripcion():
 @app.route('/push/resetear-todo')
 def resetear_todo():
     """Eliminar todo y empezar desde cero"""
-    from services.wabot_chat.database import get_db_connection
+    from database import get_db_connection
     
     conn = get_db_connection()
     cursor = conn.cursor()

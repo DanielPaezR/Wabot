@@ -49,7 +49,7 @@ if notificaciones:
 
 # 4. Verificar scheduler
 try:
-    from services.wabot_chat.scheduler import enviar_notificaciones_profesionales
+    from scheduler import enviar_notificaciones_profesionales
     print("\n⏰ Probando scheduler de notificaciones...")
     enviar_notificaciones_profesionales()
     print("✅ Scheduler funcionando")
