@@ -7711,9 +7711,6 @@ def negocio_productos_nuevo():
         print(f"   negocio_id: {negocio_id}")
         print(f"   nombre: {nombre}")
         print(f"   precio: {precio}")
-        print(f"   descripcion: {descripcion[:50] if descripcion else 'None'}...")
-        print(f"   imagen_url: {imagen_url[:50] if imagen_url else 'None'}...")
-        print(f"   disponible: {disponible}")
         
         if not nombre:
             flash('El nombre del producto es requerido', 'error')
@@ -7721,18 +7718,17 @@ def negocio_productos_nuevo():
         
         try:
             precio = float(precio)
-        except Exception as e:
-            print(f"❌ Error convirtiendo precio: {e}")
+        except:
             precio = 0
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
-            print(f"🔍 [PRODUCTO] Ejecutando INSERT...")
+            # ✅ INSERT sin created_at
             cursor.execute('''
-                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
+                VALUES (%s, %s, %s, %s, %s, %s)
             ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
             
             print(f"✅ [PRODUCTO] Filas afectadas: {cursor.rowcount}")
@@ -7758,7 +7754,6 @@ def negocio_productos_editar(producto_id):
     """Editar producto"""
     negocio_id = session.get('negocio_id', 1)
     
-    # Para GET, usar RealDictCursor para obtener el producto como diccionario
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
@@ -7792,7 +7787,7 @@ def negocio_productos_editar(producto_id):
         except:
             precio = 0
         
-        # ✅ Para UPDATE usar cursor normal
+        # Usar cursor normal para UPDATE
         cursor_update = conn.cursor()
         cursor_update.execute('''
             UPDATE productos 
