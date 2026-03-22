@@ -1753,7 +1753,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         return "❌ Opción no válida. Responde con *1* para confirmar o *2* para cancelar."
 
 def procesar_confirmacion_directa(numero, negocio_id, conversacion):
-    """Procesar confirmación de cita - VERSIÓN CORREGIDA CON PUSH"""
+    """Procesar confirmación de cita - VERSIÓN CORREGIDA CON PUSH (profesional y cliente)"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     try:
@@ -1834,38 +1834,73 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         if cita_id and cita_id > 0:
             print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
             
-            # ✅✅✅ CORRECCIÓN CRÍTICA: ENVIAR NOTIFICACIÓN PUSH ✅✅✅
+            # ============================================
+            # ENVIAR NOTIFICACIONES PUSH
+            # ============================================
+            
+            fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
+            
+            # Preparar datos de la cita para las notificaciones
+            cita_completa = {
+                'id': cita_id,
+                'profesional_id': profesional_id,
+                'cliente_telefono': telefono,
+                'negocio_id': negocio_id,
+                'cliente_nombre': nombre_cliente,
+                'fecha': fecha_formateada,
+                'hora': hora,
+                'servicio_nombre': servicio_nombre,
+                'profesional_nombre': profesional_nombre
+            }
+            
+            # 1. Enviar notificación al PROFESIONAL
             try:
-                fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
                 mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora}"
-                
-                print(f"🚀 [PUSH-ENVIO] Enviando notificación push...")
+                print(f"🚀 [PUSH-ENVIO] Enviando notificación push al profesional...")
                 print(f"   👨‍💼 Profesional ID: {profesional_id}")
                 print(f"   📝 Mensaje: {mensaje_push}")
-                print(f"   🎫 Cita ID: {cita_id}")
                 
-                # ✅ SOLUCIÓN DEFINITIVA: COPIAR LA FUNCIÓN DIRECTAMENTE AQUÍ
                 resultado = enviar_notificacion_push_local(
                     profesional_id=profesional_id,
                     titulo="📅 Nueva Cita Agendada",
                     mensaje=mensaje_push,
                     cita_id=cita_id
                 )
+                print(f"🎯 [PUSH-PROFESIONAL] {'✅ ÉXITO' if resultado else '❌ FALLÓ'}")
                 
-                print(f"🎯 [PUSH-RESULTADO] {'✅ ÉXITO' if resultado else '❌ FALLÓ'}")
+            except Exception as e:
+                print(f"❌ [PUSH-ERROR] Error enviando push al profesional: {e}")
+            
+            # 2. Enviar notificación al CLIENTE (si tiene notificaciones activadas)
+            try:
+                from push_notifications import enviar_notificacion_cliente
+                
+                titulo_cliente = "✅ ¡Cita Confirmada!"
+                mensaje_cliente = f"Hola {nombre_cliente}, tu cita ha sido agendada para el {fecha_formateada} a las {hora} con {profesional_nombre} para {servicio_nombre}"
+                
+                print(f"🚀 [PUSH-ENVIO] Enviando notificación push al cliente...")
+                print(f"   👤 Cliente teléfono: {telefono}")
+                print(f"   📝 Mensaje: {mensaje_cliente}")
+                
+                resultado_cliente = enviar_notificacion_cliente(
+                    telefono=telefono,
+                    negocio_id=negocio_id,
+                    titulo=titulo_cliente,
+                    mensaje=mensaje_cliente,
+                    cita_id=cita_id,
+                    url=f"/cliente/{negocio_id}?cita={cita_id}"
+                )
+                print(f"🎯 [PUSH-CLIENTE] {'✅ ÉXITO' if resultado_cliente else '⚠️ CLIENTE SIN SUSCRIPCIÓN'}")
                 
             except ImportError as e:
-                print(f"❌ [PUSH-ERROR] No se pudo importar la función: {e}")
-                print("   ℹ️ Asegúrate de que la función existe en app.py")
-            except Exception as push_error:
-                print(f"❌ [PUSH-ERROR] Error enviando push: {push_error}")
-                import traceback
-                traceback.print_exc()
+                print(f"❌ [PUSH-ERROR] No se pudo importar la función de cliente: {e}")
+            except Exception as e:
+                print(f"❌ [PUSH-ERROR] Error enviando push al cliente: {e}")
+            
+            # ============================================
             
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
-            
-            fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
             
             # ✅ USAR PLANTILLA PARA CITA CONFIRMADA
             return renderizar_plantilla('cita_confirmada_exito', negocio_id, {

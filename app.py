@@ -7148,28 +7148,36 @@ def test_imagenes_sistema():
             'table_exists': False
         })
 
-@app.route('/crear-tabla-ya', methods=['GET'])
-def crear_tabla_ya():
-    """SOLUCIÓN DIRECTA - Crear tabla sin permisos"""
+@app.route('/admin/crear-tabla-push-clientes')
+def crear_tabla_push_clientes():
+    """Crear tabla de suscripciones push para clientes"""
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS imagenes_profesionales (
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS suscripciones_push_clientes (
                 id SERIAL PRIMARY KEY,
-                profesional_id INTEGER,
-                negocio_id INTEGER,
-                tipo VARCHAR(50) DEFAULT 'perfil',
-                nombre_archivo VARCHAR(255),
-                ruta_archivo VARCHAR(500),
-                url_publica VARCHAR(500),
-                es_principal BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                negocio_id INTEGER NOT NULL,
+                cliente_telefono VARCHAR(20) NOT NULL,
+                subscription_json TEXT NOT NULL,
+                dispositivo_info TEXT,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                activa BOOLEAN DEFAULT TRUE
             )
-        """)
+        ''')
+        
+        # Agregar índice para búsquedas rápidas
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_suscripciones_cliente 
+            ON suscripciones_push_clientes (cliente_telefono, negocio_id)
+        ''')
+        
         conn.commit()
-        cur.close()
-        return "✅ Tabla creada. <a href='/admin'>Volver</a>"
+        conn.close()
+        
+        return "✅ Tabla suscripciones_push_clientes creada exitosamente"
+        
     except Exception as e:
         return f"❌ Error: {str(e)}"
 

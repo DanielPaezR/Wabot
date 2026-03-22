@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>WaBot - {{ negocio.nombre }}</title>
 
     <!-- SOLO ESTO -->
@@ -14,10 +14,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="/static/icons/icon-192x192.png" sizes="192x192">
     <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <meta name="mobile-web-app-capable" content="yes"> <!-- CORREGIDO -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
     
     <style>
         :root {
@@ -45,7 +44,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
-        /* CONTENEDOR PRINCIPAL - SIN FLEXBOX COMPLICADO */
         .chat-container {
             width: 100%;
             max-width: 500px;
@@ -56,7 +54,6 @@
             position: relative;
         }
         
-        /* Header fijo - altura fija */
         .chat-header {
             background: linear-gradient(135deg, var(--primary-color), #0056b3);
             color: white;
@@ -85,11 +82,10 @@
             margin-top: 3px;
         }
         
-        /* ÁREA DE MENSAJES - POSICIÓN FIXED CON SCROLL - CORREGIDO */
         .chat-messages {
             position: fixed;
-            top: 80px; /* Justo debajo del header */
-            bottom: 190px; /* AUMENTADO para el botón de instalación */
+            top: 80px;
+            bottom: 190px;
             left: 0;
             right: 0;
             max-width: 500px;
@@ -101,7 +97,6 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* Scrollbar visible */
         .chat-messages::-webkit-scrollbar {
             width: 8px;
         }
@@ -115,7 +110,6 @@
             border-radius: 4px;
         }
         
-        /* Footer fijo - altura fija */
         .chat-input {
             background: white;
             padding: 15px;
@@ -127,10 +121,10 @@
             margin: 0 auto;
             border-top: 1px solid #ddd;
             z-index: 1000;
-            height: 140px; /* Altura fija */
+            height: auto;
+            min-height: 140px;
         }
         
-        /* Mensajes */
         .message {
             margin-bottom: 15px;
             padding: 12px 15px;
@@ -165,7 +159,6 @@
             color: var(--primary-color);
         }
         
-        /* Opciones */
         .opciones-numeradas {
             display: flex;
             flex-wrap: wrap;
@@ -292,6 +285,7 @@
         
         .action-buttons {
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             margin-top: 10px;
         }
@@ -313,125 +307,6 @@
             min-height: 44px;
         }
         
-        /* Responsive */
-        @media (max-width: 576px) {
-            .chat-container, .chat-header, .chat-messages, .chat-input {
-                max-width: 100%;
-            }
-            
-            .chat-header {
-                padding: 12px 15px;
-            }
-            
-            .chat-messages {
-                top: 70px;
-                bottom: 180px; /* Ajustado para móvil */
-                padding: 15px;
-            }
-            
-            .chat-input {
-                padding: 12px;
-                height: 135px; /* Ajustado para móvil */
-            }
-            
-            .message {
-                max-width: 90%;
-                padding: 10px 12px;
-            }
-            
-            .opcion-btn, .menu-option {
-                flex: 0 0 100% !important;
-            }
-            
-            .hora-btn {
-                flex: 0 0 calc(50% - 3px) !important;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-        }
-        
-        @media (min-width: 768px) {
-            .chat-container {
-                height: 90vh;
-                margin: 20px auto;
-                border: 1px solid #ddd;
-                border-radius: 15px;
-                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            }
-            
-            .chat-header {
-                border-radius: 15px 15px 0 0;
-            }
-            
-            .chat-messages {
-                top: 80px;
-                bottom: 190px; /* Ajustado para desktop */
-            }
-        }
-        
-        /* Espacio al final del chat - IMPORTANTE para scroll */
-        .chat-messages::after {
-            content: '';
-            display: block;
-            height: 30px; /* Aumentado para espacio extra */
-        }
-
-    
-        .install-btn-container {
-            position: fixed;
-            bottom: 150px; /* Ajustado para no tapar mensajes */
-            right: 15px;
-            z-index: 1001;
-            animation: slideInUp 0.5s ease;
-            display: none; /* Oculto por defecto */
-        }
-
-        @keyframes slideInUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .install-btn {
-            background: linear-gradient(135deg, #28a745, #218838);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 10px 16px;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.85rem;
-        }
-
-        .install-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-        }
-
-        .install-btn i {
-            font-size: 1rem;
-        }
-
-        /* Para móviles */
-        @media (max-width: 576px) {
-            .install-btn-container {
-                bottom: 140px;
-                right: 10px;
-            }
-            
-            .install-btn {
-                padding: 8px 14px;
-                font-size: 0.8rem;
-            }
-        }
-
-        /* ESTILOS PARA TARJETAS DE PROFESIONALES - Agregar en tu sección <style> */
         .professionals-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -490,29 +365,6 @@
             color: #6c757d;
         }
 
-        .professional-rating {
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #ffc107;
-            color: #333;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-width: 40px;
-            justify-content: center;
-        }
-
-        .professional-rating .stars {
-            color: #ffc107;
-            font-size: 0.7rem;
-        }
-
         .professional-info {
             margin-bottom: 8px;
             width: 100%;
@@ -552,8 +404,96 @@
             background: #0056b3;
         }
 
-        /* Responsive para móviles */
+        /* Botón de notificaciones push */
+        .btn-push {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-push:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        }
+        
+        .btn-push:disabled {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            cursor: default;
+            transform: none;
+        }
+        
+        .install-btn-container {
+            position: fixed;
+            bottom: 150px;
+            right: 15px;
+            z-index: 1001;
+            animation: slideInUp 0.5s ease;
+            display: none;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .install-btn {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 16px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .install-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .install-btn i {
+            font-size: 1rem;
+        }
+
         @media (max-width: 576px) {
+            .chat-header {
+                padding: 12px 15px;
+            }
+            
+            .chat-messages {
+                top: 70px;
+                bottom: 180px;
+                padding: 15px;
+            }
+            
+            .chat-input {
+                padding: 12px;
+            }
+            
+            .message {
+                max-width: 90%;
+                padding: 10px 12px;
+            }
+            
+            .opcion-btn {
+                flex: 0 0 100%;
+            }
+            
+            .hora-btn {
+                flex: 0 0 calc(50% - 3px);
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
             .professionals-grid {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 10px;
@@ -568,12 +508,45 @@
             .professional-card {
                 padding: 8px;
             }
+            
+            .install-btn-container {
+                bottom: 140px;
+                right: 10px;
+            }
+            
+            .install-btn {
+                padding: 8px 14px;
+                font-size: 0.8rem;
+            }
         }
-
+        
         @media (min-width: 768px) {
+            .chat-container {
+                height: 90vh;
+                margin: 20px auto;
+                border: 1px solid #ddd;
+                border-radius: 15px;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            }
+            
+            .chat-header {
+                border-radius: 15px 15px 0 0;
+            }
+            
+            .chat-messages {
+                top: 80px;
+                bottom: 190px;
+            }
+            
             .professionals-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
+        }
+        
+        .chat-messages::after {
+            content: '';
+            display: block;
+            height: 30px;
         }
     </style>
 </head>
@@ -609,13 +582,16 @@
             <button class="btn btn-outline-success action-btn" id="installFooterBtn">
                 <i class="fas fa-mobile-alt"></i> Instalar App
             </button>
+            <button id="btnActivarNotificaciones" class="btn btn-push action-btn" style="display: none;">
+                🔔 Activar Notificaciones
+            </button>
         </div>
     </div>
 
     <!-- Botón de instalación PWA (FLOTANTE) -->
     <div class="install-btn-container" id="installBtnContainer">
         <button class="install-btn" id="installBtn">
-            <i class="fas fa-download"></i> Instalar
+            <i class="fas fa-download"></i> Instalar App
         </button>
     </div>
 
@@ -624,6 +600,7 @@
     <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{{ url_for('static', filename='js/push-cliente.js') }}"></script>
     <script>
         $(document).ready(function() {
             const chatMessages = $('#chatMessages');
@@ -635,16 +612,102 @@
             
             console.log("✅ Chat inicializado para negocio ID:", negocioId, "Nombre:", negocioNombre);
             
-            // ✅ SOLUCIÓN DEFINITIVA: Crear manifest.json DINÁMICO desde CERO - CORREGIDO
-            function crearManifestDinamico() {
-                // Crear la URL ABSOLUTA para este negocio específico
-                const urlAbsoluta = window.location.origin + '/cliente/' + negocioId;
-                console.log("🎯 URL ABSOLUTA para acceso directo:", urlAbsoluta);
+            // Variables para notificaciones push
+            let telefonoCliente = localStorage.getItem('telefono_cliente');
+            let pushActivado = localStorage.getItem('push_activado') === 'true';
+            
+            // Función para obtener teléfono del cliente
+            function obtenerTelefonoCliente() {
+                return telefonoCliente;
+            }
+            
+            // Función para activar notificaciones
+            async function activarNotificaciones() {
+                const btn = document.getElementById('btnActivarNotificaciones');
                 
-                // CORREGIR: El scope debe ser una URL relativa válida
+                if (!telefonoCliente) {
+                    mostrarNotificacion('Por favor, primero completa el registro con tu número de teléfono.', 'warning');
+                    return;
+                }
+                
+                try {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Activando...';
+                    btn.disabled = true;
+                    
+                    const push = new window.PushClienteNotifications();
+                    const success = await push.inicializar(telefonoCliente, negocioId);
+                    
+                    if (success) {
+                        localStorage.setItem('push_activado', 'true');
+                        pushActivado = true;
+                        btn.innerHTML = '✅ Notificaciones Activadas';
+                        btn.disabled = true;
+                        
+                        // Enviar notificación de prueba
+                        await push.testNotificacion();
+                        
+                        addBotMessage('✅ ¡Notificaciones activadas! Recibirás recordatorios de tus citas.');
+                    } else {
+                        btn.innerHTML = '🔔 Activar Notificaciones';
+                        btn.disabled = false;
+                        addBotMessage('❌ No se pudieron activar las notificaciones. Asegúrate de permitir las notificaciones en tu navegador.');
+                    }
+                } catch (error) {
+                    console.error('Error activando notificaciones:', error);
+                    btn.innerHTML = '🔔 Activar Notificaciones';
+                    btn.disabled = false;
+                    addBotMessage('❌ Error al activar notificaciones. Intenta nuevamente.');
+                }
+            }
+            
+            // Escuchar cambios en el teléfono del cliente
+            function escucharTelefonoCliente() {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                            // Buscar mensajes que contengan confirmación de teléfono
+                            const mensajes = document.querySelectorAll('.bot-message');
+                            const ultimoMensaje = mensajes[mensajes.length - 1];
+                            if (ultimoMensaje) {
+                                const texto = ultimoMensaje.textContent;
+                                const telefonoMatch = texto.match(/\b(3\d{9})\b/);
+                                if (telefonoMatch && !telefonoCliente) {
+                                    telefonoCliente = telefonoMatch[1];
+                                    localStorage.setItem('telefono_cliente', telefonoCliente);
+                                    console.log("📱 Teléfono detectado:", telefonoCliente);
+                                    
+                                    // Mostrar botón de notificaciones
+                                    const btnNotificaciones = document.getElementById('btnActivarNotificaciones');
+                                    btnNotificaciones.style.display = 'block';
+                                    addBotMessage('💡 Puedes activar las notificaciones para recibir recordatorios de tus citas.');
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                observer.observe(document.getElementById('chatMessages'), { 
+                    childList: true, 
+                    subtree: true,
+                    characterData: true 
+                });
+            }
+            
+            // Mostrar notificación temporal
+            function mostrarNotificacion(mensaje, tipo = 'info') {
+                const notifDiv = $(`<div class="alert alert-${tipo} alert-dismissible fade show" role="alert" style="position: fixed; bottom: 160px; left: 20px; right: 20px; z-index: 1100; max-width: 460px; margin: 0 auto;">
+                    ${mensaje}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`);
+                $('body').append(notifDiv);
+                setTimeout(() => notifDiv.fadeOut(500, () => notifDiv.remove()), 3000);
+            }
+            
+            // Función para crear manifest dinámico
+            function crearManifestDinamico() {
+                const urlAbsoluta = window.location.origin + '/cliente/' + negocioId;
                 const scopeUrl = '/cliente/' + negocioId + '/';
                 
-                // Crear manifest COMPLETAMENTE personalizado - CORREGIDO
                 const manifestData = {
                     "name": "WaBot - " + negocioNombre,
                     "short_name": "WaBot",
@@ -654,57 +717,17 @@
                     "background_color": "#007bff",
                     "theme_color": "#007bff",
                     "orientation": "portrait-primary",
-                    "scope": scopeUrl,  // ¡CORREGIDO! URL relativa válida
+                    "scope": scopeUrl,
                     "lang": "es",
                     "icons": [
-                        {
-                            "src": "/static/icons/icon-72x72.png",
-                            "sizes": "72x72",
-                            "type": "image/png",
-                            "purpose": "any"
-                        },
-                        {
-                            "src": "/static/icons/icon-96x96.png",
-                            "sizes": "96x96",
-                            "type": "image/png",
-                            "purpose": "any"
-                        },
-                        {
-                            "src": "/static/icons/icon-128x128.png",
-                            "sizes": "128x128",
-                            "type": "image/png",
-                            "purpose": "any"
-                        },
-                        {
-                            "src": "/static/icons/icon-144x144.png",
-                            "sizes": "144x144",
-                            "type": "image/png",
-                            "purpose": "any"
-                        },
-                        {
-                            "src": "/static/icons/icon-152x152.png",
-                            "sizes": "152x152",
-                            "type": "image/png",
-                            "purpose": "any"
-                        },
-                        {
-                            "src": "/static/icons/icon-192x192.png",
-                            "sizes": "192x192",
-                            "type": "image/png",
-                            "purpose": "any maskable"
-                        },
-                        {
-                            "src": "/static/icons/icon-384x384.png",
-                            "sizes": "384x384",
-                            "type": "image/png",
-                            "purpose": "any"
-                        },
-                        {
-                            "src": "/static/icons/icon-512x512.png",
-                            "sizes": "512x512",
-                            "type": "image/png",
-                            "purpose": "any maskable"
-                        }
+                        {"src": "/static/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+                        {"src": "/static/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
                     ],
                     "categories": ["business", "productivity", "utilities"],
                     "shortcuts": [
@@ -713,59 +736,33 @@
                             "short_name": "Agendar",
                             "description": "Agendar una nueva cita en " + negocioNombre,
                             "url": urlAbsoluta,
-                            "icons": [
-                                {
-                                    "src": "/static/icons/icon-96x96.png",
-                                    "sizes": "96x96",
-                                    "type": "image/png"
-                                }
-                            ]
+                            "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png"}]
                         }
                     ]
                 };
                 
-                console.log("📄 Manifest generado:", JSON.stringify(manifestData, null, 2));
-                
-                // Convertir a JSON y crear Blob
                 const jsonManifest = JSON.stringify(manifestData, null, 2);
                 const blob = new Blob([jsonManifest], {type: 'application/json'});
                 const manifestUrl = URL.createObjectURL(blob);
                 
-                // Crear o actualizar el elemento link del manifest
                 let manifestLink = document.querySelector('link[rel="manifest"]');
-                
                 if (!manifestLink) {
                     manifestLink = document.createElement('link');
                     manifestLink.rel = 'manifest';
                     document.head.appendChild(manifestLink);
                 }
-                
-                // Asignar la URL del blob
                 manifestLink.href = manifestUrl;
-                
-                console.log("🎯 Manifest generado para negocio:", negocioId);
-                console.log("🔗 Start URL:", urlAbsoluta);
-                console.log("🔗 Scope:", scopeUrl);
                 
                 return manifestUrl;
             }
             
-            // Función MEJORADA para scroll al final
             function scrollToBottom() {
                 setTimeout(() => {
                     const messagesEl = chatMessages[0];
                     messagesEl.scrollTop = messagesEl.scrollHeight;
-                    console.log("📏 Scroll ajustado:", messagesEl.scrollTop, "Altura total:", messagesEl.scrollHeight);
                 }, 100);
             }
             
-            // Verificar que el scroll funciona
-            function checkScroll() {
-                const el = chatMessages[0];
-                console.log("📏 Altura scroll:", el.scrollHeight, "Altura visible:", el.clientHeight, "ScrollTop:", el.scrollTop);
-            }
-            
-            // Mostrar indicador de "escribiendo"
             function showTypingIndicator() {
                 chatMessages.append(`
                     <div class="typing-indicator">
@@ -775,15 +772,12 @@
                 scrollToBottom();
             }
             
-            // Ocultar indicador
             function hideTypingIndicator() {
                 $('.typing-indicator').remove();
             }
             
-            // Agregar mensaje del usuario
             function addUserMessage(message) {
                 if (!message.trim()) return;
-                
                 const messageHtml = `
                     <div class="message user-message">
                         <strong><i class="fas fa-user"></i> Tú:</strong><br>
@@ -794,11 +788,8 @@
                 scrollToBottom();
             }
             
-            // Agregar mensaje del bot
             function addBotMessage(message, options = null, pagination = null) {
                 console.log("🤖 Mensaje del bot:", message);
-                console.log("📋 Opciones recibidas:", options);
-                console.log("🔢 Paginación:", pagination);
                 
                 const messageHtml = `
                     <div class="message bot-message">
@@ -809,32 +800,18 @@
                 
                 chatMessages.append(messageHtml);
                 
-                // Agregar opciones si existen
                 if (options && options.length > 0) {
-                    // DETECTAR SI SON PROFESIONALES CON FOTOS (lógica mejorada)
                     const isProfessionalsWithPhotos = options.some(opt => 
                         (opt.image || opt.type === 'professional') && opt.rating !== undefined
                     );
                     
-                    console.log("🔍 ¿Son profesionales con fotos?:", isProfessionalsWithPhotos);
-                    console.log("🖼️ Datos de opciones:", options);
-                    
                     if (isProfessionalsWithPhotos) {
-                        let containerClass = 'professionals-grid';
-                        let optionsHtml = `<div class="${containerClass}">`;
-                        
-                        options.forEach((option, index) => {
-                            console.log(`👤 Profesional ${index + 1}:`, option);
-                            
-                            // URL de imagen - con manejo seguro
+                        let optionsHtml = `<div class="professionals-grid">`;
+                        options.forEach((option) => {
                             let imageUrl = option.image || '';
-                            
-                            // Ajustar URL si es necesario
                             if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
                                 imageUrl = '/' + imageUrl;
                             }
-                            
-                            // Si no hay imagen, usar avatar por defecto
                             const hasImage = imageUrl && imageUrl !== '';
                             
                             optionsHtml += `
@@ -844,12 +821,6 @@
                                             `<img src="${imageUrl}" alt="${option.name || option.text}" 
                                                 onerror="this.onerror=null; this.src='/static/default-avatar.png';">` : 
                                             `<div class="default-avatar"><i class="fas fa-user"></i></div>`
-                                        }
-                                        <!-- Eliminar la sección de rating si no existe -->
-                                        ${option.rating && option.rating > 0 ? 
-                                            `<div class="professional-rating">
-                                                <small>⭐ ${option.rating.toFixed(1)}</small>
-                                            </div>` : ''
                                         }
                                     </div>
                                     <div class="professional-info">
@@ -861,22 +832,16 @@
                             `;
                         });
                         optionsHtml += '</div>';
-                        
                         chatMessages.append(optionsHtml);
-                        console.log("✅ Grid de profesionales creado");
                         
-                        // Evento para seleccionar profesional
                         $('.select-professional-btn').off('click').on('click', function() {
                             const professionalCard = $(this).closest('.professional-card');
                             const optionValue = professionalCard.data('opcion');
-                            console.log("🎯 Profesional seleccionado:", optionValue);
                             userInput.val(optionValue);
                             sendMessage();
                         });
                         
                     } else {
-                        console.log("📝 Mostrando opciones normales");
-                        // Código existente para otros tipos de opciones...
                         let containerClass = 'opciones-numeradas';
                         let buttonClass = 'opcion-btn';
                         
@@ -904,7 +869,6 @@
                         
                         chatMessages.append(optionsHtml);
                         
-                        // Evento para botones de opciones
                         $('button[data-opcion]').off('click').on('click', function() {
                             userInput.val($(this).data('opcion'));
                             sendMessage();
@@ -916,19 +880,13 @@
                     chatMessages.append(`<div class="pagination-info">${pagination}</div>`);
                 }
                 
-                // Scroll después de que todo se renderice
-                setTimeout(() => {
-                    scrollToBottom();
-                    checkScroll();
-                }, 200);
+                setTimeout(() => scrollToBottom(), 200);
             }
             
-            // Enviar mensaje - VERSIÓN CON DEBUG
             function sendMessage() {
                 const message = userInput.val().trim();
                 if (!message) return;
                 
-                console.log("📤 Enviando mensaje:", message);
                 addUserMessage(message);
                 userInput.val('');
                 showTypingIndicator();
@@ -943,7 +901,6 @@
                         negocio_id: negocioId
                     }),
                     success: function(response) {
-                        console.log("✅ Respuesta recibida:", response);
                         hideTypingIndicator();
                         if (response.error) {
                             addBotMessage(`❌ ${response.error}`);
@@ -952,7 +909,6 @@
                         addBotMessage(response.message, response.options, response.pagination);
                     },
                     error: function(xhr, status, error) {
-                        console.log("❌ Error AJAX:", error);
                         hideTypingIndicator();
                         addBotMessage('❌ Error al procesar tu mensaje. Intenta de nuevo.');
                     }
@@ -967,6 +923,8 @@
             
             $('#resetButton').click(function() {
                 if (confirm('¿Reiniciar conversación?')) {
+                    localStorage.removeItem('telefono_cliente');
+                    localStorage.removeItem('push_activado');
                     $.post('/cliente/reset', function() {
                         location.reload();
                     });
@@ -977,9 +935,14 @@
                 userInput.val('4');
                 sendMessage();
             });
-
+            
             $('#installFooterBtn').click(function() {
                 $('#installBtn').click();
+            });
+            
+            // Botón de notificaciones
+            $('#btnActivarNotificaciones').click(function() {
+                activarNotificaciones();
             });
             
             // Iniciar conversación
@@ -988,83 +951,40 @@
                 sendMessage();
             }, 800);
             
-            // ==================== CÓDIGO MEJORADO PARA INSTALAR PWA ====================
+            // Detectar teléfono del cliente
+            escucharTelefonoCliente();
             
-            // Variables para instalación PWA
+            // Si ya había teléfono guardado, mostrar botón
+            if (telefonoCliente) {
+                const btnNotificaciones = document.getElementById('btnActivarNotificaciones');
+                btnNotificaciones.style.display = 'block';
+                
+                if (!pushActivado) {
+                    setTimeout(() => {
+                        addBotMessage('💡 Puedes activar las notificaciones para recibir recordatorios de tus citas.');
+                    }, 3000);
+                }
+            }
+            
+            // PWA Installation
             let deferredPrompt = null;
             const installBtn = document.getElementById('installBtn');
             const installBtnContainer = document.getElementById('installBtnContainer');
             
-            // Función para verificar si se puede instalar
-            function checkPWAInstallable() {
-                // Verificar si ya está instalado como PWA
-                if (window.matchMedia('(display-mode: standalone)').matches) {
-                    console.log("📱 Ya está instalado como PWA");
-                    if (installBtnContainer) installBtnContainer.style.display = 'none';
-                    return false;
-                }
-                
-                // Verificar requisitos para PWA
-                const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-                const hasServiceWorker = 'serviceWorker' in navigator;
-                const hasBeforeInstallPrompt = 'beforeinstallprompt' in window;
-                
-                console.log("🔍 Verificando PWA:");
-                console.log("  - HTTPS/Localhost:", isSecure);
-                console.log("  - Service Worker:", hasServiceWorker);
-                console.log("  - beforeinstallprompt:", hasBeforeInstallPrompt);
-                
-                return isSecure && hasServiceWorker;
-            }
-            
-            // Evento para capturar el prompt de instalación
             window.addEventListener('beforeinstallprompt', (e) => {
-                console.log("🎉 beforeinstallprompt activado - ¡PWA se puede instalar!");
                 e.preventDefault();
                 deferredPrompt = e;
-                
-                if (installBtnContainer) {
-                    installBtnContainer.style.display = 'block';
-                    console.log("✅ Botón de instalación mostrado");
-                }
-                
-                // Crear manifest CORREGIDO
+                installBtnContainer.style.display = 'block';
                 crearManifestDinamico();
             });
             
-            // Evento cuando la PWA se instala
-            window.addEventListener('appinstalled', (evt) => {
-                console.log("🎊 PWA instalado exitosamente");
-                if (installBtnContainer) installBtnContainer.style.display = 'none';
+            window.addEventListener('appinstalled', () => {
+                installBtnContainer.style.display = 'none';
                 deferredPrompt = null;
             });
             
-            // Función para intentar instalar
             async function tryInstallPWA() {
-                console.log("🔘 Intentando instalar PWA...");
-                
                 if (!deferredPrompt) {
-                    console.log("⚠️ No hay deferredPrompt, verificando si se puede instalar...");
-                    
-                    // Verificar si cumple requisitos
-                    if (!checkPWAInstallable()) {
-                        addBotMessage('📱 Esta app no cumple los requisitos para instalación. Se necesita HTTPS.');
-                        return false;
-                    }
-                    
-                    // Intentar forzar la detección
-                    crearManifestDinamico();
-                    
-                    // Registrar service worker si no está
-                    if ('serviceWorker' in navigator) {
-                        try {
-                            await navigator.serviceWorker.register('/service-worker.js');
-                            console.log("✅ Service Worker registrado");
-                        } catch (error) {
-                            console.log("❌ Error registrando Service Worker:", error);
-                        }
-                    }
-                    
                     addBotMessage('📱 Intenta recargar la página o usar Chrome/Edge para instalar.');
                     return false;
                 }
@@ -1072,47 +992,30 @@
                 try {
                     deferredPrompt.prompt();
                     const { outcome } = await deferredPrompt.userChoice;
-                    console.log(`Usuario eligió: ${outcome}`);
-                    
                     deferredPrompt = null;
-                    if (installBtnContainer) installBtnContainer.style.display = 'none';
+                    installBtnContainer.style.display = 'none';
                     
                     if (outcome === 'accepted') {
                         addBotMessage('✅ ¡App instalada! Busca el ícono en tu pantalla principal.');
-                        return true;
-                    } else {
-                        addBotMessage('ℹ️ Puedes instalarla más tarde desde ⋮ → "Instalar app".');
-                        return false;
                     }
+                    return outcome === 'accepted';
                 } catch (error) {
-                    console.error("❌ Error al instalar:", error);
-                    addBotMessage('❌ Error al instalar. Intenta en otro navegador.');
+                    console.error("Error al instalar:", error);
                     return false;
                 }
             }
             
-            // Evento click en botón de instalación
             if (installBtn) {
-                installBtn.addEventListener('click', async () => {
-                    await tryInstallPWA();
-                });
+                installBtn.addEventListener('click', tryInstallPWA);
             }
             
-            // Inicializar al cargar
             setTimeout(() => {
-                // Registrar service worker
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('/service-worker.js')
                         .then(reg => console.log("✅ SW registrado:", reg.scope))
                         .catch(err => console.log("❌ Error SW:", err));
                 }
-                
-                // Verificar si se puede instalar
-                checkPWAInstallable();
                 crearManifestDinamico();
-                
-                // Scroll inicial
-                checkScroll();
             }, 1000);
         });
     </script>

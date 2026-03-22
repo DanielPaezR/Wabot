@@ -320,6 +320,38 @@ class AppointmentScheduler:
             
         except Exception as e:
             print(f"❌ Error enviando resumen diario: {e}")
+
+    # En scheduler.py, agregar función para enviar recordatorios push
+    def enviar_recordatorio_push(cita):
+        """Enviar recordatorio push al cliente"""
+        try:
+            from push_notifications import enviar_recordatorio_cita
+            
+            # Determinar tipo de recordatorio (24h o 1h)
+            if cita.get('recordatorio_24h_enviado') == False:
+                horas = 24
+            elif cita.get('recordatorio_1h_enviado') == False:
+                horas = 1
+            else:
+                return
+            
+            success = enviar_recordatorio_cita(cita, horas)
+            
+            if success:
+                # Marcar como enviado en BD
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                if horas == 24:
+                    cursor.execute('UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = %s', (cita['id'],))
+                else:
+                    cursor.execute('UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = %s', (cita['id'],))
+                conn.commit()
+                conn.close()
+                
+                print(f"✅ Recordatorio push de {horas}h enviado para cita {cita['id']}")
+            
+        except Exception as e:
+            print(f"❌ Error enviando recordatorio push: {e}")
     
     # ==================== INICIAR SCHEDULER ====================
     
