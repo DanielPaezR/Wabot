@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes">
+    <title>{{ profesional.nombre }} - Wabot Directorio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #1e293b;
+            padding-bottom: 90px;
+        }
+        
+        /* Portada con degradado */
+        .cover {
+            width: 100%;
+            height: 180px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+        }
+        
+        /* Perfil */
+        .profile-section {
+            position: relative;
+            padding: 0 20px;
+        }
+        
+        .profile-photo {
+            position: absolute;
+            top: -70px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            z-index: 2;
+            border: 4px solid white;
+        }
+        
+        .profile-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .profile-photo-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 48px;
+            color: white;
+        }
+        
+        /* Header información */
+        .professional-header {
+            background: white;
+            border-radius: 24px;
+            margin-top: 70px;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .professional-name {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        
+        .stars {
+            color: #fbbf24;
+            font-size: 16px;
+            letter-spacing: 2px;
+        }
+        
+        .rating-count {
+            color: #64748b;
+            font-size: 13px;
+        }
+        
+        .specialty {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 8px 0;
+        }
+        
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #475569;
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 4px 0;
+        }
+        
+        .info-row i {
+            width: 20px;
+            color: #667eea;
+        }
+        
+        .descripcion {
+            color: #334155;
+            line-height: 1.5;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        
+        /* Secciones */
+        .section {
+            background: white;
+            border-radius: 20px;
+            margin: 12px 16px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #0f172a;
+        }
+        
+        .section-title i {
+            color: #667eea;
+        }
+        
+        /* Galería de trabajos */
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .galeria-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            object-fit: cover;
+            width: 100%;
+            cursor: pointer;
+            background: #e2e8f0;
+            transition: transform 0.2s;
+        }
+        
+        .galeria-item:active {
+            transform: scale(0.98);
+        }
+        
+        /* Mensaje sin trabajos */
+        .empty-message {
+            text-align: center;
+            padding: 32px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        .empty-message i {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+            color: #cbd5e1;
+        }
+        
+        /* Botón flotante */
+        .btn-flotante {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #25D366;
+            color: white;
+            padding: 14px 20px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        
+        .btn-flotante:active {
+            transform: scale(0.96);
+        }
+        
+        /* Modal para fotos */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.92);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 16px;
+            object-fit: contain;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Botón volver */
+        .back-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+            font-size: 20px;
+            transition: all 0.2s;
+        }
+        
+        .back-button:active {
+            transform: scale(0.95);
+            background: rgba(0,0,0,0.9);
+        }
+        
+        @media (max-width: 480px) {
+            .profile-photo {
+                width: 100px;
+                height: 100px;
+                top: -50px;
+            }
+            .professional-header {
+                margin-top: 60px;
+            }
+            .professional-name {
+                font-size: 22px;
+            }
+            .cover {
+                height: 140px;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                max-width: 500px;
+                margin: 0 auto;
+            }
+            .section, .professional-header, .cover {
+                max-width: 500px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .profile-section {
+                max-width: 500px;
+                margin: 0 auto;
+            }
+            .back-button, .btn-flotante {
+                left: auto;
+                right: auto;
+            }
+            .back-button {
+                left: calc(50% - 250px - 60px);
+            }
+            .btn-flotante {
+                right: calc(50% - 250px - 60px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Portada degradada -->
+        <div class="cover"></div>
+        
+        <!-- Foto de perfil -->
+        <div class="profile-section">
+            <div class="profile-photo">
+                {% if profesional.foto_url %}
+                    <img src="{{ profesional.foto_url }}" alt="{{ profesional.nombre }}">
+                {% else %}
+                    <div class="profile-photo-placeholder">
+                        <i class="fas fa-user"></i>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Información del profesional -->
+        <div class="professional-header">
+            <div class="professional-name">{{ profesional.nombre }}</div>
+            
+            <div class="rating">
+                <div class="stars">
+                    {% set rating = profesional.calificacion_promedio|float %}
+                    {% for i in range(5) %}
+                        {% if i < rating|round(0, 'floor') %}★{% else %}☆{% endif %}
+                    {% endfor %}
+                </div>
+                <span class="rating-count">({{ profesional.total_opiniones }} opiniones)</span>
+            </div>
+            
+            {% if profesional.especialidad %}
+            <div class="specialty">
+                <i class="fas fa-tag"></i> {{ profesional.especialidad }}
+            </div>
+            {% endif %}
+            
+            <!-- Aquí puedes agregar más info si existe -->
+            {% if profesional.telefono %}
+            <div class="info-row">
+                <i class="fab fa-whatsapp"></i>
+                <span>{{ profesional.telefono }}</span>
+            </div>
+            {% endif %}
+            
+            <!-- Descripción (si se agrega después) -->
+            {% if profesional.descripcion %}
+            <div class="descripcion">
+                {{ profesional.descripcion }}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Galería de trabajos -->
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-scissors"></i>
+                Trabajos realizados
+            </div>
+            
+            {% if fotos_trabajo %}
+            <div class="galeria-grid">
+                {% for foto in fotos_trabajo %}
+                <img src="{{ foto.url }}" 
+                     class="galeria-item" 
+                     onclick="abrirModal(this.src)"
+                     alt="Trabajo de {{ profesional.nombre }}"
+                     loading="lazy">
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">
+                <i class="fas fa-camera"></i>
+                <p>Este profesional aún no ha subido fotos de sus trabajos</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Botón flotante para agendar cita -->
+    <a href="https://wabot-production-d544.up.railway.app/cliente/{{ profesional.negocio_id }}" 
+       class="btn-flotante" 
+       target="_blank"
+       rel="noopener noreferrer">
+        <i class="fas fa-calendar-check"></i>
+        Agendar cita
+    </a>
+    
+    <!-- Botón volver atrás -->
+    <a href="javascript:history.back()" class="back-button">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    
+    <!-- Modal para ver fotos en grande -->
+    <div id="modal" class="modal" onclick="cerrarModal()">
+        <span class="modal-close">&times;</span>
+        <img id="modal-img" src="">
+    </div>
+    
+    <script>
+        function abrirModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function cerrarModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                cerrarModal();
+            }
+        });
+    </script>
+</body>
+</html>
