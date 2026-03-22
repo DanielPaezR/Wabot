@@ -102,9 +102,9 @@ def pagina_negocio(negocio_id):
         ConfiguracionHorario.negocio_id == negocio_id
     ).order_by(ConfiguracionHorario.dia_semana).all()
     
-    # Mapear números de día a nombres (0=Lunes, 6=Domingo)
-    dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
-                4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
+    # Mapear números de día a nombres (1=Lunes, 7=Domingo)
+    dias_map = {1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 
+                5: 'Viernes', 6: 'Sábado', 7: 'Domingo'}
     
     # Función para convertir hora 24h a 12h
     def convertir_a_12h(hora_str):
