@@ -165,7 +165,7 @@ def perfil_profesional(profesional_id):
     
     return render_template('directorio/profesional.html',
                          profesional=profesional,
-                         fotos_trabajo=fotos_trabajo)
+                         fotos_trabajo=fotos_trabajo)   
 
 
 

@@ -6521,62 +6521,50 @@ def subir_imagen_profesional():
 @app.route('/profesional/subir-foto', methods=['POST'])
 @login_required
 def subir_foto_profesional():
-    """Subir foto de perfil - RUTA PARA EL PROFESIONAL"""
+    """Subir foto de perfil a Cloudinary"""
     try:
-        print(f"=== INICIANDO SUBIDA FOTO ===")
-        profesional_id = session.get('profesional_id')
-        print(f"Profesional ID desde sesión: {profesional_id}")
+        import cloudinary
+        import cloudinary.uploader
         
+        profesional_id = session.get('profesional_id')
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
         
         if 'foto' not in request.files:
-            print("❌ No hay 'foto' en request.files")
-            return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
+            return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
         
         file = request.files['foto']
-        print(f"Archivo recibido: {file.filename}")
-        
         if file.filename == '':
-            print("❌ Nombre de archivo vacío")
-            return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
+            return jsonify({'success': False, 'message': 'Archivo vacío'}), 400
         
-        # Obtener negocio_id - USAR RealDictCursor
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        # Subir a Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"profesionales/{profesional_id}",
+            public_id=f"perfil_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        # Actualizar base de datos
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
-        result = cur.fetchone()
-        cur.close()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE profesionales SET foto_url = %s WHERE id = %s', (url, profesional_id))
+        conn.commit()
         conn.close()
         
-        if not result:
-            print(f"❌ Profesional {profesional_id} no encontrado")
-            return jsonify({'success': False, 'message': 'Profesional no encontrado'})
-        
-        # ACCEDER POR NOMBRE DE COLUMNA, NO POR ÍNDICE
-        negocio_id = result['negocio_id']
-        print(f"Negocio ID: {negocio_id}")
-        
-        # Guardar foto
-        url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, 'perfil')
-        
-        if error:
-            print(f"❌ Error en guardar_foto_profesional: {error}")
-            return jsonify({'success': False, 'message': error})
-        
-        print(f"✅ Foto subida exitosamente: {url_publica}")
-        return jsonify({
-            'success': True,
-            'message': 'Foto subida exitosamente',
-            'url': url_publica,
-            'profesional_id': profesional_id
-        })
+        return jsonify({'success': True, 'url': url, 'message': 'Foto subida a Cloudinary'})
         
     except Exception as e:
-        print(f"❌ Error subiendo foto: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': 'Error al subir foto'}), 500
+        print(f"❌ Error subiendo foto profesional: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/profesional/foto-actual')
 @login_required
@@ -7277,8 +7265,11 @@ def negocio_editor_visual():
 @app.route('/negocio/editor/subir-foto', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_editor_subir_foto():
-    """Subir foto (portada, perfil o galería)"""
+    """Subir foto usando Cloudinary"""
     try:
+        import cloudinary
+        import cloudinary.uploader
+        
         negocio_id = session.get('negocio_id', 1)
         tipo = request.form.get('tipo', 'galeria')
         
@@ -7289,68 +7280,42 @@ def negocio_editor_subir_foto():
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
         
-        # Validar tipo de archivo
-        allowed = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-        if ext not in allowed:
-            return jsonify({'success': False, 'error': 'Formato no permitido'}), 400
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
         
-        # Guardar localmente
-        import os
-        from datetime import datetime
-        from werkzeug.utils import secure_filename
+        # Subir a Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"negocios/{negocio_id}/{tipo}",
+            public_id=f"{negocio_id}_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
         
-        upload_dir = os.path.join('static', 'uploads', 'negocios', str(negocio_id))
-        os.makedirs(upload_dir, exist_ok=True)
-        
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{secure_filename(file.filename)}"
-        filepath = os.path.join(upload_dir, filename)
-        file.save(filepath)
-        
-        url = f"/static/uploads/negocios/{negocio_id}/{filename}"
+        url = upload_result['secure_url']
         
         conn = get_db_connection()
-        cursor = conn.cursor()  # Sin RealDictCursor
+        cursor = conn.cursor()
         
         if tipo == 'portada':
-            cursor.execute('''
-                UPDATE negocios SET foto_portada = %s WHERE id = %s
-            ''', (url, negocio_id))
-            conn.commit()
-            
+            cursor.execute('UPDATE negocios SET foto_portada = %s WHERE id = %s', (url, negocio_id))
         elif tipo == 'perfil':
-            cursor.execute('''
-                UPDATE negocios SET foto_perfil = %s WHERE id = %s
-            ''', (url, negocio_id))
-            conn.commit()
-            
+            cursor.execute('UPDATE negocios SET foto_perfil = %s WHERE id = %s', (url, negocio_id))
         else:  # galeria
-            # Obtener próximo orden
-            cursor.execute('''
-                SELECT COALESCE(MAX(orden), 0) + 1 FROM fotos_negocio WHERE negocio_id = %s
-            ''', (negocio_id,))
-            result = cursor.fetchone()
-            orden = result[0] if result and result[0] else 1
-            
-            cursor.execute('''
-                INSERT INTO fotos_negocio (negocio_id, url, orden)
-                VALUES (%s, %s, %s)
-            ''', (negocio_id, url, orden))
-            conn.commit()
+            cursor.execute('SELECT COALESCE(MAX(orden), 0) + 1 FROM fotos_negocio WHERE negocio_id = %s', (negocio_id,))
+            orden = cursor.fetchone()[0] or 1
+            cursor.execute('INSERT INTO fotos_negocio (negocio_id, url, orden) VALUES (%s, %s, %s)', 
+                         (negocio_id, url, orden))
         
+        conn.commit()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'url': url,
-            'message': 'Foto subida exitosamente'
-        })
+        return jsonify({'success': True, 'url': url, 'message': 'Foto subida a Cloudinary'})
         
     except Exception as e:
-        print(f"❌ Error subiendo foto: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error subiendo foto a Cloudinary: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/negocio/editor/eliminar-foto', methods=['POST'])
