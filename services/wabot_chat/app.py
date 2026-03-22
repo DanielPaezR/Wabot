@@ -7480,43 +7480,109 @@ def negocio_editor_eliminar_foto():
         print(f"❌ Error eliminando foto: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/negocio/editor/guardar-servicio', methods=['POST'])
+@app.route('/negocio/editor/guardar', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
-def negocio_editor_guardar_servicio():
-    """Guardar o actualizar servicio"""
+def negocio_editor_guardar():
+    """Guardar cambios del editor visual"""
     try:
         data = request.get_json()
+        print(f"📥 Datos recibidos: {data}")
+        
         negocio_id = session.get('negocio_id', 1)
-        servicio_id = data.get('id')
-        nombre = data.get('nombre')
-        duracion = data.get('duracion', 30)
-        precio = data.get('precio', 0)
-        descripcion = data.get('descripcion', '')
+        print(f"🏢 Negocio ID: {negocio_id}")
         
         conn = get_db_connection()
-        cursor = conn.cursor()
         
-        if servicio_id:
-            cursor.execute('''
-                UPDATE servicios 
-                SET nombre = %s, duracion = %s, precio = %s, descripcion = %s
-                WHERE id = %s AND negocio_id = %s
-            ''', (nombre, duracion, precio, descripcion, servicio_id, negocio_id))
+        # Usar RealDictCursor para obtener diccionarios
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        campos = []
+        valores = []
+        
+        if 'nombre' in data and data['nombre']:
+            campos.append("nombre = %s")
+            valores.append(data['nombre'])
+            print(f"  ✓ nombre: {data['nombre']}")
+        
+        if 'direccion' in data and data['direccion']:
+            campos.append("direccion = %s")
+            valores.append(data['direccion'])
+            print(f"  ✓ direccion: {data['direccion']}")
+        
+        if 'descripcion' in data and data['descripcion']:
+            campos.append("descripcion = %s")
+            valores.append(data['descripcion'])
+            print(f"  ✓ descripcion: {data['descripcion']}")
+        
+        if 'telefono_whatsapp' in data and data['telefono_whatsapp']:
+            telefono = data['telefono_whatsapp']
+            if telefono and not telefono.startswith('whatsapp:'):
+                telefono = f"whatsapp:{telefono}"
+            campos.append("telefono_whatsapp = %s")
+            valores.append(telefono)
+            print(f"  ✓ telefono_whatsapp: {telefono}")
+        
+        if 'tipo_negocio' in data and data['tipo_negocio']:
+            campos.append("tipo_negocio = %s")
+            valores.append(data['tipo_negocio'])
+            print(f"  ✓ tipo_negocio: {data['tipo_negocio']}")
+        
+        if 'emoji' in data and data['emoji']:
+            campos.append("emoji = %s")
+            valores.append(data['emoji'])
+            print(f"  ✓ emoji: {data['emoji']}")
+        
+        # Actualizar configuración general (JSON)
+        cursor.execute('SELECT configuracion FROM negocios WHERE id = %s', (negocio_id,))
+        result = cursor.fetchone()
+        
+        config_actual = {}
+        if result:
+            # result es un diccionario por RealDictCursor
+            config_str = result.get('configuracion')
+            if config_str:
+                try:
+                    config_actual = json.loads(config_str)
+                    print(f"  📦 Config actual cargada")
+                except Exception as e:
+                    print(f"  ⚠️ Error parseando config: {e}")
+        
+        if 'horario_atencion' in data and data['horario_atencion']:
+            config_actual['horario_atencion'] = data['horario_atencion']
+            print(f"  ✓ horario_atencion: {data['horario_atencion']}")
+        
+        if 'saludo_personalizado' in data and data['saludo_personalizado']:
+            config_actual['saludo_personalizado'] = data['saludo_personalizado']
+        
+        if 'politica_cancelacion' in data and data['politica_cancelacion']:
+            config_actual['politica_cancelacion'] = data['politica_cancelacion']
+        
+        if 'telefono_contacto' in data and data['telefono_contacto']:
+            config_actual['telefono_contacto'] = data['telefono_contacto']
+        
+        campos.append("configuracion = %s")
+        valores.append(json.dumps(config_actual))
+        print(f"  📦 Nueva config guardada")
+        
+        if campos:
+            valores.append(negocio_id)
+            query = f"UPDATE negocios SET {', '.join(campos)} WHERE id = %s"
+            print(f"  📝 Query: {query}")
+            print(f"  📝 Valores: {valores}")
+            cursor.execute(query, valores)
+            conn.commit()
+            print(f"  ✅ {cursor.rowcount} fila(s) actualizada(s)")
         else:
-            cursor.execute('''
-                INSERT INTO servicios (negocio_id, nombre, duracion, precio, descripcion, activo)
-                VALUES (%s, %s, %s, %s, %s, TRUE)
-                RETURNING id
-            ''', (negocio_id, nombre, duracion, precio, descripcion))
-            servicio_id = cursor.fetchone()[0]
+            print("  ⚠️ No hay campos para actualizar")
         
-        conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'id': servicio_id})
+        return jsonify({'success': True, 'message': 'Cambios guardados'})
         
     except Exception as e:
-        print(f"❌ Error guardando servicio: {e}")
+        print(f"❌ Error guardando: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
