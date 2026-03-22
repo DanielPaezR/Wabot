@@ -2573,14 +2573,13 @@ def negocio_servicios():
 @app.route('/negocio/servicios/nuevo', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_nuevo_servicio():
-    """Crear nuevo servicio para el negocio - CON TIPO DE PRECIO"""
+    """Crear nuevo servicio para el negocio - CON TIPO DE PRECIO Y FOTO"""
     if session['usuario_rol'] == 'propietario':
         negocio_id = session['negocio_id']
     else:
         negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
     
     if request.method == 'POST':
-        # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             return redirect(url_for('negocio_nuevo_servicio'))
@@ -2590,7 +2589,9 @@ def negocio_nuevo_servicio():
         precio = float(request.form['precio'])
         descripcion = request.form.get('descripcion', '')
         
-        # ✅ NUEVOS CAMPOS
+        # ✅ NUEVO: Obtener foto_url
+        foto_url = request.form.get('foto_url', '')
+        
         tipo_precio = request.form.get('tipo_precio', 'fijo')
         precio_maximo = None
         
@@ -2603,17 +2604,17 @@ def negocio_nuevo_servicio():
                     flash('❌ El precio máximo debe ser un número válido', 'error')
                     return redirect(url_for('negocio_nuevo_servicio'))
         
-        # Usar la nueva función guardar_servicio con servicio_id=None para crear nuevo
         resultado = db.guardar_servicio(
             negocio_id=negocio_id,
-            servicio_id=None,  # None indica que es nuevo
+            servicio_id=None,
             nombre=nombre,
             duracion=duracion,
             precio=precio,
             descripcion=descripcion,
             activo=True,
             tipo_precio=tipo_precio,
-            precio_maximo=precio_maximo
+            precio_maximo=precio_maximo,
+            foto_url=foto_url
         )
         
         if resultado['success']:
@@ -2628,7 +2629,7 @@ def negocio_nuevo_servicio():
 @app.route('/negocio/servicios/<int:servicio_id>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_servicio(servicio_id):
-    """Editar servicio del negocio - CON TIPO DE PRECIO Y RANGO"""
+    """Editar servicio del negocio - CON TIPO DE PRECIO, RANGO Y FOTO"""
     servicio = db.obtener_servicio_por_id(servicio_id, session['negocio_id'])
     if not servicio:
         flash('Servicio no encontrado', 'error')
@@ -2646,6 +2647,9 @@ def negocio_editar_servicio(servicio_id):
         descripcion = request.form.get('descripcion', '')
         activo = request.form.get('activo', 'off') == 'on'
         
+        # ✅ Obtener foto_url del formulario
+        foto_url = request.form.get('foto_url', '')
+        
         # ✅ NUEVOS CAMPOS
         tipo_precio = request.form.get('tipo_precio', 'fijo')
         precio_maximo = None
@@ -2660,7 +2664,7 @@ def negocio_editar_servicio(servicio_id):
                     flash('❌ El precio máximo debe ser un número válido', 'error')
                     return redirect(url_for('negocio_editar_servicio', servicio_id=servicio_id))
         
-        # Usar la nueva función guardar_servicio
+        # Usar la nueva función guardar_servicio con foto_url
         resultado = db.guardar_servicio(
             negocio_id=session['negocio_id'],
             servicio_id=servicio_id,
@@ -2670,7 +2674,8 @@ def negocio_editar_servicio(servicio_id):
             descripcion=descripcion,
             activo=activo,
             tipo_precio=tipo_precio,
-            precio_maximo=precio_maximo
+            precio_maximo=precio_maximo,
+            foto_url=foto_url  # ✅ Pasar foto_url
         )
         
         if resultado['success']:
@@ -2694,7 +2699,8 @@ def negocio_editar_servicio(servicio_id):
             'descripcion': servicio.descripcion,
             'activo': servicio.activo,
             'tipo_precio': getattr(servicio, 'tipo_precio', 'fijo'),
-            'precio_maximo': getattr(servicio, 'precio_maximo', None)
+            'precio_maximo': getattr(servicio, 'precio_maximo', None),
+            'foto_url': getattr(servicio, 'foto_url', None)
         }
     
     return render_template('negocio/editar_servicio.html', 

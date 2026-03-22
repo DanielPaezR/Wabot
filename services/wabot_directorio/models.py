@@ -49,6 +49,8 @@ class Servicio(Base):
     foto_url = Column(String(500))   # Foto ejemplo del servicio
     
     negocio = relationship("Negocio", back_populates="servicios")
+    for s in servicios:
+        print(f"📸 Servicio: {s.nombre} - foto_url: {s.foto_url}")
 
 class ConfiguracionHorario(Base):
     __tablename__ = 'configuracion_horarios'
