@@ -95,25 +95,36 @@ def pagina_negocio(negocio_id):
     dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
                 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
     
-    # Función para convertir hora 24h a 12h (formato AM/PM)
     def convertir_a_12h(hora_str):
         if not hora_str:
             return ""
         try:
-            # Manejar formatos como "19:00" o "19:00:00"
-            partes = hora_str.split(':')
-            hora = int(partes[0])
-            minuto = partes[1].split('.')[0]  # por si viene con segundos
-            minuto_int = int(minuto)
+            # Limpiar el string
+            hora_str = hora_str.strip()
             
-            periodo = 'AM' if hora < 12 else 'PM'
-            hora_12 = hora % 12
-            if hora_12 == 0:
-                hora_12 = 12
+            # Extraer hora y minuto
+            if ':' in hora_str:
+                partes = hora_str.split(':')
+                hora = int(partes[0])
+                minutos = partes[1][:2]  # tomar solo los primeros 2 caracteres
+                minuto_int = int(minutos)
+            else:
+                hora = int(hora_str)
+                minuto_int = 0
             
-            return f"{hora_12}:{minuto_int:02d} {periodo}"
+            # Determinar AM/PM
+            if hora < 12:
+                periodo = 'AM'
+                if hora == 0:
+                    hora = 12
+            else:
+                periodo = 'PM'
+                if hora > 12:
+                    hora = hora - 12
+            
+            return f"{hora}:{minuto_int:02d} {periodo}"
         except Exception as e:
-            print(f"Error convirtiendo hora {hora_str}: {e}")
+            print(f"Error: {e} - valor original: {hora_str}")
             return hora_str
     
     # Crear lista de horarios formateados
