@@ -111,29 +111,41 @@ def pagina_negocio(negocio_id):
         if not hora_str:
             return ""
         try:
-            print(f"🕐 Convirtiendo: {hora_str}")  # DEBUG
+            # Eliminar espacios y cualquier carácter extra
             hora_str = hora_str.strip()
             
+            # Manejar diferentes formatos
             if ':' in hora_str:
                 partes = hora_str.split(':')
                 hora = int(partes[0])
-                minutos = partes[1][:2] 
+                minutos = partes[1][:2] if len(partes) > 1 else "00"
             else:
+                # Si es solo número, asumir que es la hora
                 hora = int(hora_str)
                 minutos = "00"
             
-            if hora < 12:
-                periodo = 'AM'
-                if hora == 0:
-                    hora = 12
-            else:
-                periodo = 'PM'
-                if hora > 12:
-                    hora = hora - 12
+            # Validar hora
+            if hora < 0 or hora > 23:
+                return hora_str
             
-            resultado = f"{hora}:{minutos} {periodo}"
-            print(f"   Resultado: {resultado}")  # DEBUG
-            return resultado
+            # Convertir a formato 12h
+            if hora == 0:
+                hora_12 = 12
+                periodo = 'AM'
+            elif hora < 12:
+                hora_12 = hora
+                periodo = 'AM'
+            elif hora == 12:
+                hora_12 = 12
+                periodo = 'PM'
+            else:
+                hora_12 = hora - 12
+                periodo = 'PM'
+            
+            # Formatear minutos con dos dígitos
+            minutos_str = minutos.zfill(2)
+            
+            return f"{hora_12}:{minutos_str} {periodo}"
         except Exception as e:
             print(f"Error convirtiendo hora {hora_str}: {e}")
             return hora_str
