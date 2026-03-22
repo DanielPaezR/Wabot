@@ -7278,33 +7278,33 @@ def negocio_editor_guardar():
     """Guardar cambios del editor visual"""
     try:
         data = request.get_json()
-        print(f"📥 Datos recibidos: {data}")  # Debug
+        print(f"📥 Datos recibidos: {data}")
         
         negocio_id = session.get('negocio_id', 1)
         print(f"🏢 Negocio ID: {negocio_id}")
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor()  # Sin RealDictCursor para evitar problemas
         
         campos = []
         valores = []
         
-        if 'nombre' in data:
+        if 'nombre' in data and data['nombre']:
             campos.append("nombre = %s")
             valores.append(data['nombre'])
             print(f"  ✓ nombre: {data['nombre']}")
         
-        if 'direccion' in data:
+        if 'direccion' in data and data['direccion']:
             campos.append("direccion = %s")
             valores.append(data['direccion'])
             print(f"  ✓ direccion: {data['direccion']}")
         
-        if 'descripcion' in data:
+        if 'descripcion' in data and data['descripcion']:
             campos.append("descripcion = %s")
             valores.append(data['descripcion'])
             print(f"  ✓ descripcion: {data['descripcion']}")
         
-        if 'telefono_whatsapp' in data:
+        if 'telefono_whatsapp' in data and data['telefono_whatsapp']:
             telefono = data['telefono_whatsapp']
             if telefono and not telefono.startswith('whatsapp:'):
                 telefono = f"whatsapp:{telefono}"
@@ -7312,33 +7312,45 @@ def negocio_editor_guardar():
             valores.append(telefono)
             print(f"  ✓ telefono_whatsapp: {telefono}")
         
+        if 'tipo_negocio' in data and data['tipo_negocio']:
+            campos.append("tipo_negocio = %s")
+            valores.append(data['tipo_negocio'])
+            print(f"  ✓ tipo_negocio: {data['tipo_negocio']}")
+        
+        if 'emoji' in data and data['emoji']:
+            campos.append("emoji = %s")
+            valores.append(data['emoji'])
+            print(f"  ✓ emoji: {data['emoji']}")
+        
         # Actualizar configuración general (JSON)
-        config_actual = {}
+        # Usar cursor normal (sin RealDictCursor)
         cursor.execute('SELECT configuracion FROM negocios WHERE id = %s', (negocio_id,))
         result = cursor.fetchone()
-        if result and result[0]:
+        
+        config_actual = {}
+        if result and result[0]:  # result es una tupla, result[0] es el primer campo
             try:
                 config_actual = json.loads(result[0])
-                print(f"  📦 Config actual: {config_actual}")
-            except:
-                pass
+                print(f"  📦 Config actual cargada")
+            except Exception as e:
+                print(f"  ⚠️ Error parseando config: {e}")
         
-        if 'horario_atencion' in data:
+        if 'horario_atencion' in data and data['horario_atencion']:
             config_actual['horario_atencion'] = data['horario_atencion']
             print(f"  ✓ horario_atencion: {data['horario_atencion']}")
         
-        if 'saludo_personalizado' in data:
+        if 'saludo_personalizado' in data and data['saludo_personalizado']:
             config_actual['saludo_personalizado'] = data['saludo_personalizado']
         
-        if 'politica_cancelacion' in data:
+        if 'politica_cancelacion' in data and data['politica_cancelacion']:
             config_actual['politica_cancelacion'] = data['politica_cancelacion']
         
-        if 'telefono_contacto' in data:
+        if 'telefono_contacto' in data and data['telefono_contacto']:
             config_actual['telefono_contacto'] = data['telefono_contacto']
         
         campos.append("configuracion = %s")
         valores.append(json.dumps(config_actual))
-        print(f"  📦 Nueva config: {config_actual}")
+        print(f"  📦 Nueva config guardada")
         
         if campos:
             valores.append(negocio_id)
@@ -7367,7 +7379,7 @@ def negocio_editor_subir_foto():
     """Subir foto (portada, perfil o galería)"""
     try:
         negocio_id = session.get('negocio_id', 1)
-        tipo = request.form.get('tipo', 'galeria')  # portada, perfil, galeria
+        tipo = request.form.get('tipo', 'galeria')
         
         if 'foto' not in request.files:
             return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
@@ -7382,8 +7394,7 @@ def negocio_editor_subir_foto():
         if ext not in allowed:
             return jsonify({'success': False, 'error': 'Formato no permitido'}), 400
         
-        # Subir a Cloudinary o guardar localmente
-        # Por ahora, guardar localmente en static/uploads/negocios/
+        # Guardar localmente
         import os
         from datetime import datetime
         from werkzeug.utils import secure_filename
@@ -7399,7 +7410,7 @@ def negocio_editor_subir_foto():
         url = f"/static/uploads/negocios/{negocio_id}/{filename}"
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor()  # Sin RealDictCursor
         
         if tipo == 'portada':
             cursor.execute('''
@@ -7418,7 +7429,8 @@ def negocio_editor_subir_foto():
             cursor.execute('''
                 SELECT COALESCE(MAX(orden), 0) + 1 FROM fotos_negocio WHERE negocio_id = %s
             ''', (negocio_id,))
-            orden = cursor.fetchone()[0] or 1
+            result = cursor.fetchone()
+            orden = result[0] if result and result[0] else 1
             
             cursor.execute('''
                 INSERT INTO fotos_negocio (negocio_id, url, orden)
@@ -7436,6 +7448,8 @@ def negocio_editor_subir_foto():
         
     except Exception as e:
         print(f"❌ Error subiendo foto: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/negocio/editor/eliminar-foto', methods=['POST'])
