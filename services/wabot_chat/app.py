@@ -7716,27 +7716,34 @@ def negocio_productos_nuevo():
         except:
             precio = 0
         
-        # ✅ CORRECCIÓN: Usar cursor normal (sin RealDictCursor)
+        # ✅ Crear una conexión NUEVA con cursor normal (sin RealDictCursor)
         conn = get_db_connection()
-        cursor = conn.cursor()  # Sin RealDictCursor
+        cursor = conn.cursor()  # Esto es una tupla normal
         
-        cursor.execute('''
-            INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
-        
-        # ✅ CORRECCIÓN: fetchone devuelve una tupla, acceder con índice 0
-        result = cursor.fetchone()
-        producto_id = result[0] if result else None
-        
-        conn.commit()
-        conn.close()
-        
-        if producto_id:
-            flash('✅ Producto creado exitosamente', 'success')
-        else:
-            flash('❌ Error al crear el producto', 'error')
+        try:
+            cursor.execute('''
+                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
+            
+            result = cursor.fetchone()
+            # result es una tupla, acceder con índice 0
+            producto_id = result[0] if result else None
+            
+            conn.commit()
+            
+            if producto_id:
+                flash('✅ Producto creado exitosamente', 'success')
+            else:
+                flash('❌ Error al crear el producto', 'error')
+                
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Error insertando producto: {e}")
+            flash(f'❌ Error al crear el producto: {str(e)}', 'error')
+        finally:
+            conn.close()
         
         return redirect(url_for('negocio_productos'))
     
