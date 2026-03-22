@@ -91,21 +91,42 @@ def pagina_negocio(negocio_id):
         ConfiguracionHorario.negocio_id == negocio_id
     ).order_by(ConfiguracionHorario.dia_semana).all()
     
-    # Mapear números de día a nombres - crear un nuevo objeto para la plantilla
+    # Mapear números de día a nombres (0=Lunes, 6=Domingo)
     dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
                 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
     
-    # Crear lista de horarios formateados para la plantilla (sin modificar los objetos originales)
+    # Función para convertir hora 24h a 12h
+    def convertir_a_12h(hora_str):
+        try:
+            hora, minuto = map(int, hora_str.split(':'))
+            periodo = 'AM' if hora < 12 else 'PM'
+            hora_12 = hora % 12
+            if hora_12 == 0:
+                hora_12 = 12
+            return f"{hora_12}:{minuto:02d} {periodo}"
+        except:
+            return hora_str
+    
+    # Crear lista de horarios formateados
     horarios_formateados = []
     for h in horarios_db:
+        dia_nombre = dias_map.get(h.dia_semana, str(h.dia_semana))
+        # Saltar si es un día inválido (por si hay algún 7)
+        if dia_nombre in ['7', 7]:
+            continue
+            
         horarios_formateados.append({
-            'dia': dias_map.get(h.dia_semana, str(h.dia_semana)),
-            'hora_inicio': h.hora_inicio,
-            'hora_fin': h.hora_fin,
+            'dia': dia_nombre,
+            'hora_inicio': convertir_a_12h(h.hora_inicio) if h.hora_inicio else '',
+            'hora_fin': convertir_a_12h(h.hora_fin) if h.hora_fin else '',
             'activo': h.activo
         })
     
     fotos = db_session.query(FotoNegocio).filter(FotoNegocio.negocio_id == negocio_id).order_by(FotoNegocio.orden).all()
+    
+    # Portada: primera foto si existe, si no, None
+    portada_url = fotos[0].url if fotos else None
+    
     profesionales = db_session.query(Profesional).filter(
         Profesional.negocio_id == negocio_id, 
         Profesional.activo == True
@@ -115,13 +136,6 @@ def pagina_negocio(negocio_id):
         Producto.disponible == True
     ).all()
     
-    # Buscar foto de portada (primera foto de la galería o ninguna)
-    portada_url = fotos[0].url if fotos else None
-    
-    # Logo: podría ser una foto específica o emoji
-    logo_url = None
-    # Aquí puedes definir lógica para logo si tienes una foto específica
-    
     return render_template('directorio/negocio.html',
                          negocio=negocio,
                          servicios=servicios,
@@ -129,8 +143,7 @@ def pagina_negocio(negocio_id):
                          fotos=fotos,
                          profesionales=profesionales,
                          productos=productos,
-                         portada_url=portada_url,
-                         logo_url=logo_url)
+                         portada_url=portada_url)
 
 @app.route('/profesional/<int:profesional_id>/publico')
 def perfil_profesional(profesional_id):
