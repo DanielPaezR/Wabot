@@ -2,95 +2,695 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Directorio de Negocios - Wabot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Directorio Wabot - Encuentra tu negocio ideal</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; }
-        #map { height: 100vh; width: 100%; }
-        .info-panel {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Mapa ocupa toda la pantalla */
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+        
+        /* Panel de filtros flotante */
+        .filters-panel {
             position: absolute;
             top: 20px;
+            left: 20px;
             right: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             z-index: 1000;
-            max-width: 300px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 12px 16px;
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.95);
+            transition: all 0.3s ease;
         }
-        .info-panel h3 { margin-bottom: 10px; }
-        .negocio-item {
-            padding: 8px;
-            border-bottom: 1px solid #eee;
+        
+        .filters-panel.collapsed {
+            transform: translateY(-90%);
+        }
+        
+        .filters-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             cursor: pointer;
         }
-        .negocio-item:hover { background: #f0f0f0; }
-        .rating { color: #ffc107; }
+        
+        .filters-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #64748b;
+            padding: 4px;
+        }
+        
+        .filters-content {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* Barra de búsqueda */
+        .search-box {
+            display: flex;
+            gap: 8px;
+            background: #f1f5f9;
+            border-radius: 40px;
+            padding: 4px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 10px 16px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .search-box button {
+            background: #667eea;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .search-box button:hover {
+            background: #5a6fd8;
+        }
+        
+        /* Filtros rápidos */
+        .quick-filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-chip {
+            padding: 6px 14px;
+            border-radius: 30px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #475569;
+        }
+        
+        .filter-chip.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .filter-chip:hover {
+            background: #e2e8f0;
+        }
+        
+        .filter-chip.active:hover {
+            background: #5a6fd8;
+        }
+        
+        /* Rango de precios */
+        .price-range {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .price-range input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 30px;
+            font-size: 12px;
+            outline: none;
+        }
+        
+        .price-range button {
+            background: #10b981;
+            border: none;
+            border-radius: 30px;
+            padding: 8px 16px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        /* Lista de resultados */
+        .results-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            max-height: 40%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            background: white;
+        }
+        
+        .results-header h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .results-header button {
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .results-list {
+            overflow-y: auto;
+            padding: 8px 0;
+            max-height: 200px;
+        }
+        
+        .result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .result-item:hover {
+            background: #f8fafc;
+        }
+        
+        .result-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #eef2ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .result-info {
+            flex: 1;
+        }
+        
+        .result-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1e293b;
+        }
+        
+        .result-address {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        .result-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 2px;
+            font-size: 11px;
+        }
+        
+        .result-rating .stars {
+            color: #fbbf24;
+        }
+        
+        .result-distance {
+            font-size: 11px;
+            color: #10b981;
+        }
+        
+        /* Botón de ubicación actual */
+        .location-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            border: none;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #667eea;
+            transition: all 0.2s;
+        }
+        
+        .location-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+        }
+        
+        /* Popup personalizado */
+        .custom-popup .popup-name {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .custom-popup .popup-rating {
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        
+        .custom-popup .popup-btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        
+        /* Loader */
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .filters-panel {
+                top: 20px;
+                left: 20px;
+                right: auto;
+                width: 320px;
+            }
+            
+            .results-panel {
+                bottom: 20px;
+                left: 20px;
+                right: auto;
+                width: 320px;
+                max-height: 50%;
+            }
+            
+            .location-btn {
+                bottom: 20px;
+                right: 20px;
+                left: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .filters-panel {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+            }
+            
+            .results-panel {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="info-panel">
-        <h3>📍 Negocios cerca de ti</h3>
-        <div id="negocios-list"></div>
-        <p style="font-size:12px; margin-top:10px;">Haz clic en un negocio para ver más</p>
+    
+    <!-- Panel de filtros -->
+    <div class="filters-panel" id="filtersPanel">
+        <div class="filters-header" onclick="toggleFilters()">
+            <h3><i class="fas fa-sliders-h"></i> Filtros</h3>
+            <button class="toggle-btn"><i class="fas fa-chevron-up"></i></button>
+        </div>
+        <div class="filters-content" id="filtersContent">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por nombre..." autocomplete="off">
+                <button id="searchBtn"><i class="fas fa-search"></i> Buscar</button>
+            </div>
+            <div class="quick-filters">
+                <span class="filter-chip active" data-tipo="todos">Todos</span>
+                <span class="filter-chip" data-tipo="barberia">💈 Barberías</span>
+                <span class="filter-chip" data-tipo="spa_unas">💅 Spa de Uñas</span>
+                <span class="filter-chip" data-tipo="estetica">💆 Centro Estético</span>
+                <span class="filter-chip" data-tipo="peluqueria">✂️ Peluquerías</span>
+            </div>
+            <div class="price-range">
+                <input type="number" id="minPrice" placeholder="Precio mín." step="1000">
+                <input type="number" id="maxPrice" placeholder="Precio máx." step="1000">
+                <button id="priceFilterBtn">Aplicar</button>
+            </div>
+        </div>
     </div>
-
+    
+    <!-- Panel de resultados -->
+    <div class="results-panel" id="resultsPanel" style="display: none;">
+        <div class="results-header">
+            <h4><i class="fas fa-store"></i> <span id="resultsCount">0</span> negocios encontrados</h4>
+            <button id="closeResultsBtn"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="results-list" id="resultsList"></div>
+    </div>
+    
+    <!-- Botón ubicación actual -->
+    <button class="location-btn" id="locationBtn" title="Mi ubicación">
+        <i class="fas fa-location-dot"></i>
+    </button>
+    
+    <div class="loader" id="loader">Cargando...</div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let map;
         let markers = [];
-
+        let allNegocios = [];
+        let currentFilters = {
+            tipo: 'todos',
+            search: '',
+            minPrice: null,
+            maxPrice: null
+        };
+        
+        // Coordenadas de Medellín
+        const MEDELLIN_CENTER = [6.24420, -75.58121];
+        
         // Inicializar mapa
         function initMap() {
-            map = L.map('map').setView([6.24420, -75.58121], 13); // Medellín centro
+            map = L.map('map').setView(MEDELLIN_CENTER, 13);
             
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
+                subdomains: 'abcd',
+                maxZoom: 19,
+                minZoom: 10
             }).addTo(map);
             
             cargarNegocios();
         }
-
+        
         // Cargar negocios desde API
         async function cargarNegocios() {
-            const response = await fetch('/api/negocios');
-            const negocios = await response.json();
-            
-            const listaDiv = document.getElementById('negocios-list');
-            listaDiv.innerHTML = '';
-            
-            negocios.forEach(negocio => {
-                // Agregar marcador al mapa
-                const marker = L.marker([negocio.latitud, negocio.longitud])
-                    .addTo(map)
-                    .bindPopup(`
-                        <b>${negocio.nombre}</b><br>
-                        ${negocio.direccion || 'Sin dirección'}<br>
-                        ⭐ ${negocio.calificacion} (${negocio.total_opiniones} opiniones)<br>
-                        <a href="/negocio/${negocio.id}" target="_blank">Ver más →</a>
-                    `);
-                markers.push(marker);
-                
-                // Agregar a lista lateral
-                const item = document.createElement('div');
-                item.className = 'negocio-item';
-                item.innerHTML = `
-                    <b>${negocio.nombre}</b><br>
-                    <span class="rating">${'★'.repeat(Math.round(negocio.calificacion))}${'☆'.repeat(5-Math.round(negocio.calificacion))}</span>
-                    <small>${negocio.total_opiniones} opiniones</small>
-                `;
-                item.onclick = () => {
-                    map.setView([negocio.latitud, negocio.longitud], 16);
-                    marker.openPopup();
-                };
-                listaDiv.appendChild(item);
-            });
+            showLoader();
+            try {
+                const response = await fetch('/api/negocios');
+                allNegocios = await response.json();
+                console.log(`✅ Cargados ${allNegocios.length} negocios`);
+                aplicarFiltros();
+            } catch (error) {
+                console.error('Error cargando negocios:', error);
+            }
+            hideLoader();
         }
-
+        
+        // Aplicar filtros y actualizar mapa
+        function aplicarFiltros() {
+            let filtrados = [...allNegocios];
+            
+            // Filtro por tipo
+            if (currentFilters.tipo !== 'todos') {
+                filtrados = filtrados.filter(n => n.tipo_negocio === currentFilters.tipo);
+            }
+            
+            // Filtro por búsqueda
+            if (currentFilters.search) {
+                const searchLower = currentFilters.search.toLowerCase();
+                filtrados = filtrados.filter(n => 
+                    n.nombre.toLowerCase().includes(searchLower) ||
+                    (n.direccion && n.direccion.toLowerCase().includes(searchLower))
+                );
+            }
+            
+            // Filtro por precio (simulado con servicios)
+            // Nota: Esto requiere que los negocios tengan servicios con precios
+            // Por ahora solo filtramos si hay precios configurados
+            
+            actualizarMapa(filtrados);
+            actualizarPanelResultados(filtrados);
+        }
+        
+        // Actualizar marcadores en el mapa
+        function actualizarMapa(negocios) {
+            // Limpiar marcadores existentes
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            // Crear nuevos marcadores
+            negocios.forEach(negocio => {
+                if (negocio.latitud && negocio.longitud) {
+                    const marker = L.marker([negocio.latitud, negocio.longitud])
+                        .addTo(map)
+                        .bindPopup(`
+                            <div class="custom-popup">
+                                <div class="popup-name"><strong>${negocio.nombre}</strong></div>
+                                <div class="popup-rating">
+                                    ${'★'.repeat(Math.round(negocio.calificacion))}${'☆'.repeat(5-Math.round(negocio.calificacion))}
+                                    (${negocio.total_opiniones})
+                                </div>
+                                <div>${negocio.direccion || 'Sin dirección'}</div>
+                                <a href="/negocio/${negocio.id}" class="popup-btn" target="_blank">Ver más →</a>
+                            </div>
+                        `, { maxWidth: 220 });
+                    
+                    marker.on('click', () => {
+                        map.setView([negocio.latitud, negocio.longitud], 16);
+                    });
+                    
+                    markers.push(marker);
+                }
+            });
+            
+            // Ajustar zoom si hay resultados
+            if (negocios.length === 1 && negocios[0].latitud) {
+                map.setView([negocios[0].latitud, negocios[0].longitud], 16);
+            } else if (negocios.length > 0 && markers.length > 0) {
+                const group = L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            } else {
+                map.setView(MEDELLIN_CENTER, 13);
+            }
+        }
+        
+        // Actualizar panel de resultados
+        function actualizarPanelResultados(negocios) {
+            const resultsPanel = document.getElementById('resultsPanel');
+            const resultsList = document.getElementById('resultsList');
+            const resultsCount = document.getElementById('resultsCount');
+            
+            resultsCount.textContent = negocios.length;
+            
+            if (negocios.length === 0) {
+                resultsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8;">No se encontraron negocios</div>';
+            } else {
+                resultsList.innerHTML = negocios.map(negocio => `
+                    <div class="result-item" onclick="irANegocio(${negocio.id}, ${negocio.latitud}, ${negocio.longitud})">
+                        <div class="result-icon">
+                            ${getEmojiByTipo(negocio.tipo_negocio)}
+                        </div>
+                        <div class="result-info">
+                            <div class="result-name">${negocio.nombre}</div>
+                            <div class="result-address">${negocio.direccion || 'Sin dirección'}</div>
+                            <div class="result-rating">
+                                <span class="stars">${'★'.repeat(Math.round(negocio.calificacion))}${'☆'.repeat(5-Math.round(negocio.calificacion))}</span>
+                                <span>(${negocio.total_opiniones})</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // Mostrar panel si hay resultados
+            if (negocios.length > 0) {
+                resultsPanel.style.display = 'flex';
+            }
+        }
+        
+        function getEmojiByTipo(tipo) {
+            const emojis = {
+                'barberia': '💈',
+                'spa_unas': '💅',
+                'estetica': '💆',
+                'peluqueria': '✂️',
+                'general': '🏪'
+            };
+            return emojis[tipo] || '🏪';
+        }
+        
+        function irANegocio(id, lat, lng) {
+            if (lat && lng) {
+                map.setView([lat, lng], 17);
+            }
+            window.open(`/negocio/${id}`, '_blank');
+        }
+        
+        // Geolocalización
+        function obtenerUbicacionActual() {
+            if (!navigator.geolocation) {
+                alert('Tu navegador no soporta geolocalización');
+                return;
+            }
+            
+            showLoader();
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    map.setView([latitude, longitude], 15);
+                    
+                    // Agregar marcador de ubicación actual
+                    L.marker([latitude, longitude], {
+                        icon: L.divIcon({
+                            className: 'current-location-marker',
+                            html: '<i class="fas fa-location-dot" style="color: #667eea; font-size: 24px;"></i>',
+                            iconSize: [24, 24],
+                            popupAnchor: [0, -12]
+                        })
+                    }).addTo(map).bindPopup('📍 Tu ubicación');
+                    
+                    hideLoader();
+                },
+                (error) => {
+                    console.error('Error de geolocalización:', error);
+                    alert('No se pudo obtener tu ubicación. Verifica los permisos.');
+                    hideLoader();
+                }
+            );
+        }
+        
+        // Mostrar/ocultar loader
+        function showLoader() {
+            document.getElementById('loader').style.display = 'block';
+        }
+        
+        function hideLoader() {
+            document.getElementById('loader').style.display = 'none';
+        }
+        
+        // Toggle filtros
+        function toggleFilters() {
+            const content = document.getElementById('filtersContent');
+            const btn = document.querySelector('.toggle-btn i');
+            if (content.style.display === 'none') {
+                content.style.display = 'flex';
+                btn.classList.remove('fa-chevron-down');
+                btn.classList.add('fa-chevron-up');
+            } else {
+                content.style.display = 'none';
+                btn.classList.remove('fa-chevron-up');
+                btn.classList.add('fa-chevron-down');
+            }
+        }
+        
+        // Event listeners
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                currentFilters.tipo = chip.dataset.tipo;
+                aplicarFiltros();
+            });
+        });
+        
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            currentFilters.search = document.getElementById('searchInput').value.trim();
+            aplicarFiltros();
+        });
+        
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                currentFilters.search = e.target.value.trim();
+                aplicarFiltros();
+            }
+        });
+        
+        document.getElementById('priceFilterBtn').addEventListener('click', () => {
+            const minPrice = document.getElementById('minPrice').value;
+            const maxPrice = document.getElementById('maxPrice').value;
+            currentFilters.minPrice = minPrice ? parseFloat(minPrice) : null;
+            currentFilters.maxPrice = maxPrice ? parseFloat(maxPrice) : null;
+            aplicarFiltros();
+        });
+        
+        document.getElementById('locationBtn').addEventListener('click', obtenerUbicacionActual);
+        
+        document.getElementById('closeResultsBtn').addEventListener('click', () => {
+            document.getElementById('resultsPanel').style.display = 'none';
+        });
+        
+        // Iniciar
         initMap();
+        
+        // Agregar estilo para marcador de ubicación actual
+        const style = document.createElement('style');
+        style.textContent = `
+            .current-location-marker {
+                background: none;
+                border: none;
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
