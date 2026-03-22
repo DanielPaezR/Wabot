@@ -2,114 +2,621 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes">
     <title>{{ negocio.nombre }} - Wabot Directorio</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .header { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .galeria { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 20px; }
-        .galeria img { width: 300px; height: 200px; object-fit: cover; border-radius: 8px; }
-        .seccion { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        .profesional { display: flex; gap: 15px; padding: 15px; border-bottom: 1px solid #eee; align-items: center; }
-        .profesional img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
-        .producto { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
-        .rating { color: #ffc107; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #1e293b;
+            padding-bottom: 90px;
+            line-height: 1.4;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        /* Portada */
+        .cover {
+            width: 100%;
+            height: 180px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 56px;
+            position: relative;
+        }
+        
+        /* Header flotante */
+        .business-header {
+            background: white;
+            border-radius: 24px 24px 0 0;
+            margin-top: -24px;
+            padding: 20px 16px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .business-name {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .business-emoji {
+            font-size: 32px;
+        }
+        
+        /* Calificación */
+        .rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+        
+        .stars {
+            color: #fbbf24;
+            font-size: 16px;
+            letter-spacing: 2px;
+        }
+        
+        .rating-count {
+            color: #64748b;
+            font-size: 13px;
+        }
+        
+        /* Info contacto */
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #475569;
+            font-size: 14px;
+            margin: 10px 0;
+            padding: 6px 0;
+        }
+        
+        .info-row i {
+            width: 20px;
+            color: #667eea;
+        }
+        
+        .descripcion {
+            color: #334155;
+            line-height: 1.5;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        
+        /* Secciones */
+        .section {
+            background: white;
+            border-radius: 20px;
+            margin: 12px 16px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #0f172a;
+        }
+        
+        .section-title i {
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        /* Servicios */
+        .servicio-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .servicio-item:last-child {
+            border-bottom: none;
+        }
+        
+        .servicio-info {
+            flex: 1;
+        }
+        
+        .servicio-nombre {
+            font-weight: 500;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+        
+        .servicio-duracion {
+            font-size: 12px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .servicio-precio {
+            font-weight: 700;
+            color: #10b981;
+            font-size: 16px;
+            background: #ecfdf5;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        
+        /* Horarios */
+        .horario-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .horario-row:last-child {
+            border-bottom: none;
+        }
+        
+        .horario-dia {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .horario-horas {
+            color: #475569;
+            font-size: 13px;
+        }
+        
+        .horario-cerrado {
+            color: #ef4444;
+            font-size: 13px;
+        }
+        
+        /* Profesionales */
+        .profesional-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 16px;
+            margin-bottom: 10px;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.2s;
+        }
+        
+        .profesional-card:active {
+            background: #e2e8f0;
+        }
+        
+        .profesional-foto {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #cbd5e1;
+        }
+        
+        .profesional-info {
+            flex: 1;
+        }
+        
+        .profesional-nombre {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+        
+        .profesional-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        
+        .profesional-stars {
+            color: #fbbf24;
+            font-size: 12px;
+        }
+        
+        .profesional-especialidad {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        .profesional-arrow {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        /* Galería */
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .galeria-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            object-fit: cover;
+            width: 100%;
+            cursor: pointer;
+            background: #e2e8f0;
+        }
+        
+        /* Productos */
+        .producto-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .producto-nombre {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .producto-precio {
+            font-weight: 700;
+            color: #10b981;
+        }
+        
+        /* Botón flotante */
         .btn-flotante {
             position: fixed;
             bottom: 20px;
             right: 20px;
+            left: auto;
             background: #25D366;
             color: white;
-            padding: 15px 25px;
+            padding: 14px 20px;
             border-radius: 50px;
             text-decoration: none;
-            font-weight: bold;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
             display: flex;
             align-items: center;
             gap: 10px;
             z-index: 1000;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            border: none;
+            backdrop-filter: blur(0px);
         }
-        .btn-flotante:hover { background: #128C7E; }
+        
+        .btn-flotante:active {
+            transform: scale(0.96);
+            background: #20b859;
+        }
+        
+        .btn-flotante i {
+            font-size: 18px;
+        }
+        
+        /* Modal para fotos */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.92);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 16px;
+            object-fit: contain;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Mensaje sin datos */
+        .empty-message {
+            text-align: center;
+            padding: 24px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        
+        /* Responsive ajustes */
+        @media (max-width: 480px) {
+            .business-name {
+                font-size: 22px;
+            }
+            .section {
+                margin: 10px 12px;
+                padding: 14px;
+            }
+            .btn-flotante {
+                padding: 12px 18px;
+                font-size: 14px;
+                bottom: 16px;
+                right: 16px;
+            }
+            .cover {
+                height: 160px;
+                font-size: 48px;
+            }
+        }
+        
+        /* Pantallas más grandes (tabletas) */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 500px;
+                margin: 0 auto;
+            }
+            .section {
+                margin: 12px auto;
+                max-width: 500px;
+            }
+            .business-header {
+                max-width: 500px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            .cover {
+                max-width: 500px;
+                margin: 0 auto;
+                border-radius: 0 0 24px 24px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>{{ negocio.nombre }} {{ negocio.emoji or '' }}</h1>
-            <p><i class="fas fa-map-marker-alt"></i> {{ negocio.direccion or 'Dirección no disponible' }}</p>
-            {% if negocio.telefono_whatsapp %}
-            <p><i class="fab fa-whatsapp"></i> {{ negocio.telefono_whatsapp }}</p>
-            {% endif %}
+        <div class="cover">
+            <span>{{ negocio.emoji or '🏪' }}</span>
+        </div>
+        
+        <div class="business-header">
+            <div class="business-name">
+                <span class="business-emoji">{{ negocio.emoji or '' }}</span>
+                {{ negocio.nombre }}
+            </div>
+            
             <div class="rating">
-                {% set rating = negocio.calificacion_promedio|float %}
-                {% for i in range(5) %}
-                    {% if i < rating|round(0, 'floor') %}
-                        ★
-                    {% else %}
-                        ☆
-                    {% endif %}
-                {% endfor %}
-                ({{ negocio.total_opiniones }} opiniones)
+                <div class="stars">
+                    {% set rating = negocio.calificacion_promedio|float %}
+                    {% for i in range(5) %}
+                        {% if i < rating|round(0, 'floor') %}
+                            ★
+                        {% else %}
+                            ☆
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <span class="rating-count">({{ negocio.total_opiniones }} opiniones)</span>
             </div>
+            
+            {% if negocio.direccion %}
+            <div class="info-row">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>{{ negocio.direccion }}</span>
+            </div>
+            {% endif %}
+            
+            {% if negocio.telefono_whatsapp %}
+            <div class="info-row">
+                <i class="fab fa-whatsapp"></i>
+                <span>{{ negocio.telefono_whatsapp }}</span>
+            </div>
+            {% endif %}
+            
             {% if negocio.descripcion %}
-            <p><i class="fas fa-info-circle"></i> {{ negocio.descripcion }}</p>
+            <div class="descripcion">
+                {{ negocio.descripcion }}
+            </div>
             {% endif %}
         </div>
-
-        {% if fotos %}
-        <div class="seccion">
-            <h3>📸 Galería del local</h3>
-            <div class="galeria">
-                {% for foto in fotos %}
-                <img src="{{ foto.url }}" alt="Foto del negocio">
-                {% endfor %}
+        
+        <!-- Servicios -->
+        {% if servicios %}
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-cut"></i>
+                Servicios
             </div>
-        </div>
-        {% endif %}
-
-        {% if profesionales %}
-        <div class="seccion">
-            <h3>✂️ Nuestros Profesionales</h3>
-            {% for prof in profesionales %}
-            <div class="profesional">
-                <img src="{{ prof.foto_url or 'https://via.placeholder.com/60' }}" alt="{{ prof.nombre }}">
-                <div>
-                    <h4>{{ prof.nombre }}</h4>
-                    <div class="rating">
-                        {% set rating = prof.calificacion_promedio|float %}
-                        {% for i in range(5) %}
-                            {% if i < rating|round(0, 'floor') %}★{% else %}☆{% endif %}
-                        {% endfor %}
-                        ({{ prof.total_opiniones }} opiniones)
+            {% for servicio in servicios %}
+            <div class="servicio-item">
+                <div class="servicio-info">
+                    <div class="servicio-nombre">{{ servicio.nombre }}</div>
+                    {% if servicio.duracion %}
+                    <div class="servicio-duracion">
+                        <i class="far fa-clock"></i> {{ servicio.duracion }} min
                     </div>
-                    <a href="/profesional/{{ prof.id }}/publico">Ver trabajos →</a>
+                    {% endif %}
+                </div>
+                <div class="servicio-precio">
+                    {% if servicio.tipo_precio == 'libre' %}
+                        A convenir
+                    {% elif servicio.precio_maximo %}
+                        ${{ "{:,.0f}".format(servicio.precio_maximo).replace(',', '.') }}
+                    {% else %}
+                        ${{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
         {% endif %}
-
+        
+        <!-- Horarios -->
+        {% if horarios %}
+        <div class="section">
+            <div class="section-title">
+                <i class="far fa-calendar-alt"></i>
+                Horario de atención
+            </div>
+            {% for horario in horarios %}
+            <div class="horario-row">
+                <span class="horario-dia">{{ horario.dia_semana }}</span>
+                {% if not horario.activo %}
+                    <span class="horario-cerrado">Cerrado</span>
+                {% else %}
+                    <span class="horario-horas">{{ horario.hora_inicio }} - {{ horario.hora_fin }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Profesionales -->
+        {% if profesionales %}
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-users"></i>
+                Nuestros profesionales
+            </div>
+            {% for prof in profesionales %}
+            <a href="/profesional/{{ prof.id }}/publico" class="profesional-card">
+                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=667eea&color=fff&name=' + prof.nombre|urlencode }}" 
+                     class="profesional-foto" 
+                     alt="{{ prof.nombre }}">
+                <div class="profesional-info">
+                    <div class="profesional-nombre">{{ prof.nombre }}</div>
+                    <div class="profesional-rating">
+                        <div class="profesional-stars">
+                            {% set prof_rating = prof.calificacion_promedio|float %}
+                            {% for i in range(5) %}
+                                {% if i < prof_rating|round(0, 'floor') %}★{% else %}☆{% endif %}
+                            {% endfor %}
+                        </div>
+                        <span>({{ prof.total_opiniones }})</span>
+                    </div>
+                    {% if prof.especialidad %}
+                    <div class="profesional-especialidad">{{ prof.especialidad }}</div>
+                    {% endif %}
+                </div>
+                <i class="fas fa-chevron-right profesional-arrow"></i>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Galería -->
+        {% if fotos %}
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-images"></i>
+                Galería
+            </div>
+            <div class="galeria-grid">
+                {% for foto in fotos %}
+                <img src="{{ foto.url }}" 
+                     class="galeria-item" 
+                     onclick="abrirModal(this.src)"
+                     alt="Foto del negocio"
+                     loading="lazy">
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Productos -->
         {% if productos %}
-        <div class="seccion">
-            <h3>🛍️ Productos</h3>
+        <div class="section">
+            <div class="section-title">
+                <i class="fas fa-shopping-bag"></i>
+                Productos
+            </div>
             {% for prod in productos %}
-            <div class="producto">
-                <span>{{ prod.nombre }}</span>
-                <span><strong>${{ prod.precio }}</strong></span>
+            <div class="producto-item">
+                <span class="producto-nombre">{{ prod.nombre }}</span>
+                <span class="producto-precio">${{ "{:,.0f}".format(prod.precio).replace(',', '.') }}</span>
             </div>
             {% endfor %}
         </div>
         {% endif %}
     </div>
-
-    {% if negocio.telefono_whatsapp %}
-    <a href="https://wabot-chat.up.railway.app/cliente/{{ negocio.id }}" class="btn-flotante" target="_blank">
-        <i class="fas fa-calendar-alt"></i> Agendar cita
+    
+    <!-- Botón flotante para agendar cita -->
+    <a href="https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}" 
+       class="btn-flotante" 
+       target="_blank"
+       rel="noopener noreferrer">
+        <i class="fas fa-calendar-check"></i>
+        Agendar cita
     </a>
-    {% endif %}
+    
+    <!-- Modal para ver fotos en grande -->
+    <div id="modal" class="modal" onclick="cerrarModal()">
+        <span class="modal-close">&times;</span>
+        <img id="modal-img" src="">
+    </div>
+    
+    <script>
+        function abrirModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function cerrarModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        // Cerrar con tecla ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                cerrarModal();
+            }
+        });
+    </script>
 </body>
 </html>

@@ -80,12 +80,39 @@ def pagina_negocio(negocio_id):
     if not negocio:
         return "Negocio no encontrado", 404
     
+    # Obtener servicios del negocio
+    from models import Servicio  # Asegúrate de importar Servicio
+    servicios = db_session.query(Servicio).filter(
+        Servicio.negocio_id == negocio_id,
+        Servicio.activo == True
+    ).all()
+    
+    # Obtener horarios
+    from models import ConfiguracionHorario
+    horarios = db_session.query(ConfiguracionHorario).filter(
+        ConfiguracionHorario.negocio_id == negocio_id
+    ).order_by(ConfiguracionHorario.dia_semana).all()
+    
+    # Mapear números de día a nombres
+    dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
+                4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
+    for h in horarios:
+        h.dia_semana = dias_map.get(h.dia_semana, str(h.dia_semana))
+    
     fotos = db_session.query(FotoNegocio).filter(FotoNegocio.negocio_id == negocio_id).order_by(FotoNegocio.orden).all()
-    profesionales = db_session.query(Profesional).filter(Profesional.negocio_id == negocio_id, Profesional.activo == True).all()
-    productos = db_session.query(Producto).filter(Producto.negocio_id == negocio_id, Producto.disponible == True).all()
+    profesionales = db_session.query(Profesional).filter(
+        Profesional.negocio_id == negocio_id, 
+        Profesional.activo == True
+    ).all()
+    productos = db_session.query(Producto).filter(
+        Producto.negocio_id == negocio_id, 
+        Producto.disponible == True
+    ).all()
     
     return render_template('directorio/negocio.html',
                          negocio=negocio,
+                         servicios=servicios,
+                         horarios=horarios,
                          fotos=fotos,
                          profesionales=profesionales,
                          productos=productos)
