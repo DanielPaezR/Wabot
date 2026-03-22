@@ -6527,7 +6527,6 @@ def subir_imagen_profesional():
 @app.route('/profesional/subir-foto', methods=['POST'])
 @login_required
 def subir_foto_profesional():
-    """Subir foto de perfil a Cloudinary"""
     try:
         import cloudinary
         import cloudinary.uploader
@@ -6540,8 +6539,6 @@ def subir_foto_profesional():
             return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
         
         file = request.files['foto']
-        if file.filename == '':
-            return jsonify({'success': False, 'message': 'Archivo vacío'}), 400
         
         # Configurar Cloudinary
         cloudinary.config(
@@ -6559,17 +6556,21 @@ def subir_foto_profesional():
         
         url = upload_result['secure_url']
         
-        # Actualizar base de datos
+        # ✅ ACTUALIZAR EN profesionales.foto_url
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('UPDATE profesionales SET foto_url = %s WHERE id = %s', (url, profesional_id))
+        cursor.execute('''
+            UPDATE profesionales 
+            SET foto_url = %s 
+            WHERE id = %s
+        ''', (url, profesional_id))
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'url': url, 'message': 'Foto subida a Cloudinary'})
+        return jsonify({'success': True, 'url': url, 'message': 'Foto actualizada'})
         
     except Exception as e:
-        print(f"❌ Error subiendo foto profesional: {e}")
+        print(f"❌ Error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/profesional/foto-actual')
