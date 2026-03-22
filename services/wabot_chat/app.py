@@ -7666,6 +7666,184 @@ def negocio_subir_foto_servicio():
         print(f"❌ Error subiendo foto de servicio: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# =============================================================================
+# GESTIÓN DE PRODUCTOS
+# =============================================================================
+
+@app.route('/negocio/productos')
+@role_required(['propietario', 'superadmin'])
+def negocio_productos():
+    """Lista de productos del negocio"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('''
+        SELECT * FROM productos 
+        WHERE negocio_id = %s 
+        ORDER BY disponible DESC, nombre
+    ''', (negocio_id,))
+    
+    productos = cursor.fetchall()
+    conn.close()
+    
+    return render_template('negocio/productos.html', productos=productos)
+
+@app.route('/negocio/productos/nuevo', methods=['GET', 'POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_nuevo():
+    """Crear nuevo producto"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    if request.method == 'POST':
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('negocio_productos_nuevo'))
+        
+        nombre = request.form.get('nombre', '').strip()
+        precio = request.form.get('precio', 0)
+        descripcion = request.form.get('descripcion', '')
+        imagen_url = request.form.get('imagen_url', '')
+        disponible = request.form.get('disponible', 'off') == 'on'
+        
+        if not nombre:
+            flash('El nombre del producto es requerido', 'error')
+            return redirect(url_for('negocio_productos_nuevo'))
+        
+        try:
+            precio = float(precio)
+        except:
+            precio = 0
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+        ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
+        
+        producto_id = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Producto creado exitosamente', 'success')
+        return redirect(url_for('negocio_productos'))
+    
+    return render_template('negocio/nuevo_producto.html')
+
+@app.route('/negocio/productos/<int:producto_id>/editar', methods=['GET', 'POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_editar(producto_id):
+    """Editar producto"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('SELECT * FROM productos WHERE id = %s AND negocio_id = %s', (producto_id, negocio_id))
+    producto = cursor.fetchone()
+    
+    if not producto:
+        flash('Producto no encontrado', 'error')
+        return redirect(url_for('negocio_productos'))
+    
+    if request.method == 'POST':
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('negocio_productos_editar', producto_id=producto_id))
+        
+        nombre = request.form.get('nombre', '').strip()
+        precio = request.form.get('precio', 0)
+        descripcion = request.form.get('descripcion', '')
+        imagen_url = request.form.get('imagen_url', '')
+        disponible = request.form.get('disponible', 'off') == 'on'
+        
+        if not nombre:
+            flash('El nombre del producto es requerido', 'error')
+            return redirect(url_for('negocio_productos_editar', producto_id=producto_id))
+        
+        try:
+            precio = float(precio)
+        except:
+            precio = 0
+        
+        cursor.execute('''
+            UPDATE productos 
+            SET nombre = %s, descripcion = %s, precio = %s, imagen_url = %s, disponible = %s
+            WHERE id = %s AND negocio_id = %s
+        ''', (nombre, descripcion, precio, imagen_url, disponible, producto_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Producto actualizado exitosamente', 'success')
+        return redirect(url_for('negocio_productos'))
+    
+    conn.close()
+    return render_template('negocio/editar_producto.html', producto=producto)
+
+@app.route('/negocio/productos/<int:producto_id>/eliminar', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_eliminar(producto_id):
+    """Eliminar producto"""
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad', 'error')
+        return redirect(url_for('negocio_productos'))
+    
+    negocio_id = session.get('negocio_id', 1)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM productos WHERE id = %s AND negocio_id = %s', (producto_id, negocio_id))
+    conn.commit()
+    conn.close()
+    
+    flash('✅ Producto eliminado exitosamente', 'success')
+    return redirect(url_for('negocio_productos'))
+
+@app.route('/negocio/productos/subir-foto', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_subir_foto():
+    """Subir foto de producto a Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        from datetime import datetime
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
+        
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"negocios/{negocio_id}/productos",
+            public_id=f"producto_{timestamp}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        return jsonify({'success': True, 'url': url})
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto de producto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
