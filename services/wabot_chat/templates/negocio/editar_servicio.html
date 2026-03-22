@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if servicio %}Editar{% else %}Nuevo{% endif %} Servicio - Sistema de Citas</title>
+    <title>Editar Servicio - Sistema de Citas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -23,6 +24,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
         
         .header h1 {
@@ -165,37 +168,36 @@
             color: #666;
             margin-top: 0.3rem;
         }
-
-        /* Estilos para checkbox */
+        
         .checkbox-group {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-
+        
         .checkbox-group input[type="checkbox"] {
             width: auto;
             transform: scale(1.2);
         }
-
-        /* ✅ NUEVOS ESTILOS PARA TIPO DE PRECIO */
+        
         .tipo-precio-options {
             display: flex;
             gap: 1.5rem;
             margin-top: 0.5rem;
+            flex-wrap: wrap;
         }
-
+        
         .tipo-precio-option {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-
+        
         .tipo-precio-option input[type="radio"] {
             width: auto;
             transform: scale(1.2);
         }
-
+        
         .precio-maximo-group {
             margin-top: 1rem;
             padding: 1rem;
@@ -203,15 +205,44 @@
             border-radius: 5px;
             border-left: 3px solid #3498db;
         }
-
-        .precio-maximo-group label {
-            color: #2c3e50;
+        
+        .photo-upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8fafc;
         }
-
-        .precio-maximo-group input {
-            background: white;
+        
+        .photo-upload-area:hover {
+            border-color: #3498db;
+            background: #eef2ff;
         }
-
+        
+        .photo-preview {
+            margin-top: 1rem;
+            text-align: center;
+        }
+        
+        .photo-preview img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 12px;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .remove-photo {
+            display: inline-block;
+            margin-top: 8px;
+            color: #e74c3c;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
         .badge {
             display: inline-block;
             padding: 3px 8px;
@@ -220,12 +251,12 @@
             font-weight: bold;
             margin-left: 0.5rem;
         }
-
+        
         .badge-info {
             background: #3498db;
             color: white;
         }
-
+        
         .badge-warning {
             background: #f39c12;
             color: white;
@@ -234,7 +265,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>{% if servicio %}✏️ Editar{% else %}➕ Nuevo{% endif %} Servicio</h1>
+        <h1>✏️ Editar Servicio</h1>
         <div class="user-info">
             <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
             <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
@@ -247,7 +278,6 @@
             <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
         </div>
         
-        <!-- Mensajes Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -259,8 +289,9 @@
         {% endwith %}
         
         <div class="form-section">
-            <form method="POST">
+            <form method="POST" id="servicioForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
                 
                 <div class="form-group">
                     <label for="nombre">Nombre del Servicio *</label>
@@ -277,7 +308,34 @@
                     <div class="help-text">Tiempo aproximado que toma este servicio</div>
                 </div>
                 
-                <!-- ✅ NUEVA SECCIÓN: TIPO DE PRECIO -->
+                <!-- Foto del servicio -->
+                <div class="form-group">
+                    <label>📸 Foto del Servicio (opcional)</label>
+                    {% if servicio and servicio.foto_url %}
+                    <div class="photo-preview" id="photoPreview">
+                        <img src="{{ servicio.foto_url }}" id="previewImg">
+                        <br>
+                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
+                    </div>
+                    <div class="photo-upload-area" id="uploadArea" style="display: none;">
+                    {% else %}
+                    <div class="photo-upload-area" id="uploadArea">
+                    {% endif %}
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #94a3b8;"></i>
+                        <p>Haz clic para subir una foto</p>
+                        <small style="color: #64748b;">Formatos: JPG, PNG, GIF (máx 5MB)</small>
+                    </div>
+                    <input type="file" id="fotoInput" accept="image/*" style="display: none;">
+                    {% if servicio and servicio.foto_url %}
+                    <div class="photo-preview" id="photoPreviewExisting" style="display: block;">
+                        <img src="{{ servicio.foto_url }}" id="previewImgExisting" style="max-width: 150px; border-radius: 12px;">
+                        <br>
+                        <a href="#" class="remove-photo" onclick="removerFotoExistente(event)">🗑️ Eliminar foto</a>
+                    </div>
+                    {% endif %}
+                    <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
+                </div>
+                
                 <div class="form-group">
                     <label>Tipo de Precio *</label>
                     <div class="tipo-precio-options">
@@ -299,8 +357,7 @@
                     </div>
                     <div class="help-text">Selecciona cómo se mostrará el precio al cliente</div>
                 </div>
-
-                <!-- ✅ NUEVO CAMPO: Precio Base (siempre visible) -->
+                
                 <div class="form-group">
                     <label for="precio">Precio Base (COP) * 
                         <span class="badge badge-info">Mínimo</span>
@@ -310,8 +367,7 @@
                            min="0" step="1000" required placeholder="Ej: 20000">
                     <div class="help-text">Para precio fijo: valor único. Para rango: valor mínimo.</div>
                 </div>
-
-                <!-- ✅ NUEVO CAMPO: Precio Máximo (solo para rango) -->
+                
                 <div class="precio-maximo-group" id="precioMaximoGroup" 
                      {% if servicio and servicio.tipo_precio == 'rango' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                     <div class="form-group" style="margin-bottom: 0;">
@@ -331,8 +387,7 @@
                               placeholder="Descripción detallada del servicio...">{{ servicio.descripcion if servicio else '' }}</textarea>
                     <div class="help-text">Incluye aquí cualquier detalle sobre rangos de precios si es necesario.</div>
                 </div>
-
-                <!-- Checkbox para activo/inactivo -->
+                
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="activo" name="activo" 
@@ -344,7 +399,7 @@
                 
                 <div class="form-actions">
                     <button type="submit" class="btn-save">
-                        💾 {% if servicio %}Actualizar{% else %}Crear{% endif %} Servicio
+                        💾 Actualizar Servicio
                     </button>
                     <a href="{{ url_for('negocio_servicios') }}" class="btn-cancel">
                         ❌ Cancelar
@@ -353,55 +408,148 @@
             </form>
         </div>
     </div>
-
-    <!-- ✅ NUEVO SCRIPT PARA CONTROLAR VISIBILIDAD DEL CAMPO PRECIO MÁXIMO -->
+    
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const radioFijo = document.getElementById('precio_fijo');
-            const radioRango = document.getElementById('precio_rango');
-            const radioVariable = document.getElementById('precio_variable');
-            const precioMaximoGroup = document.getElementById('precioMaximoGroup');
-            const precioMaximoInput = document.getElementById('precio_maximo');
+        const uploadArea = document.getElementById('uploadArea');
+        const fotoInput = document.getElementById('fotoInput');
+        const fotoUrlInput = document.getElementById('foto_url');
+        
+        if (uploadArea) {
+            uploadArea.addEventListener('click', () => fotoInput.click());
+        }
+        
+        async function subirFoto(file) {
+            const formData = new FormData();
+            formData.append('foto', file);
+            formData.append('tipo', 'servicio');
             
-            function togglePrecioMaximo() {
-                if (radioRango.checked) {
-                    precioMaximoGroup.style.display = 'block';
-                    // Si está visible pero vacío, mostrar mensaje
-                    if (!precioMaximoInput.value) {
-                        precioMaximoInput.placeholder = 'Ej: 50000 (requerido para rango)';
-                    }
+            try {
+                const response = await fetch('/negocio/subir-foto-servicio', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    return result.url;
                 } else {
-                    precioMaximoGroup.style.display = 'none';
-                    // Limpiar el valor si cambia a otro tipo
+                    alert('Error al subir la foto: ' + result.error);
+                    return null;
+                }
+            } catch (error) {
+                alert('Error de conexión al subir la foto');
+                return null;
+            }
+        }
+        
+        if (fotoInput) {
+            fotoInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('❌ La imagen es demasiado grande (máx 5MB)');
+                    return;
+                }
+                
+                if (!file.type.match('image.*')) {
+                    alert('❌ Solo se permiten imágenes');
+                    return;
+                }
+                
+                uploadArea.style.opacity = '0.5';
+                uploadArea.style.pointerEvents = 'none';
+                
+                const url = await subirFoto(file);
+                
+                if (url) {
+                    fotoUrlInput.value = url;
+                    
+                    // Eliminar preview existente
+                    const existingPreview = document.getElementById('photoPreviewExisting');
+                    if (existingPreview) existingPreview.remove();
+                    
+                    // Crear nueva preview
+                    let previewDiv = document.getElementById('photoPreview');
+                    if (!previewDiv) {
+                        previewDiv = document.createElement('div');
+                        previewDiv.id = 'photoPreview';
+                        previewDiv.className = 'photo-preview';
+                        uploadArea.parentNode.insertBefore(previewDiv, uploadArea.nextSibling);
+                    }
+                    previewDiv.innerHTML = `
+                        <img src="${url}" style="max-width: 150px; border-radius: 12px;">
+                        <br>
+                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
+                    `;
+                    previewDiv.style.display = 'block';
+                    uploadArea.style.display = 'none';
+                }
+                
+                uploadArea.style.opacity = '1';
+                uploadArea.style.pointerEvents = 'auto';
+            });
+        }
+        
+        function removerFoto(event) {
+            event.preventDefault();
+            fotoUrlInput.value = '';
+            const previewDiv = document.getElementById('photoPreview');
+            if (previewDiv) previewDiv.remove();
+            if (uploadArea) uploadArea.style.display = 'block';
+        }
+        
+        function removerFotoExistente(event) {
+            event.preventDefault();
+            fotoUrlInput.value = '';
+            const existingPreview = document.getElementById('photoPreviewExisting');
+            if (existingPreview) existingPreview.remove();
+            if (uploadArea) uploadArea.style.display = 'block';
+        }
+        
+        // Control de tipo de precio
+        const radioFijo = document.getElementById('precio_fijo');
+        const radioRango = document.getElementById('precio_rango');
+        const radioVariable = document.getElementById('precio_variable');
+        const precioMaximoGroup = document.getElementById('precioMaximoGroup');
+        const precioMaximoInput = document.getElementById('precio_maximo');
+        
+        function togglePrecioMaximo() {
+            if (radioRango && radioRango.checked) {
+                precioMaximoGroup.style.display = 'block';
+                if (precioMaximoInput) precioMaximoInput.required = true;
+            } else if (precioMaximoGroup) {
+                precioMaximoGroup.style.display = 'none';
+                if (precioMaximoInput) {
+                    precioMaximoInput.required = false;
                     precioMaximoInput.value = '';
                 }
             }
-            
-            // Event listeners
+        }
+        
+        if (radioFijo && radioRango && radioVariable) {
             radioFijo.addEventListener('change', togglePrecioMaximo);
             radioRango.addEventListener('change', togglePrecioMaximo);
             radioVariable.addEventListener('change', togglePrecioMaximo);
-            
-            // Ejecutar al cargar para asegurar estado correcto
             togglePrecioMaximo();
-            
-            // Validación adicional al enviar el formulario
-            document.querySelector('form').addEventListener('submit', function(e) {
-                if (radioRango.checked) {
-                    if (!precioMaximoInput.value || precioMaximoInput.value <= 0) {
-                        e.preventDefault();
-                        alert('❌ Para servicios con rango de precios, debes especificar el precio máximo.');
-                    }
-                    
-                    const precioBase = parseFloat(document.getElementById('precio').value);
-                    const precioMax = parseFloat(precioMaximoInput.value);
-                    
-                    if (precioMax <= precioBase) {
-                        e.preventDefault();
-                        alert('❌ El precio máximo debe ser mayor que el precio base.');
-                    }
+        }
+        
+        // Validación al enviar
+        document.getElementById('servicioForm')?.addEventListener('submit', function(e) {
+            if (radioRango && radioRango.checked) {
+                if (!precioMaximoInput.value || precioMaximoInput.value <= 0) {
+                    e.preventDefault();
+                    alert('❌ Para servicios con rango de precios, debes especificar el precio máximo.');
+                    return;
                 }
-            });
+                
+                const precioBase = parseFloat(document.getElementById('precio').value);
+                const precioMax = parseFloat(precioMaximoInput.value);
+                
+                if (precioMax <= precioBase) {
+                    e.preventDefault();
+                    alert('❌ El precio máximo debe ser mayor que el precio base.');
+                }
+            }
         });
     </script>
 </body>

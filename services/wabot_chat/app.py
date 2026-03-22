@@ -7620,6 +7620,45 @@ def profesional_eliminar_trabajo(trabajo_id):
         print(f"❌ Error eliminando trabajo: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/negocio/subir-foto-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_subir_foto_servicio():
+    """Subir foto de servicio a Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        from datetime import datetime
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
+        
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"negocios/{negocio_id}/servicios",
+            public_id=f"servicio_{timestamp}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        return jsonify({'success': True, 'url': url})
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto de servicio: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
