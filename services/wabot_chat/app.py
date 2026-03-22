@@ -3415,7 +3415,7 @@ def profesional_crear_cita():
 @app.route('/profesional/completar-cita/<int:cita_id>', methods=['POST'])
 @role_required(['profesional', 'propietario', 'superadmin'])
 def completar_cita(cita_id):
-    """Marcar cita como completada - VERSIÓN CORREGIDA (sin updated_at)"""
+    """Marcar cita como completada y enviar notificación para calificar"""
     conn = None
     try:
         print(f"🔍 [COMPLETAR_CITA] Iniciando para cita #{cita_id}")
@@ -3425,7 +3425,6 @@ def completar_cita(cita_id):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             print("❌ [COMPLETAR_CITA] CSRF inválido")
             
-            # Obtener parámetros para redirección
             fecha = request.args.get('fecha') or request.form.get('fecha')
             profesional_id = request.args.get('profesional_id') or request.form.get('profesional_id')
             
@@ -3447,18 +3446,20 @@ def completar_cita(cita_id):
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # 1. Primero obtener info de la cita actual
+        # 1. Primero obtener info de la cita actual (INCLUYENDO datos del cliente)
         cursor.execute('''
-            SELECT id, cliente_nombre, estado, servicio_id 
-            FROM citas 
-            WHERE id = %s AND profesional_id = %s AND negocio_id = %s
+            SELECT c.id, c.cliente_nombre, c.cliente_telefono, c.estado, c.servicio_id, 
+                   c.fecha, c.hora, n.nombre as negocio_nombre
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            WHERE c.id = %s AND c.profesional_id = %s AND c.negocio_id = %s
         ''', (cita_id, profesional_id, negocio_id))
         
         cita_actual = cursor.fetchone()
         
         if not cita_actual:
             flash('❌ Cita no encontrada', 'error')
-            print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada para profesional {profesional_id}")
+            print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada")
             conn.close()
             
             fecha = request.args.get('fecha') or request.form.get('fecha')
@@ -3472,19 +3473,15 @@ def completar_cita(cita_id):
         print(f"✅ [COMPLETAR_CITA] Cita encontrada: {cita_actual}")
         print(f"   Estado actual: {cita_actual['estado']}")
         
-        # 2. Actualizar estado a 'completado' - SIN updated_at
-        # Verificar qué columnas existen en la tabla citas
+        # 2. Actualizar estado a 'completado'
         cursor.execute("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'citas'
         """)
         columnas = [row['column_name'] for row in cursor.fetchall()]
-        print(f"📋 Columnas disponibles en citas: {columnas}")
         
-        # Construir query según las columnas disponibles
         if 'updated_at' in columnas:
-            # Si existe updated_at, usarlo
             cursor.execute('''
                 UPDATE citas 
                 SET estado = 'completado', updated_at = NOW()
@@ -3492,7 +3489,6 @@ def completar_cita(cita_id):
                 RETURNING id, estado, cliente_nombre
             ''', (cita_id,))
         else:
-            # Si no existe updated_at, solo actualizar estado
             cursor.execute('''
                 UPDATE citas 
                 SET estado = 'completado'
@@ -3504,9 +3500,8 @@ def completar_cita(cita_id):
         print(f"✅ [COMPLETAR_CITA] Resultado UPDATE: {resultado_update}")
         
         if resultado_update:
-            # 3. Opcional: Registrar en historial (si existe la tabla)
+            # 3. Registrar en historial
             try:
-                # Verificar si existe la tabla historial_citas
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -3529,11 +3524,10 @@ def completar_cita(cita_id):
                     ))
                     print(f"📝 [COMPLETAR_CITA] Historial registrado")
             except Exception as hist_error:
-                print(f"⚠️ [COMPLETAR_CITA] Error en historial (no crítico): {hist_error}")
+                print(f"⚠️ [COMPLETAR_CITA] Error en historial: {hist_error}")
             
-            # 4. Crear notificación (si existe la tabla)
+            # 4. Crear notificación para el profesional
             try:
-                # Verificar si existe la tabla notificaciones
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -3554,14 +3548,47 @@ def completar_cita(cita_id):
                         '✅ Servicio Completado',
                         f'Has completado el servicio para {resultado_update["cliente_nombre"]}'
                     ))
-                    print(f"📢 [COMPLETAR_CITA] Notificación creada")
+                    print(f"📢 [COMPLETAR_CITA] Notificación para profesional creada")
             except Exception as notif_error:
-                print(f"⚠️ [COMPLETAR_CITA] Error en notificación (no crítico): {notif_error}")
+                print(f"⚠️ [COMPLETAR_CITA] Error en notificación profesional: {notif_error}")
+            
+            # ========== ENVIAR NOTIFICACIÓN AL CLIENTE PARA CALIFICAR ==========
+            try:
+                cliente_telefono = cita_actual.get('cliente_telefono')
+                negocio_nombre = cita_actual.get('negocio_nombre', '')
+                
+                if cliente_telefono:
+                    print(f"📱 [COMPLETAR_CITA] Enviando notificación de calificación al cliente {cliente_telefono}")
+                    
+                    # Crear enlace de calificación
+                    enlace_calificacion = f"https://wabot-production-d544.up.railway.app/calificar/{cita_id}"
+                    
+                    # Usar tu función existente
+                    from push_notifications import enviar_notificacion_cliente
+                    
+                    resultado = enviar_notificacion_cliente(
+                        telefono=cliente_telefono,
+                        negocio_id=negocio_id,
+                        titulo="⭐ ¡Califica tu experiencia!",
+                        mensaje=f"¿Cómo te fue en {negocio_nombre}? Danos tu opinión y ayuda a otros clientes.",
+                        cita_id=cita_id,
+                        url=enlace_calificacion
+                    )
+                    
+                    if resultado:
+                        print(f"✅ [COMPLETAR_CITA] Notificación de calificación enviada a {cliente_telefono}")
+                    else:
+                        print(f"⚠️ [COMPLETAR_CITA] No se pudo enviar notificación a {cliente_telefono}")
+                        
+            except Exception as cliente_notif_error:
+                print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
+                    
+            except Exception as cliente_notif_error:
+                print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
             
             conn.commit()
             print(f"✅ [COMPLETAR_CITA] Commit exitoso")
             
-            # Para respuesta AJAX
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
                     'success': True,
@@ -3599,7 +3626,6 @@ def completar_cita(cita_id):
             conn.close()
             print("🔒 [COMPLETAR_CITA] Conexión cerrada")
     
-    # Obtener parámetros para redirección
     fecha = request.args.get('fecha') or request.form.get('fecha')
     profesional_id_param = request.args.get('profesional_id') or request.form.get('profesional_id')
     
@@ -7862,6 +7888,100 @@ def negocio_productos_subir_foto():
     except Exception as e:
         print(f"❌ Error subiendo foto de producto: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# SISTEMA DE CALIFICACIONES
+# =============================================================================
+
+@app.route('/calificar/<int:cita_id>', methods=['GET', 'POST'])
+def calificar_servicio(cita_id):
+    """Página para calificar un servicio después de la cita"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Obtener información de la cita
+    cursor.execute('''
+        SELECT c.*, 
+               p.nombre as profesional_nombre,
+               p.id as profesional_id,
+               n.id as negocio_id,
+               n.nombre as negocio_nombre
+        FROM citas c
+        JOIN profesionales p ON c.profesional_id = p.id
+        JOIN negocios n ON c.negocio_id = n.id
+        WHERE c.id = %s AND c.estado = 'completado'
+    ''', (cita_id,))
+    
+    cita = cursor.fetchone()
+    
+    if not cita:
+        flash('Cita no encontrada o aún no completada', 'error')
+        conn.close()
+        return redirect('/')
+    
+    if request.method == 'POST':
+        calificacion = request.form.get('calificacion', 0, type=int)
+        comentario = request.form.get('comentario', '').strip()
+        
+        if calificacion < 1 or calificacion > 5:
+            flash('La calificación debe ser entre 1 y 5 estrellas', 'error')
+            return redirect(url_for('calificar_servicio', cita_id=cita_id))
+        
+        # Guardar reseña del negocio
+        cursor.execute('''
+            INSERT INTO opiniones_negocio (negocio_id, cliente_id, calificacion, comentario, fecha)
+            VALUES (%s, %s, %s, %s, NOW())
+        ''', (cita['negocio_id'], cita.get('cliente_id'), calificacion, comentario))
+        
+        # Guardar reseña del profesional
+        cursor.execute('''
+            INSERT INTO opiniones_profesional (profesional_id, cliente_id, calificacion, comentario, fecha)
+            VALUES (%s, %s, %s, %s, NOW())
+        ''', (cita['profesional_id'], cita.get('cliente_id'), calificacion, comentario))
+        
+        conn.commit()
+        
+        # Actualizar calificación promedio del negocio
+        cursor.execute('''
+            UPDATE negocios 
+            SET calificacion_promedio = (
+                SELECT COALESCE(AVG(calificacion), 0) 
+                FROM opiniones_negocio 
+                WHERE negocio_id = %s
+            ),
+            total_opiniones = (
+                SELECT COUNT(*) 
+                FROM opiniones_negocio 
+                WHERE negocio_id = %s
+            )
+            WHERE id = %s
+        ''', (cita['negocio_id'], cita['negocio_id'], cita['negocio_id']))
+        
+        # Actualizar calificación promedio del profesional
+        cursor.execute('''
+            UPDATE profesionales 
+            SET calificacion_promedio = (
+                SELECT COALESCE(AVG(calificacion), 0) 
+                FROM opiniones_profesional 
+                WHERE profesional_id = %s
+            ),
+            total_opiniones = (
+                SELECT COUNT(*) 
+                FROM opiniones_profesional 
+                WHERE profesional_id = %s
+            )
+            WHERE id = %s
+        ''', (cita['profesional_id'], cita['profesional_id'], cita['profesional_id']))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ ¡Gracias por tu calificación!', 'success')
+        return redirect('/')
+    
+    conn.close()
+    
+    return render_template('calificar.html', cita=cita)
 
 
 # =============================================================================
