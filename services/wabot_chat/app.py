@@ -7181,6 +7181,353 @@ def crear_tabla_push_clientes():
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
+# =============================================================================
+# EDITOR VISUAL DEL NEGOCIO (WYSIWYG)
+# =============================================================================
+
+@app.route('/negocio/editor')
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_visual():
+    """Editor visual del negocio - Vista WYSIWYG"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    # Obtener datos del negocio
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('''
+        SELECT * FROM negocios WHERE id = %s
+    ''', (negocio_id,))
+    negocio = cursor.fetchone()
+    
+    # Obtener horarios
+    cursor.execute('''
+        SELECT * FROM configuracion_horarios 
+        WHERE negocio_id = %s 
+        ORDER BY dia_semana
+    ''', (negocio_id,))
+    horarios = cursor.fetchall()
+    
+    # Obtener servicios
+    cursor.execute('''
+        SELECT * FROM servicios 
+        WHERE negocio_id = %s AND activo = TRUE 
+        ORDER BY nombre
+    ''', (negocio_id,))
+    servicios = cursor.fetchall()
+    
+    # Obtener galería de fotos
+    cursor.execute('''
+        SELECT * FROM fotos_negocio 
+        WHERE negocio_id = %s 
+        ORDER BY orden
+    ''', (negocio_id,))
+    fotos_galeria = cursor.fetchall()
+    
+    # Obtener profesionales
+    cursor.execute('''
+        SELECT * FROM profesionales 
+        WHERE negocio_id = %s AND activo = TRUE 
+        ORDER BY nombre
+    ''', (negocio_id,))
+    profesionales = cursor.fetchall()
+    
+    # Obtener productos
+    cursor.execute('''
+        SELECT * FROM productos 
+        WHERE negocio_id = %s AND disponible = TRUE 
+        ORDER BY nombre
+    ''', (negocio_id,))
+    productos = cursor.fetchall()
+    
+    conn.close()
+    
+    # Parsear configuración
+    config_general = {}
+    if negocio and negocio.get('configuracion'):
+        try:
+            config_general = json.loads(negocio['configuracion'])
+        except:
+            config_general = {}
+    
+    # Mapear días de semana
+    dias_map = {1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 
+                5: 'Viernes', 6: 'Sábado', 7: 'Domingo'}
+    
+    horarios_dict = {}
+    for h in horarios:
+        dia_nombre = dias_map.get(h['dia_semana'], str(h['dia_semana']))
+        horarios_dict[dia_nombre] = {
+            'activo': h['activo'],
+            'hora_inicio': h['hora_inicio'],
+            'hora_fin': h['hora_fin']
+        }
+    
+    return render_template('negocio/editor_visual.html',
+                         negocio=negocio,
+                         config_general=config_general,
+                         horarios=horarios_dict,
+                         servicios=servicios,
+                         fotos_galeria=fotos_galeria,
+                         profesionales=profesionales,
+                         productos=productos)
+
+@app.route('/negocio/editor/guardar', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_guardar():
+    """Guardar cambios del editor visual"""
+    try:
+        data = request.get_json()
+        negocio_id = session.get('negocio_id', 1)
+        
+        # Actualizar campos básicos
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        campos = []
+        valores = []
+        
+        if 'nombre' in data:
+            campos.append("nombre = %s")
+            valores.append(data['nombre'])
+        
+        if 'direccion' in data:
+            campos.append("direccion = %s")
+            valores.append(data['direccion'])
+        
+        if 'descripcion' in data:
+            campos.append("descripcion = %s")
+            valores.append(data['descripcion'])
+        
+        if 'telefono_whatsapp' in data:
+            telefono = data['telefono_whatsapp']
+            if not telefono.startswith('whatsapp:'):
+                telefono = f"whatsapp:{telefono}"
+            campos.append("telefono_whatsapp = %s")
+            valores.append(telefono)
+        
+        if 'tipo_negocio' in data:
+            campos.append("tipo_negocio = %s")
+            valores.append(data['tipo_negocio'])
+        
+        if 'emoji' in data:
+            campos.append("emoji = %s")
+            valores.append(data['emoji'])
+        
+        if 'foto_portada' in data:
+            campos.append("foto_portada = %s")
+            valores.append(data['foto_portada'])
+        
+        if 'foto_perfil' in data:
+            campos.append("foto_perfil = %s")
+            valores.append(data['foto_perfil'])
+        
+        # Actualizar configuración general (JSON)
+        config_actual = {}
+        cursor.execute('SELECT configuracion FROM negocios WHERE id = %s', (negocio_id,))
+        result = cursor.fetchone()
+        if result and result[0]:
+            try:
+                config_actual = json.loads(result[0])
+            except:
+                pass
+        
+        if 'horario_atencion' in data:
+            config_actual['horario_atencion'] = data['horario_atencion']
+        
+        if 'saludo_personalizado' in data:
+            config_actual['saludo_personalizado'] = data['saludo_personalizado']
+        
+        if 'politica_cancelacion' in data:
+            config_actual['politica_cancelacion'] = data['politica_cancelacion']
+        
+        if 'telefono_contacto' in data:
+            config_actual['telefono_contacto'] = data['telefono_contacto']
+        
+        campos.append("configuracion = %s")
+        valores.append(json.dumps(config_actual))
+        
+        if campos:
+            valores.append(negocio_id)
+            query = f"UPDATE negocios SET {', '.join(campos)} WHERE id = %s"
+            cursor.execute(query, valores)
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Cambios guardados'})
+        
+    except Exception as e:
+        print(f"❌ Error guardando: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/subir-foto', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_subir_foto():
+    """Subir foto (portada, perfil o galería)"""
+    try:
+        negocio_id = session.get('negocio_id', 1)
+        tipo = request.form.get('tipo', 'galeria')  # portada, perfil, galeria
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
+        
+        # Validar tipo de archivo
+        allowed = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if ext not in allowed:
+            return jsonify({'success': False, 'error': 'Formato no permitido'}), 400
+        
+        # Subir a Cloudinary o guardar localmente
+        # Por ahora, guardar localmente en static/uploads/negocios/
+        import os
+        from datetime import datetime
+        from werkzeug.utils import secure_filename
+        
+        upload_dir = os.path.join('static', 'uploads', 'negocios', str(negocio_id))
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{timestamp}_{secure_filename(file.filename)}"
+        filepath = os.path.join(upload_dir, filename)
+        file.save(filepath)
+        
+        url = f"/static/uploads/negocios/{negocio_id}/{filename}"
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if tipo == 'portada':
+            cursor.execute('''
+                UPDATE negocios SET foto_portada = %s WHERE id = %s
+            ''', (url, negocio_id))
+            conn.commit()
+            
+        elif tipo == 'perfil':
+            cursor.execute('''
+                UPDATE negocios SET foto_perfil = %s WHERE id = %s
+            ''', (url, negocio_id))
+            conn.commit()
+            
+        else:  # galeria
+            # Obtener próximo orden
+            cursor.execute('''
+                SELECT COALESCE(MAX(orden), 0) + 1 FROM fotos_negocio WHERE negocio_id = %s
+            ''', (negocio_id,))
+            orden = cursor.fetchone()[0] or 1
+            
+            cursor.execute('''
+                INSERT INTO fotos_negocio (negocio_id, url, orden)
+                VALUES (%s, %s, %s)
+            ''', (negocio_id, url, orden))
+            conn.commit()
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'url': url,
+            'message': 'Foto subida exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/eliminar-foto', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_eliminar_foto():
+    """Eliminar foto de galería"""
+    try:
+        data = request.get_json()
+        foto_id = data.get('foto_id')
+        tipo = data.get('tipo', 'galeria')
+        negocio_id = session.get('negocio_id', 1)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if tipo in ['portada', 'perfil']:
+            campo = 'foto_portada' if tipo == 'portada' else 'foto_perfil'
+            cursor.execute(f'UPDATE negocios SET {campo} = NULL WHERE id = %s', (negocio_id,))
+        else:
+            cursor.execute('DELETE FROM fotos_negocio WHERE id = %s AND negocio_id = %s', (foto_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando foto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/guardar-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_guardar_servicio():
+    """Guardar o actualizar servicio"""
+    try:
+        data = request.get_json()
+        negocio_id = session.get('negocio_id', 1)
+        servicio_id = data.get('id')
+        nombre = data.get('nombre')
+        duracion = data.get('duracion', 30)
+        precio = data.get('precio', 0)
+        descripcion = data.get('descripcion', '')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if servicio_id:
+            cursor.execute('''
+                UPDATE servicios 
+                SET nombre = %s, duracion = %s, precio = %s, descripcion = %s
+                WHERE id = %s AND negocio_id = %s
+            ''', (nombre, duracion, precio, descripcion, servicio_id, negocio_id))
+        else:
+            cursor.execute('''
+                INSERT INTO servicios (negocio_id, nombre, duracion, precio, descripcion, activo)
+                VALUES (%s, %s, %s, %s, %s, TRUE)
+                RETURNING id
+            ''', (negocio_id, nombre, duracion, precio, descripcion))
+            servicio_id = cursor.fetchone()[0]
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'id': servicio_id})
+        
+    except Exception as e:
+        print(f"❌ Error guardando servicio: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_eliminar_servicio():
+    """Eliminar servicio (desactivar)"""
+    try:
+        data = request.get_json()
+        servicio_id = data.get('servicio_id')
+        negocio_id = session.get('negocio_id', 1)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE servicios SET activo = FALSE 
+            WHERE id = %s AND negocio_id = %s
+        ''', (servicio_id, negocio_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
