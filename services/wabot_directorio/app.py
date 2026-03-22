@@ -4,8 +4,7 @@ from flask_cors import CORS
 import os
 import sys
 
-# Ya no necesitamos agregar shared al path porque models.py está local
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from models import Negocio, Profesional, Producto, FotoNegocio, FotoTrabajoProfesional
 from dotenv import load_dotenv
@@ -15,9 +14,14 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Configuración de base de datos
+# Configuración de base de datos - USAR LA URL PÚBLICA
 DATABASE_URL = os.environ.get('DATABASE_URL')
-engine = create_engine(DATABASE_URL)
+if not DATABASE_URL:
+    DATABASE_URL = "postgresql://postgres:ClWjzRkhvcoQJdNPaMxLpJBJBZUIOHHX@caboose.proxy.rlwy.net:55226/railway"
+
+print(f"Conectando a: {DATABASE_URL[:50]}...")
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 db_session = scoped_session(sessionmaker(bind=engine))
 
 @app.teardown_appcontext
@@ -28,33 +32,46 @@ def shutdown_session(exception=None):
 def index():
     return "Directorio Wabot - Servicio funcionando correctamente"
 
-@app.route('/directorio')
-def directorio():
-    """Página principal del mapa"""
-    return render_template('directorio/mapa.html')
+@app.route('/test-db')
+def test_db():
+    """Endpoint de prueba para verificar conexión"""
+    try:
+        result = db_session.execute(text("SELECT 1 as test"))
+        row = result.fetchone()
+        return {"status": "ok", "test": row[0]}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
 
 @app.route('/api/negocios')
 def api_negocios():
     """API para obtener todos los negocios con coordenadas"""
-    negocios = db_session.query(Negocio).filter(
-        Negocio.activo == True,
-        Negocio.latitud.isnot(None),
-        Negocio.longitud.isnot(None)
-    ).all()
-    
-    result = []
-    for n in negocios:
-        result.append({
-            'id': n.id,
-            'nombre': n.nombre,
-            'latitud': n.latitud,
-            'longitud': n.longitud,
-            'direccion': n.direccion,
-            'tipo_negocio': n.tipo_negocio,
-            'calificacion': float(n.calificacion_promedio) if n.calificacion_promedio else 0,
-            'total_opiniones': n.total_opiniones
-        })
-    return jsonify(result)
+    try:
+        negocios = db_session.query(Negocio).filter(
+            Negocio.activo == True,
+            Negocio.latitud.isnot(None),
+            Negocio.longitud.isnot(None)
+        ).all()
+        
+        result = []
+        for n in negocios:
+            result.append({
+                'id': n.id,
+                'nombre': n.nombre,
+                'latitud': float(n.latitud) if n.latitud else None,
+                'longitud': float(n.longitud) if n.longitud else None,
+                'direccion': n.direccion,
+                'tipo_negocio': n.tipo_negocio,
+                'calificacion': float(n.calificacion_promedio) if n.calificacion_promedio else 0,
+                'total_opiniones': n.total_opiniones
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/directorio')
+def directorio():
+    """Página principal del mapa"""
+    return render_template('directorio/mapa.html')
 
 @app.route('/negocio/<int:negocio_id>')
 def pagina_negocio(negocio_id):
