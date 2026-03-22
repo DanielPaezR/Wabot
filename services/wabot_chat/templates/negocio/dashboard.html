@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Panel Negocio - {{ session.negocio_nombre }}</title>
     <style>
         * {
@@ -357,6 +357,14 @@
         .quick-action-btn.secondary:hover {
             background: #7f8c8d;
         }
+        
+        .quick-action-btn.editor {
+            background: #9b59b6;
+        }
+        
+        .quick-action-btn.editor:hover {
+            background: #8e44ad;
+        }
 
         .info-card {
             background: #e8f4fd;
@@ -519,11 +527,12 @@
                         </div>
                     </a>
                     
-                    <a href="{{ url_for('negocio_plantillas') }}" class="nav-card">
-                        <div class="nav-icon">📝</div>
+                    <!-- NUEVO: Botón Editar Perfil (reemplaza Plantillas) -->
+                    <a href="{{ url_for('negocio_editor_visual') }}" class="nav-card">
+                        <div class="nav-icon">🎨</div>
                         <div class="nav-text">
-                            <h3>Plantillas</h3>
-                            <p>Mensajes de WhatsApp</p>
+                            <h3>Editar Perfil</h3>
+                            <p>Personaliza la imagen pública de tu negocio</p>
                         </div>
                     </a>
                 </div>
