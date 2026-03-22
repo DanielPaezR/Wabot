@@ -7269,6 +7269,7 @@ def negocio_editor_subir_foto():
     try:
         import cloudinary
         import cloudinary.uploader
+        from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
         tipo = request.form.get('tipo', 'galeria')
@@ -7288,10 +7289,11 @@ def negocio_editor_subir_foto():
         )
         
         # Subir a Cloudinary
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         upload_result = cloudinary.uploader.upload(
             file,
             folder=f"negocios/{negocio_id}/{tipo}",
-            public_id=f"{negocio_id}_{tipo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            public_id=f"{negocio_id}_{tipo}_{timestamp}"
         )
         
         url = upload_result['secure_url']
@@ -7301,21 +7303,48 @@ def negocio_editor_subir_foto():
         
         if tipo == 'portada':
             cursor.execute('UPDATE negocios SET foto_portada = %s WHERE id = %s', (url, negocio_id))
+            conn.commit()
+            
         elif tipo == 'perfil':
             cursor.execute('UPDATE negocios SET foto_perfil = %s WHERE id = %s', (url, negocio_id))
+            conn.commit()
+            
         else:  # galeria
-            cursor.execute('SELECT COALESCE(MAX(orden), 0) + 1 FROM fotos_negocio WHERE negocio_id = %s', (negocio_id,))
-            orden = cursor.fetchone()[0] or 1
-            cursor.execute('INSERT INTO fotos_negocio (negocio_id, url, orden) VALUES (%s, %s, %s)', 
-                         (negocio_id, url, orden))
+            # Obtener el próximo orden - VERSIÓN CORREGIDA
+            cursor.execute('SELECT COALESCE(MAX(orden), 0) FROM fotos_negocio WHERE negocio_id = %s', (negocio_id,))
+            result = cursor.fetchone()
+            
+            # Manejar diferentes formatos de resultado
+            if result:
+                if isinstance(result, tuple):
+                    orden = result[0] + 1 if result[0] is not None else 1
+                elif isinstance(result, dict):
+                    orden = result.get('coalesce', 0) + 1
+                else:
+                    orden = 1
+            else:
+                orden = 1
+            
+            print(f"📸 Insertando foto en galería - orden: {orden}")
+            
+            cursor.execute('''
+                INSERT INTO fotos_negocio (negocio_id, url, orden, fecha_subida)
+                VALUES (%s, %s, %s, NOW())
+            ''', (negocio_id, url, orden))
+            conn.commit()
         
-        conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'url': url, 'message': 'Foto subida a Cloudinary'})
+        return jsonify({
+            'success': True,
+            'url': url,
+            'message': 'Foto subida a Cloudinary'
+        })
         
     except Exception as e:
         print(f"❌ Error subiendo foto a Cloudinary: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/negocio/editor/eliminar-foto', methods=['POST'])
@@ -7473,6 +7502,123 @@ def negocio_editor_eliminar_servicio():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# PERFIL PROFESIONAL - GALERÍA DE TRABAJOS
+# =============================================================================
+
+@app.route('/profesional/mis-trabajos', methods=['GET'])
+@login_required
+def profesional_mis_trabajos():
+    """Obtener lista de trabajos del profesional"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, url, descripcion, fecha_subida
+            FROM fotos_trabajo_profesional
+            WHERE profesional_id = %s
+            ORDER BY fecha_subida DESC
+        ''', (profesional_id,))
+        
+        trabajos = cursor.fetchall()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'trabajos': trabajos
+        })
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo trabajos: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/profesional/subir-trabajo', methods=['POST'])
+@login_required
+def profesional_subir_trabajo():
+    """Subir foto de trabajo a Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Archivo vacío'}), 400
+        
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        # Subir a Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"profesionales/{profesional_id}/trabajos",
+            public_id=f"trabajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        # Guardar en base de datos
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO fotos_trabajo_profesional (profesional_id, url, fecha_subida)
+            VALUES (%s, %s, NOW())
+        ''', (profesional_id, url))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'url': url,
+            'message': 'Trabajo subido exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error subiendo trabajo: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/profesional/eliminar-trabajo/<int:trabajo_id>', methods=['DELETE'])
+@login_required
+def profesional_eliminar_trabajo(trabajo_id):
+    """Eliminar foto de trabajo"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            DELETE FROM fotos_trabajo_profesional
+            WHERE id = %s AND profesional_id = %s
+        ''', (trabajo_id, profesional_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Foto eliminada'})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando trabajo: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # =============================================================================

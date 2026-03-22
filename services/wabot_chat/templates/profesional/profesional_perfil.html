@@ -140,9 +140,23 @@
             color: var(--dark);
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 0.5rem;
             padding-bottom: 0.5rem;
             border-bottom: 2px solid var(--light);
+        }
+        
+        .section-title .add-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         
         /* Form */
@@ -172,14 +186,84 @@
             border-color: var(--primary);
         }
         
-        .form-control[readonly] {
-            background: #f5f5f5;
-            cursor: not-allowed;
+        /* Galería de trabajos */
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 1rem;
         }
         
-        textarea.form-control {
-            min-height: 100px;
-            resize: vertical;
+        .trabajo-card {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #e2e8f0;
+        }
+        
+        .trabajo-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .trabajo-card .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(231, 76, 60, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+        
+        .trabajo-card:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .add-trabajo-card {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background: #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #94a3b8;
+            border: 2px dashed #cbd5e1;
+            transition: all 0.2s;
+        }
+        
+        .add-trabajo-card:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: #eef2ff;
+        }
+        
+        .add-trabajo-card i {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .add-trabajo-card span {
+            font-size: 12px;
+        }
+        
+        .empty-gallery {
+            text-align: center;
+            padding: 2rem;
+            color: #94a3b8;
         }
         
         /* Buttons */
@@ -211,6 +295,50 @@
             justify-content: center;
         }
         
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            z-index: 1100;
+            display: none;
+            font-size: 14px;
+        }
+        
+        /* Modal para ver fotos */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.92);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 16px;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+        }
+        
         /* Responsive */
         @media (max-width: 576px) {
             .header-content {
@@ -227,29 +355,14 @@
             .section {
                 padding: 1rem;
             }
+            
+            .galeria-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
         }
         
         /* Info boxes */
-        .info-box {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .info-label {
-            font-size: 0.9rem;
-            color: var(--text-light);
-            margin-bottom: 0.3rem;
-        }
-        
-        .info-value {
-            font-weight: bold;
-            color: var(--dark);
-        }
-        
-        /* Grid para información */
         .info-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -261,6 +374,15 @@
             background: rgba(255,255,255,0.1);
             padding: 0.8rem;
             border-radius: 8px;
+        }
+        
+        .info-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .info-value {
+            font-weight: bold;
         }
         
         /* Error message */
@@ -306,7 +428,7 @@
             <button class="back-btn" onclick="window.history.back()">←</button>
             <div class="avatar-container">
                 {% if profesional.foto_url %}
-                <img id="avatarImg" src="{{ profesional.foto_url }}?t={{ range(1, 1000000) | random }}" 
+                <img id="avatarImg" src="{{ profesional.foto_url }}" 
                     alt="{{ profesional.nombre }}" class="avatar-img">
                 {% else %}
                 <img id="avatarImg" src="/static/default-avatar.png" 
@@ -319,17 +441,14 @@
             <div class="header-info">
                 <h1>{{ profesional.nombre }}</h1>
                 
-                <!-- Negocio (si está en la consulta) -->
                 {% if profesional.negocio_nombre %}
                 <p>🏢 {{ profesional.negocio_nombre }}</p>
                 {% endif %}
                 
-                <!-- Especialidad -->
                 {% if profesional.especialidad %}
                 <p>📋 {{ profesional.especialidad }}</p>
                 {% endif %}
                 
-                <!-- Información rápida -->
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Estado</div>
@@ -348,6 +467,11 @@
                         <div class="info-value">{{ profesional.telefono }}</div>
                     </div>
                     {% endif %}
+                    
+                    <div class="info-item">
+                        <div class="info-label">⭐ Calificación</div>
+                        <div class="info-value">{{ profesional.calificacion_promedio or 0 }} / 5</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -370,14 +494,14 @@
                     <label class="form-label">Teléfono</label>
                     <input type="tel" class="form-control" id="telefono" 
                            value="{{ profesional.telefono if profesional.telefono else '' }}"
-                           placeholder="Ej: +34 600 123 456">
+                           placeholder="Ej: +57 300 123 4567">
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Especialidad</label>
                     <input type="text" class="form-control" id="especialidad" 
                            value="{{ profesional.especialidad if profesional.especialidad else '' }}"
-                           placeholder="Ej: Peluquería, Maquillaje, Estética...">
+                           placeholder="Ej: Cortes de cabello, Barba, Coloración...">
                 </div>
                 
                 <button type="submit" class="btn btn-primary btn-block" id="saveBtn">
@@ -385,9 +509,42 @@
                 </button>
             </form>
         </div>
+        
+        <!-- Galería de Trabajos -->
+        <div class="section">
+            <div class="section-title">
+                <span>📸 Mis Trabajos</span>
+                <button class="add-btn" onclick="subirTrabajo()">+ Agregar foto</button>
+            </div>
+            <div id="trabajosGrid" class="galeria-grid">
+                <!-- Las fotos se cargarán dinámicamente -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast para notificaciones -->
+    <div id="toast" class="toast">✅ Cambios guardados</div>
+    
+    <!-- Modal para ver fotos -->
+    <div id="modal" class="modal" onclick="cerrarModal()">
+        <span class="modal-close">&times;</span>
+        <img id="modal-img" src="">
     </div>
     
     <script>
+        let trabajosList = [];
+        
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.background = isError ? '#e74c3c' : '#1e293b';
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Subir foto de perfil
         function subirFoto() {
             document.getElementById('fotoInput').click();
         }
@@ -396,15 +553,13 @@
             const file = event.target.files[0];
             if (!file) return;
             
-            // Validar tamaño (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert('❌ La imagen es demasiado grande (máx 5MB)');
+                showToast('❌ La imagen es demasiado grande (máx 5MB)', true);
                 return;
             }
             
-            // Validar tipo
             if (!file.type.match('image.*')) {
-                alert('❌ Solo se permiten imágenes');
+                showToast('❌ Solo se permiten imágenes', true);
                 return;
             }
             
@@ -425,26 +580,151 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Foto actualizada correctamente');
-                    // Actualizar imagen con timestamp para evitar cache
+                    showToast('✅ Foto actualizada correctamente');
                     const separator = result.url.includes('?') ? '&' : '?';
                     const newUrl = result.url + separator + 't=' + new Date().getTime();
                     document.getElementById('avatarImg').src = newUrl;
                 } else {
-                    alert('❌ Error: ' + result.message);
+                    showToast('❌ Error: ' + result.message, true);
                 }
             } catch (error) {
-                alert('❌ Error de conexión: ' + error.message);
+                showToast('❌ Error de conexión', true);
             } finally {
                 const saveBtn = document.getElementById('saveBtn');
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = '💾 Guardar Cambios';
             }
             
-            // Limpiar input
             event.target.value = '';
         }
         
+        // Subir foto de trabajo
+        function subirTrabajo() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('❌ Imagen demasiado grande (máx 5MB)', true);
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('foto', file);
+                formData.append('descripcion', '');
+                
+                try {
+                    const response = await fetch('/profesional/subir-trabajo', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showToast('✅ Trabajo agregado');
+                        cargarTrabajos();
+                    } else {
+                        showToast('❌ Error: ' + result.message, true);
+                    }
+                } catch (error) {
+                    showToast('❌ Error de conexión', true);
+                }
+            };
+            input.click();
+        }
+        
+        // Cargar trabajos del profesional
+        async function cargarTrabajos() {
+            try {
+                const response = await fetch('/profesional/mis-trabajos');
+                const result = await response.json();
+                
+                if (result.success) {
+                    trabajosList = result.trabajos;
+                    renderizarTrabajos();
+                }
+            } catch (error) {
+                console.error('Error cargando trabajos:', error);
+            }
+        }
+        
+        function renderizarTrabajos() {
+            const grid = document.getElementById('trabajosGrid');
+            
+            if (trabajosList.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-gallery" style="grid-column: 1 / -1;">
+                        <i class="fas fa-camera" style="font-size: 48px; margin-bottom: 12px; display: block;"></i>
+                        <p>No tienes trabajos publicados</p>
+                        <button class="btn btn-primary" style="margin-top: 12px;" onclick="subirTrabajo()">Subir mi primer trabajo</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = trabajosList.map(trabajo => `
+                <div class="trabajo-card" data-id="${trabajo.id}">
+                    <img src="${trabajo.url}" onclick="abrirModal('${trabajo.url}')">
+                    <button class="delete-btn" onclick="eliminarTrabajo(${trabajo.id})">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            // Agregar botón de añadir al final
+            grid.innerHTML += `
+                <div class="add-trabajo-card" onclick="subirTrabajo()">
+                    <i class="fas fa-plus"></i>
+                    <span>Agregar</span>
+                </div>
+            `;
+        }
+        
+        async function eliminarTrabajo(id) {
+            if (!confirm('¿Eliminar esta foto de tus trabajos?')) return;
+            
+            try {
+                const response = await fetch(`/profesional/eliminar-trabajo/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('✅ Foto eliminada');
+                    cargarTrabajos();
+                } else {
+                    showToast('❌ Error al eliminar', true);
+                }
+            } catch (error) {
+                showToast('❌ Error de conexión', true);
+            }
+        }
+        
+        // Modal de fotos
+        function abrirModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('modal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function cerrarModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') cerrarModal();
+        });
+        
+        // Guardar perfil
         document.getElementById('profileForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -459,7 +739,7 @@
             };
             
             if (!data.nombre) {
-                alert('❌ El nombre es obligatorio');
+                showToast('❌ El nombre es obligatorio', true);
                 return;
             }
             
@@ -478,11 +758,9 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Perfil actualizado correctamente');
-                    // Actualizar nombre en el header
+                    showToast('✅ Perfil actualizado');
                     document.querySelector('.header-info h1').textContent = data.nombre;
                     
-                    // Actualizar especialidad si existe
                     if (data.especialidad) {
                         const especialidadElement = document.querySelector('.header-info p:nth-child(3)');
                         if (especialidadElement && especialidadElement.textContent.includes('📋')) {
@@ -490,48 +768,26 @@
                         }
                     }
                 } else {
-                    alert('❌ Error: ' + result.message);
+                    showToast('❌ Error: ' + result.message, true);
                 }
             } catch (error) {
-                alert('❌ Error de conexión: ' + error.message);
+                showToast('❌ Error de conexión', true);
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
             }
         });
         
-        // Cargar foto actual si existe
-        async function cargarFotoActual() {
-            try {
-                const response = await fetch('/profesional/foto-actual');
-                const result = await response.json();
-                
-                if (result.success && result.tiene_foto) {
-                    // Añadir timestamp para evitar cache
-                    const separator = result.url.includes('?') ? '&' : '?';
-                    const url = result.url + separator + 't=' + new Date().getTime();
-                    document.getElementById('avatarImg').src = url;
-                }
-            } catch (error) {
-                console.log('No hay foto configurada o error al cargarla:', error);
-            }
-        }
-        
-        // Cargar al iniciar
-        document.addEventListener('DOMContentLoaded', cargarFotoActual);
-        
-        // También cargar cuando la página se muestre después de caché
-        window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-                cargarFotoActual();
-            }
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarTrabajos();
         });
         
         // Mejorar experiencia en móviles
         if ('ontouchstart' in window) {
             document.querySelectorAll('.form-control').forEach(input => {
                 input.addEventListener('focus', function() {
-                    this.style.fontSize = '16px'; // Evitar zoom en iOS
+                    this.style.fontSize = '16px';
                 });
             });
         }
