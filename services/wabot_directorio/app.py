@@ -111,15 +111,31 @@ def pagina_negocio(negocio_id):
         if not hora_str:
             return ""
         try:
-            partes = hora_str.split(':')
-            hora = int(partes[0])
-            minuto = partes[1][:2] if len(partes) > 1 else "00"
-            periodo = 'AM' if hora < 12 else 'PM'
-            hora_12 = hora % 12
-            if hora_12 == 0:
-                hora_12 = 12
-            return f"{hora_12}:{minuto} {periodo}"
-        except:
+            # Limpiar el string
+            hora_str = hora_str.strip()
+            
+            # Extraer hora y minuto
+            if ':' in hora_str:
+                partes = hora_str.split(':')
+                hora = int(partes[0])
+                minutos = partes[1][:2] 
+            else:
+                hora = int(hora_str)
+                minutos = "00"
+            
+            # Determinar AM/PM
+            if hora < 12:
+                periodo = 'AM'
+                if hora == 0:
+                    hora = 12
+            else:
+                periodo = 'PM'
+                if hora > 12:
+                    hora = hora - 12
+            
+            return f"{hora}:{minutos} {periodo}"
+        except Exception as e:
+            print(f"Error convirtiendo hora {hora_str}: {e}")
             return hora_str
     
     # Crear lista de horarios formateados
