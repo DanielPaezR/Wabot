@@ -18,64 +18,80 @@
             background: #f5f7fa;
             color: #1e293b;
             padding-bottom: 90px;
-            line-height: 1.4;
-        }
-        
-        .container {
-            width: 100%;
-            max-width: 100%;
-            margin: 0 auto;
         }
         
         /* Portada */
         .cover {
             width: 100%;
-            height: 180px;
+            height: 200px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Logo / Foto de perfil */
+        .profile-section {
+            position: relative;
+            padding: 0 20px;
+        }
+        
+        .profile-logo {
+            position: absolute;
+            top: -50px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 56px;
-            position: relative;
-        }
-        
-        /* Header flotante */
-        .business-header {
-            background: white;
-            border-radius: 24px 24px 0 0;
-            margin-top: -24px;
-            padding: 20px 16px;
-            position: relative;
+            font-size: 48px;
+            overflow: hidden;
             z-index: 2;
         }
         
+        .profile-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Header de información */
+        .business-header {
+            background: white;
+            border-radius: 24px;
+            margin-top: 60px;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
         .business-name {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 700;
             margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+            padding-right: 20px;
         }
         
-        .business-emoji {
-            font-size: 32px;
-        }
-        
-        /* Calificación */
         .rating {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin: 12px 0;
+            margin: 10px 0;
             flex-wrap: wrap;
         }
         
         .stars {
             color: #fbbf24;
-            font-size: 16px;
+            font-size: 14px;
             letter-spacing: 2px;
         }
         
@@ -84,20 +100,41 @@
             font-size: 13px;
         }
         
-        /* Info contacto */
         .info-row {
             display: flex;
             align-items: center;
             gap: 12px;
             color: #475569;
             font-size: 14px;
-            margin: 10px 0;
-            padding: 6px 0;
+            margin: 8px 0;
+            padding: 4px 0;
         }
         
         .info-row i {
             width: 20px;
             color: #667eea;
+        }
+        
+        .horario {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+        
+        .horario-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 14px;
+        }
+        
+        .horario-dia {
+            font-weight: 500;
+        }
+        
+        .horario-cerrado {
+            color: #ef4444;
         }
         
         .descripcion {
@@ -109,7 +146,7 @@
             font-size: 14px;
         }
         
-        /* Secciones */
+        /* Secciones generales */
         .section {
             background: white;
             border-radius: 20px;
@@ -130,20 +167,24 @@
         
         .section-title i {
             color: #667eea;
-            font-size: 18px;
         }
         
-        /* Servicios */
-        .servicio-item {
+        /* Acordeón de servicios */
+        .servicio-acordeon {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .servicio-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
+            padding: 14px 0;
+            cursor: pointer;
+            transition: background 0.2s;
         }
         
-        .servicio-item:last-child {
-            border-bottom: none;
+        .servicio-header:active {
+            background: #f8fafc;
         }
         
         .servicio-info {
@@ -151,54 +192,82 @@
         }
         
         .servicio-nombre {
-            font-weight: 500;
+            font-weight: 600;
             font-size: 15px;
-            margin-bottom: 4px;
         }
         
         .servicio-duracion {
             font-size: 12px;
             color: #64748b;
-            display: flex;
-            align-items: center;
-            gap: 4px;
+            margin-top: 4px;
         }
         
         .servicio-precio {
             font-weight: 700;
             color: #10b981;
-            font-size: 16px;
             background: #ecfdf5;
             padding: 4px 10px;
             border-radius: 20px;
-        }
-        
-        /* Horarios */
-        .horario-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        
-        .horario-row:last-child {
-            border-bottom: none;
-        }
-        
-        .horario-dia {
-            font-weight: 500;
             font-size: 14px;
         }
         
-        .horario-horas {
-            color: #475569;
-            font-size: 13px;
+        .servicio-arrow {
+            color: #94a3b8;
+            margin-left: 12px;
+            transition: transform 0.3s;
         }
         
-        .horario-cerrado {
-            color: #ef4444;
+        .servicio-arrow.open {
+            transform: rotate(180deg);
+        }
+        
+        .servicio-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding: 0;
+        }
+        
+        .servicio-body.open {
+            max-height: 300px;
+            padding-bottom: 16px;
+        }
+        
+        .servicio-contenido {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .servicio-foto {
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: #e2e8f0;
+        }
+        
+        .servicio-descripcion {
+            flex: 1;
             font-size: 13px;
+            color: #475569;
+            line-height: 1.4;
+        }
+        
+        /* Galería */
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .galeria-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            object-fit: cover;
+            width: 100%;
+            cursor: pointer;
+            background: #e2e8f0;
         }
         
         /* Profesionales */
@@ -246,34 +315,12 @@
         
         .profesional-stars {
             color: #fbbf24;
-            font-size: 12px;
         }
         
         .profesional-especialidad {
             font-size: 12px;
             color: #64748b;
             margin-top: 2px;
-        }
-        
-        .profesional-arrow {
-            color: #94a3b8;
-            font-size: 14px;
-        }
-        
-        /* Galería */
-        .galeria-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-        
-        .galeria-item {
-            aspect-ratio: 1;
-            border-radius: 12px;
-            object-fit: cover;
-            width: 100%;
-            cursor: pointer;
-            background: #e2e8f0;
         }
         
         /* Productos */
@@ -300,7 +347,6 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            left: auto;
             background: #25D366;
             color: white;
             padding: 14px 20px;
@@ -313,21 +359,14 @@
             gap: 10px;
             z-index: 1000;
             font-size: 15px;
-            transition: all 0.2s ease;
-            border: none;
-            backdrop-filter: blur(0px);
+            transition: all 0.2s;
         }
         
         .btn-flotante:active {
             transform: scale(0.96);
-            background: #20b859;
         }
         
-        .btn-flotante i {
-            font-size: 18px;
-        }
-        
-        /* Modal para fotos */
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -339,14 +378,12 @@
             z-index: 2000;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(4px);
         }
         
         .modal img {
             max-width: 90%;
             max-height: 80%;
             border-radius: 16px;
-            object-fit: contain;
         }
         
         .modal-close {
@@ -356,88 +393,80 @@
             color: white;
             font-size: 32px;
             cursor: pointer;
-            background: rgba(0,0,0,0.5);
             width: 44px;
             height: 44px;
-            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         
-        /* Mensaje sin datos */
-        .empty-message {
-            text-align: center;
-            padding: 24px;
-            color: #94a3b8;
-            font-size: 14px;
-        }
-        
-        /* Responsive ajustes */
         @media (max-width: 480px) {
+            .profile-logo {
+                width: 80px;
+                height: 80px;
+                top: -40px;
+                font-size: 40px;
+            }
+            .business-header {
+                margin-top: 50px;
+            }
             .business-name {
-                font-size: 22px;
-            }
-            .section {
-                margin: 10px 12px;
-                padding: 14px;
-            }
-            .btn-flotante {
-                padding: 12px 18px;
-                font-size: 14px;
-                bottom: 16px;
-                right: 16px;
+                font-size: 20px;
             }
             .cover {
                 height: 160px;
-                font-size: 48px;
             }
         }
         
-        /* Pantallas más grandes (tabletas) */
         @media (min-width: 768px) {
             .container {
                 max-width: 500px;
                 margin: 0 auto;
             }
-            .section {
-                margin: 12px auto;
-                max-width: 500px;
-            }
-            .business-header {
+            .section, .business-header, .cover {
                 max-width: 500px;
                 margin-left: auto;
                 margin-right: auto;
             }
-            .cover {
+            .profile-section {
                 max-width: 500px;
                 margin: 0 auto;
-                border-radius: 0 0 24px 24px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Portada -->
         <div class="cover">
-            <span>{{ negocio.emoji or '🏪' }}</span>
+            {% if portada_url %}
+                <img src="{{ portada_url }}" class="cover-img" alt="Portada">
+            {% else %}
+                <div class="cover-img" style="display: flex; align-items: center; justify-content: center;">
+                    {{ negocio.emoji or '🏪' }}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Logo y header -->
+        <div class="profile-section">
+            <div class="profile-logo">
+                {% if logo_url %}
+                    <img src="{{ logo_url }}" alt="Logo">
+                {% else %}
+                    {{ negocio.emoji or '🏪' }}
+                {% endif %}
+            </div>
         </div>
         
         <div class="business-header">
-            <div class="business-name">
-                <span class="business-emoji">{{ negocio.emoji or '' }}</span>
-                {{ negocio.nombre }}
-            </div>
+            <div class="business-name">{{ negocio.nombre }}</div>
             
             <div class="rating">
                 <div class="stars">
                     {% set rating = negocio.calificacion_promedio|float %}
                     {% for i in range(5) %}
-                        {% if i < rating|round(0, 'floor') %}
-                            ★
-                        {% else %}
-                            ☆
-                        {% endif %}
+                        {% if i < rating|round(0, 'floor') %}★{% else %}☆{% endif %}
                     {% endfor %}
                 </div>
                 <span class="rating-count">({{ negocio.total_opiniones }} opiniones)</span>
@@ -457,6 +486,22 @@
             </div>
             {% endif %}
             
+            <!-- Horario en formato 12h -->
+            {% if horarios %}
+            <div class="horario">
+                {% for horario in horarios %}
+                <div class="horario-row">
+                    <span class="horario-dia">{{ horario.dia }}</span>
+                    {% if not horario.activo %}
+                        <span class="horario-cerrado">Cerrado</span>
+                    {% else %}
+                        <span>{{ horario.hora_inicio }} - {{ horario.hora_fin }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
             {% if negocio.descripcion %}
             <div class="descripcion">
                 {{ negocio.descripcion }}
@@ -464,7 +509,7 @@
             {% endif %}
         </div>
         
-        <!-- Servicios -->
+        <!-- Servicios en acordeón -->
         {% if servicios %}
         <div class="section">
             <div class="section-title">
@@ -472,46 +517,58 @@
                 Servicios
             </div>
             {% for servicio in servicios %}
-            <div class="servicio-item">
-                <div class="servicio-info">
-                    <div class="servicio-nombre">{{ servicio.nombre }}</div>
-                    {% if servicio.duracion %}
-                    <div class="servicio-duracion">
-                        <i class="far fa-clock"></i> {{ servicio.duracion }} min
+            <div class="servicio-acordeon">
+                <div class="servicio-header" onclick="toggleServicio(this)">
+                    <div class="servicio-info">
+                        <div class="servicio-nombre">{{ servicio.nombre }}</div>
+                        {% if servicio.duracion %}
+                        <div class="servicio-duracion">
+                            <i class="far fa-clock"></i> {{ servicio.duracion }} min
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
+                    <div class="servicio-precio">
+                        {% if servicio.tipo_precio == 'libre' %}
+                            A convenir
+                        {% elif servicio.precio_maximo %}
+                            ${{ "{:,.0f}".format(servicio.precio_maximo).replace(',', '.') }}
+                        {% else %}
+                            ${{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}
+                        {% endif %}
+                    </div>
+                    <i class="fas fa-chevron-down servicio-arrow"></i>
                 </div>
-                <div class="servicio-precio">
-                    {% if servicio.tipo_precio == 'libre' %}
-                        A convenir
-                    {% elif servicio.precio_maximo %}
-                        ${{ "{:,.0f}".format(servicio.precio_maximo).replace(',', '.') }}
-                    {% else %}
-                        ${{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}
-                    {% endif %}
+                <div class="servicio-body">
+                    <div class="servicio-contenido">
+                        {% if servicio.foto_url %}
+                        <img src="{{ servicio.foto_url }}" class="servicio-foto" alt="{{ servicio.nombre }}">
+                        {% else %}
+                        <div class="servicio-foto" style="display: flex; align-items: center; justify-content: center; background: #f1f5f9;">
+                            <i class="fas fa-cut" style="color: #94a3b8;"></i>
+                        </div>
+                        {% endif %}
+                        <div class="servicio-descripcion">
+                            {{ servicio.descripcion or 'Sin descripción' }}
+                        </div>
+                    </div>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% endif %}
         
-        <!-- Horarios -->
-        {% if horarios %}
+        <!-- Galería de fotos del local -->
+        {% if fotos %}
         <div class="section">
             <div class="section-title">
-                <i class="far fa-calendar-alt"></i>
-                Horario de atención
+                <i class="fas fa-images"></i>
+                Galería del local
             </div>
-            {% for horario in horarios %}
-            <div class="horario-row">
-                <span class="horario-dia">{{ horario.dia }}</span>
-                {% if not horario.activo %}
-                    <span class="horario-cerrado">Cerrado</span>
-                {% else %}
-                    <span class="horario-horas">{{ horario.hora_inicio }} - {{ horario.hora_fin }}</span>
-                {% endif %}
+            <div class="galeria-grid">
+                {% for foto in fotos %}
+                <img src="{{ foto.url }}" class="galeria-item" onclick="abrirModal(this.src)" alt="Foto del negocio" loading="lazy">
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
         {% endif %}
         
@@ -542,28 +599,9 @@
                     <div class="profesional-especialidad">{{ prof.especialidad }}</div>
                     {% endif %}
                 </div>
-                <i class="fas fa-chevron-right profesional-arrow"></i>
+                <i class="fas fa-chevron-right" style="color: #94a3b8;"></i>
             </a>
             {% endfor %}
-        </div>
-        {% endif %}
-        
-        <!-- Galería -->
-        {% if fotos %}
-        <div class="section">
-            <div class="section-title">
-                <i class="fas fa-images"></i>
-                Galería
-            </div>
-            <div class="galeria-grid">
-                {% for foto in fotos %}
-                <img src="{{ foto.url }}" 
-                     class="galeria-item" 
-                     onclick="abrirModal(this.src)"
-                     alt="Foto del negocio"
-                     loading="lazy">
-                {% endfor %}
-            </div>
         </div>
         {% endif %}
         
@@ -584,7 +622,7 @@
         {% endif %}
     </div>
     
-    <!-- Botón flotante para agendar cita -->
+    <!-- Botón flotante -->
     <a href="https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}" 
        class="btn-flotante" 
        target="_blank"
@@ -593,13 +631,19 @@
         Agendar cita
     </a>
     
-    <!-- Modal para ver fotos en grande -->
     <div id="modal" class="modal" onclick="cerrarModal()">
         <span class="modal-close">&times;</span>
         <img id="modal-img" src="">
     </div>
     
     <script>
+        function toggleServicio(element) {
+            const body = element.nextElementSibling;
+            const arrow = element.querySelector('.servicio-arrow');
+            body.classList.toggle('open');
+            arrow.classList.toggle('open');
+        }
+        
         function abrirModal(src) {
             document.getElementById('modal-img').src = src;
             document.getElementById('modal').style.display = 'flex';
@@ -611,11 +655,8 @@
             document.body.style.overflow = '';
         }
         
-        // Cerrar con tecla ESC
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                cerrarModal();
-            }
+            if (e.key === 'Escape') cerrarModal();
         });
     </script>
 </body>

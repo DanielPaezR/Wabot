@@ -115,13 +115,22 @@ def pagina_negocio(negocio_id):
         Producto.disponible == True
     ).all()
     
+    # Buscar foto de portada (primera foto de la galería o ninguna)
+    portada_url = fotos[0].url if fotos else None
+    
+    # Logo: podría ser una foto específica o emoji
+    logo_url = None
+    # Aquí puedes definir lógica para logo si tienes una foto específica
+    
     return render_template('directorio/negocio.html',
                          negocio=negocio,
                          servicios=servicios,
                          horarios=horarios_formateados,
                          fotos=fotos,
                          profesionales=profesionales,
-                         productos=productos)
+                         productos=productos,
+                         portada_url=portada_url,
+                         logo_url=logo_url)
 
 @app.route('/profesional/<int:profesional_id>/publico')
 def perfil_profesional(profesional_id):
