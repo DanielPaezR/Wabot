@@ -7272,63 +7272,7 @@ def negocio_editor_visual():
                          profesionales=profesionales,
                          productos=productos)
 
-@app.route('/negocio/editor/guardar', methods=['POST'])
-@role_required(['propietario', 'superadmin'])
-def negocio_editor_guardar():
-    """Guardar cambios del editor visual - VERSIÓN SIMPLIFICADA"""
-    try:
-        data = request.get_json()
-        print(f"📥 Datos: {data}")
-        
-        negocio_id = session.get('negocio_id', 1)
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Actualizar campos directamente sin complicaciones
-        cursor.execute("""
-            UPDATE negocios 
-            SET nombre = %s,
-                direccion = %s,
-                descripcion = %s,
-                telefono_whatsapp = %s,
-                tipo_negocio = %s,
-                emoji = %s
-            WHERE id = %s
-        """, (
-            data.get('nombre', ''),
-            data.get('direccion', ''),
-            data.get('descripcion', ''),
-            f"whatsapp:{data.get('telefono_whatsapp', '')}" if data.get('telefono_whatsapp') else None,
-            data.get('tipo_negocio', 'general'),
-            data.get('emoji', '👋'),
-            negocio_id
-        ))
-        
-        # Actualizar configuración
-        cursor.execute("SELECT configuracion FROM negocios WHERE id = %s", (negocio_id,))
-        result = cursor.fetchone()
-        
-        config = {}
-        if result and result[0]:
-            try:
-                config = json.loads(result[0])
-            except:
-                pass
-        
-        config['horario_atencion'] = data.get('horario_atencion', '')
-        
-        cursor.execute("UPDATE negocios SET configuracion = %s WHERE id = %s", 
-                      (json.dumps(config), negocio_id))
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Cambios guardados'})
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/negocio/editor/subir-foto', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
