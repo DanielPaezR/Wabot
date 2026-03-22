@@ -7977,7 +7977,9 @@ def calificar_servicio(cita_id):
         conn.close()
         
         flash('✅ ¡Gracias por tu calificación!', 'success')
-        return redirect('/')
+        
+        # ✅ REDIRIGIR AL PERFIL PÚBLICO DEL NEGOCIO
+        return redirect(f'https://wabot-directorio-deployment.up.railway.app/negocio/{cita["negocio_id"]}')
     
     conn.close()
     
