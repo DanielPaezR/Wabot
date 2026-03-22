@@ -1587,7 +1587,7 @@ def enviar_confirmacion_despues_de_guardar(cita_id, negocio_id, profesional_id,
             }
         
         # Enviar confirmación via scheduler
-        from scheduler import enviar_confirmacion_inmediata
+        from services.wabot_chat.scheduler import enviar_confirmacion_inmediata
         success = enviar_confirmacion_inmediata(cita_dict)
         
         if success:
@@ -1668,7 +1668,7 @@ def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id,
         
         # Importar y llamar a la función de confirmación del scheduler
         try:
-            from scheduler import enviar_confirmacion_inmediata
+            from services.wabot_chat.scheduler import enviar_confirmacion_inmediata
             success = enviar_confirmacion_inmediata(cita_dict)
             
             if success:

@@ -3,7 +3,7 @@ import schedule
 import time
 import threading
 from datetime import datetime, timedelta
-import database as db
+import services.wabot_chat.database as db
 from notification_system import notification_system
 
 class AppointmentScheduler:
