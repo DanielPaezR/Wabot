@@ -6,7 +6,18 @@ import sys
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
-from models import Negocio, Profesional, Producto, FotoNegocio, FotoTrabajoProfesional, Servicio, ConfiguracionHorario
+
+# Importar modelos
+from models import (
+    Negocio, 
+    Profesional, 
+    Producto, 
+    FotoNegocio, 
+    FotoTrabajoProfesional,
+    Servicio,
+    ConfiguracionHorario
+)
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,7 +25,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Configuración de base de datos - USAR LA URL PÚBLICA
+# Configuración de base de datos
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
     DATABASE_URL = "postgresql://postgres:ClWjzRkhvcoQJdNPaMxLpJBJBZUIOHHX@caboose.proxy.rlwy.net:55226/railway"
@@ -80,81 +91,52 @@ def pagina_negocio(negocio_id):
     if not negocio:
         return "Negocio no encontrado", 404
     
-    # Obtener servicios
+    # Servicios
     servicios = db_session.query(Servicio).filter(
         Servicio.negocio_id == negocio_id,
         Servicio.activo == True
     ).all()
     
-    # Obtener horarios - NO modificar los objetos originales
+    # Horarios
     horarios_db = db_session.query(ConfiguracionHorario).filter(
         ConfiguracionHorario.negocio_id == negocio_id
     ).order_by(ConfiguracionHorario.dia_semana).all()
     
-    # Mapear números de día a nombres (0=Lunes, 6=Domingo)
     dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
                 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
     
-    def convertir_a_12h(hora_str):
-        if not hora_str:
-            return ""
-        try:
-            # Limpiar el string
-            hora_str = hora_str.strip()
-            
-            # Extraer hora y minuto
-            if ':' in hora_str:
-                partes = hora_str.split(':')
-                hora = int(partes[0])
-                minutos = partes[1][:2]  # tomar solo los primeros 2 caracteres
-                minuto_int = int(minutos)
-            else:
-                hora = int(hora_str)
-                minuto_int = 0
-            
-            # Determinar AM/PM
-            if hora < 12:
-                periodo = 'AM'
-                if hora == 0:
-                    hora = 12
-            else:
-                periodo = 'PM'
-                if hora > 12:
-                    hora = hora - 12
-            
-            return f"{hora}:{minuto_int:02d} {periodo}"
-        except Exception as e:
-            print(f"Error: {e} - valor original: {hora_str}")
-            return hora_str
-    
-    # Crear lista de horarios formateados
     horarios_formateados = []
     for h in horarios_db:
         dia_nombre = dias_map.get(h.dia_semana, str(h.dia_semana))
-        # Saltar si es un día inválido (por si hay algún 7)
         if dia_nombre in ['7', 7]:
             continue
-            
-        # Convertir horas a formato 12h
-        hora_inicio_12h = convertir_a_12h(h.hora_inicio) if h.hora_inicio else ''
-        hora_fin_12h = convertir_a_12h(h.hora_fin) if h.hora_fin else ''
-        
         horarios_formateados.append({
             'dia': dia_nombre,
-            'hora_inicio': hora_inicio_12h,
-            'hora_fin': hora_fin_12h,
+            'hora_inicio': h.hora_inicio,
+            'hora_fin': h.hora_fin,
             'activo': h.activo
         })
     
-    fotos = db_session.query(FotoNegocio).filter(FotoNegocio.negocio_id == negocio_id).order_by(FotoNegocio.orden).all()
+    # Galería del negocio
+    fotos_galeria = db_session.query(FotoNegocio).filter(
+        FotoNegocio.negocio_id == negocio_id
+    ).order_by(FotoNegocio.orden).all()
     
-    # Portada: primera foto si existe, si no, None
-    portada_url = fotos[0].url if fotos else None
+    # Portada y perfil desde campos específicos
+    portada_url = negocio.foto_portada
+    perfil_url = negocio.foto_perfil
     
+    # Fallback: si no hay portada, usar primera foto de galería
+    if not portada_url and fotos_galeria:
+        portada_url = fotos_galeria[0].url
+    
+    # Profesionales
     profesionales = db_session.query(Profesional).filter(
         Profesional.negocio_id == negocio_id, 
         Profesional.activo == True
     ).all()
+    
+    # Productos
     productos = db_session.query(Producto).filter(
         Producto.negocio_id == negocio_id, 
         Producto.disponible == True
@@ -164,10 +146,11 @@ def pagina_negocio(negocio_id):
                          negocio=negocio,
                          servicios=servicios,
                          horarios=horarios_formateados,
-                         fotos=fotos,
+                         fotos_galeria=fotos_galeria,
                          profesionales=profesionales,
                          productos=productos,
-                         portada_url=portada_url)
+                         portada_url=portada_url,
+                         perfil_url=perfil_url)
 
 @app.route('/profesional/<int:profesional_id>/publico')
 def perfil_profesional(profesional_id):
@@ -176,7 +159,9 @@ def perfil_profesional(profesional_id):
     if not profesional:
         return "Profesional no encontrado", 404
     
-    fotos_trabajo = db_session.query(FotoTrabajoProfesional).filter(FotoTrabajoProfesional.profesional_id == profesional_id).all()
+    fotos_trabajo = db_session.query(FotoTrabajoProfesional).filter(
+        FotoTrabajoProfesional.profesional_id == profesional_id
+    ).all()
     
     return render_template('directorio/profesional.html',
                          profesional=profesional,
