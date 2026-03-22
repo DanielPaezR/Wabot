@@ -4,9 +4,7 @@ from flask_cors import CORS
 import os
 import sys
 
-# Agregar la carpeta shared al path (CORREGIDO)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-
+# Ya no necesitamos agregar shared al path porque models.py está local
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from models import Negocio, Profesional, Producto, FotoNegocio, FotoTrabajoProfesional
