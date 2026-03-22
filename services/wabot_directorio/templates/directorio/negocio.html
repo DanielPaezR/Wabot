@@ -438,6 +438,39 @@
                 margin: 0 auto;
             }
         }
+        .horario-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .horario-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+
+        .horario-item:last-child {
+            border-bottom: none;
+        }
+
+        .horario-dia {
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .horario-horas {
+            color: #10b981;
+            font-weight: 500;
+        }
+
+        .horario-cerrado {
+            color: #ef4444;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -494,9 +527,13 @@
             </div>
             {% endif %}
             
-            <!-- Horario -->
+            <!-- Horario (desde la BD real) -->
             {% if horarios %}
-            <div class="horario-compacto">
+            <div class="section">
+                <div class="section-title">
+                    <i class="far fa-calendar-alt"></i>
+                    Horario de atención
+                </div>
                 <div class="horario-lista">
                     {% for horario in horarios %}
                     <div class="horario-item">

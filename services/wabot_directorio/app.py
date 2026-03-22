@@ -97,36 +97,55 @@ def pagina_negocio(negocio_id):
         Servicio.activo == True
     ).all()
     
-    # Horarios
+    # ========== HORARIOS CORREGIDOS ==========
     horarios_db = db_session.query(ConfiguracionHorario).filter(
         ConfiguracionHorario.negocio_id == negocio_id
     ).order_by(ConfiguracionHorario.dia_semana).all()
     
+    # Mapear números de día a nombres (0=Lunes, 6=Domingo)
     dias_map = {0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
                 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'}
     
+    # Función para convertir hora 24h a 12h
+    def convertir_a_12h(hora_str):
+        if not hora_str:
+            return ""
+        try:
+            partes = hora_str.split(':')
+            hora = int(partes[0])
+            minuto = partes[1][:2] if len(partes) > 1 else "00"
+            periodo = 'AM' if hora < 12 else 'PM'
+            hora_12 = hora % 12
+            if hora_12 == 0:
+                hora_12 = 12
+            return f"{hora_12}:{minuto} {periodo}"
+        except:
+            return hora_str
+    
+    # Crear lista de horarios formateados
     horarios_formateados = []
     for h in horarios_db:
         dia_nombre = dias_map.get(h.dia_semana, str(h.dia_semana))
+        # Saltar si el día es inválido
         if dia_nombre in ['7', 7]:
             continue
+            
         horarios_formateados.append({
             'dia': dia_nombre,
-            'hora_inicio': h.hora_inicio,
-            'hora_fin': h.hora_fin,
+            'hora_inicio': convertir_a_12h(h.hora_inicio) if h.activo else '',
+            'hora_fin': convertir_a_12h(h.hora_fin) if h.activo else '',
             'activo': h.activo
         })
     
-    # Galería del negocio
+    # Galería
     fotos_galeria = db_session.query(FotoNegocio).filter(
         FotoNegocio.negocio_id == negocio_id
     ).order_by(FotoNegocio.orden).all()
     
-    # Portada y perfil desde campos específicos
+    # Portada y perfil
     portada_url = negocio.foto_portada
     perfil_url = negocio.foto_perfil
     
-    # Fallback: si no hay portada, usar primera foto de galería
     if not portada_url and fotos_galeria:
         portada_url = fotos_galeria[0].url
     
