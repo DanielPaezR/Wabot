@@ -6,7 +6,7 @@ import sys
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
-from models import Negocio, Profesional, Producto, FotoNegocio, FotoTrabajoProfesional
+from models import Negocio, Profesional, Producto, FotoNegocio, FotoTrabajoProfesional, Servicio, ConfiguracionHorario
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -80,15 +80,13 @@ def pagina_negocio(negocio_id):
     if not negocio:
         return "Negocio no encontrado", 404
     
-    # Obtener servicios del negocio
-    from models import Servicio  # Asegúrate de importar Servicio
+    # Obtener servicios (ya no necesitas importar dentro)
     servicios = db_session.query(Servicio).filter(
         Servicio.negocio_id == negocio_id,
         Servicio.activo == True
     ).all()
     
     # Obtener horarios
-    from models import ConfiguracionHorario
     horarios = db_session.query(ConfiguracionHorario).filter(
         ConfiguracionHorario.negocio_id == negocio_id
     ).order_by(ConfiguracionHorario.dia_semana).all()

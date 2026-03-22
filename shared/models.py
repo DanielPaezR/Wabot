@@ -107,3 +107,30 @@ class OpinionProfesional(Base):
     fecha = Column(DateTime, default=datetime.utcnow)
     
     profesional = relationship("Profesional", back_populates="opiniones")
+
+class Servicio(Base):
+    __tablename__ = 'servicios'
+    
+    id = Column(Integer, primary_key=True)
+    negocio_id = Column(Integer, ForeignKey('negocios.id'))
+    nombre = Column(String(100), nullable=False)
+    descripcion = Column(Text)
+    duracion = Column(Integer)  # duración en minutos
+    precio = Column(DECIMAL(10, 2))
+    precio_maximo = Column(DECIMAL(10, 2))
+    tipo_precio = Column(String(20))  # 'fijo', 'libre', 'rango'
+    activo = Column(Boolean, default=True)
+    
+    negocio = relationship("Negocio")
+
+class ConfiguracionHorario(Base):
+    __tablename__ = 'configuracion_horarios'
+    
+    id = Column(Integer, primary_key=True)
+    negocio_id = Column(Integer, ForeignKey('negocios.id'))
+    dia_semana = Column(Integer)  # 0=Lunes, 6=Domingo
+    hora_inicio = Column(String(10))
+    hora_fin = Column(String(10))
+    activo = Column(Boolean, default=True)
+    
+    negocio = relationship("Negocio")
