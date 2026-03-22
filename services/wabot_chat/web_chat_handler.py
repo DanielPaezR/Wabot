@@ -531,7 +531,7 @@ def generar_opciones_menu_principal():
     return opciones
 
 def generar_opciones_profesionales(numero, negocio_id):
-    """Generar opciones de profesionales para botones del chat web - CON FOTOS Y PERFIL"""
+    """Generar opciones de profesionales para botones del chat web - CON FOTOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if clave_conversacion not in conversaciones_activas or 'profesionales' not in conversaciones_activas[clave_conversacion]:
@@ -543,9 +543,6 @@ def generar_opciones_profesionales(numero, negocio_id):
     
     print(f"🔍 [WEB CHAT] Generando opciones para {len(profesionales)} profesionales")
     
-    # Obtener la URL base del directorio desde variables de entorno o config
-    directorio_base = os.environ.get('DIRECTORIO_URL', 'https://wabot-directorio-deployment.up.railway.app')
-    
     for i, prof in enumerate(profesionales, 1):
         # Crear objeto con TODOS los datos necesarios para el template
         opcion = {
@@ -554,9 +551,7 @@ def generar_opciones_profesionales(numero, negocio_id):
             'name': prof['nombre'],  # Nombre completo
             'specialty': prof.get('especialidad', 'General'),  # Especialidad
             'rating': 0,  # Rating por defecto
-            'type': 'professional',  # Tipo para que el template detecte que son profesionales con fotos
-            'profesional_id': prof.get('id'),  # ID del profesional para el enlace
-            'perfil_url': f"{directorio_base}/profesional/{prof.get('id')}/publico"  # URL al perfil público
+            'type': 'professional'  # Tipo para que el template detecte que son profesionales con fotos
         }
         
         # Añadir imagen si existe
@@ -564,15 +559,19 @@ def generar_opciones_profesionales(numero, negocio_id):
             foto_url = prof['foto_url']
             print(f"📸 [WEB CHAT] Profesional {prof['nombre']} tiene foto: {foto_url}")
             
-            # NORMALIZAR LA URL
+            # ✅ CORRECCIÓN: NORMALIZAR LA URL
             if foto_url:
+                # Si empieza con "static/", quitar "static" porque Flask ya lo añade
                 if foto_url.startswith('static/'):
-                    foto_url = '/' + foto_url
+                    foto_url = '/' + foto_url  # Convertir a /static/...
+                # Si empieza con "/static/", ya está bien
                 elif foto_url.startswith('/static/'):
-                    pass
+                    pass  # Ya está bien
+                # Si no empieza con "/", añadir "/"
                 elif not foto_url.startswith('/'):
                     foto_url = '/' + foto_url
                 
+                # Si empieza con "uploads/", añadir "/static/"
                 if foto_url.startswith('/uploads/'):
                     foto_url = '/static' + foto_url
                 
@@ -585,7 +584,7 @@ def generar_opciones_profesionales(numero, negocio_id):
         
         opciones.append(opcion)
         
-        print(f"👤 [WEB CHAT] Opción {i}: {prof['nombre']} - Imagen: {'✅' if 'image' in opcion else '❌'} - Perfil: {opcion['perfil_url']}")
+        print(f"👤 [WEB CHAT] Opción {i}: {prof['nombre']} - Imagen: {'✅' if 'image' in opcion else '❌'}")
     
     return opciones
 
