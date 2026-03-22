@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ negocio.nombre }} - Wabot Directorio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .galeria { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 20px; }
+        .galeria img { width: 300px; height: 200px; object-fit: cover; border-radius: 8px; }
+        .seccion { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .profesional { display: flex; gap: 15px; padding: 15px; border-bottom: 1px solid #eee; align-items: center; }
+        .profesional img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; }
+        .producto { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        .rating { color: #ffc107; }
+        .btn-flotante {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #25D366;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+        .btn-flotante:hover { background: #128C7E; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ negocio.nombre }} {{ negocio.emoji or '' }}</h1>
+            <p><i class="fas fa-map-marker-alt"></i> {{ negocio.direccion or 'Dirección no disponible' }}</p>
+            {% if negocio.telefono_whatsapp %}
+            <p><i class="fab fa-whatsapp"></i> {{ negocio.telefono_whatsapp }}</p>
+            {% endif %}
+            <div class="rating">
+                {% set rating = negocio.calificacion_promedio|float %}
+                {% for i in range(5) %}
+                    {% if i < rating|round(0, 'floor') %}
+                        ★
+                    {% else %}
+                        ☆
+                    {% endif %}
+                {% endfor %}
+                ({{ negocio.total_opiniones }} opiniones)
+            </div>
+            {% if negocio.descripcion %}
+            <p><i class="fas fa-info-circle"></i> {{ negocio.descripcion }}</p>
+            {% endif %}
+        </div>
+
+        {% if fotos %}
+        <div class="seccion">
+            <h3>📸 Galería del local</h3>
+            <div class="galeria">
+                {% for foto in fotos %}
+                <img src="{{ foto.url }}" alt="Foto del negocio">
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if profesionales %}
+        <div class="seccion">
+            <h3>✂️ Nuestros Profesionales</h3>
+            {% for prof in profesionales %}
+            <div class="profesional">
+                <img src="{{ prof.foto_url or 'https://via.placeholder.com/60' }}" alt="{{ prof.nombre }}">
+                <div>
+                    <h4>{{ prof.nombre }}</h4>
+                    <div class="rating">
+                        {% set rating = prof.calificacion_promedio|float %}
+                        {% for i in range(5) %}
+                            {% if i < rating|round(0, 'floor') %}★{% else %}☆{% endif %}
+                        {% endfor %}
+                        ({{ prof.total_opiniones }} opiniones)
+                    </div>
+                    <a href="/profesional/{{ prof.id }}/publico">Ver trabajos →</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if productos %}
+        <div class="seccion">
+            <h3>🛍️ Productos</h3>
+            {% for prod in productos %}
+            <div class="producto">
+                <span>{{ prod.nombre }}</span>
+                <span><strong>${{ prod.precio }}</strong></span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if negocio.telefono_whatsapp %}
+    <a href="https://wabot-chat.up.railway.app/cliente/{{ negocio.id }}" class="btn-flotante" target="_blank">
+        <i class="fas fa-calendar-alt"></i> Agendar cita
+    </a>
+    {% endif %}
+</body>
+</html>
