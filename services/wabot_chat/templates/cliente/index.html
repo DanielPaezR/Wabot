@@ -548,6 +548,70 @@
             display: block;
             height: 30px;
         }
+        .professional-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            width: 100%;
+        }
+
+        .select-professional-btn {
+            background: #25D366;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 500;
+            flex: 1;
+        }
+
+        .select-professional-btn:hover {
+            background: #20b859;
+        }
+
+        .btn-profile-link {
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .btn-profile-link:hover {
+            background: #5a6fd8;
+            color: white;
+        }
+
+        .rating-stars {
+            color: #fbbf24;
+            font-size: 0.7rem;
+            margin-top: 3px;
+        }
+
+        /* Ajustes responsive */
+        @media (max-width: 576px) {
+            .professional-buttons {
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .select-professional-btn, 
+            .btn-profile-link {
+                padding: 5px 6px;
+                font-size: 0.7rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -815,7 +879,7 @@
                             const hasImage = imageUrl && imageUrl !== '';
                             
                             optionsHtml += `
-                                <div class="professional-card" data-opcion="${option.value}">
+                                <div class="professional-card" data-prof-id="${option.profesional_id || ''}" data-opcion="${option.value}">
                                     <div class="professional-img">
                                         ${hasImage ? 
                                             `<img src="${imageUrl}" alt="${option.name || option.text}" 
@@ -826,51 +890,23 @@
                                     <div class="professional-info">
                                         <strong>${option.name || option.text}</strong>
                                         ${option.specialty ? `<small class="specialty">${option.specialty}</small>` : ''}
+                                        ${option.rating > 0 ? `<div class="rating-stars">${'★'.repeat(option.rating)}${'☆'.repeat(5-option.rating)}</div>` : ''}
                                     </div>
-                                    <button class="select-professional-btn">Seleccionar</button>
+                                    <div class="professional-buttons">
+                                        <button class="select-professional-btn">📅 Agendar</button>
+                                        ${option.perfil_url ? `<a href="${option.perfil_url}" target="_blank" class="btn-profile-link">👤 Ver Perfil</a>` : ''}
+                                    </div>
                                 </div>
                             `;
                         });
                         optionsHtml += '</div>';
                         chatMessages.append(optionsHtml);
                         
+                        // Evento para botón "Agendar"
                         $('.select-professional-btn').off('click').on('click', function() {
                             const professionalCard = $(this).closest('.professional-card');
                             const optionValue = professionalCard.data('opcion');
                             userInput.val(optionValue);
-                            sendMessage();
-                        });
-                        
-                    } else {
-                        let containerClass = 'opciones-numeradas';
-                        let buttonClass = 'opcion-btn';
-                        
-                        if (options.some(opt => opt.text && opt.text.includes(':'))) {
-                            containerClass = 'horarios-options';
-                            buttonClass = 'hora-btn';
-                        } else if (options.some(opt => opt.text && opt.text.includes('Siguiente'))) {
-                            containerClass = 'opciones-navegacion';
-                            buttonClass = 'nav-btn';
-                        } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('confirmar')))) {
-                            containerClass = 'confirmacion-opciones';
-                            buttonClass = 'confirm-btn';
-                        }
-                        
-                        let optionsHtml = `<div class="${containerClass}">`;
-                        options.forEach(option => {
-                            let btnClass = buttonClass;
-                            if (option.text && (option.text.includes('Confirmar') || option.text.includes('confirmar'))) btnClass += ' confirm-yes';
-                            else if (option.text && (option.text.includes('Cancelar') || option.text.includes('cancelar'))) btnClass += ' confirm-no';
-                            else if (option.text && option.text.includes('Siguiente')) btnClass += ' nav-next';
-                            
-                            optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text || option.name}</button>`;
-                        });
-                        optionsHtml += '</div>';
-                        
-                        chatMessages.append(optionsHtml);
-                        
-                        $('button[data-opcion]').off('click').on('click', function() {
-                            userInput.val($(this).data('opcion'));
                             sendMessage();
                         });
                     }
