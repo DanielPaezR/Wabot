@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes">
-    <title>{{ profesional.nombre }} - Wabot Directorio</title>
+    <title>{{ profesional.nombre }} - {{ negocio_nombre }} | Wabot Directorio</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * {
@@ -20,12 +20,19 @@
             padding-bottom: 90px;
         }
         
-        /* Portada con degradado */
+        /* Portada con imagen del negocio */
         .cover {
             width: 100%;
             height: 180px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         
         /* Perfil */
@@ -82,6 +89,23 @@
             font-size: 26px;
             font-weight: 700;
             margin-bottom: 8px;
+        }
+        
+        .negocio-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 13px;
+            color: #475569;
+            text-decoration: none;
+            margin-bottom: 12px;
+        }
+        
+        .negocio-link:hover {
+            background: #e2e8f0;
         }
         
         .rating {
@@ -330,10 +354,18 @@
 </head>
 <body>
     <div class="container">
-        <!-- Portada degradada -->
-        <div class="cover"></div>
+        <!-- Portada con imagen del negocio -->
+        <div class="cover">
+            {% if negocio_portada_url %}
+                <img src="{{ negocio_portada_url }}" class="cover-img" alt="Portada de {{ negocio_nombre }}">
+            {% else %}
+                <div class="cover-placeholder" style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 48px; color: white;">
+                    {{ negocio_emoji or '🏢' }}
+                </div>
+            {% endif %}
+        </div>
         
-        <!-- Foto de perfil -->
+        <!-- Foto de perfil del profesional -->
         <div class="profile-section">
             <div class="profile-photo">
                 {% if profesional.foto_url %}
@@ -349,6 +381,11 @@
         <!-- Información del profesional -->
         <div class="professional-header">
             <div class="professional-name">{{ profesional.nombre }}</div>
+            
+            <!-- Enlace al negocio -->
+            <a href="/negocio/{{ profesional.negocio_id }}" class="negocio-link">
+                <i class="fas fa-store"></i> {{ negocio_nombre }}
+            </a>
             
             <div class="rating">
                 <div class="stars">
@@ -366,7 +403,6 @@
             </div>
             {% endif %}
             
-            <!-- Aquí puedes agregar más info si existe -->
             {% if profesional.telefono %}
             <div class="info-row">
                 <i class="fab fa-whatsapp"></i>
@@ -374,7 +410,6 @@
             </div>
             {% endif %}
             
-            <!-- Descripción (si se agrega después) -->
             {% if profesional.descripcion %}
             <div class="descripcion">
                 {{ profesional.descripcion }}

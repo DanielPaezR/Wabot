@@ -159,13 +159,37 @@ def perfil_profesional(profesional_id):
     if not profesional:
         return "Profesional no encontrado", 404
     
+    # Obtener información del negocio
+    negocio = db_session.query(Negocio).filter(Negocio.id == profesional.negocio_id).first()
+    
+    # Obtener portada del negocio
+    negocio_portada_url = None
+    negocio_nombre = ""
+    negocio_emoji = "🏢"
+    
+    if negocio:
+        negocio_nombre = negocio.nombre
+        negocio_emoji = negocio.emoji or "🏢"
+        negocio_portada_url = negocio.foto_portada
+        
+        # Si no hay portada, buscar la primera foto de la galería
+        if not negocio_portada_url:
+            primera_foto = db_session.query(FotoNegocio).filter(
+                FotoNegocio.negocio_id == negocio.id
+            ).order_by(FotoNegocio.orden).first()
+            if primera_foto:
+                negocio_portada_url = primera_foto.url
+    
     fotos_trabajo = db_session.query(FotoTrabajoProfesional).filter(
         FotoTrabajoProfesional.profesional_id == profesional_id
     ).all()
     
     return render_template('directorio/profesional.html',
                          profesional=profesional,
-                         fotos_trabajo=fotos_trabajo)   
+                         fotos_trabajo=fotos_trabajo,
+                         negocio_nombre=negocio_nombre,
+                         negocio_emoji=negocio_emoji,
+                         negocio_portada_url=negocio_portada_url) 
 
 
 
