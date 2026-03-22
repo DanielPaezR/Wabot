@@ -7716,8 +7716,9 @@ def negocio_productos_nuevo():
         except:
             precio = 0
         
+        # ✅ CORRECCIÓN: Usar cursor normal (sin RealDictCursor)
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor()  # Sin RealDictCursor
         
         cursor.execute('''
             INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
@@ -7725,11 +7726,18 @@ def negocio_productos_nuevo():
             RETURNING id
         ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
         
-        producto_id = cursor.fetchone()[0]
+        # ✅ CORRECCIÓN: fetchone devuelve una tupla, acceder con índice 0
+        result = cursor.fetchone()
+        producto_id = result[0] if result else None
+        
         conn.commit()
         conn.close()
         
-        flash('✅ Producto creado exitosamente', 'success')
+        if producto_id:
+            flash('✅ Producto creado exitosamente', 'success')
+        else:
+            flash('❌ Error al crear el producto', 'error')
+        
         return redirect(url_for('negocio_productos'))
     
     return render_template('negocio/nuevo_producto.html')
@@ -7740,6 +7748,7 @@ def negocio_productos_editar(producto_id):
     """Editar producto"""
     negocio_id = session.get('negocio_id', 1)
     
+    # Para GET, usar RealDictCursor para obtener el producto como diccionario
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
@@ -7748,11 +7757,13 @@ def negocio_productos_editar(producto_id):
     
     if not producto:
         flash('Producto no encontrado', 'error')
+        conn.close()
         return redirect(url_for('negocio_productos'))
     
     if request.method == 'POST':
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad', 'error')
+            conn.close()
             return redirect(url_for('negocio_productos_editar', producto_id=producto_id))
         
         nombre = request.form.get('nombre', '').strip()
@@ -7763,6 +7774,7 @@ def negocio_productos_editar(producto_id):
         
         if not nombre:
             flash('El nombre del producto es requerido', 'error')
+            conn.close()
             return redirect(url_for('negocio_productos_editar', producto_id=producto_id))
         
         try:
@@ -7770,7 +7782,9 @@ def negocio_productos_editar(producto_id):
         except:
             precio = 0
         
-        cursor.execute('''
+        # ✅ Para UPDATE usar cursor normal
+        cursor_update = conn.cursor()
+        cursor_update.execute('''
             UPDATE productos 
             SET nombre = %s, descripcion = %s, precio = %s, imagen_url = %s, disponible = %s
             WHERE id = %s AND negocio_id = %s
