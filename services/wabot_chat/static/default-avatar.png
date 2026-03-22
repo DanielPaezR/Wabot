@@ -1,0 +1,2 @@
+<img src="${imageUrl}" alt="${option.name || option.text}" 
+    onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?background=667eea&color=fff&name=${encodeURIComponent(option.name)}'">
