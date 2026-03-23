@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>WaBot - {{ negocio.nombre }}</title>
+
+    <!-- SOLO ESTO -->
+    <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
+    <link rel="icon" href="/static/favicon.ico">
+
+    <!-- Estilos -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="/static/icons/icon-192x192.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --user-msg-bg: #007bff;
+            --bot-msg-bg: #e9ecef;
+        }
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            margin: 0 auto;
+            background: white;
+            display: block;
+            position: relative;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            max-width: 500px;
+            margin: 0 auto;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .chat-header h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+        
+        .chat-header small {
+            opacity: 0.9;
+            font-size: 0.8rem;
+            display: block;
+            margin-top: 3px;
+        }
+        
+        .chat-messages {
+            position: fixed;
+            top: 80px;
+            bottom: 190px;
+            left: 0;
+            right: 0;
+            max-width: 500px;
+            margin: 0 auto;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            background: #fafafa;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        .chat-input {
+            background: white;
+            padding: 15px;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 500px;
+            margin: 0 auto;
+            border-top: 1px solid #ddd;
+            z-index: 1000;
+            height: auto;
+            min-height: 140px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 15px;
+            max-width: 85%;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
+            line-height: 1.4;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            background-color: var(--user-msg-bg);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .bot-message {
+            background-color: var(--bot-msg-bg);
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .bot-message strong {
+            color: var(--primary-color);
+        }
+        
+        .opciones-numeradas {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .opcion-btn {
+            flex: 0 0 calc(50% - 4px);
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: white;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            font-size: 0.9rem;
+            min-height: 44px;
+            cursor: pointer;
+        }
+        
+        .horarios-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        
+        .hora-btn {
+            flex: 0 0 calc(33.333% - 4px);
+            padding: 10px 5px;
+            border-radius: 6px;
+            background: white;
+            border: 1px solid #28a745;
+            color: #28a745;
+            font-size: 0.85rem;
+            min-height: 44px;
+            cursor: pointer;
+        }
+        
+        .opciones-navegacion {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .nav-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            min-height: 44px;
+            cursor: pointer;
+        }
+        
+        .nav-next {
+            background: white;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .confirmacion-opciones {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .confirm-btn {
+            flex: 1;
+            padding: 12px 10px;
+            border-radius: 8px;
+            font-weight: 500;
+            min-height: 44px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .confirm-yes {
+            background: #28a745;
+            color: white;
+            border: 1px solid #28a745;
+        }
+        
+        .confirm-no {
+            background: #dc3545;
+            color: white;
+            border: 1px solid #dc3545;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: #bbb;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typing 1s infinite ease-in-out;
+        }
+        
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .pagination-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 8px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            min-height: 40px;
+        }
+        
+        .form-control {
+            font-size: 16px !important;
+            min-height: 44px;
+        }
+        
+        .btn {
+            min-height: 44px;
+        }
+        
+        .professionals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .professional-card {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #e0e0e0;
+        }
+
+        .professional-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.12);
+        }
+
+        .professional-img {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-bottom: 8px;
+            position: relative;
+            border: 2px solid var(--primary-color);
+            background: #f8f9fa;
+        }
+
+        .professional-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .default-avatar {
+            width: 100%;
+            height: 100%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: #6c757d;
+        }
+
+        .professional-info {
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .professional-info strong {
+            display: block;
+            color: #333;
+            font-size: 0.9rem;
+            margin-bottom: 3px;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .professional-info .specialty {
+            color: #6c757d;
+            font-size: 0.75rem;
+            display: block;
+            line-height: 1.2;
+        }
+
+        .select-professional-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            width: 100%;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        .select-professional-btn:hover {
+            background: #0056b3;
+        }
+
+        /* Botón de notificaciones push */
+        .btn-push {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-push:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        }
+        
+        .btn-push:disabled {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            cursor: default;
+            transform: none;
+        }
+        
+        .install-btn-container {
+            position: fixed;
+            bottom: 150px;
+            right: 15px;
+            z-index: 1001;
+            animation: slideInUp 0.5s ease;
+            display: none;
+        }
+
+        @keyframes slideInUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .install-btn {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 16px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .install-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .install-btn i {
+            font-size: 1rem;
+        }
+
+        @media (max-width: 576px) {
+            .chat-header {
+                padding: 12px 15px;
+            }
+            
+            .chat-messages {
+                top: 70px;
+                bottom: 180px;
+                padding: 15px;
+            }
+            
+            .chat-input {
+                padding: 12px;
+            }
+            
+            .message {
+                max-width: 90%;
+                padding: 10px 12px;
+            }
+            
+            .opcion-btn {
+                flex: 0 0 100%;
+            }
+            
+            .hora-btn {
+                flex: 0 0 calc(50% - 3px);
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .professionals-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                padding: 10px;
+            }
+            
+            .professional-img {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .professional-card {
+                padding: 8px;
+            }
+            
+            .install-btn-container {
+                bottom: 140px;
+                right: 10px;
+            }
+            
+            .install-btn {
+                padding: 8px 14px;
+                font-size: 0.8rem;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .chat-container {
+                height: 90vh;
+                margin: 20px auto;
+                border: 1px solid #ddd;
+                border-radius: 15px;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            }
+            
+            .chat-header {
+                border-radius: 15px 15px 0 0;
+            }
+            
+            .chat-messages {
+                top: 80px;
+                bottom: 190px;
+            }
+            
+            .professionals-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        .chat-messages::after {
+            content: '';
+            display: block;
+            height: 30px;
+        }
+        /* Botón flotante para ver perfil */
+        .btn-flotante-perfil {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1001;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-flotante-perfil:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+            color: white;
+        }
+
+        @media (max-width: 576px) {
+            .btn-flotante-perfil {
+                bottom: 100px;
+                left: 10px;
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- Header fijo -->
+    <div class="chat-header">
+        <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
+        <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
+    </div>
+    
+    <!-- Área de mensajes CON SCROLL -->
+    <div class="chat-messages" id="chatMessages">
+        <!-- Mensajes se cargarán aquí -->
+    </div>
+    
+    <!-- Footer fijo -->
+    <div class="chat-input">
+        <div class="input-group">
+            <input type="text" class="form-control" id="userInput" 
+                   placeholder="Escribe tu opción o mensaje..." autocomplete="off">
+            <button class="btn btn-primary" id="sendButton">
+                <i class="fas fa-paper-plane"></i> Enviar
+            </button>
+        </div>
+        <div class="action-buttons mt-2">
+            <button class="btn btn-outline-secondary action-btn" id="resetButton">
+                <i class="fas fa-redo"></i> Reiniciar
+            </button>
+            <button class="btn btn-outline-info action-btn" id="helpButton">
+                <i class="fas fa-question"></i> Ayuda
+            </button>
+            <button class="btn btn-outline-success action-btn" id="installFooterBtn">
+                <i class="fas fa-mobile-alt"></i> Instalar App
+            </button>
+            <button id="btnActivarNotificaciones" class="btn btn-push action-btn" style="display: none;">
+                🔔 Activar Notificaciones
+            </button>
+        </div>
+    </div>
+
+    <!-- Botón de instalación PWA (FLOTANTE) -->
+    <div class="install-btn-container" id="installBtnContainer">
+        <button class="install-btn" id="installBtn">
+            <i class="fas fa-download"></i> Instalar App
+        </button>
+    </div>
+
+    <input type="hidden" id="sessionId" value="{{ session_id }}">
+    <input type="hidden" id="negocioId" value="{{ negocio.id }}">
+    <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{{ url_for('static', filename='js/push-cliente.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            const chatMessages = $('#chatMessages');
+            const userInput = $('#userInput');
+            const sendButton = $('#sendButton');
+            const sessionId = $('#sessionId').val();
+            const negocioId = $('#negocioId').val();
+            const negocioNombre = $('#negocioNombre').val();
+            
+            console.log("✅ Chat inicializado para negocio ID:", negocioId, "Nombre:", negocioNombre);
+            
+            // Variables para notificaciones push
+            let telefonoCliente = localStorage.getItem('telefono_cliente');
+            let pushActivado = localStorage.getItem('push_activado') === 'true';
+            
+            // Función para obtener teléfono del cliente
+            function obtenerTelefonoCliente() {
+                return telefonoCliente;
+            }
+            
+            // Función para activar notificaciones
+            async function activarNotificaciones() {
+                const btn = document.getElementById('btnActivarNotificaciones');
+                
+                if (!telefonoCliente) {
+                    mostrarNotificacion('Por favor, primero completa el registro con tu número de teléfono.', 'warning');
+                    return;
+                }
+                
+                try {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Activando...';
+                    btn.disabled = true;
+                    
+                    const push = new window.PushClienteNotifications();
+                    const success = await push.inicializar(telefonoCliente, negocioId);
+                    
+                    if (success) {
+                        localStorage.setItem('push_activado', 'true');
+                        pushActivado = true;
+                        btn.innerHTML = '✅ Notificaciones Activadas';
+                        btn.disabled = true;
+                        
+                        // Enviar notificación de prueba
+                        await push.testNotificacion();
+                        
+                        addBotMessage('✅ ¡Notificaciones activadas! Recibirás recordatorios de tus citas.');
+                    } else {
+                        btn.innerHTML = '🔔 Activar Notificaciones';
+                        btn.disabled = false;
+                        addBotMessage('❌ No se pudieron activar las notificaciones. Asegúrate de permitir las notificaciones en tu navegador.');
+                    }
+                } catch (error) {
+                    console.error('Error activando notificaciones:', error);
+                    btn.innerHTML = '🔔 Activar Notificaciones';
+                    btn.disabled = false;
+                    addBotMessage('❌ Error al activar notificaciones. Intenta nuevamente.');
+                }
+            }
+            
+            // Escuchar cambios en el teléfono del cliente
+            function escucharTelefonoCliente() {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                            // Buscar mensajes que contengan confirmación de teléfono
+                            const mensajes = document.querySelectorAll('.bot-message');
+                            const ultimoMensaje = mensajes[mensajes.length - 1];
+                            if (ultimoMensaje) {
+                                const texto = ultimoMensaje.textContent;
+                                const telefonoMatch = texto.match(/\b(3\d{9})\b/);
+                                if (telefonoMatch && !telefonoCliente) {
+                                    telefonoCliente = telefonoMatch[1];
+                                    localStorage.setItem('telefono_cliente', telefonoCliente);
+                                    console.log("📱 Teléfono detectado:", telefonoCliente);
+                                    
+                                    // Mostrar botón de notificaciones
+                                    const btnNotificaciones = document.getElementById('btnActivarNotificaciones');
+                                    btnNotificaciones.style.display = 'block';
+                                    addBotMessage('💡 Puedes activar las notificaciones para recibir recordatorios de tus citas.');
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                observer.observe(document.getElementById('chatMessages'), { 
+                    childList: true, 
+                    subtree: true,
+                    characterData: true 
+                });
+            }
+            
+            // Mostrar notificación temporal
+            function mostrarNotificacion(mensaje, tipo = 'info') {
+                const notifDiv = $(`<div class="alert alert-${tipo} alert-dismissible fade show" role="alert" style="position: fixed; bottom: 160px; left: 20px; right: 20px; z-index: 1100; max-width: 460px; margin: 0 auto;">
+                    ${mensaje}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`);
+                $('body').append(notifDiv);
+                setTimeout(() => notifDiv.fadeOut(500, () => notifDiv.remove()), 3000);
+            }
+            
+            // Función para crear manifest dinámico
+            function crearManifestDinamico() {
+                const urlAbsoluta = window.location.origin + '/cliente/' + negocioId;
+                const scopeUrl = '/cliente/' + negocioId + '/';
+                
+                const manifestData = {
+                    "name": "WaBot - " + negocioNombre,
+                    "short_name": "WaBot",
+                    "description": "Agendar citas en " + negocioNombre,
+                    "start_url": urlAbsoluta,
+                    "display": "standalone",
+                    "background_color": "#007bff",
+                    "theme_color": "#007bff",
+                    "orientation": "portrait-primary",
+                    "scope": scopeUrl,
+                    "lang": "es",
+                    "icons": [
+                        {"src": "/static/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+                        {"src": "/static/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any"},
+                        {"src": "/static/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+                    ],
+                    "categories": ["business", "productivity", "utilities"],
+                    "shortcuts": [
+                        {
+                            "name": "Agendar Cita",
+                            "short_name": "Agendar",
+                            "description": "Agendar una nueva cita en " + negocioNombre,
+                            "url": urlAbsoluta,
+                            "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png"}]
+                        }
+                    ]
+                };
+                
+                const jsonManifest = JSON.stringify(manifestData, null, 2);
+                const blob = new Blob([jsonManifest], {type: 'application/json'});
+                const manifestUrl = URL.createObjectURL(blob);
+                
+                let manifestLink = document.querySelector('link[rel="manifest"]');
+                if (!manifestLink) {
+                    manifestLink = document.createElement('link');
+                    manifestLink.rel = 'manifest';
+                    document.head.appendChild(manifestLink);
+                }
+                manifestLink.href = manifestUrl;
+                
+                return manifestUrl;
+            }
+            
+            function scrollToBottom() {
+                setTimeout(() => {
+                    const messagesEl = chatMessages[0];
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                }, 100);
+            }
+            
+            function showTypingIndicator() {
+                chatMessages.append(`
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                `);
+                scrollToBottom();
+            }
+            
+            function hideTypingIndicator() {
+                $('.typing-indicator').remove();
+            }
+            
+            function addUserMessage(message) {
+                if (!message.trim()) return;
+                const messageHtml = `
+                    <div class="message user-message">
+                        <strong><i class="fas fa-user"></i> Tú:</strong><br>
+                        ${message.replace(/\n/g, '<br>')}
+                    </div>
+                `;
+                chatMessages.append(messageHtml);
+                scrollToBottom();
+            }
+            
+            function addBotMessage(message, options = null, pagination = null) {
+                console.log("🤖 Mensaje del bot:", message);
+                
+                const messageHtml = `
+                    <div class="message bot-message">
+                        <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
+                        ${message.replace(/\n/g, '<br>')}
+                    </div>
+                `;
+                
+                chatMessages.append(messageHtml);
+                
+                if (options && options.length > 0) {
+                    const isProfessionalsWithPhotos = options.some(opt => 
+                        (opt.image || opt.type === 'professional') && opt.rating !== undefined
+                    );
+                    
+                    if (isProfessionalsWithPhotos) {
+                        let optionsHtml = `<div class="professionals-grid">`;
+                        options.forEach((option) => {
+                            let imageUrl = option.image || '';
+                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+                                imageUrl = '/' + imageUrl;
+                            }
+                            const hasImage = imageUrl && imageUrl !== '';
+                            
+                            optionsHtml += `
+                                <div class="professional-card" data-opcion="${option.value}">
+                                    <div class="professional-img">
+                                        ${hasImage ? 
+                                            `<img src="${imageUrl}" alt="${option.name || option.text}" 
+                                                onerror="this.onerror=null; this.src='/static/default-avatar.png';">` : 
+                                            `<div class="default-avatar"><i class="fas fa-user"></i></div>`
+                                        }
+                                    </div>
+                                    <div class="professional-info">
+                                        <strong>${option.name || option.text}</strong>
+                                        ${option.specialty ? `<small class="specialty">${option.specialty}</small>` : ''}
+                                    </div>
+                                    <button class="select-professional-btn">Seleccionar</button>
+                                </div>
+                            `;
+                        });
+                        optionsHtml += '</div>';
+                        chatMessages.append(optionsHtml);
+                        
+                        $('.select-professional-btn').off('click').on('click', function() {
+                            const professionalCard = $(this).closest('.professional-card');
+                            const optionValue = professionalCard.data('opcion');
+                            userInput.val(optionValue);
+                            sendMessage();
+                        });
+                        
+                    } else {
+                        let containerClass = 'opciones-numeradas';
+                        let buttonClass = 'opcion-btn';
+                        
+                        if (options.some(opt => opt.text && opt.text.includes(':'))) {
+                            containerClass = 'horarios-options';
+                            buttonClass = 'hora-btn';
+                        } else if (options.some(opt => opt.text && opt.text.includes('Siguiente'))) {
+                            containerClass = 'opciones-navegacion';
+                            buttonClass = 'nav-btn';
+                        } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('confirmar')))) {
+                            containerClass = 'confirmacion-opciones';
+                            buttonClass = 'confirm-btn';
+                        }
+                        
+                        let optionsHtml = `<div class="${containerClass}">`;
+                        options.forEach(option => {
+                            let btnClass = buttonClass;
+                            if (option.text && (option.text.includes('Confirmar') || option.text.includes('confirmar'))) btnClass += ' confirm-yes';
+                            else if (option.text && (option.text.includes('Cancelar') || option.text.includes('cancelar'))) btnClass += ' confirm-no';
+                            else if (option.text && option.text.includes('Siguiente')) btnClass += ' nav-next';
+                            
+                            optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text || option.name}</button>`;
+                        });
+                        optionsHtml += '</div>';
+                        
+                        chatMessages.append(optionsHtml);
+                        
+                        $('button[data-opcion]').off('click').on('click', function() {
+                            userInput.val($(this).data('opcion'));
+                            sendMessage();
+                        });
+                    }
+                }
+                
+                if (pagination) {
+                    chatMessages.append(`<div class="pagination-info">${pagination}</div>`);
+                }
+                
+                setTimeout(() => scrollToBottom(), 200);
+            }
+            
+            function sendMessage() {
+                const message = userInput.val().trim();
+                if (!message) return;
+                
+                addUserMessage(message);
+                userInput.val('');
+                showTypingIndicator();
+                
+                $.ajax({
+                    url: '/cliente/send',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        message: message,
+                        session_id: sessionId,
+                        negocio_id: negocioId
+                    }),
+                    success: function(response) {
+                        hideTypingIndicator();
+                        if (response.error) {
+                            addBotMessage(`❌ ${response.error}`);
+                            return;
+                        }
+                        addBotMessage(response.message, response.options, response.pagination);
+                    },
+                    error: function(xhr, status, error) {
+                        hideTypingIndicator();
+                        addBotMessage('❌ Error al procesar tu mensaje. Intenta de nuevo.');
+                    }
+                });
+            }
+            
+            // Eventos
+            sendButton.click(sendMessage);
+            userInput.keypress(function(e) {
+                if (e.which === 13) sendMessage();
+            });
+            
+            $('#resetButton').click(function() {
+                if (confirm('¿Reiniciar conversación?')) {
+                    localStorage.removeItem('telefono_cliente');
+                    localStorage.removeItem('push_activado');
+                    $.post('/cliente/reset', function() {
+                        location.reload();
+                    });
+                }
+            });
+            
+            $('#helpButton').click(function() {
+                userInput.val('4');
+                sendMessage();
+            });
+            
+            $('#installFooterBtn').click(function() {
+                $('#installBtn').click();
+            });
+            
+            // Botón de notificaciones
+            $('#btnActivarNotificaciones').click(function() {
+                activarNotificaciones();
+            });
+            
+            // Iniciar conversación
+            setTimeout(() => {
+                userInput.val('hola');
+                sendMessage();
+            }, 800);
+            
+            // Detectar teléfono del cliente
+            escucharTelefonoCliente();
+            
+            // Si ya había teléfono guardado, mostrar botón
+            if (telefonoCliente) {
+                const btnNotificaciones = document.getElementById('btnActivarNotificaciones');
+                btnNotificaciones.style.display = 'block';
+                
+                if (!pushActivado) {
+                    setTimeout(() => {
+                        addBotMessage('💡 Puedes activar las notificaciones para recibir recordatorios de tus citas.');
+                    }, 3000);
+                }
+            }
+            
+            // PWA Installation
+            let deferredPrompt = null;
+            const installBtn = document.getElementById('installBtn');
+            const installBtnContainer = document.getElementById('installBtnContainer');
+            
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installBtnContainer.style.display = 'block';
+                crearManifestDinamico();
+            });
+            
+            window.addEventListener('appinstalled', () => {
+                installBtnContainer.style.display = 'none';
+                deferredPrompt = null;
+            });
+            
+            async function tryInstallPWA() {
+                if (!deferredPrompt) {
+                    addBotMessage('📱 Intenta recargar la página o usar Chrome/Edge para instalar.');
+                    return false;
+                }
+                
+                try {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    installBtnContainer.style.display = 'none';
+                    
+                    if (outcome === 'accepted') {
+                        addBotMessage('✅ ¡App instalada! Busca el ícono en tu pantalla principal.');
+                    }
+                    return outcome === 'accepted';
+                } catch (error) {
+                    console.error("Error al instalar:", error);
+                    return false;
+                }
+            }
+            
+            if (installBtn) {
+                installBtn.addEventListener('click', tryInstallPWA);
+            }
+            
+            setTimeout(() => {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('/service-worker.js')
+                        .then(reg => console.log("✅ SW registrado:", reg.scope))
+                        .catch(err => console.log("❌ Error SW:", err));
+                }
+                crearManifestDinamico();
+            }, 1000);
+        });
+    </script>
+    <!-- Botón flotante para ver perfil del negocio -->
+    <a href="https://wabot-directorio-production.up.railway.app/negocio/{{ negocio.id }}" 
+    target="_blank" 
+    class="btn-flotante-perfil" 
+    id="floatingProfileBtn">
+        <i class="fas fa-store"></i> Ver Perfil
+    </a>
+</body>
+</html>
