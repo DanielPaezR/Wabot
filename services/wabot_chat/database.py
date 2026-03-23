@@ -1019,12 +1019,32 @@ def obtener_negocio_por_telefono(telefono_whatsapp):
 
 
 def obtener_negocio_por_id(negocio_id):
-    """Obtener negocio por ID"""
+    """Obtener negocio por ID con todos los campos"""
     conn = get_db_connection()
-    sql = 'SELECT * FROM negocios WHERE id = ?'
-    negocio = fetch_one(conn.cursor(), sql, (negocio_id,))
-    conn.close()
-    return negocio
+    cursor = conn.cursor(cursor_factory=RealDictCursor if is_postgresql() else None)
+    
+    try:
+        if is_postgresql():
+            cursor.execute('''
+                SELECT id, nombre, telefono_whatsapp, tipo_negocio, emoji, 
+                       configuracion, activo, fecha_creacion, latitud, longitud, direccion
+                FROM negocios 
+                WHERE id = %s
+            ''', (negocio_id,))
+        else:
+            cursor.execute('''
+                SELECT id, nombre, telefono_whatsapp, tipo_negocio, emoji, 
+                       configuracion, activo, fecha_creacion, latitud, longitud, direccion
+                FROM negocios 
+                WHERE id = ?
+            ''', (negocio_id,))
+        
+        return cursor.fetchone()
+    except Exception as e:
+        print(f"❌ Error obteniendo negocio: {e}")
+        return None
+    finally:
+        conn.close()
 
 
 def obtener_todos_negocios():
@@ -1056,22 +1076,22 @@ def obtener_todos_negocios():
     return negocios_procesados
 
 
-def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}', emoji='👋'):
-    """Crear un nuevo negocio - VERSIÓN CORREGIDA PARA POSTGRESQL"""
+def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuracion='{}', emoji='👋', latitud=None, longitud=None, direccion=None):
+    """Crear un nuevo negocio - CON COORDENADAS Y DIRECCIÓN"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # Para PostgreSQL, NO especificar el ID - dejar que la secuencia lo asigne automáticamente
+        # Para PostgreSQL
         if is_postgresql():
             sql = '''
-                INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion, latitud, longitud, direccion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             '''
-            cursor.execute(sql, (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion))
+            cursor.execute(sql, (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion, latitud, longitud, direccion))
             result = cursor.fetchone()
-            # ✅ CORRECCIÓN: Acceder correctamente al resultado
+            # Acceder correctamente al resultado
             if hasattr(result, 'keys'):  # Es un diccionario (RealDictCursor)
                 negocio_id = result['id']
             else:  # Es una tupla
@@ -1079,10 +1099,10 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
         else:
             # Para SQLite
             sql = '''
-                INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO negocios (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion, latitud, longitud, direccion)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             '''
-            execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion))
+            execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, emoji, configuracion, latitud, longitud, direccion))
             negocio_id = cursor.lastrowid
         
         if not negocio_id:
@@ -1093,35 +1113,41 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
         print(f"✅ Negocio creado con ID: {negocio_id}")
         
         # Crear configuración por defecto
-        sql = 'INSERT INTO configuracion (negocio_id) VALUES (?)'
-        execute_sql(cursor, sql, (negocio_id,))
+        if is_postgresql():
+            cursor.execute('INSERT INTO configuracion (negocio_id) VALUES (%s)', (negocio_id,))
+        else:
+            execute_sql(cursor, 'INSERT INTO configuracion (negocio_id) VALUES (?)', (negocio_id,))
         
         # Crear configuración de horarios
         _insertar_configuracion_horarios_para_negocio(cursor, negocio_id)
         
         # Crear usuario propietario por defecto
         email_propietario = f"propietario{negocio_id}@negocio.com"
-        sql = '''
-            INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
-            VALUES (?, ?, ?, ?, ?)
-        '''
-        execute_sql(cursor, sql, (
-            negocio_id, 
-            'Propietario', 
-            email_propietario, 
-            generate_password_hash('propietario123'), 
-            'propietario'
-        ))
+        if is_postgresql():
+            cursor.execute('''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (negocio_id, 'Propietario', email_propietario, generate_password_hash('propietario123'), 'propietario'))
+        else:
+            execute_sql(cursor, '''
+                INSERT INTO usuarios (negocio_id, nombre, email, password_hash, rol)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (negocio_id, 'Propietario', email_propietario, generate_password_hash('propietario123'), 'propietario'))
         
         # Crear servicios por defecto
         _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio)
         
         # Crear profesional por defecto
-        sql = '''
-            INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
-            VALUES (?, ?, ?, ?)
-        '''
-        execute_sql(cursor, sql, (negocio_id, 'Principal', 'Especialista', '0000'))
+        if is_postgresql():
+            cursor.execute('''
+                INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
+                VALUES (%s, %s, %s, %s)
+            ''', (negocio_id, 'Principal', 'Especialista', '0000'))
+        else:
+            execute_sql(cursor, '''
+                INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
+                VALUES (?, ?, ?, ?)
+            ''', (negocio_id, 'Principal', 'Especialista', '0000'))
         
         conn.commit()
         
@@ -1205,26 +1231,69 @@ def _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio):
         execute_sql(cursor, sql, (negocio_id, nombre, duracion, precio, descripcion))
 
 
-def actualizar_negocio(negocio_id, nombre, telefono_whatsapp, tipo_negocio, activo, configuracion):
-    """Actualizar un negocio existente"""
+def actualizar_negocio(negocio_id, nombre=None, telefono_whatsapp=None, tipo_negocio=None, emoji=None, activo=None, configuracion=None, latitud=None, longitud=None, direccion=None):
+    """Actualizar un negocio existente - CON COORDENADAS Y DIRECCIÓN"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        sql = '''
-            UPDATE negocios 
-            SET nombre = ?, telefono_whatsapp = ?, tipo_negocio = ?, activo = ?, configuracion = ?
-            WHERE id = ?
-        '''
-        execute_sql(cursor, sql, (nombre, telefono_whatsapp, tipo_negocio, activo, configuracion, negocio_id))
+        campos = []
+        valores = []
         
-        conn.commit()
-        return True
+        if nombre is not None:
+            campos.append("nombre = %s" if is_postgresql() else "nombre = ?")
+            valores.append(nombre)
+        if telefono_whatsapp is not None:
+            campos.append("telefono_whatsapp = %s" if is_postgresql() else "telefono_whatsapp = ?")
+            valores.append(telefono_whatsapp)
+        if tipo_negocio is not None:
+            campos.append("tipo_negocio = %s" if is_postgresql() else "tipo_negocio = ?")
+            valores.append(tipo_negocio)
+        if emoji is not None:
+            campos.append("emoji = %s" if is_postgresql() else "emoji = ?")
+            valores.append(emoji)
+        if activo is not None:
+            campos.append("activo = %s" if is_postgresql() else "activo = ?")
+            valores.append(activo)
+        if configuracion is not None:
+            campos.append("configuracion = %s" if is_postgresql() else "configuracion = ?")
+            valores.append(configuracion)
+        if latitud is not None:
+            campos.append("latitud = %s" if is_postgresql() else "latitud = ?")
+            valores.append(latitud)
+        if longitud is not None:
+            campos.append("longitud = %s" if is_postgresql() else "longitud = ?")
+            valores.append(longitud)
+        if direccion is not None:
+            campos.append("direccion = %s" if is_postgresql() else "direccion = ?")
+            valores.append(direccion)
+        
+        if campos:
+            valores.append(negocio_id)
+            query = f"UPDATE negocios SET {', '.join(campos)} WHERE id = %s" if is_postgresql() else f"UPDATE negocios SET {', '.join(campos)} WHERE id = ?"
+            
+            if is_postgresql():
+                cursor.execute(query, valores)
+            else:
+                execute_sql(cursor, query, valores)
+            
+            conn.commit()
+            print(f"✅ Negocio {negocio_id} actualizado: {campos}")
+            return True
+        else:
+            print(f"⚠️ No hay campos para actualizar en negocio {negocio_id}")
+            return False
+            
     except Exception as e:
+        conn.rollback()
         print(f"❌ Error actualizando negocio: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     finally:
         conn.close()
+
+
 
 
 # =============================================================================

@@ -23,6 +23,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
         
         .header h1 {
@@ -57,7 +59,7 @@
         }
         
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -137,6 +139,8 @@
         small {
             color: #666;
             font-size: 0.8rem;
+            display: block;
+            margin-top: 0.25rem;
         }
 
         .flash-messages {
@@ -165,7 +169,6 @@
             margin-bottom: 1rem;
         }
 
-        /* Solo agregué esto: Estilo para mostrar el ID */
         .id-display {
             background: #f8f9fa;
             padding: 1rem;
@@ -191,6 +194,39 @@
             color: #666;
             font-size: 0.9rem;
             margin-top: 0.5rem;
+        }
+
+        .coordinates-group {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .coordinates-group h4 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .form-container {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
@@ -219,7 +255,6 @@
         </div>
         
         <div class="form-container">
-            <!-- SOLO ESTO ES NUEVO: Sección para mostrar el ID -->
             <div class="id-display">
                 <div class="id-label">ID del Negocio</div>
                 <div class="id-value">#{{ negocio.id }}</div>
@@ -237,11 +272,17 @@
                     <label for="nombre">Nombre del Negocio *</label>
                     <input type="text" id="nombre" name="nombre" value="{{ negocio.nombre }}" required>
                 </div>
+
+                <div class="form-group">
+                    <label for="emoji">Emoji del Negocio</label>
+                    <input type="text" id="emoji" name="emoji" value="{{ negocio.emoji or '👋' }}" maxlength="5">
+                    <small>Un emoji que represente tu negocio</small>
+                </div>
                 
                 <div class="form-group">
                     <label for="telefono_whatsapp">Número de WhatsApp *</label>
                     <input type="text" id="telefono_whatsapp" name="telefono_whatsapp" value="{{ negocio.telefono_whatsapp }}" required>
-                    <small>Formato: whatsapp:+573001234567</small>
+                    <small>Formato: +573001234567</small>
                 </div>
                 
                 <div class="form-row">
@@ -269,6 +310,34 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- NUEVO: Coordenadas para el mapa -->
+                <div class="coordinates-group">
+                    <h4>📍 Ubicación en el Mapa</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="latitud">Latitud</label>
+                            <input type="text" id="latitud" name="latitud" 
+                                   value="{{ negocio.latitud or '' }}"
+                                   placeholder="Ej: 6.24420">
+                            <small>Coordenada de latitud (ej: 6.24420 para Medellín centro)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="longitud">Longitud</label>
+                            <input type="text" id="longitud" name="longitud" 
+                                   value="{{ negocio.longitud or '' }}"
+                                   placeholder="Ej: -75.58121">
+                            <small>Coordenada de longitud (ej: -75.58121 para Medellín centro)</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion">Dirección completa</label>
+                        <input type="text" id="direccion" name="direccion" 
+                               value="{{ negocio.direccion or '' }}"
+                               placeholder="Ej: Cl. 32A #84-57, Belén, Medellín">
+                        <small>Dirección física del negocio</small>
+                    </div>
+                </div>
                 
                 <div class="form-group">
                     <label for="saludo_personalizado">Saludo Personalizado</label>
@@ -278,11 +347,6 @@
                 <div class="form-group">
                     <label for="horario_atencion">Horario de Atención</label>
                     <input type="text" id="horario_atencion" name="horario_atencion" value="{{ config.horario_atencion }}" placeholder="Lunes a Sábado 9:00 AM - 7:00 PM">
-                </div>
-                
-                <div class="form-group">
-                    <label for="direccion">Dirección</label>
-                    <input type="text" id="direccion" name="direccion" value="{{ config.direccion }}" placeholder="Calle Principal #123">
                 </div>
                 
                 <div class="form-group">

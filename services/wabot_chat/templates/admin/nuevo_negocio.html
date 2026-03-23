@@ -65,7 +65,7 @@
         }
         
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             padding: 1rem;
         }
@@ -118,15 +118,6 @@
         
         .btn-primary:hover {
             background: #2980b9;
-        }
-        
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-            border: 1px solid #fcc;
         }
         
         .form-row {
@@ -188,34 +179,23 @@
             line-height: 1.4;
         }
 
-        /* Estilos responsive */
+        .coordinates-group {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #e9ecef;
+        }
+
+        .coordinates-group h4 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 480px) {
-            .header {
-                flex-direction: column;
-                text-align: center;
-                gap: 0.8rem;
-            }
-            
-            .user-info {
-                justify-content: center;
-            }
-            
-            .container {
-                padding: 0.8rem;
-            }
-            
-            .form-container {
-                padding: 1rem;
-            }
-            
             .form-row {
                 grid-template-columns: 1fr;
-                gap: 0.5rem;
-            }
-            
-            input[type="text"],
-            select {
-                padding: 10px;
             }
         }
 
@@ -244,7 +224,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Nuevos estilos para emoji */
         .emoji-preview {
             font-size: 1.5rem;
             margin-left: 10px;
@@ -286,19 +265,12 @@
         </div>
         
         <div class="form-container">
-            {% if error %}
-            <div class="error">
-                {{ error }}
-            </div>
-            {% endif %}
-
             <div class="form-help">
                 <h4>💡 Información importante</h4>
                 <p>Al crear un negocio se generará automáticamente un usuario propietario con las credenciales: <strong>propietario@negocio.com / propietario123</strong>. Podrás editar estos datos después.</p>
             </div>
             
             <form method="POST" id="negocioForm">
-                <!-- ✅ CORRECCIÓN: Agregar protección CSRF -->
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 
                 <div class="form-group">
@@ -308,7 +280,6 @@
                            value="{{ request.form.nombre if request.form }}">
                 </div>
 
-                <!-- ✅ NUEVO CAMPO: Emoji del Negocio -->
                 <div class="form-group">
                     <label for="emoji">Emoji del Negocio</label>
                     <div class="emoji-input-container">
@@ -346,7 +317,34 @@
                     <small>Selecciona la categoría que mejor describa tu negocio</small>
                 </div>
 
-                <!-- ✅ NUEVO: Saludo Personalizado (Opcional) -->
+                <!-- NUEVO: Coordenadas para el mapa -->
+                <div class="coordinates-group">
+                    <h4>📍 Ubicación en el Mapa</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="latitud">Latitud</label>
+                            <input type="text" id="latitud" name="latitud" 
+                                   placeholder="Ej: 6.24420"
+                                   value="{{ request.form.latitud if request.form }}">
+                            <small>Coordenada de latitud (ej: 6.24420 para Medellín centro)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="longitud">Longitud</label>
+                            <input type="text" id="longitud" name="longitud" 
+                                   placeholder="Ej: -75.58121"
+                                   value="{{ request.form.longitud if request.form }}">
+                            <small>Coordenada de longitud (ej: -75.58121 para Medellín centro)</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion">Dirección completa</label>
+                        <input type="text" id="direccion" name="direccion" 
+                               placeholder="Ej: Cl. 32A #84-57, Belén, Medellín"
+                               value="{{ request.form.direccion if request.form }}">
+                        <small>Dirección física del negocio</small>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="saludo_personalizado">Saludo Personalizado (Opcional)</label>
                     <input type="text" id="saludo_personalizado" name="saludo_personalizado" 
@@ -372,7 +370,6 @@
             const submitBtn = document.getElementById('submitBtn');
             const loading = document.getElementById('loading');
             
-            // Validación básica del número de WhatsApp
             const telefono = document.getElementById('telefono_whatsapp').value;
             if (!telefono.startsWith('+')) {
                 alert('❌ El número de WhatsApp debe empezar con + (formato internacional)');
@@ -386,15 +383,11 @@
                 return;
             }
             
-            // Mostrar loading
             submitBtn.disabled = true;
             submitBtn.innerHTML = '⏳ Creando...';
             loading.style.display = 'block';
-            
-            // El formulario se enviará normalmente
         });
 
-        // Validación en tiempo real del número de WhatsApp
         document.getElementById('telefono_whatsapp').addEventListener('input', function(e) {
             const value = e.target.value;
             if (value && !value.startsWith('+')) {
@@ -404,7 +397,6 @@
             }
         });
 
-        // Validación en tiempo real del nombre
         document.getElementById('nombre').addEventListener('input', function(e) {
             const value = e.target.value;
             if (value && value.length < 3) {
@@ -414,20 +406,17 @@
             }
         });
 
-        // ✅ NUEVO: Vista previa del emoji en tiempo real
         document.getElementById('emoji').addEventListener('input', function(e) {
             const emojiPreview = document.getElementById('emojiPreview');
             emojiPreview.textContent = e.target.value || '👋';
         });
 
-        // ✅ Inicializar vista previa del emoji
         document.addEventListener('DOMContentLoaded', function() {
             const emojiInput = document.getElementById('emoji');
             const emojiPreview = document.getElementById('emojiPreview');
             emojiPreview.textContent = emojiInput.value || '👋';
         });
 
-        // ✅ NUEVO: Actualizar emoji automáticamente según el tipo de negocio
         document.getElementById('tipo_negocio').addEventListener('change', function(e) {
             const emojiInput = document.getElementById('emoji');
             const emojiMap = {
