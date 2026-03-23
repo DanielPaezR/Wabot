@@ -1345,62 +1345,41 @@ def obtener_servicio_por_id(servicio_id, negocio_id):
     
     return servicio
 
-def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, 
-                     descripcion='', activo=True, tipo_precio='fijo', precio_maximo=None):
-    """Guardar o actualizar un servicio - CON TIPO DE PRECIO"""
+def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripcion, activo=True, tipo_precio='fijo', precio_maximo=None, foto_url=None):
+    """Guardar o actualizar servicio - CON FOTO"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        if servicio_id and servicio_id > 0:
-            # Actualizar servicio existente
-            if is_postgresql():
-                sql = '''
+        if servicio_id:
+            # Actualizar existente
+            if foto_url is not None:
+                cursor.execute('''
+                    UPDATE servicios 
+                    SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, 
+                        activo = %s, tipo_precio = %s, precio_maximo = %s, foto_url = %s
+                    WHERE id = %s AND negocio_id = %s
+                ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url, servicio_id, negocio_id))
+            else:
+                cursor.execute('''
                     UPDATE servicios 
                     SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, 
                         activo = %s, tipo_precio = %s, precio_maximo = %s
                     WHERE id = %s AND negocio_id = %s
-                '''
-                cursor.execute(sql, (nombre, duracion, precio, descripcion, activo, 
-                                   tipo_precio, precio_maximo, servicio_id, negocio_id))
-            else:
-                sql = '''
-                    UPDATE servicios 
-                    SET nombre = ?, duracion = ?, precio = ?, descripcion = ?, 
-                        activo = ?, tipo_precio = ?, precio_maximo = ?
-                    WHERE id = ? AND negocio_id = ?
-                '''
-                cursor.execute(sql, (nombre, duracion, precio, descripcion, activo, 
-                                   tipo_precio, precio_maximo, servicio_id, negocio_id))
-            
-            mensaje = f"Servicio '{nombre}' actualizado exitosamente"
+                ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, servicio_id, negocio_id))
         else:
-            # Crear nuevo servicio
-            if is_postgresql():
-                sql = '''
-                    INSERT INTO servicios 
-                    (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                '''
-                cursor.execute(sql, (negocio_id, nombre, duracion, precio, descripcion, 
-                                   activo, tipo_precio, precio_maximo))
-                result = cursor.fetchone()
-                servicio_id = result[0] if isinstance(result, tuple) else result['id']
-            else:
-                sql = '''
-                    INSERT INTO servicios 
-                    (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                '''
-                cursor.execute(sql, (negocio_id, nombre, duracion, precio, descripcion, 
-                                   activo, tipo_precio, precio_maximo))
-                servicio_id = cursor.lastrowid
+            # Crear nuevo
+            cursor.execute('''
+                INSERT INTO servicios 
+                (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url))
             
-            mensaje = f"Servicio '{nombre}' creado exitosamente"
+            servicio_id = cursor.fetchone()[0]
         
         conn.commit()
-        return {'success': True, 'id': servicio_id, 'message': mensaje}
+        return {'success': True, 'id': servicio_id, 'message': 'Servicio guardado correctamente'}
         
     except Exception as e:
         conn.rollback()

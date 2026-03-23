@@ -22,7 +22,7 @@ from psycopg2.extras import RealDictCursor
 import uuid 
 from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
-import scheduler
+import scheduler as scheduler
 from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
 
@@ -2573,14 +2573,13 @@ def negocio_servicios():
 @app.route('/negocio/servicios/nuevo', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_nuevo_servicio():
-    """Crear nuevo servicio para el negocio - CON TIPO DE PRECIO"""
+    """Crear nuevo servicio para el negocio - CON TIPO DE PRECIO Y FOTO"""
     if session['usuario_rol'] == 'propietario':
         negocio_id = session['negocio_id']
     else:
         negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
     
     if request.method == 'POST':
-        # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             return redirect(url_for('negocio_nuevo_servicio'))
@@ -2590,7 +2589,9 @@ def negocio_nuevo_servicio():
         precio = float(request.form['precio'])
         descripcion = request.form.get('descripcion', '')
         
-        # ✅ NUEVOS CAMPOS
+        # ✅ NUEVO: Obtener foto_url
+        foto_url = request.form.get('foto_url', '')
+        
         tipo_precio = request.form.get('tipo_precio', 'fijo')
         precio_maximo = None
         
@@ -2603,17 +2604,17 @@ def negocio_nuevo_servicio():
                     flash('❌ El precio máximo debe ser un número válido', 'error')
                     return redirect(url_for('negocio_nuevo_servicio'))
         
-        # Usar la nueva función guardar_servicio con servicio_id=None para crear nuevo
         resultado = db.guardar_servicio(
             negocio_id=negocio_id,
-            servicio_id=None,  # None indica que es nuevo
+            servicio_id=None,
             nombre=nombre,
             duracion=duracion,
             precio=precio,
             descripcion=descripcion,
             activo=True,
             tipo_precio=tipo_precio,
-            precio_maximo=precio_maximo
+            precio_maximo=precio_maximo,
+            foto_url=foto_url
         )
         
         if resultado['success']:
@@ -2628,7 +2629,7 @@ def negocio_nuevo_servicio():
 @app.route('/negocio/servicios/<int:servicio_id>/editar', methods=['GET', 'POST'])
 @login_required
 def negocio_editar_servicio(servicio_id):
-    """Editar servicio del negocio - CON TIPO DE PRECIO Y RANGO"""
+    """Editar servicio del negocio - CON TIPO DE PRECIO, RANGO Y FOTO"""
     servicio = db.obtener_servicio_por_id(servicio_id, session['negocio_id'])
     if not servicio:
         flash('Servicio no encontrado', 'error')
@@ -2646,6 +2647,9 @@ def negocio_editar_servicio(servicio_id):
         descripcion = request.form.get('descripcion', '')
         activo = request.form.get('activo', 'off') == 'on'
         
+        # ✅ Obtener foto_url del formulario
+        foto_url = request.form.get('foto_url', '')
+        
         # ✅ NUEVOS CAMPOS
         tipo_precio = request.form.get('tipo_precio', 'fijo')
         precio_maximo = None
@@ -2660,7 +2664,7 @@ def negocio_editar_servicio(servicio_id):
                     flash('❌ El precio máximo debe ser un número válido', 'error')
                     return redirect(url_for('negocio_editar_servicio', servicio_id=servicio_id))
         
-        # Usar la nueva función guardar_servicio
+        # Usar la nueva función guardar_servicio con foto_url
         resultado = db.guardar_servicio(
             negocio_id=session['negocio_id'],
             servicio_id=servicio_id,
@@ -2670,7 +2674,8 @@ def negocio_editar_servicio(servicio_id):
             descripcion=descripcion,
             activo=activo,
             tipo_precio=tipo_precio,
-            precio_maximo=precio_maximo
+            precio_maximo=precio_maximo,
+            foto_url=foto_url  # ✅ Pasar foto_url
         )
         
         if resultado['success']:
@@ -2694,7 +2699,8 @@ def negocio_editar_servicio(servicio_id):
             'descripcion': servicio.descripcion,
             'activo': servicio.activo,
             'tipo_precio': getattr(servicio, 'tipo_precio', 'fijo'),
-            'precio_maximo': getattr(servicio, 'precio_maximo', None)
+            'precio_maximo': getattr(servicio, 'precio_maximo', None),
+            'foto_url': getattr(servicio, 'foto_url', None)
         }
     
     return render_template('negocio/editar_servicio.html', 
@@ -3409,7 +3415,7 @@ def profesional_crear_cita():
 @app.route('/profesional/completar-cita/<int:cita_id>', methods=['POST'])
 @role_required(['profesional', 'propietario', 'superadmin'])
 def completar_cita(cita_id):
-    """Marcar cita como completada - VERSIÓN CORREGIDA (sin updated_at)"""
+    """Marcar cita como completada y enviar notificación para calificar"""
     conn = None
     try:
         print(f"🔍 [COMPLETAR_CITA] Iniciando para cita #{cita_id}")
@@ -3419,7 +3425,6 @@ def completar_cita(cita_id):
             flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
             print("❌ [COMPLETAR_CITA] CSRF inválido")
             
-            # Obtener parámetros para redirección
             fecha = request.args.get('fecha') or request.form.get('fecha')
             profesional_id = request.args.get('profesional_id') or request.form.get('profesional_id')
             
@@ -3441,18 +3446,20 @@ def completar_cita(cita_id):
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # 1. Primero obtener info de la cita actual
+        # 1. Primero obtener info de la cita actual (INCLUYENDO datos del cliente)
         cursor.execute('''
-            SELECT id, cliente_nombre, estado, servicio_id 
-            FROM citas 
-            WHERE id = %s AND profesional_id = %s AND negocio_id = %s
+            SELECT c.id, c.cliente_nombre, c.cliente_telefono, c.estado, c.servicio_id, 
+                   c.fecha, c.hora, n.nombre as negocio_nombre
+            FROM citas c
+            JOIN negocios n ON c.negocio_id = n.id
+            WHERE c.id = %s AND c.profesional_id = %s AND c.negocio_id = %s
         ''', (cita_id, profesional_id, negocio_id))
         
         cita_actual = cursor.fetchone()
         
         if not cita_actual:
             flash('❌ Cita no encontrada', 'error')
-            print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada para profesional {profesional_id}")
+            print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada")
             conn.close()
             
             fecha = request.args.get('fecha') or request.form.get('fecha')
@@ -3466,19 +3473,15 @@ def completar_cita(cita_id):
         print(f"✅ [COMPLETAR_CITA] Cita encontrada: {cita_actual}")
         print(f"   Estado actual: {cita_actual['estado']}")
         
-        # 2. Actualizar estado a 'completado' - SIN updated_at
-        # Verificar qué columnas existen en la tabla citas
+        # 2. Actualizar estado a 'completado'
         cursor.execute("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'citas'
         """)
         columnas = [row['column_name'] for row in cursor.fetchall()]
-        print(f"📋 Columnas disponibles en citas: {columnas}")
         
-        # Construir query según las columnas disponibles
         if 'updated_at' in columnas:
-            # Si existe updated_at, usarlo
             cursor.execute('''
                 UPDATE citas 
                 SET estado = 'completado', updated_at = NOW()
@@ -3486,7 +3489,6 @@ def completar_cita(cita_id):
                 RETURNING id, estado, cliente_nombre
             ''', (cita_id,))
         else:
-            # Si no existe updated_at, solo actualizar estado
             cursor.execute('''
                 UPDATE citas 
                 SET estado = 'completado'
@@ -3498,9 +3500,8 @@ def completar_cita(cita_id):
         print(f"✅ [COMPLETAR_CITA] Resultado UPDATE: {resultado_update}")
         
         if resultado_update:
-            # 3. Opcional: Registrar en historial (si existe la tabla)
+            # 3. Registrar en historial
             try:
-                # Verificar si existe la tabla historial_citas
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -3523,11 +3524,10 @@ def completar_cita(cita_id):
                     ))
                     print(f"📝 [COMPLETAR_CITA] Historial registrado")
             except Exception as hist_error:
-                print(f"⚠️ [COMPLETAR_CITA] Error en historial (no crítico): {hist_error}")
+                print(f"⚠️ [COMPLETAR_CITA] Error en historial: {hist_error}")
             
-            # 4. Crear notificación (si existe la tabla)
+            # 4. Crear notificación para el profesional
             try:
-                # Verificar si existe la tabla notificaciones
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -3548,14 +3548,47 @@ def completar_cita(cita_id):
                         '✅ Servicio Completado',
                         f'Has completado el servicio para {resultado_update["cliente_nombre"]}'
                     ))
-                    print(f"📢 [COMPLETAR_CITA] Notificación creada")
+                    print(f"📢 [COMPLETAR_CITA] Notificación para profesional creada")
             except Exception as notif_error:
-                print(f"⚠️ [COMPLETAR_CITA] Error en notificación (no crítico): {notif_error}")
+                print(f"⚠️ [COMPLETAR_CITA] Error en notificación profesional: {notif_error}")
+            
+            # ========== ENVIAR NOTIFICACIÓN AL CLIENTE PARA CALIFICAR ==========
+            try:
+                cliente_telefono = cita_actual.get('cliente_telefono')
+                negocio_nombre = cita_actual.get('negocio_nombre', '')
+                
+                if cliente_telefono:
+                    print(f"📱 [COMPLETAR_CITA] Enviando notificación de calificación al cliente {cliente_telefono}")
+                    
+                    # Crear enlace de calificación
+                    enlace_calificacion = f"https://wabot-production-d544.up.railway.app/calificar/{cita_id}"
+                    
+                    # Usar tu función existente
+                    from push_notifications import enviar_notificacion_cliente
+                    
+                    resultado = enviar_notificacion_cliente(
+                        telefono=cliente_telefono,
+                        negocio_id=negocio_id,
+                        titulo="⭐ ¡Califica tu experiencia!",
+                        mensaje=f"¿Cómo te fue en {negocio_nombre}? Danos tu opinión y ayuda a otros clientes.",
+                        cita_id=cita_id,
+                        url=enlace_calificacion
+                    )
+                    
+                    if resultado:
+                        print(f"✅ [COMPLETAR_CITA] Notificación de calificación enviada a {cliente_telefono}")
+                    else:
+                        print(f"⚠️ [COMPLETAR_CITA] No se pudo enviar notificación a {cliente_telefono}")
+                        
+            except Exception as cliente_notif_error:
+                print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
+                    
+            except Exception as cliente_notif_error:
+                print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
             
             conn.commit()
             print(f"✅ [COMPLETAR_CITA] Commit exitoso")
             
-            # Para respuesta AJAX
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({
                     'success': True,
@@ -3593,7 +3626,6 @@ def completar_cita(cita_id):
             conn.close()
             print("🔒 [COMPLETAR_CITA] Conexión cerrada")
     
-    # Obtener parámetros para redirección
     fecha = request.args.get('fecha') or request.form.get('fecha')
     profesional_id_param = request.args.get('profesional_id') or request.form.get('profesional_id')
     
@@ -6521,62 +6553,51 @@ def subir_imagen_profesional():
 @app.route('/profesional/subir-foto', methods=['POST'])
 @login_required
 def subir_foto_profesional():
-    """Subir foto de perfil - RUTA PARA EL PROFESIONAL"""
     try:
-        print(f"=== INICIANDO SUBIDA FOTO ===")
-        profesional_id = session.get('profesional_id')
-        print(f"Profesional ID desde sesión: {profesional_id}")
+        import cloudinary
+        import cloudinary.uploader
         
+        profesional_id = session.get('profesional_id')
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
         
         if 'foto' not in request.files:
-            print("❌ No hay 'foto' en request.files")
-            return jsonify({'success': False, 'message': 'No se envió ninguna imagen'})
+            return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
         
         file = request.files['foto']
-        print(f"Archivo recibido: {file.filename}")
         
-        if file.filename == '':
-            print("❌ Nombre de archivo vacío")
-            return jsonify({'success': False, 'message': 'No se seleccionó archivo'})
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
         
-        # Obtener negocio_id - USAR RealDictCursor
+        # Subir a Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"profesionales/{profesional_id}",
+            public_id=f"perfil_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        # ✅ ACTUALIZAR EN profesionales.foto_url
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT negocio_id FROM profesionales WHERE id = %s", (profesional_id,))
-        result = cur.fetchone()
-        cur.close()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE profesionales 
+            SET foto_url = %s 
+            WHERE id = %s
+        ''', (url, profesional_id))
+        conn.commit()
         conn.close()
         
-        if not result:
-            print(f"❌ Profesional {profesional_id} no encontrado")
-            return jsonify({'success': False, 'message': 'Profesional no encontrado'})
-        
-        # ACCEDER POR NOMBRE DE COLUMNA, NO POR ÍNDICE
-        negocio_id = result['negocio_id']
-        print(f"Negocio ID: {negocio_id}")
-        
-        # Guardar foto
-        url_publica, error = guardar_foto_profesional(file, profesional_id, negocio_id, 'perfil')
-        
-        if error:
-            print(f"❌ Error en guardar_foto_profesional: {error}")
-            return jsonify({'success': False, 'message': error})
-        
-        print(f"✅ Foto subida exitosamente: {url_publica}")
-        return jsonify({
-            'success': True,
-            'message': 'Foto subida exitosamente',
-            'url': url_publica,
-            'profesional_id': profesional_id
-        })
+        return jsonify({'success': True, 'url': url, 'message': 'Foto actualizada'})
         
     except Exception as e:
-        print(f"❌ Error subiendo foto: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': 'Error al subir foto'}), 500
+        print(f"❌ Error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/profesional/foto-actual')
 @login_required
@@ -7180,6 +7201,789 @@ def crear_tabla_push_clientes():
         
     except Exception as e:
         return f"❌ Error: {str(e)}"
+
+# =============================================================================
+# EDITOR VISUAL DEL NEGOCIO (WYSIWYG)
+# =============================================================================
+
+@app.route('/negocio/editor')
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_visual():
+    """Editor visual del negocio - Vista WYSIWYG"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    # Obtener datos del negocio
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('''
+        SELECT * FROM negocios WHERE id = %s
+    ''', (negocio_id,))
+    negocio = cursor.fetchone()
+    
+    # Obtener horarios
+    cursor.execute('''
+        SELECT * FROM configuracion_horarios 
+        WHERE negocio_id = %s 
+        ORDER BY dia_semana
+    ''', (negocio_id,))
+    horarios = cursor.fetchall()
+    
+    # Obtener servicios
+    cursor.execute('''
+        SELECT * FROM servicios 
+        WHERE negocio_id = %s AND activo = TRUE 
+        ORDER BY nombre
+    ''', (negocio_id,))
+    servicios = cursor.fetchall()
+    
+    # Obtener galería de fotos
+    cursor.execute('''
+        SELECT * FROM fotos_negocio 
+        WHERE negocio_id = %s 
+        ORDER BY orden
+    ''', (negocio_id,))
+    fotos_galeria = cursor.fetchall()
+    
+    # Obtener profesionales
+    cursor.execute('''
+        SELECT * FROM profesionales 
+        WHERE negocio_id = %s AND activo = TRUE 
+        ORDER BY nombre
+    ''', (negocio_id,))
+    profesionales = cursor.fetchall()
+    
+    # Obtener productos
+    cursor.execute('''
+        SELECT * FROM productos 
+        WHERE negocio_id = %s AND disponible = TRUE 
+        ORDER BY nombre
+    ''', (negocio_id,))
+    productos = cursor.fetchall()
+    
+    conn.close()
+    
+    # Parsear configuración
+    config_general = {}
+    if negocio and negocio.get('configuracion'):
+        try:
+            config_general = json.loads(negocio['configuracion'])
+        except:
+            config_general = {}
+    
+    # Mapear días de semana
+    dias_map = {1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 
+                5: 'Viernes', 6: 'Sábado', 7: 'Domingo'}
+    
+    horarios_dict = {}
+    for h in horarios:
+        dia_nombre = dias_map.get(h['dia_semana'], str(h['dia_semana']))
+        horarios_dict[dia_nombre] = {
+            'activo': h['activo'],
+            'hora_inicio': h['hora_inicio'],
+            'hora_fin': h['hora_fin']
+        }
+    
+    return render_template('negocio/editor_visual.html',
+                         negocio=negocio,
+                         config_general=config_general,
+                         horarios=horarios_dict,
+                         servicios=servicios,
+                         fotos_galeria=fotos_galeria,
+                         profesionales=profesionales,
+                         productos=productos)
+
+
+
+@app.route('/negocio/editor/subir-foto', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_subir_foto():
+    """Subir foto usando Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        from datetime import datetime
+        
+        negocio_id = session.get('negocio_id', 1)
+        tipo = request.form.get('tipo', 'galeria')
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
+        
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        # Subir a Cloudinary
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"negocios/{negocio_id}/{tipo}",
+            public_id=f"{negocio_id}_{tipo}_{timestamp}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if tipo == 'portada':
+            cursor.execute('UPDATE negocios SET foto_portada = %s WHERE id = %s', (url, negocio_id))
+            conn.commit()
+            
+        elif tipo == 'perfil':
+            cursor.execute('UPDATE negocios SET foto_perfil = %s WHERE id = %s', (url, negocio_id))
+            conn.commit()
+            
+        else:  # galeria
+            # Obtener el próximo orden - VERSIÓN CORREGIDA
+            cursor.execute('SELECT COALESCE(MAX(orden), 0) FROM fotos_negocio WHERE negocio_id = %s', (negocio_id,))
+            result = cursor.fetchone()
+            
+            # Manejar diferentes formatos de resultado
+            if result:
+                if isinstance(result, tuple):
+                    orden = result[0] + 1 if result[0] is not None else 1
+                elif isinstance(result, dict):
+                    orden = result.get('coalesce', 0) + 1
+                else:
+                    orden = 1
+            else:
+                orden = 1
+            
+            print(f"📸 Insertando foto en galería - orden: {orden}")
+            
+            cursor.execute('''
+                INSERT INTO fotos_negocio (negocio_id, url, orden, fecha_subida)
+                VALUES (%s, %s, %s, NOW())
+            ''', (negocio_id, url, orden))
+            conn.commit()
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'url': url,
+            'message': 'Foto subida a Cloudinary'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto a Cloudinary: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/eliminar-foto', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_eliminar_foto():
+    """Eliminar foto de galería"""
+    try:
+        data = request.get_json()
+        foto_id = data.get('foto_id')
+        tipo = data.get('tipo', 'galeria')
+        negocio_id = session.get('negocio_id', 1)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if tipo in ['portada', 'perfil']:
+            campo = 'foto_portada' if tipo == 'portada' else 'foto_perfil'
+            cursor.execute(f'UPDATE negocios SET {campo} = NULL WHERE id = %s', (negocio_id,))
+        else:
+            cursor.execute('DELETE FROM fotos_negocio WHERE id = %s AND negocio_id = %s', (foto_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando foto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/guardar', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_guardar():
+    """Guardar cambios del editor visual"""
+    try:
+        data = request.get_json()
+        print(f"📥 Datos recibidos: {data}")
+        
+        negocio_id = session.get('negocio_id', 1)
+        print(f"🏢 Negocio ID: {negocio_id}")
+        
+        conn = get_db_connection()
+        
+        # Usar RealDictCursor para obtener diccionarios
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        campos = []
+        valores = []
+        
+        if 'nombre' in data and data['nombre']:
+            campos.append("nombre = %s")
+            valores.append(data['nombre'])
+            print(f"  ✓ nombre: {data['nombre']}")
+        
+        if 'direccion' in data and data['direccion']:
+            campos.append("direccion = %s")
+            valores.append(data['direccion'])
+            print(f"  ✓ direccion: {data['direccion']}")
+        
+        if 'descripcion' in data and data['descripcion']:
+            campos.append("descripcion = %s")
+            valores.append(data['descripcion'])
+            print(f"  ✓ descripcion: {data['descripcion']}")
+        
+        if 'telefono_whatsapp' in data and data['telefono_whatsapp']:
+            telefono = data['telefono_whatsapp']
+            if telefono and not telefono.startswith('whatsapp:'):
+                telefono = f"whatsapp:{telefono}"
+            campos.append("telefono_whatsapp = %s")
+            valores.append(telefono)
+            print(f"  ✓ telefono_whatsapp: {telefono}")
+        
+        if 'tipo_negocio' in data and data['tipo_negocio']:
+            campos.append("tipo_negocio = %s")
+            valores.append(data['tipo_negocio'])
+            print(f"  ✓ tipo_negocio: {data['tipo_negocio']}")
+        
+        if 'emoji' in data and data['emoji']:
+            campos.append("emoji = %s")
+            valores.append(data['emoji'])
+            print(f"  ✓ emoji: {data['emoji']}")
+        
+        # Actualizar configuración general (JSON)
+        cursor.execute('SELECT configuracion FROM negocios WHERE id = %s', (negocio_id,))
+        result = cursor.fetchone()
+        
+        config_actual = {}
+        if result:
+            # result es un diccionario por RealDictCursor
+            config_str = result.get('configuracion')
+            if config_str:
+                try:
+                    config_actual = json.loads(config_str)
+                    print(f"  📦 Config actual cargada")
+                except Exception as e:
+                    print(f"  ⚠️ Error parseando config: {e}")
+        
+        if 'horario_atencion' in data and data['horario_atencion']:
+            config_actual['horario_atencion'] = data['horario_atencion']
+            print(f"  ✓ horario_atencion: {data['horario_atencion']}")
+        
+        if 'saludo_personalizado' in data and data['saludo_personalizado']:
+            config_actual['saludo_personalizado'] = data['saludo_personalizado']
+        
+        if 'politica_cancelacion' in data and data['politica_cancelacion']:
+            config_actual['politica_cancelacion'] = data['politica_cancelacion']
+        
+        if 'telefono_contacto' in data and data['telefono_contacto']:
+            config_actual['telefono_contacto'] = data['telefono_contacto']
+        
+        campos.append("configuracion = %s")
+        valores.append(json.dumps(config_actual))
+        print(f"  📦 Nueva config guardada")
+        
+        if campos:
+            valores.append(negocio_id)
+            query = f"UPDATE negocios SET {', '.join(campos)} WHERE id = %s"
+            print(f"  📝 Query: {query}")
+            print(f"  📝 Valores: {valores}")
+            cursor.execute(query, valores)
+            conn.commit()
+            print(f"  ✅ {cursor.rowcount} fila(s) actualizada(s)")
+        else:
+            print("  ⚠️ No hay campos para actualizar")
+        
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Cambios guardados'})
+        
+    except Exception as e:
+        print(f"❌ Error guardando: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_eliminar_servicio():
+    """Eliminar servicio (desactivar)"""
+    try:
+        data = request.get_json()
+        servicio_id = data.get('servicio_id')
+        negocio_id = session.get('negocio_id', 1)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE servicios SET activo = FALSE 
+            WHERE id = %s AND negocio_id = %s
+        ''', (servicio_id, negocio_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# PERFIL PROFESIONAL - GALERÍA DE TRABAJOS
+# =============================================================================
+
+@app.route('/profesional/mis-trabajos', methods=['GET'])
+@login_required
+def profesional_mis_trabajos():
+    """Obtener lista de trabajos del profesional"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, url, descripcion, fecha_subida
+            FROM fotos_trabajo_profesional
+            WHERE profesional_id = %s
+            ORDER BY fecha_subida DESC
+        ''', (profesional_id,))
+        
+        trabajos = cursor.fetchall()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'trabajos': trabajos
+        })
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo trabajos: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/profesional/subir-trabajo', methods=['POST'])
+@login_required
+def profesional_subir_trabajo():
+    """Subir foto de trabajo a Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Archivo vacío'}), 400
+        
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        # Subir a Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"profesionales/{profesional_id}/trabajos",
+            public_id=f"trabajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        # Guardar en base de datos
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO fotos_trabajo_profesional (profesional_id, url, fecha_subida)
+            VALUES (%s, %s, NOW())
+        ''', (profesional_id, url))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'url': url,
+            'message': 'Trabajo subido exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error subiendo trabajo: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/profesional/eliminar-trabajo/<int:trabajo_id>', methods=['DELETE'])
+@login_required
+def profesional_eliminar_trabajo(trabajo_id):
+    """Eliminar foto de trabajo"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            DELETE FROM fotos_trabajo_profesional
+            WHERE id = %s AND profesional_id = %s
+        ''', (trabajo_id, profesional_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Foto eliminada'})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando trabajo: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/negocio/subir-foto-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_subir_foto_servicio():
+    """Subir foto de servicio a Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        from datetime import datetime
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
+        
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"negocios/{negocio_id}/servicios",
+            public_id=f"servicio_{timestamp}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        return jsonify({'success': True, 'url': url})
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto de servicio: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# GESTIÓN DE PRODUCTOS
+# =============================================================================
+
+@app.route('/negocio/productos')
+@role_required(['propietario', 'superadmin'])
+def negocio_productos():
+    """Lista de productos del negocio"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('''
+        SELECT * FROM productos 
+        WHERE negocio_id = %s 
+        ORDER BY disponible DESC, nombre
+    ''', (negocio_id,))
+    
+    productos = cursor.fetchall()
+    conn.close()
+    
+    return render_template('negocio/productos.html', productos=productos)
+
+@app.route('/negocio/productos/nuevo', methods=['GET', 'POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_nuevo():
+    """Crear nuevo producto"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    if request.method == 'POST':
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('negocio_productos_nuevo'))
+        
+        nombre = request.form.get('nombre', '').strip()
+        precio = request.form.get('precio', 0)
+        descripcion = request.form.get('descripcion', '')
+        imagen_url = request.form.get('imagen_url', '')
+        disponible = request.form.get('disponible', 'off') == 'on'
+        
+        print(f"📝 [PRODUCTO] Datos recibidos:")
+        print(f"   negocio_id: {negocio_id}")
+        print(f"   nombre: {nombre}")
+        print(f"   precio: {precio}")
+        
+        if not nombre:
+            flash('El nombre del producto es requerido', 'error')
+            return redirect(url_for('negocio_productos_nuevo'))
+        
+        try:
+            precio = float(precio)
+        except:
+            precio = 0
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # ✅ INSERT sin created_at
+            cursor.execute('''
+                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
+            
+            print(f"✅ [PRODUCTO] Filas afectadas: {cursor.rowcount}")
+            conn.commit()
+            flash('✅ Producto creado exitosamente', 'success')
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Error insertando producto: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'❌ Error al crear el producto: {str(e)}', 'error')
+        finally:
+            conn.close()
+        
+        return redirect(url_for('negocio_productos'))
+    
+    return render_template('negocio/nuevo_producto.html')
+
+@app.route('/negocio/productos/<int:producto_id>/editar', methods=['GET', 'POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_editar(producto_id):
+    """Editar producto"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    cursor.execute('SELECT * FROM productos WHERE id = %s AND negocio_id = %s', (producto_id, negocio_id))
+    producto = cursor.fetchone()
+    
+    if not producto:
+        flash('Producto no encontrado', 'error')
+        conn.close()
+        return redirect(url_for('negocio_productos'))
+    
+    if request.method == 'POST':
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            conn.close()
+            return redirect(url_for('negocio_productos_editar', producto_id=producto_id))
+        
+        nombre = request.form.get('nombre', '').strip()
+        precio = request.form.get('precio', 0)
+        descripcion = request.form.get('descripcion', '')
+        imagen_url = request.form.get('imagen_url', '')
+        disponible = request.form.get('disponible', 'off') == 'on'
+        
+        if not nombre:
+            flash('El nombre del producto es requerido', 'error')
+            conn.close()
+            return redirect(url_for('negocio_productos_editar', producto_id=producto_id))
+        
+        try:
+            precio = float(precio)
+        except:
+            precio = 0
+        
+        # Usar cursor normal para UPDATE
+        cursor_update = conn.cursor()
+        cursor_update.execute('''
+            UPDATE productos 
+            SET nombre = %s, descripcion = %s, precio = %s, imagen_url = %s, disponible = %s
+            WHERE id = %s AND negocio_id = %s
+        ''', (nombre, descripcion, precio, imagen_url, disponible, producto_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Producto actualizado exitosamente', 'success')
+        return redirect(url_for('negocio_productos'))
+    
+    conn.close()
+    return render_template('negocio/editar_producto.html', producto=producto)
+
+@app.route('/negocio/productos/<int:producto_id>/eliminar', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_eliminar(producto_id):
+    """Eliminar producto"""
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad', 'error')
+        return redirect(url_for('negocio_productos'))
+    
+    negocio_id = session.get('negocio_id', 1)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM productos WHERE id = %s AND negocio_id = %s', (producto_id, negocio_id))
+    conn.commit()
+    conn.close()
+    
+    flash('✅ Producto eliminado exitosamente', 'success')
+    return redirect(url_for('negocio_productos'))
+
+@app.route('/negocio/productos/subir-foto', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_productos_subir_foto():
+    """Subir foto de producto a Cloudinary"""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        from datetime import datetime
+        
+        negocio_id = session.get('negocio_id', 1)
+        
+        if 'foto' not in request.files:
+            return jsonify({'success': False, 'error': 'No se envió archivo'}), 400
+        
+        file = request.files['foto']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
+        
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
+            api_key=os.environ.get('CLOUDINARY_API_KEY'),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+        )
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f"negocios/{negocio_id}/productos",
+            public_id=f"producto_{timestamp}"
+        )
+        
+        url = upload_result['secure_url']
+        
+        return jsonify({'success': True, 'url': url})
+        
+    except Exception as e:
+        print(f"❌ Error subiendo foto de producto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# SISTEMA DE CALIFICACIONES
+# =============================================================================
+
+@app.route('/calificar/<int:cita_id>', methods=['GET', 'POST'])
+def calificar_servicio(cita_id):
+    """Página para calificar un servicio después de la cita"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Obtener información de la cita
+    cursor.execute('''
+        SELECT c.*, 
+               p.nombre as profesional_nombre,
+               p.id as profesional_id,
+               n.id as negocio_id,
+               n.nombre as negocio_nombre
+        FROM citas c
+        JOIN profesionales p ON c.profesional_id = p.id
+        JOIN negocios n ON c.negocio_id = n.id
+        WHERE c.id = %s AND c.estado = 'completado'
+    ''', (cita_id,))
+    
+    cita = cursor.fetchone()
+    
+    if not cita:
+        flash('Cita no encontrada o aún no completada', 'error')
+        conn.close()
+        return redirect('/')
+    
+    if request.method == 'POST':
+        calificacion = request.form.get('calificacion', 0, type=int)
+        comentario = request.form.get('comentario', '').strip()
+        
+        if calificacion < 1 or calificacion > 5:
+            flash('La calificación debe ser entre 1 y 5 estrellas', 'error')
+            return redirect(url_for('calificar_servicio', cita_id=cita_id))
+        
+        # Guardar reseña del negocio
+        cursor.execute('''
+            INSERT INTO opiniones_negocio (negocio_id, cliente_id, calificacion, comentario, fecha)
+            VALUES (%s, %s, %s, %s, NOW())
+        ''', (cita['negocio_id'], cita.get('cliente_id'), calificacion, comentario))
+        
+        # Guardar reseña del profesional
+        cursor.execute('''
+            INSERT INTO opiniones_profesional (profesional_id, cliente_id, calificacion, comentario, fecha)
+            VALUES (%s, %s, %s, %s, NOW())
+        ''', (cita['profesional_id'], cita.get('cliente_id'), calificacion, comentario))
+        
+        conn.commit()
+        
+        # Actualizar calificación promedio del negocio
+        cursor.execute('''
+            UPDATE negocios 
+            SET calificacion_promedio = (
+                SELECT COALESCE(AVG(calificacion), 0) 
+                FROM opiniones_negocio 
+                WHERE negocio_id = %s
+            ),
+            total_opiniones = (
+                SELECT COUNT(*) 
+                FROM opiniones_negocio 
+                WHERE negocio_id = %s
+            )
+            WHERE id = %s
+        ''', (cita['negocio_id'], cita['negocio_id'], cita['negocio_id']))
+        
+        # Actualizar calificación promedio del profesional
+        cursor.execute('''
+            UPDATE profesionales 
+            SET calificacion_promedio = (
+                SELECT COALESCE(AVG(calificacion), 0) 
+                FROM opiniones_profesional 
+                WHERE profesional_id = %s
+            ),
+            total_opiniones = (
+                SELECT COUNT(*) 
+                FROM opiniones_profesional 
+                WHERE profesional_id = %s
+            )
+            WHERE id = %s
+        ''', (cita['profesional_id'], cita['profesional_id'], cita['profesional_id']))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ ¡Gracias por tu calificación!', 'success')
+        
+        # ✅ REDIRIGIR AL PERFIL PÚBLICO DEL NEGOCIO
+        return redirect(f'https://wabot-directorio-deployment.up.railway.app/negocio/{cita["negocio_id"]}')
+    
+    conn.close()
+    
+    return render_template('calificar.html', cita=cita)
 
 
 # =============================================================================

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Editor Visual - {{ negocio.nombre }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #1e293b;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 1.3rem;
+            color: #1e293b;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #219a52;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+        }
+        
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+        
+        /* Vista previa de la página pública */
+        .preview-card {
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Portada */
+        .cover {
+            width: 100%;
+            height: 180px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .cover-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+        }
+        
+        .edit-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            text-align: center;
+            padding: 6px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .cover:hover .edit-overlay,
+        .profile-logo:hover .edit-overlay {
+            opacity: 1;
+        }
+        
+        /* Perfil */
+        .profile-section {
+            position: relative;
+            padding: 0 20px;
+        }
+        
+        .profile-logo {
+            position: absolute;
+            top: -50px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            overflow: hidden;
+            cursor: pointer;
+            z-index: 2;
+        }
+        
+        .profile-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Información */
+        .info-section {
+            background: white;
+            border-radius: 24px;
+            margin-top: 60px;
+            padding: 20px;
+        }
+        
+        .business-name {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .business-name .edit-icon {
+            opacity: 0;
+            cursor: pointer;
+            font-size: 16px;
+            color: #94a3b8;
+        }
+        
+        .business-name:hover .edit-icon {
+            opacity: 1;
+        }
+        
+        .rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .stars {
+            color: #fbbf24;
+            font-size: 14px;
+        }
+        
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #475569;
+            font-size: 14px;
+            margin: 8px 0;
+            padding: 6px 0;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+        
+        .info-row:hover {
+            background: #f8fafc;
+        }
+        
+        .info-row i {
+            width: 20px;
+            color: #667eea;
+        }
+        
+        .info-row .edit-icon {
+            margin-left: auto;
+            opacity: 0;
+            color: #94a3b8;
+        }
+        
+        .info-row:hover .edit-icon {
+            opacity: 1;
+        }
+        
+        .descripcion {
+            color: #334155;
+            line-height: 1.5;
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        
+        .descripcion:hover {
+            background: #f8fafc;
+        }
+        
+        /* Secciones editables */
+        .section {
+            background: white;
+            border-radius: 20px;
+            margin: 12px 0;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #0f172a;
+        }
+        
+        .add-btn {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+        
+        .add-btn:hover {
+            background: #eef2ff;
+        }
+        
+        /* Servicios */
+        .servicio-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+        }
+        
+        .servicio-item:hover {
+            background: #f8fafc;
+            margin: 0 -8px;
+            padding: 12px 8px;
+        }
+        
+        .servicio-nombre {
+            font-weight: 500;
+        }
+        
+        .servicio-precio {
+            font-weight: 700;
+            color: #10b981;
+        }
+        
+        .servicio-actions {
+            display: none;
+            gap: 8px;
+        }
+        
+        .servicio-item:hover .servicio-actions {
+            display: flex;
+        }
+        
+        /* Galería */
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .galeria-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            object-fit: cover;
+            width: 100%;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .galeria-item:hover .delete-galeria {
+            display: flex;
+        }
+        
+        .delete-galeria {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .add-photo {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 24px;
+        }
+        
+        /* Profesionales */
+        .profesional-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 16px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        
+        .profesional-card:hover {
+            background: #e2e8f0;
+        }
+        
+        .profesional-foto {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #cbd5e1;
+        }
+        
+        /* Modal de edición */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 400px;
+            padding: 24px;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 16px;
+        }
+        
+        .modal-content input,
+        .modal-content textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        /* Notificaciones */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            z-index: 1100;
+            display: none;
+        }
+        
+        /* Alerta de configuración */
+        .config-note {
+            background: #eef2ff;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #4f46e5;
+        }
+        
+        .config-note i {
+            font-size: 18px;
+        }
+        
+        .config-note a {
+            color: #4f46e5;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+            .profile-logo {
+                width: 80px;
+                height: 80px;
+                top: -40px;
+            }
+            .info-section {
+                margin-top: 50px;
+            }
+            .cover {
+                height: 140px;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                max-width: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-edit"></i> Editor Visual</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-outline">📊 Dashboard</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-outline">⚙️ Configuración</a>
+            <button class="btn btn-primary" id="guardarTodo">💾 Guardar Cambios</button>
+        </div>
+    </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    
+    <div class="container">
+        <!-- Vista previa de la página pública -->
+        <div class="preview-card">
+            <!-- Portada -->
+            <div class="cover" id="coverArea">
+                {% if negocio.foto_portada %}
+                <img id="coverImg" src="{{ negocio.foto_portada }}" alt="Portada">
+                {% else %}
+                <div class="cover-placeholder">
+                    {{ negocio.emoji or '🏪' }}
+                </div>
+                {% endif %}
+                <div class="edit-overlay">
+                    <i class="fas fa-camera"></i> Cambiar portada
+                </div>
+            </div>
+            
+            <!-- Perfil -->
+            <div class="profile-section">
+                <div class="profile-logo" id="profileArea">
+                    {% if negocio.foto_perfil %}
+                    <img id="profileImg" src="{{ negocio.foto_perfil }}" alt="Logo">
+                    {% else %}
+                    <span>{{ negocio.emoji or '🏪' }}</span>
+                    {% endif %}
+                    <div class="edit-overlay">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información editable -->
+            <div class="info-section">
+                <div class="business-name" id="nombreArea">
+                    <span id="nombreDisplay">{{ negocio.nombre }}</span>
+                    <i class="fas fa-pencil-alt edit-icon"></i>
+                </div>
+                
+                <div class="rating">
+                    <div class="stars">★★★★☆</div>
+                    <span>({{ negocio.total_opiniones or 0 }} opiniones)</span>
+                </div>
+                
+                <div class="info-row" id="direccionArea">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span id="direccionDisplay">{{ negocio.direccion or 'Añadir dirección' }}</span>
+                    <i class="fas fa-pencil-alt edit-icon"></i>
+                </div>
+                
+                <div class="info-row" id="telefonoArea">
+                    <i class="fab fa-whatsapp"></i>
+                    <span id="telefonoDisplay">{{ negocio.telefono_whatsapp|replace('whatsapp:', '') if negocio.telefono_whatsapp else 'Añadir teléfono' }}</span>
+                    <i class="fas fa-pencil-alt edit-icon"></i>
+                </div>
+                
+                <!-- NOTA: Horario eliminado - Se gestiona en Configuración -->
+                <div class="config-note">
+                    <i class="fas fa-clock"></i>
+                    <span>Gestiona los horarios detallados en <a href="{{ url_for('negocio_configuracion') }}">Configuración →</a></span>
+                </div>
+                
+                <div class="descripcion" id="descripcionArea">
+                    <span id="descripcionDisplay">{{ negocio.descripcion or 'Añade una descripción para tu negocio' }}</span>
+                    <i class="fas fa-pencil-alt edit-icon" style="float: right;"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Servicios -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title">
+                    <i class="fas fa-cut"></i>
+                    Servicios
+                </div>
+                <button class="add-btn" id="addServicioBtn">+ Agregar servicio</button>
+            </div>
+            <div id="serviciosList">
+                {% for servicio in servicios %}
+                <div class="servicio-item" 
+                    data-id="{{ servicio.id }}" 
+                    data-nombre="{{ servicio.nombre }}" 
+                    data-precio="{{ servicio.precio }}" 
+                    data-duracion="{{ servicio.duracion }}">
+                    <div>
+                        <div class="servicio-nombre">{{ servicio.nombre }}</div>
+                        <div class="servicio-duracion" style="font-size: 12px; color: #64748b;">{{ servicio.duracion }} min</div>
+                    </div>
+                    <div class="servicio-precio">${{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}</div>
+                    <div class="servicio-actions">
+                        <i class="fas fa-edit" style="color: #667eea; cursor: pointer;" onclick="editarServicio(this)"></i>
+                        <i class="fas fa-trash-alt" style="color: #e74c3c; cursor: pointer;" onclick="eliminarServicio(this)"></i>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Galería -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title">
+                    <i class="fas fa-images"></i>
+                    Galería
+                </div>
+                <button class="add-btn" id="addGaleriaBtn">+ Agregar foto</button>
+            </div>
+            <div class="galeria-grid" id="galeriaList">
+                {% for foto in fotos_galeria %}
+                <div class="galeria-item" style="position: relative;">
+                    <img src="{{ foto.url }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+                    <div class="delete-galeria" data-id="{{ foto.id }}" onclick="eliminarFotoGaleria(this)">
+                        <i class="fas fa-trash-alt"></i>
+                    </div>
+                </div>
+                {% endfor %}
+                <div class="add-photo" id="addGaleriaTrigger">
+                    <i class="fas fa-plus"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Profesionales -->
+        <div class="section">
+            <div class="section-header">
+                <div class="section-title">
+                    <i class="fas fa-users"></i>
+                    Profesionales
+                </div>
+                <a href="{{ url_for('negocio_profesionales') }}" class="add-btn">+ Gestionar</a>
+            </div>
+            {% for prof in profesionales %}
+            <div class="profesional-card">
+                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=667eea&color=fff&name=' + prof.nombre|urlencode }}" class="profesional-foto">
+                <div>
+                    <div><strong>{{ prof.nombre }}</strong></div>
+                    <div style="font-size: 12px; color: #64748b;">{{ prof.especialidad or 'Sin especialidad' }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 24px; color: #94a3b8;">
+                <i class="fas fa-user-plus"></i>
+                <p>No hay profesionales registrados</p>
+                <a href="{{ url_for('negocio_profesionales') }}" class="btn btn-outline" style="margin-top: 8px;">Agregar profesional</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Toast de notificación -->
+    <div id="toast" class="toast">✅ Cambios guardados</div>
+    
+    <!-- Modal de edición -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Editar</h3>
+            <input type="text" id="editInput" placeholder="Valor">
+            <textarea id="editTextarea" rows="3" style="display: none;"></textarea>
+            <div class="modal-buttons">
+                <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" id="modalSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Input oculto para subir fotos -->
+    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    
+    <script>
+        let currentEditField = null;
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+        
+        function openModal(title, value, field, isTextarea = false) {
+            currentEditField = field;
+            document.getElementById('modalTitle').textContent = title;
+            if (isTextarea) {
+                document.getElementById('editInput').style.display = 'none';
+                document.getElementById('editTextarea').style.display = 'block';
+                document.getElementById('editTextarea').value = value;
+            } else {
+                document.getElementById('editInput').style.display = 'block';
+                document.getElementById('editTextarea').style.display = 'none';
+                document.getElementById('editInput').value = value;
+            }
+            document.getElementById('editModal').style.display = 'flex';
+        }
+        
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+        
+        // Configurar campos editables
+        document.getElementById('nombreArea').onclick = () => openModal('Editar nombre', document.getElementById('nombreDisplay').innerText, 'nombre');
+        document.getElementById('direccionArea').onclick = () => openModal('Editar dirección', document.getElementById('direccionDisplay').innerText, 'direccion');
+        document.getElementById('telefonoArea').onclick = () => openModal('Editar teléfono', document.getElementById('telefonoDisplay').innerText, 'telefono');
+        document.getElementById('descripcionArea').onclick = () => openModal('Editar descripción', document.getElementById('descripcionDisplay').innerText, 'descripcion', true);
+        
+        // Subir portada
+        document.getElementById('coverArea').onclick = () => subirFoto('portada');
+        document.getElementById('profileArea').onclick = () => subirFoto('perfil');
+        
+        function subirFoto(tipo) {
+            const input = document.getElementById('fileInput');
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const formData = new FormData();
+                formData.append('foto', file);
+                formData.append('tipo', tipo);
+                
+                try {
+                    const response = await fetch('/negocio/editor/subir-foto', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        if (tipo === 'portada') {
+                            const coverImg = document.getElementById('coverImg');
+                            if (coverImg) {
+                                coverImg.src = result.url;
+                            } else {
+                                document.getElementById('coverArea').innerHTML = `<img id="coverImg" src="${result.url}" style="width:100%;height:100%;object-fit:cover"><div class="edit-overlay"><i class="fas fa-camera"></i> Cambiar portada</div>`;
+                            }
+                        } else if (tipo === 'perfil') {
+                            const profileImg = document.getElementById('profileImg');
+                            if (profileImg) {
+                                profileImg.src = result.url;
+                            } else {
+                                document.getElementById('profileArea').innerHTML = `<img id="profileImg" src="${result.url}" style="width:100%;height:100%;object-fit:cover"><div class="edit-overlay"><i class="fas fa-camera"></i></div>`;
+                            }
+                        }
+                        showToast('Foto actualizada');
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error al subir la foto');
+                }
+                input.value = '';
+            };
+            input.click();
+        }
+        
+        // Galería
+        document.getElementById('addGaleriaBtn').onclick = () => subirFoto('galeria');
+        document.getElementById('addGaleriaTrigger').onclick = () => subirFoto('galeria');
+        
+        function eliminarFotoGaleria(element) {
+            const fotoId = element.getAttribute('data-id');
+            if (confirm('¿Eliminar esta foto?')) {
+                fetch('/negocio/editor/eliminar-foto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ foto_id: parseInt(fotoId), tipo: 'galeria' })
+                }).then(res => res.json()).then(result => {
+                    if (result.success) {
+                        element.closest('.galeria-item').remove();
+                        showToast('Foto eliminada');
+                    }
+                });
+            }
+        }
+        
+        // Servicios
+        function editarServicio(element) {
+            const item = element.closest('.servicio-item');
+            const id = item.getAttribute('data-id');
+            const nombre = item.getAttribute('data-nombre');
+            const precio = item.getAttribute('data-precio');
+            const duracion = item.getAttribute('data-duracion');
+            
+            const nuevoNombre = prompt('Nombre del servicio:', nombre);
+            if (!nuevoNombre) return;
+            const nuevoPrecio = prompt('Precio:', precio);
+            if (!nuevoPrecio) return;
+            const nuevoDuracion = prompt('Duración (minutos):', duracion);
+            if (!nuevoDuracion) return;
+            
+            fetch('/negocio/editor/guardar-servicio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: parseInt(id), nombre: nuevoNombre, precio: parseFloat(nuevoPrecio), duracion: parseInt(nuevoDuracion) })
+            }).then(res => res.json()).then(result => {
+                if (result.success) {
+                    item.setAttribute('data-nombre', nuevoNombre);
+                    item.setAttribute('data-precio', nuevoPrecio);
+                    item.setAttribute('data-duracion', nuevoDuracion);
+                    item.querySelector('.servicio-nombre').textContent = nuevoNombre;
+                    item.querySelector('.servicio-precio').textContent = `$${parseInt(nuevoPrecio).toLocaleString()}`;
+                    showToast('Servicio actualizado');
+                }
+            });
+        }
+
+        function eliminarServicio(element) {
+            const item = element.closest('.servicio-item');
+            const id = item.getAttribute('data-id');
+            if (confirm('¿Eliminar este servicio?')) {
+                fetch('/negocio/editor/eliminar-servicio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ servicio_id: parseInt(id) })
+                }).then(res => res.json()).then(result => {
+                    if (result.success) {
+                        item.remove();
+                        showToast('Servicio eliminado');
+                    }
+                });
+            }
+        }
+        
+        document.getElementById('addServicioBtn').onclick = () => {
+            const nombre = prompt('Nombre del servicio:');
+            if (!nombre) return;
+            const precio = prompt('Precio:');
+            if (!precio) return;
+            const duracion = prompt('Duración (minutos):', 30);
+            if (!duracion) return;
+            
+            fetch('/negocio/editor/guardar-servicio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre: nombre, precio: parseFloat(precio), duracion: parseInt(duracion) })
+            }).then(res => res.json()).then(result => {
+                if (result.success) {
+                    location.reload();
+                }
+            });
+        };
+        
+        // Guardar cambios generales
+        document.getElementById('guardarTodo').onclick = async () => {
+            const data = {
+                nombre: document.getElementById('nombreDisplay').innerText,
+                direccion: document.getElementById('direccionDisplay').innerText,
+                telefono_whatsapp: document.getElementById('telefonoDisplay').innerText,
+                descripcion: document.getElementById('descripcionDisplay').innerText,
+                tipo_negocio: '{{ negocio.tipo_negocio }}',
+                emoji: '{{ negocio.emoji }}'
+            };
+            
+            try {
+                const response = await fetch('/negocio/editor/guardar', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('✅ Cambios guardados');
+                } else {
+                    showToast('❌ Error: ' + (result.error || 'No se pudo guardar'));
+                }
+            } catch (error) {
+                showToast('❌ Error de conexión');
+            }
+        };
+        
+        document.getElementById('modalSaveBtn').onclick = () => {
+            let value;
+            if (currentEditField === 'descripcion') {
+                value = document.getElementById('editTextarea').value;
+            } else {
+                value = document.getElementById('editInput').value;
+            }
+            
+            if (value.trim() === '') {
+                showToast('⚠️ El campo no puede estar vacío');
+                return;
+            }
+            
+            document.getElementById(`${currentEditField}Display`).innerText = value;
+            closeModal();
+        };
+    </script>
+</body>
+</html>

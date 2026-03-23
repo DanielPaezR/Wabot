@@ -559,28 +559,25 @@ def generar_opciones_profesionales(numero, negocio_id):
             foto_url = prof['foto_url']
             print(f"📸 [WEB CHAT] Profesional {prof['nombre']} tiene foto: {foto_url}")
             
-            # ✅ CORRECCIÓN: NORMALIZAR LA URL
-            if foto_url:
-                # Si empieza con "static/", quitar "static" porque Flask ya lo añade
+            # ✅ CORRECCIÓN: Si la URL ya es absoluta (http:// o https://), NO la modifiques
+            if foto_url.startswith('http://') or foto_url.startswith('https://'):
+                # URL absoluta de Cloudinary, usarla directamente
+                opcion['image'] = foto_url
+                print(f"   🔗 URL absoluta: {foto_url}")
+            else:
+                # Solo normalizar si es ruta local
                 if foto_url.startswith('static/'):
-                    foto_url = '/' + foto_url  # Convertir a /static/...
-                # Si empieza con "/static/", ya está bien
+                    foto_url = '/' + foto_url
                 elif foto_url.startswith('/static/'):
-                    pass  # Ya está bien
-                # Si no empieza con "/", añadir "/"
+                    pass
                 elif not foto_url.startswith('/'):
                     foto_url = '/' + foto_url
                 
-                # Si empieza con "uploads/", añadir "/static/"
                 if foto_url.startswith('/uploads/'):
                     foto_url = '/static' + foto_url
                 
-                print(f"   🔗 URL normalizada: {foto_url}")
                 opcion['image'] = foto_url
-            else:
-                print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} tiene foto_url vacía")
-        else:
-            print(f"⚠️ [WEB CHAT] Profesional {prof['nombre']} NO tiene foto_url")
+                print(f"   🔗 URL normalizada local: {foto_url}")
         
         opciones.append(opcion)
         
