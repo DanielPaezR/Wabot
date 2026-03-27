@@ -1345,7 +1345,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
             print("❌ No pasó verificación básica")
             fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-            return f"❌ No hay horarios disponibles para el {fecha_formateada}."
+            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente comunicate con el Profesional via Whatsapp para explorar opciones"
         
         # Verificar profesional_id
         if 'profesional_id' not in conversaciones_activas[clave_conversacion]:
