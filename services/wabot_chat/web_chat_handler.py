@@ -1367,7 +1367,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         if not horarios_disponibles:
             print("❌ No se generaron horarios")
             fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-            return f"❌ No hay horarios disponibles para el {fecha_formateada}."
+            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente comunicate con el Profesional via Whatsapp para explorar opciones"
         
         # Obtener datos para la plantilla
         profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
