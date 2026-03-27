@@ -911,7 +911,7 @@ def admin_negocios():
 @app.route('/admin/negocios/nuevo', methods=['GET', 'POST'])
 @role_required(['superadmin'])
 def admin_nuevo_negocio():
-    """Crear nuevo negocio"""
+    """Crear nuevo negocio con coordenadas"""
     if request.method == 'POST':
         # Validar CSRF
         if not validate_csrf_token(request.form.get('csrf_token', '')):
@@ -921,13 +921,34 @@ def admin_nuevo_negocio():
         nombre = request.form.get('nombre')
         telefono_whatsapp = request.form.get('telefono_whatsapp')
         tipo_negocio = request.form.get('tipo_negocio', 'general')
-        emoji = request.form.get('emoji', '👋')  # ✅ NUEVO: Obtener el emoji
+        emoji = request.form.get('emoji', '👋')
+        
+        # ✅ NUEVOS CAMPOS: Coordenadas y dirección
+        latitud = request.form.get('latitud', '').strip()
+        longitud = request.form.get('longitud', '').strip()
+        direccion = request.form.get('direccion', '').strip()
+        
+        # Convertir a float si no está vacío
+        latitud_float = None
+        longitud_float = None
+        if latitud:
+            try:
+                latitud_float = float(latitud)
+            except ValueError:
+                flash('❌ La latitud debe ser un número válido (ej: 6.24420)', 'error')
+                return redirect(url_for('admin_nuevo_negocio'))
+        if longitud:
+            try:
+                longitud_float = float(longitud)
+            except ValueError:
+                flash('❌ La longitud debe ser un número válido (ej: -75.58121)', 'error')
+                return redirect(url_for('admin_nuevo_negocio'))
         
         # Configuración por defecto
         configuracion = {
             "saludo_personalizado": request.form.get('saludo_personalizado', f"¡Hola! Soy tu asistente virtual para agendar citas"),
             "horario_atencion": "Lunes a Sábado 9:00 AM - 7:00 PM",
-            "direccion": "Calle Principal #123",
+            "direccion": direccion,
             "telefono_contacto": telefono_whatsapp.replace('whatsapp:', ''),
             "politica_cancelacion": "Puedes cancelar hasta 2 horas antes"
         }
@@ -935,20 +956,30 @@ def admin_nuevo_negocio():
         if not telefono_whatsapp.startswith('whatsapp:'):
             telefono_whatsapp = f'whatsapp:{telefono_whatsapp}'
         
-        negocio_id = db.crear_negocio(nombre, telefono_whatsapp, tipo_negocio, json.dumps(configuracion), emoji)
+        # Llamar a la función crear_negocio con los nuevos parámetros
+        negocio_id = db.crear_negocio(
+            nombre=nombre,
+            telefono_whatsapp=telefono_whatsapp,
+            tipo_negocio=tipo_negocio,
+            configuracion=json.dumps(configuracion),
+            emoji=emoji,
+            latitud=latitud_float,
+            longitud=longitud_float,
+            direccion=direccion
+        )
         
         if negocio_id:
-            flash('Negocio creado exitosamente', 'success')
+            flash('✅ Negocio creado exitosamente', 'success')
             return redirect(url_for('admin_negocios'))
         else:
-            flash('Error al crear el negocio. Verifica que el número no esté en uso.', 'error')
+            flash('❌ Error al crear el negocio. Verifica que el número no esté en uso.', 'error')
     
     return render_template('admin/nuevo_negocio.html')
 
 @app.route('/admin/negocios/<int:negocio_id>/editar', methods=['GET', 'POST'])
 @role_required(['superadmin'])
 def admin_editar_negocio(negocio_id):
-    """Editar negocio existente"""
+    """Editar negocio existente con coordenadas"""
     negocio = db.obtener_negocio_por_id(negocio_id)
     
     if not negocio:
@@ -964,12 +995,34 @@ def admin_editar_negocio(negocio_id):
         nombre = request.form.get('nombre')
         telefono_whatsapp = request.form.get('telefono_whatsapp')
         tipo_negocio = request.form.get('tipo_negocio')
+        emoji = request.form.get('emoji', '👋')
         activo = request.form.get('activo') == 'on'
+        
+        # ✅ NUEVOS CAMPOS: Coordenadas y dirección
+        latitud = request.form.get('latitud', '').strip()
+        longitud = request.form.get('longitud', '').strip()
+        direccion = request.form.get('direccion', '').strip()
+        
+        # Convertir a float si no está vacío
+        latitud_float = None
+        longitud_float = None
+        if latitud:
+            try:
+                latitud_float = float(latitud)
+            except ValueError:
+                flash('❌ La latitud debe ser un número válido (ej: 6.24420)', 'error')
+                return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
+        if longitud:
+            try:
+                longitud_float = float(longitud)
+            except ValueError:
+                flash('❌ La longitud debe ser un número válido (ej: -75.58121)', 'error')
+                return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
         
         configuracion = {
             "saludo_personalizado": request.form.get('saludo_personalizado', ''),
             "horario_atencion": request.form.get('horario_atencion', ''),
-            "direccion": request.form.get('direccion', ''),
+            "direccion": direccion,
             "telefono_contacto": request.form.get('telefono_contacto', ''),
             "politica_cancelacion": request.form.get('politica_cancelacion', '')
         }
@@ -977,16 +1030,21 @@ def admin_editar_negocio(negocio_id):
         if not telefono_whatsapp.startswith('whatsapp:'):
             telefono_whatsapp = f'whatsapp:{telefono_whatsapp}'
         
+        # Llamar a la función actualizar_negocio con los nuevos parámetros
         db.actualizar_negocio(
-            negocio_id, 
-            nombre=nombre, 
-            telefono_whatsapp=telefono_whatsapp, 
+            negocio_id=negocio_id,
+            nombre=nombre,
+            telefono_whatsapp=telefono_whatsapp,
             tipo_negocio=tipo_negocio,
+            emoji=emoji,
             activo=activo,
-            configuracion=json.dumps(configuracion)
+            configuracion=json.dumps(configuracion),
+            latitud=latitud_float,
+            longitud=longitud_float,
+            direccion=direccion
         )
         
-        flash('Negocio actualizado exitosamente', 'success')
+        flash('✅ Negocio actualizado exitosamente', 'success')
         return redirect(url_for('admin_negocios'))
     
     config = json.loads(negocio['configuracion'] if negocio['configuracion'] else '{}')
@@ -5423,7 +5481,7 @@ def reset_subscriptions(profesional_id):
                 'deleted': deleted_count
             },
             'next_steps': [
-                '1. El profesional debe abrir la app web: https://wabot-deployment.up.railway.app',
+                '1. El profesional debe abrir la app web: https://wabot-production.up.railway.app',
                 '2. Cerrar y volver a abrir el navegador',
                 '3. Permitir notificaciones cuando el navegador pregunte',
                 '4. Probar con /test-push-debug/1'
@@ -7979,7 +8037,7 @@ def calificar_servicio(cita_id):
         flash('✅ ¡Gracias por tu calificación!', 'success')
         
         # ✅ REDIRIGIR AL PERFIL PÚBLICO DEL NEGOCIO
-        return redirect(f'https://wabot-directorio-deployment.up.railway.app/negocio/{cita["negocio_id"]}')
+        return redirect(f'https://wabot-directorio-production.up.railway.app/negocio/{cita["negocio_id"]}')
     
     conn.close()
     
