@@ -261,6 +261,57 @@
             background: #f39c12;
             color: white;
         }
+        
+        /* Estilos para selector de moneda */
+        .currency-selector {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .currency-selector label {
+            font-weight: 600;
+            color: #333;
+            margin-right: 0.5rem;
+        }
+        
+        .currency-selector select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .currency-symbol {
+            display: inline-block;
+            margin-left: 8px;
+            font-weight: normal;
+            color: #666;
+        }
+        
+        .precio-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .precio-input-group .currency-symbol-badge {
+            background: #e9ecef;
+            padding: 10px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .precio-input-group input {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -292,6 +343,27 @@
             <form method="POST" id="servicioForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
+                <input type="hidden" name="moneda" id="monedaInput" value="{{ servicio.moneda if servicio and servicio.moneda else 'COP' }}">
+                
+                <!-- Selector de moneda -->
+                <div class="currency-selector">
+                    <label><i class="fas fa-coins"></i> Moneda:</label>
+                    <select id="currencySelect">
+                        <option value="COP" data-symbol="$" data-name="Peso Colombiano">🇨🇴 COP ($) - Peso Colombiano</option>
+                        <option value="AWG" data-symbol="ƒ" data-name="Florín de Aruba">🇦🇼 AWG (ƒ) - Florín de Aruba</option>
+                        <option value="USD" data-symbol="$" data-name="Dólar Estadounidense">🇺🇸 USD ($) - Dólar Estadounidense</option>
+                        <option value="EUR" data-symbol="€" data-name="Euro">🇪🇺 EUR (€) - Euro</option>
+                        <option value="MXN" data-symbol="$" data-name="Peso Mexicano">🇲🇽 MXN ($) - Peso Mexicano</option>
+                        <option value="ARS" data-symbol="$" data-name="Peso Argentino">🇦🇷 ARS ($) - Peso Argentino</option>
+                        <option value="CLP" data-symbol="$" data-name="Peso Chileno">🇨🇱 CLP ($) - Peso Chileno</option>
+                        <option value="PEN" data-symbol="S/" data-name="Sol Peruano">🇵🇪 PEN (S/) - Sol Peruano</option>
+                        <option value="BOB" data-symbol="Bs" data-name="Boliviano">🇧🇴 BOB (Bs) - Boliviano</option>
+                        <option value="VES" data-symbol="Bs.S" data-name="Bolívar Soberano">🇻🇪 VES (Bs.S) - Bolívar Soberano</option>
+                        <option value="UYU" data-symbol="$" data-name="Peso Uruguayo">🇺🇾 UYU ($) - Peso Uruguayo</option>
+                        <option value="PYG" data-symbol="₲" data-name="Guaraní">🇵🇾 PYG (₲) - Guaraní</option>
+                    </select>
+                    <span class="currency-symbol" id="currencySymbolDisplay">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
+                </div>
                 
                 <div class="form-group">
                     <label for="nombre">Nombre del Servicio *</label>
@@ -359,24 +431,30 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="precio">Precio Base (COP) * 
+                    <label for="precio">Precio Base * 
                         <span class="badge badge-info">Mínimo</span>
                     </label>
-                    <input type="number" id="precio" name="precio" 
-                           value="{{ servicio.precio if servicio else '' }}" 
-                           min="0" step="1000" required placeholder="Ej: 20000">
+                    <div class="precio-input-group">
+                        <span class="currency-symbol-badge" id="basePriceSymbol">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
+                        <input type="number" id="precio" name="precio" 
+                               value="{{ servicio.precio if servicio else '' }}" 
+                               min="0" id="precioBase" required placeholder="Ej: 20000">
+                    </div>
                     <div class="help-text">Para precio fijo: valor único. Para rango: valor mínimo.</div>
                 </div>
                 
                 <div class="precio-maximo-group" id="precioMaximoGroup" 
                      {% if servicio and servicio.tipo_precio == 'rango' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label for="precio_maximo">Precio Máximo (COP) 
+                        <label for="precio_maximo">Precio Máximo 
                             <span class="badge badge-warning">Rango Superior</span>
                         </label>
-                        <input type="number" id="precio_maximo" name="precio_maximo" 
-                               value="{{ servicio.precio_maximo if servicio and servicio.precio_maximo else '' }}" 
-                               min="0" step="1000" placeholder="Ej: 50000">
+                        <div class="precio-input-group">
+                            <span class="currency-symbol-badge" id="maxPriceSymbol">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
+                            <input type="number" id="precio_maximo" name="precio_maximo" 
+                                   value="{{ servicio.precio_maximo if servicio and servicio.precio_maximo else '' }}" 
+                                   min="0" id="precioMaximoInput" placeholder="Ej: 50000">
+                        </div>
                         <div class="help-text">Solo para rangos: el precio máximo que puede alcanzar el servicio.</div>
                     </div>
                 </div>
@@ -410,6 +488,83 @@
     </div>
     
     <script>
+        // Configuración de monedas
+        const currencies = {
+            'COP': { symbol: '$', name: 'Peso Colombiano', decimalPlaces: 0, step: 1000 },
+            'AWG': { symbol: 'ƒ', name: 'Florín de Aruba', decimalPlaces: 2, step: 0.01 },
+            'USD': { symbol: '$', name: 'Dólar Estadounidense', decimalPlaces: 2, step: 1 },
+            'EUR': { symbol: '€', name: 'Euro', decimalPlaces: 2, step: 1 },
+            'MXN': { symbol: '$', name: 'Peso Mexicano', decimalPlaces: 2, step: 10 },
+            'ARS': { symbol: '$', name: 'Peso Argentino', decimalPlaces: 2, step: 100 },
+            'CLP': { symbol: '$', name: 'Peso Chileno', decimalPlaces: 0, step: 1000 },
+            'PEN': { symbol: 'S/', name: 'Sol Peruano', decimalPlaces: 2, step: 1 },
+            'BOB': { symbol: 'Bs', name: 'Boliviano', decimalPlaces: 2, step: 1 },
+            'VES': { symbol: 'Bs.S', name: 'Bolívar Soberano', decimalPlaces: 2, step: 1 },
+            'UYU': { symbol: '$', name: 'Peso Uruguayo', decimalPlaces: 2, step: 10 },
+            'PYG': { symbol: '₲', name: 'Guaraní', decimalPlaces: 0, step: 1000 }
+        };
+        
+        let currentCurrency = '{{ servicio.moneda if servicio and servicio.moneda else "COP" }}';
+        
+        // Elementos DOM
+        const currencySelect = document.getElementById('currencySelect');
+        const currencySymbolDisplay = document.getElementById('currencySymbolDisplay');
+        const basePriceSymbol = document.getElementById('basePriceSymbol');
+        const maxPriceSymbol = document.getElementById('maxPriceSymbol');
+        const precioBaseInput = document.getElementById('precioBase');
+        const precioMaximoInput = document.getElementById('precioMaximoInput');
+        const monedaInput = document.getElementById('monedaInput');
+        
+        // Actualizar símbolos y steps según moneda seleccionada
+        function updateCurrency() {
+            currentCurrency = currencySelect.value;
+            const currencyData = currencies[currentCurrency];
+            
+            if (currencyData) {
+                currencySymbolDisplay.textContent = currencyData.symbol;
+                basePriceSymbol.textContent = currencyData.symbol;
+                maxPriceSymbol.textContent = currencyData.symbol;
+                monedaInput.value = currentCurrency;
+                
+                // Actualizar step de los inputs
+                precioBaseInput.step = currencyData.step;
+                if (precioMaximoInput) {
+                    precioMaximoInput.step = currencyData.step;
+                }
+                
+                // Actualizar placeholder con ejemplo
+                const exampleValue = formatCurrencyExample(currencyData);
+                precioBaseInput.placeholder = `Ej: ${exampleValue}`;
+                if (precioMaximoInput) {
+                    precioMaximoInput.placeholder = `Ej: ${exampleValue * 2.5}`;
+                }
+            }
+        }
+        
+        function formatCurrencyExample(currencyData) {
+            if (currencyData.decimalPlaces === 0) {
+                return currencyData.step === 1000 ? '20000' : '100';
+            }
+            return currencyData.step === 1 ? '25.00' : '100.00';
+        }
+        
+        // Establecer el valor seleccionado en el selector
+        if (currencySelect) {
+            for (let i = 0; i < currencySelect.options.length; i++) {
+                if (currencySelect.options[i].value === currentCurrency) {
+                    currencySelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // Evento cambio de moneda
+        currencySelect.addEventListener('change', updateCurrency);
+        
+        // Inicializar
+        updateCurrency();
+        
+        // Resto del código original (upload de foto, etc.)
         const uploadArea = document.getElementById('uploadArea');
         const fotoInput = document.getElementById('fotoInput');
         const fotoUrlInput = document.getElementById('foto_url');
@@ -511,7 +666,6 @@
         const radioRango = document.getElementById('precio_rango');
         const radioVariable = document.getElementById('precio_variable');
         const precioMaximoGroup = document.getElementById('precioMaximoGroup');
-        const precioMaximoInput = document.getElementById('precio_maximo');
         
         function togglePrecioMaximo() {
             if (radioRango && radioRango.checked) {
@@ -542,7 +696,7 @@
                     return;
                 }
                 
-                const precioBase = parseFloat(document.getElementById('precio').value);
+                const precioBase = parseFloat(precioBaseInput.value);
                 const precioMax = parseFloat(precioMaximoInput.value);
                 
                 if (precioMax <= precioBase) {

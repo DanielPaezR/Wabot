@@ -2652,6 +2652,7 @@ def negocio_nuevo_servicio():
         
         tipo_precio = request.form.get('tipo_precio', 'fijo')
         precio_maximo = None
+        moneda = request.form.get('moneda', 'COP')
         
         if tipo_precio == 'rango':
             precio_maximo_str = request.form.get('precio_maximo', '').strip()
@@ -2672,7 +2673,8 @@ def negocio_nuevo_servicio():
             activo=True,
             tipo_precio=tipo_precio,
             precio_maximo=precio_maximo,
-            foto_url=foto_url
+            foto_url=foto_url,
+            moneda=moneda
         )
         
         if resultado['success']:
