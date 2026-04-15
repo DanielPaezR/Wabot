@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>WaBot - {{ negocio.nombre }}</title>
 
-    <!-- SOLO ESTO -->
     <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
     <link rel="icon" href="/static/favicon.ico">
 
@@ -57,8 +56,7 @@
         .chat-header {
             background: linear-gradient(135deg, var(--primary-color), #0056b3);
             color: white;
-            padding: 15px 20px;
-            text-align: center;
+            padding: 12px 16px;
             position: fixed;
             top: 0;
             left: 0;
@@ -67,38 +65,145 @@
             margin: 0 auto;
             z-index: 1000;
             border-bottom: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         
-        .chat-header h5 {
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-center {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .header-center h5 {
             margin: 0;
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            line-height: 1.3;
         }
         
-        .chat-header small {
+        .header-center small {
             opacity: 0.9;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             display: block;
-            margin-top: 3px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .header-icon-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 1.1rem;
+        }
+        
+        .header-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Menú desplegable */
+        .menu-dropdown {
+            position: relative;
+        }
+        
+        .menu-content {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1100;
+            display: none;
+            overflow: hidden;
+        }
+        
+        .menu-content.show {
+            display: block;
+            animation: slideDown 0.2s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .menu-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #333;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .menu-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .menu-item i {
+            width: 20px;
+            color: var(--primary-color);
+        }
+        
+        .menu-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .menu-item.disabled:hover {
+            background: transparent;
         }
         
         .chat-messages {
             position: fixed;
-            top: 80px;
-            bottom: 190px;
+            top: 64px;
+            bottom: 120px;
             left: 0;
             right: 0;
             max-width: 500px;
             margin: 0 auto;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 20px;
+            padding: 16px;
             background: #fafafa;
             -webkit-overflow-scrolling: touch;
         }
         
         .chat-messages::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
         
         .chat-messages::-webkit-scrollbar-track {
@@ -107,32 +212,99 @@
         
         .chat-messages::-webkit-scrollbar-thumb {
             background: #c1c1c1;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         
         .chat-input {
             background: white;
-            padding: 15px;
+            padding: 12px 16px;
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             max-width: 500px;
             margin: 0 auto;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid #e0e0e0;
             z-index: 1000;
-            height: auto;
-            min-height: 140px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .input-group-custom {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .input-group-custom input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            padding: 10px 16px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #f8f9fa;
+        }
+        
+        .input-group-custom input:focus {
+            border-color: var(--primary-color);
+            background: white;
+        }
+        
+        .send-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        
+        .send-btn:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+        
+        .reset-btn-container {
+            margin-top: 8px;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .reset-btn {
+            background: transparent;
+            border: 1px solid #ddd;
+            color: #666;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .reset-btn:hover {
+            background: #f0f0f0;
+            border-color: #ccc;
         }
         
         .message {
-            margin-bottom: 15px;
-            padding: 12px 15px;
-            border-radius: 15px;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 18px;
             max-width: 85%;
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
             line-height: 1.4;
+            font-size: 0.95rem;
         }
         
         @keyframes fadeIn {
@@ -144,15 +316,16 @@
             background-color: var(--user-msg-bg);
             color: white;
             margin-left: auto;
-            border-bottom-right-radius: 5px;
+            border-bottom-right-radius: 6px;
         }
         
         .bot-message {
-            background-color: var(--bot-msg-bg);
+            background-color: white;
             color: #333;
             margin-right: auto;
-            border-bottom-left-radius: 5px;
-            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 6px;
+            border: 1px solid #e8e8e8;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         
         .bot-message strong {
@@ -162,13 +335,13 @@
         .opciones-numeradas {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
             margin-top: 10px;
         }
         
         .opcion-btn {
-            flex: 0 0 calc(50% - 4px);
-            padding: 10px 12px;
+            flex: 0 0 calc(50% - 3px);
+            padding: 10px 8px;
             border-radius: 8px;
             background: white;
             border: 1px solid #dee2e6;
@@ -176,33 +349,45 @@
             font-size: 0.9rem;
             min-height: 44px;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .opcion-btn:hover {
+            background: #f8f9fa;
+            border-color: var(--primary-color);
         }
         
         .horarios-options {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
+            gap: 5px;
             margin-top: 10px;
         }
         
         .hora-btn {
-            flex: 0 0 calc(33.333% - 4px);
-            padding: 10px 5px;
+            flex: 0 0 calc(33.333% - 3.5px);
+            padding: 8px 4px;
             border-radius: 6px;
             background: white;
             border: 1px solid #28a745;
             color: #28a745;
-            font-size: 0.85rem;
-            min-height: 44px;
+            font-size: 0.8rem;
+            min-height: 40px;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .hora-btn:hover {
+            background: #28a745;
+            color: white;
         }
         
         .opciones-navegacion {
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
-            margin-top: 15px;
-            padding: 12px;
+            margin-top: 12px;
+            padding: 10px;
             background: #f8f9fa;
             border-radius: 10px;
         }
@@ -227,7 +412,7 @@
             display: flex;
             justify-content: center;
             gap: 10px;
-            margin-top: 15px;
+            margin-top: 12px;
         }
         
         .confirm-btn {
@@ -255,7 +440,7 @@
         .typing-indicator {
             display: flex;
             padding: 10px;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         
         .typing-indicator span {
@@ -273,46 +458,22 @@
         }
         
         .pagination-info {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #6c757d;
             text-align: center;
             margin-top: 8px;
-            padding: 8px;
+            padding: 6px;
             background: #f8f9fa;
             border-radius: 8px;
             border: 1px solid #e0e0e0;
         }
         
-        .action-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-        }
-        
-        .action-btn {
-            flex: 1;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            min-height: 40px;
-        }
-        
-        .form-control {
-            font-size: 16px !important;
-            min-height: 44px;
-        }
-        
-        .btn {
-            min-height: 44px;
-        }
-        
         .professionals-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
-            margin-top: 15px;
-            padding: 12px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+            padding: 10px;
             background: #f8f9fa;
             border-radius: 12px;
             border: 1px solid #e0e0e0;
@@ -321,9 +482,9 @@
         .professional-card {
             background: white;
             border-radius: 10px;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
             transition: all 0.2s ease;
             cursor: pointer;
             display: flex;
@@ -334,15 +495,15 @@
 
         .professional-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 12px rgba(0,0,0,0.12);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
         }
 
         .professional-img {
-            width: 70px;
-            height: 70px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             overflow: hidden;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             position: relative;
             border: 2px solid var(--primary-color);
             background: #f8f9fa;
@@ -361,27 +522,27 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             color: #6c757d;
         }
 
         .professional-info {
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             width: 100%;
         }
 
         .professional-info strong {
             display: block;
             color: #333;
-            font-size: 0.9rem;
-            margin-bottom: 3px;
+            font-size: 0.85rem;
+            margin-bottom: 2px;
             font-weight: 600;
             line-height: 1.2;
         }
 
         .professional-info .specialty {
             color: #6c757d;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             display: block;
             line-height: 1.2;
         }
@@ -391,12 +552,12 @@
             color: white;
             border: none;
             border-radius: 6px;
-            padding: 6px 10px;
+            padding: 5px 8px;
             width: 100%;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: background 0.2s;
-            margin-top: 5px;
+            margin-top: 4px;
             font-weight: 500;
         }
 
@@ -404,138 +565,32 @@
             background: #0056b3;
         }
 
-        /* Botón de notificaciones push */
-        .btn-push {
-            background: linear-gradient(135deg, #9b59b6, #8e44ad);
-            color: white;
-            border: none;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-push:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
-        }
-        
-        .btn-push:disabled {
-            background: linear-gradient(135deg, #27ae60, #2ecc71);
-            cursor: default;
-            transform: none;
-        }
-        
-        .install-btn-container {
+        /* Overlay para cerrar menú al hacer clic fuera */
+        .menu-overlay {
             position: fixed;
-            bottom: 150px;
-            right: 15px;
-            z-index: 1001;
-            animation: slideInUp 0.5s ease;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1050;
             display: none;
         }
-
-        @keyframes slideInUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .install-btn {
-            background: linear-gradient(135deg, #28a745, #218838);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 10px 16px;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.85rem;
-        }
-
-        .install-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-        }
-
-        .install-btn i {
-            font-size: 1rem;
-        }
-
-        @media (max-width: 576px) {
-            .chat-header {
-                padding: 12px 15px;
-            }
-            
-            .chat-messages {
-                top: 70px;
-                bottom: 180px;
-                padding: 15px;
-            }
-            
-            .chat-input {
-                padding: 12px;
-            }
-            
-            .message {
-                max-width: 90%;
-                padding: 10px 12px;
-            }
-            
-            .opcion-btn {
-                flex: 0 0 100%;
-            }
-            
-            .hora-btn {
-                flex: 0 0 calc(50% - 3px);
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .professionals-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-                padding: 10px;
-            }
-            
-            .professional-img {
-                width: 60px;
-                height: 60px;
-            }
-            
-            .professional-card {
-                padding: 8px;
-            }
-            
-            .install-btn-container {
-                bottom: 140px;
-                right: 10px;
-            }
-            
-            .install-btn {
-                padding: 8px 14px;
-                font-size: 0.8rem;
-            }
-        }
         
+        .menu-overlay.show {
+            display: block;
+        }
+
         @media (min-width: 768px) {
             .chat-container {
                 height: 90vh;
                 margin: 20px auto;
                 border: 1px solid #ddd;
-                border-radius: 15px;
-                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+                border-radius: 20px;
+                box-shadow: 0 5px 25px rgba(0,0,0,0.1);
             }
             
             .chat-header {
-                border-radius: 15px 15px 0 0;
-            }
-            
-            .chat-messages {
-                top: 80px;
-                bottom: 190px;
+                border-radius: 20px 20px 0 0;
             }
             
             .professionals-grid {
@@ -546,87 +601,91 @@
         .chat-messages::after {
             content: '';
             display: block;
-            height: 30px;
+            height: 20px;
         }
-        /* Botón flotante para ver perfil */
-        .btn-flotante-perfil {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        
+        /* Badge de notificación */
+        .notification-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #ff4757;
             color: white;
-            padding: 12px 18px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            z-index: 1001;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .btn-flotante-perfil:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
-            color: white;
-        }
-
-        @media (max-width: 576px) {
-            .btn-flotante-perfil {
-                bottom: 100px;
-                left: 10px;
-                padding: 8px 14px;
-                font-size: 12px;
-            }
+            justify-content: center;
+            border: 2px solid var(--primary-color);
         }
     </style>
 </head>
 <body>
     
-    <!-- Header fijo -->
+    <!-- Overlay para cerrar menú -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <!-- Header fijo mejorado -->
     <div class="chat-header">
-        <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
-        <small><i class="fas fa-calendar-alt"></i> Sistema de agendamiento</small>
+        <div class="header-left">
+            <a href="https://wabot-directorio-production.up.railway.app/negocio/{{ negocio.id }}" 
+               target="_blank" 
+               class="header-icon-btn"
+               title="Ver perfil del negocio">
+                <i class="fas fa-store"></i>
+            </a>
+        </div>
+        
+        <div class="header-center">
+            <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
+            <small><i class="fas fa-calendar-alt"></i> Agenda tu cita</small>
+        </div>
+        
+        <div class="header-right">
+            <!-- Menú de 3 puntos -->
+            <div class="menu-dropdown">
+                <button class="header-icon-btn" id="menuToggleBtn" title="Más opciones">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <div class="menu-content" id="menuContent">
+                    <div class="menu-item" id="menuHelp">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Ayuda</span>
+                    </div>
+                    <div class="menu-item" id="menuInstall" style="display: none;">
+                        <i class="fas fa-download"></i>
+                        <span>Instalar App</span>
+                    </div>
+                    <div class="menu-item" id="menuNotifications" style="display: none;">
+                        <i class="fas fa-bell"></i>
+                        <span>Activar Notificaciones</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- Área de mensajes CON SCROLL -->
+    <!-- Área de mensajes -->
     <div class="chat-messages" id="chatMessages">
         <!-- Mensajes se cargarán aquí -->
     </div>
     
-    <!-- Footer fijo -->
+    <!-- Footer simplificado -->
     <div class="chat-input">
-        <div class="input-group">
-            <input type="text" class="form-control" id="userInput" 
-                   placeholder="Escribe tu opción o mensaje..." autocomplete="off">
-            <button class="btn btn-primary" id="sendButton">
-                <i class="fas fa-paper-plane"></i> Enviar
+        <div class="input-group-custom">
+            <input type="text" id="userInput" 
+                   placeholder="Escribe tu mensaje..." autocomplete="off">
+            <button class="send-btn" id="sendButton" title="Enviar mensaje">
+                <i class="fas fa-paper-plane"></i>
             </button>
         </div>
-        <div class="action-buttons mt-2">
-            <button class="btn btn-outline-secondary action-btn" id="resetButton">
-                <i class="fas fa-redo"></i> Reiniciar
-            </button>
-            <button class="btn btn-outline-info action-btn" id="helpButton">
-                <i class="fas fa-question"></i> Ayuda
-            </button>
-            <button class="btn btn-outline-success action-btn" id="installFooterBtn">
-                <i class="fas fa-mobile-alt"></i> Instalar App
-            </button>
-            <button id="btnActivarNotificaciones" class="btn btn-push action-btn" style="display: none;">
-                🔔 Activar Notificaciones
+        <div class="reset-btn-container">
+            <button class="reset-btn" id="resetButton" title="Reiniciar conversación">
+                <i class="fas fa-redo-alt"></i> Reiniciar conversación
             </button>
         </div>
-    </div>
-
-    <!-- Botón de instalación PWA (FLOTANTE) -->
-    <div class="install-btn-container" id="installBtnContainer">
-        <button class="install-btn" id="installBtn">
-            <i class="fas fa-download"></i> Instalar App
-        </button>
     </div>
 
     <input type="hidden" id="sessionId" value="{{ session_id }}">
@@ -649,6 +708,37 @@
             // Variables para notificaciones push
             let telefonoCliente = localStorage.getItem('telefono_cliente');
             let pushActivado = localStorage.getItem('push_activado') === 'true';
+            let deferredPrompt = null;
+            
+            // Manejo del menú desplegable
+            const menuToggleBtn = $('#menuToggleBtn');
+            const menuContent = $('#menuContent');
+            const menuOverlay = $('#menuOverlay');
+            
+            menuToggleBtn.click(function(e) {
+                e.stopPropagation();
+                menuContent.toggleClass('show');
+                menuOverlay.toggleClass('show');
+            });
+            
+            menuOverlay.click(function() {
+                menuContent.removeClass('show');
+                menuOverlay.removeClass('show');
+            });
+            
+            // Cerrar menú al hacer clic en un item
+            $('.menu-item').click(function() {
+                menuContent.removeClass('show');
+                menuOverlay.removeClass('show');
+            });
+            
+            // Cerrar menú al hacer clic fuera
+            $(document).click(function(e) {
+                if (!$(e.target).closest('.menu-dropdown').length) {
+                    menuContent.removeClass('show');
+                    menuOverlay.removeClass('show');
+                }
+            });
             
             // Función para obtener teléfono del cliente
             function obtenerTelefonoCliente() {
@@ -657,16 +747,14 @@
             
             // Función para activar notificaciones
             async function activarNotificaciones() {
-                const btn = document.getElementById('btnActivarNotificaciones');
-                
                 if (!telefonoCliente) {
                     mostrarNotificacion('Por favor, primero completa el registro con tu número de teléfono.', 'warning');
                     return;
                 }
                 
                 try {
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Activando...';
-                    btn.disabled = true;
+                    const menuNotifItem = $('#menuNotifications');
+                    menuNotifItem.html('<i class="fas fa-spinner fa-spin"></i><span>Activando...</span>');
                     
                     const push = new window.PushClienteNotifications();
                     const success = await push.inicializar(telefonoCliente, negocioId);
@@ -674,22 +762,20 @@
                     if (success) {
                         localStorage.setItem('push_activado', 'true');
                         pushActivado = true;
-                        btn.innerHTML = '✅ Notificaciones Activadas';
-                        btn.disabled = true;
+                        menuNotifItem.html('<i class="fas fa-check-circle" style="color: #28a745;"></i><span>Notificaciones Activadas</span>');
+                        menuNotifItem.addClass('disabled');
                         
                         // Enviar notificación de prueba
                         await push.testNotificacion();
                         
                         addBotMessage('✅ ¡Notificaciones activadas! Recibirás recordatorios de tus citas.');
                     } else {
-                        btn.innerHTML = '🔔 Activar Notificaciones';
-                        btn.disabled = false;
+                        menuNotifItem.html('<i class="fas fa-bell"></i><span>Activar Notificaciones</span>');
                         addBotMessage('❌ No se pudieron activar las notificaciones. Asegúrate de permitir las notificaciones en tu navegador.');
                     }
                 } catch (error) {
                     console.error('Error activando notificaciones:', error);
-                    btn.innerHTML = '🔔 Activar Notificaciones';
-                    btn.disabled = false;
+                    $('#menuNotifications').html('<i class="fas fa-bell"></i><span>Activar Notificaciones</span>');
                     addBotMessage('❌ Error al activar notificaciones. Intenta nuevamente.');
                 }
             }
@@ -699,7 +785,6 @@
                 const observer = new MutationObserver(function(mutations) {
                     mutations.forEach(function(mutation) {
                         if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                            // Buscar mensajes que contengan confirmación de teléfono
                             const mensajes = document.querySelectorAll('.bot-message');
                             const ultimoMensaje = mensajes[mensajes.length - 1];
                             if (ultimoMensaje) {
@@ -710,10 +795,9 @@
                                     localStorage.setItem('telefono_cliente', telefonoCliente);
                                     console.log("📱 Teléfono detectado:", telefonoCliente);
                                     
-                                    // Mostrar botón de notificaciones
-                                    const btnNotificaciones = document.getElementById('btnActivarNotificaciones');
-                                    btnNotificaciones.style.display = 'block';
-                                    addBotMessage('💡 Puedes activar las notificaciones para recibir recordatorios de tus citas.');
+                                    // Mostrar opción de notificaciones en el menú
+                                    $('#menuNotifications').show();
+                                    addBotMessage('💡 Puedes activar las notificaciones desde el menú (⋮) para recibir recordatorios.');
                                 }
                             }
                         }
@@ -729,65 +813,12 @@
             
             // Mostrar notificación temporal
             function mostrarNotificacion(mensaje, tipo = 'info') {
-                const notifDiv = $(`<div class="alert alert-${tipo} alert-dismissible fade show" role="alert" style="position: fixed; bottom: 160px; left: 20px; right: 20px; z-index: 1100; max-width: 460px; margin: 0 auto;">
+                const notifDiv = $(`<div class="alert alert-${tipo} alert-dismissible fade show" role="alert" style="position: fixed; bottom: 130px; left: 20px; right: 20px; z-index: 1100; max-width: 460px; margin: 0 auto; border-radius: 12px;">
                     ${mensaje}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>`);
                 $('body').append(notifDiv);
                 setTimeout(() => notifDiv.fadeOut(500, () => notifDiv.remove()), 3000);
-            }
-            
-            // Función para crear manifest dinámico
-            function crearManifestDinamico() {
-                const urlAbsoluta = window.location.origin + '/cliente/' + negocioId;
-                const scopeUrl = '/cliente/' + negocioId + '/';
-                
-                const manifestData = {
-                    "name": "WaBot - " + negocioNombre,
-                    "short_name": "WaBot",
-                    "description": "Agendar citas en " + negocioNombre,
-                    "start_url": urlAbsoluta,
-                    "display": "standalone",
-                    "background_color": "#007bff",
-                    "theme_color": "#007bff",
-                    "orientation": "portrait-primary",
-                    "scope": scopeUrl,
-                    "lang": "es",
-                    "icons": [
-                        {"src": "/static/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "any"},
-                        {"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any"},
-                        {"src": "/static/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any"},
-                        {"src": "/static/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any"},
-                        {"src": "/static/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any"},
-                        {"src": "/static/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-                        {"src": "/static/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any"},
-                        {"src": "/static/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
-                    ],
-                    "categories": ["business", "productivity", "utilities"],
-                    "shortcuts": [
-                        {
-                            "name": "Agendar Cita",
-                            "short_name": "Agendar",
-                            "description": "Agendar una nueva cita en " + negocioNombre,
-                            "url": urlAbsoluta,
-                            "icons": [{"src": "/static/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png"}]
-                        }
-                    ]
-                };
-                
-                const jsonManifest = JSON.stringify(manifestData, null, 2);
-                const blob = new Blob([jsonManifest], {type: 'application/json'});
-                const manifestUrl = URL.createObjectURL(blob);
-                
-                let manifestLink = document.querySelector('link[rel="manifest"]');
-                if (!manifestLink) {
-                    manifestLink = document.createElement('link');
-                    manifestLink.rel = 'manifest';
-                    document.head.appendChild(manifestLink);
-                }
-                manifestLink.href = manifestUrl;
-                
-                return manifestUrl;
             }
             
             function scrollToBottom() {
@@ -949,14 +980,14 @@
                 });
             }
             
-            // Eventos
+            // Eventos principales
             sendButton.click(sendMessage);
             userInput.keypress(function(e) {
                 if (e.which === 13) sendMessage();
             });
             
             $('#resetButton').click(function() {
-                if (confirm('¿Reiniciar conversación?')) {
+                if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
                     localStorage.removeItem('telefono_cliente');
                     localStorage.removeItem('push_activado');
                     $.post('/cliente/reset', function() {
@@ -965,18 +996,36 @@
                 }
             });
             
-            $('#helpButton').click(function() {
-                userInput.val('4');
+            // Eventos del menú
+            $('#menuHelp').click(function() {
+                userInput.val('ayuda');
                 sendMessage();
             });
             
-            $('#installFooterBtn').click(function() {
-                $('#installBtn').click();
+            $('#menuInstall').click(async function() {
+                if (!deferredPrompt) {
+                    mostrarNotificacion('📱 La instalación no está disponible en este momento.', 'info');
+                    return;
+                }
+                
+                try {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    $('#menuInstall').hide();
+                    
+                    if (outcome === 'accepted') {
+                        mostrarNotificacion('✅ ¡App instalada correctamente!', 'success');
+                    }
+                } catch (error) {
+                    console.error("Error al instalar:", error);
+                }
             });
             
-            // Botón de notificaciones
-            $('#btnActivarNotificaciones').click(function() {
-                activarNotificaciones();
+            $('#menuNotifications').click(function() {
+                if (!$(this).hasClass('disabled')) {
+                    activarNotificaciones();
+                }
             });
             
             // Iniciar conversación
@@ -988,77 +1037,35 @@
             // Detectar teléfono del cliente
             escucharTelefonoCliente();
             
-            // Si ya había teléfono guardado, mostrar botón
+            // Si ya había teléfono guardado, mostrar opción de notificaciones
             if (telefonoCliente) {
-                const btnNotificaciones = document.getElementById('btnActivarNotificaciones');
-                btnNotificaciones.style.display = 'block';
-                
-                if (!pushActivado) {
-                    setTimeout(() => {
-                        addBotMessage('💡 Puedes activar las notificaciones para recibir recordatorios de tus citas.');
-                    }, 3000);
+                $('#menuNotifications').show();
+                if (pushActivado) {
+                    $('#menuNotifications').html('<i class="fas fa-check-circle" style="color: #28a745;"></i><span>Notificaciones Activadas</span>');
+                    $('#menuNotifications').addClass('disabled');
                 }
             }
             
             // PWA Installation
-            let deferredPrompt = null;
-            const installBtn = document.getElementById('installBtn');
-            const installBtnContainer = document.getElementById('installBtnContainer');
-            
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
-                installBtnContainer.style.display = 'block';
-                crearManifestDinamico();
+                $('#menuInstall').show();
             });
             
             window.addEventListener('appinstalled', () => {
-                installBtnContainer.style.display = 'none';
+                $('#menuInstall').hide();
                 deferredPrompt = null;
+                mostrarNotificacion('✅ ¡App instalada!', 'success');
             });
             
-            async function tryInstallPWA() {
-                if (!deferredPrompt) {
-                    addBotMessage('📱 Intenta recargar la página o usar Chrome/Edge para instalar.');
-                    return false;
-                }
-                
-                try {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    deferredPrompt = null;
-                    installBtnContainer.style.display = 'none';
-                    
-                    if (outcome === 'accepted') {
-                        addBotMessage('✅ ¡App instalada! Busca el ícono en tu pantalla principal.');
-                    }
-                    return outcome === 'accepted';
-                } catch (error) {
-                    console.error("Error al instalar:", error);
-                    return false;
-                }
+            // Registrar Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log("✅ SW registrado:", reg.scope))
+                    .catch(err => console.log("❌ Error SW:", err));
             }
-            
-            if (installBtn) {
-                installBtn.addEventListener('click', tryInstallPWA);
-            }
-            
-            setTimeout(() => {
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('/service-worker.js')
-                        .then(reg => console.log("✅ SW registrado:", reg.scope))
-                        .catch(err => console.log("❌ Error SW:", err));
-                }
-                crearManifestDinamico();
-            }, 1000);
         });
     </script>
-    <!-- Botón flotante para ver perfil del negocio -->
-    <a href="https://wabot-directorio-production.up.railway.app/negocio/{{ negocio.id }}" 
-    target="_blank" 
-    class="btn-flotante-perfil" 
-    id="floatingProfileBtn">
-        <i class="fas fa-store"></i> Ver Perfil
-    </a>
 </body>
 </html>
