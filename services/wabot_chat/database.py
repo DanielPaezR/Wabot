@@ -1436,8 +1436,10 @@ def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripc
                         activo = %s, tipo_precio = %s, precio_maximo = %s
                     WHERE id = %s AND negocio_id = %s
                 ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, servicio_id, negocio_id))
+            conn.commit()
+            return {'success': True, 'id': servicio_id, 'message': 'Servicio actualizado correctamente'}
         else:
-            # Crear nuevo
+            # ✅ CORRECCIÓN: Crear nuevo con manejo seguro del resultado
             cursor.execute('''
                 INSERT INTO servicios 
                 (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url)
@@ -1445,14 +1447,37 @@ def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripc
                 RETURNING id
             ''', (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url))
             
-            servicio_id = cursor.fetchone()[0]
-        
-        conn.commit()
-        return {'success': True, 'id': servicio_id, 'message': 'Servicio guardado correctamente'}
+            result = cursor.fetchone()
+            
+            # ✅ Manejar diferentes tipos de resultado
+            if result:
+                if isinstance(result, tuple):
+                    nuevo_id = result[0]
+                elif isinstance(result, dict):
+                    nuevo_id = result.get('id')
+                else:
+                    nuevo_id = result
+            else:
+                # Si no hay resultado, intentar obtener el último ID
+                cursor.execute('SELECT LASTVAL()')
+                last_result = cursor.fetchone()
+                if last_result:
+                    nuevo_id = last_result[0] if isinstance(last_result, tuple) else last_result.get('lastval')
+                else:
+                    nuevo_id = None
+            
+            conn.commit()
+            
+            if nuevo_id:
+                return {'success': True, 'id': nuevo_id, 'message': 'Servicio creado correctamente'}
+            else:
+                return {'success': False, 'error': 'No se pudo obtener el ID del servicio'}
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error guardando servicio: {e}")
+        import traceback
+        traceback.print_exc()
         return {'success': False, 'error': str(e)}
     finally:
         conn.close()
