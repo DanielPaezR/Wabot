@@ -114,6 +114,7 @@ class Producto(Base):
     precio = Column(DECIMAL(10, 2))
     imagen_url = Column(String(500))
     disponible = Column(Boolean, default=True)
+    moneda = Column(String(5), default='COP')
     
     negocio = relationship("Negocio", back_populates="productos")
 
