@@ -1414,8 +1414,8 @@ def obtener_servicio_por_id(servicio_id, negocio_id):
     
     return servicio
 
-def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripcion, activo=True, tipo_precio='fijo', precio_maximo=None, foto_url=None):
-    """Guardar o actualizar servicio - CON FOTO"""
+def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripcion, activo=True, tipo_precio='fijo', precio_maximo=None, foto_url=None, moneda='COP'):
+    """Guardar o actualizar servicio - CON FOTO Y MONEDA"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -1426,30 +1426,29 @@ def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripc
                 cursor.execute('''
                     UPDATE servicios 
                     SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, 
-                        activo = %s, tipo_precio = %s, precio_maximo = %s, foto_url = %s
+                        activo = %s, tipo_precio = %s, precio_maximo = %s, foto_url = %s, moneda = %s
                     WHERE id = %s AND negocio_id = %s
-                ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url, servicio_id, negocio_id))
+                ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url, moneda, servicio_id, negocio_id))
             else:
                 cursor.execute('''
                     UPDATE servicios 
                     SET nombre = %s, duracion = %s, precio = %s, descripcion = %s, 
-                        activo = %s, tipo_precio = %s, precio_maximo = %s
+                        activo = %s, tipo_precio = %s, precio_maximo = %s, moneda = %s
                     WHERE id = %s AND negocio_id = %s
-                ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, servicio_id, negocio_id))
+                ''', (nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, moneda, servicio_id, negocio_id))
             conn.commit()
             return {'success': True, 'id': servicio_id, 'message': 'Servicio actualizado correctamente'}
         else:
-            # ✅ CORRECCIÓN: Crear nuevo con manejo seguro del resultado
+            # Crear nuevo
             cursor.execute('''
                 INSERT INTO servicios 
-                (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url, moneda)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            ''', (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url))
+            ''', (negocio_id, nombre, duracion, precio, descripcion, activo, tipo_precio, precio_maximo, foto_url, moneda))
             
             result = cursor.fetchone()
             
-            # ✅ Manejar diferentes tipos de resultado
             if result:
                 if isinstance(result, tuple):
                     nuevo_id = result[0]
@@ -1458,7 +1457,6 @@ def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripc
                 else:
                     nuevo_id = result
             else:
-                # Si no hay resultado, intentar obtener el último ID
                 cursor.execute('SELECT LASTVAL()')
                 last_result = cursor.fetchone()
                 if last_result:
