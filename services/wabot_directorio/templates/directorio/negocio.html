@@ -727,9 +727,35 @@
                         {% if servicio.tipo_precio == 'libre' %}
                             A convenir
                         {% elif servicio.precio_maximo %}
-                            ${{ "{:,.0f}".format(servicio.precio_maximo).replace(',', '.') }}
+                            {% if servicio.moneda == 'AWG' %}ƒ
+                            {% elif servicio.moneda == 'EUR' %}€
+                            {% elif servicio.moneda == 'USD' %}US$
+                            {% elif servicio.moneda == 'MXN' %}MX$
+                            {% elif servicio.moneda == 'ARS' %}AR$
+                            {% elif servicio.moneda == 'CLP' %}CL$
+                            {% elif servicio.moneda == 'PEN' %}S/
+                            {% elif servicio.moneda == 'BOB' %}Bs
+                            {% elif servicio.moneda == 'VES' %}Bs.S
+                            {% elif servicio.moneda == 'UYU' %}UY$
+                            {% elif servicio.moneda == 'PYG' %}₲
+                            {% else %}$
+                            {% endif %}
+                            {{ "{:,.0f}".format(servicio.precio_maximo).replace(',', '.') }}
                         {% else %}
-                            ${{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}
+                            {% if servicio.moneda == 'AWG' %}ƒ
+                            {% elif servicio.moneda == 'EUR' %}€
+                            {% elif servicio.moneda == 'USD' %}US$
+                            {% elif servicio.moneda == 'MXN' %}MX$
+                            {% elif servicio.moneda == 'ARS' %}AR$
+                            {% elif servicio.moneda == 'CLP' %}CL$
+                            {% elif servicio.moneda == 'PEN' %}S/
+                            {% elif servicio.moneda == 'BOB' %}Bs
+                            {% elif servicio.moneda == 'VES' %}Bs.S
+                            {% elif servicio.moneda == 'UYU' %}UY$
+                            {% elif servicio.moneda == 'PYG' %}₲
+                            {% else %}$
+                            {% endif %}
+                            {{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}
                         {% endif %}
                     </div>
                     <i class="fas fa-chevron-down servicio-arrow"></i>
@@ -822,7 +848,22 @@
                     </div>
                     <div class="producto-info">
                         <div class="producto-nombre">{{ prod.nombre }}</div>
-                        <div class="producto-precio">${{ "{:,.0f}".format(prod.precio).replace(',', '.') }}</div>
+                        <div class="producto-precio">
+                            {% if producto.moneda == 'AWG' %}ƒ
+                            {% elif producto.moneda == 'EUR' %}€
+                            {% elif producto.moneda == 'USD' %}US$
+                            {% elif producto.moneda == 'MXN' %}MX$
+                            {% elif producto.moneda == 'ARS' %}AR$
+                            {% elif producto.moneda == 'CLP' %}CL$
+                            {% elif producto.moneda == 'PEN' %}S/
+                            {% elif producto.moneda == 'BOB' %}Bs
+                            {% elif producto.moneda == 'VES' %}Bs.S
+                            {% elif producto.moneda == 'UYU' %}UY$
+                            {% elif producto.moneda == 'PYG' %}₲
+                            {% else %}$
+                            {% endif %}
+                            {{ "{:,.0f}".format(producto.precio).replace(',', '.') }}
+                        </div>
                         {% if prod.descripcion %}
                         <div class="producto-descripcion">{{ prod.descripcion[:80] }}{% if prod.descripcion|length > 80 %}...{% endif %}</div>
                         {% endif %}

@@ -265,7 +265,7 @@
         /* Estilos para selector de moneda */
         .currency-selector {
             display: flex;
-            gap: 1rem;
+            gap: 0.8rem;
             align-items: center;
             margin-bottom: 1rem;
             padding: 0.8rem;
@@ -273,21 +273,25 @@
             border-radius: 8px;
             flex-wrap: wrap;
         }
-        
+
         .currency-selector label {
             font-weight: 600;
             color: #333;
             margin-right: 0.5rem;
         }
-        
+
         .currency-selector select {
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background: white;
             cursor: pointer;
+            flex: 1;
+            min-width: 0; /* Evita desbordamiento */
+            max-width: 100%;
+            font-size: 0.85rem;
         }
-        
+
         .currency-symbol {
             display: inline-block;
             margin-left: 8px;
@@ -380,31 +384,34 @@
                     <div class="help-text">Tiempo aproximado que toma este servicio</div>
                 </div>
                 
-                <!-- Foto del servicio -->
+                <!-- Foto del servicio - VERSIÓN CORREGIDA -->
                 <div class="form-group">
                     <label>📸 Foto del Servicio (opcional)</label>
-                    {% if servicio and servicio.foto_url %}
-                    <div class="photo-preview" id="photoPreview">
-                        <img src="{{ servicio.foto_url }}" id="previewImg">
-                        <br>
-                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
+                    
+                    <!-- Contenedor para foto actual (si existe) -->
+                    <div id="existingPhotoContainer" {% if not servicio or not servicio.foto_url %}style="display: none;"{% endif %}>
+                        <div class="photo-preview" id="photoPreviewExisting">
+                            <img src="{{ servicio.foto_url if servicio else '' }}" id="previewImgExisting" style="max-width: 150px; border-radius: 12px;">
+                            <br>
+                            <a href="#" class="remove-photo" onclick="removerFotoExistente(event)">🗑️ Eliminar foto</a>
+                        </div>
                     </div>
-                    <div class="photo-upload-area" id="uploadArea" style="display: none;">
-                    {% else %}
-                    <div class="photo-upload-area" id="uploadArea">
-                    {% endif %}
+                    
+                    <!-- Área de subida de nueva foto (visible si no hay foto o se eliminó) -->
+                    <div class="photo-upload-area" id="uploadArea" {% if servicio and servicio.foto_url %}style="display: none;"{% endif %}>
                         <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #94a3b8;"></i>
                         <p>Haz clic para subir una foto</p>
                         <small style="color: #64748b;">Formatos: JPG, PNG, GIF (máx 5MB)</small>
                     </div>
-                    <input type="file" id="fotoInput" accept="image/*" style="display: none;">
-                    {% if servicio and servicio.foto_url %}
-                    <div class="photo-preview" id="photoPreviewExisting" style="display: block;">
-                        <img src="{{ servicio.foto_url }}" id="previewImgExisting" style="max-width: 150px; border-radius: 12px;">
+                    
+                    <!-- Preview de nueva foto (visible después de subir una nueva) -->
+                    <div id="newPhotoPreview" class="photo-preview" style="display: none;">
+                        <img id="previewImg" src="" style="max-width: 150px; border-radius: 12px;">
                         <br>
-                        <a href="#" class="remove-photo" onclick="removerFotoExistente(event)">🗑️ Eliminar foto</a>
+                        <a href="#" class="remove-photo" onclick="removerFotoNueva(event)">🗑️ Eliminar foto</a>
                     </div>
-                    {% endif %}
+                    
+                    <input type="file" id="fotoInput" accept="image/*" style="display: none;">
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
                 
@@ -567,8 +574,12 @@
         // Resto del código original (upload de foto, etc.)
         const uploadArea = document.getElementById('uploadArea');
         const fotoInput = document.getElementById('fotoInput');
+        const existingPhotoContainer = document.getElementById('existingPhotoContainer');
+        const newPhotoPreview = document.getElementById('newPhotoPreview');
+        const previewImg = document.getElementById('previewImg');
         const fotoUrlInput = document.getElementById('foto_url');
         
+        // Evento para abrir el selector de archivos
         if (uploadArea) {
             uploadArea.addEventListener('click', () => fotoInput.click());
         }
@@ -611,54 +622,51 @@
                     return;
                 }
                 
-                uploadArea.style.opacity = '0.5';
-                uploadArea.style.pointerEvents = 'none';
+                if (uploadArea) {
+                    uploadArea.style.opacity = '0.5';
+                    uploadArea.style.pointerEvents = 'none';
+                }
                 
                 const url = await subirFoto(file);
                 
                 if (url) {
                     fotoUrlInput.value = url;
-                    
-                    // Eliminar preview existente
-                    const existingPreview = document.getElementById('photoPreviewExisting');
-                    if (existingPreview) existingPreview.remove();
-                    
-                    // Crear nueva preview
-                    let previewDiv = document.getElementById('photoPreview');
-                    if (!previewDiv) {
-                        previewDiv = document.createElement('div');
-                        previewDiv.id = 'photoPreview';
-                        previewDiv.className = 'photo-preview';
-                        uploadArea.parentNode.insertBefore(previewDiv, uploadArea.nextSibling);
-                    }
-                    previewDiv.innerHTML = `
-                        <img src="${url}" style="max-width: 150px; border-radius: 12px;">
-                        <br>
-                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
-                    `;
-                    previewDiv.style.display = 'block';
-                    uploadArea.style.display = 'none';
+                    if (previewImg) previewImg.src = url;
+                    if (newPhotoPreview) newPhotoPreview.style.display = 'block';
+                    if (uploadArea) uploadArea.style.display = 'none';
+                    if (existingPhotoContainer) existingPhotoContainer.style.display = 'none';
                 }
                 
-                uploadArea.style.opacity = '1';
-                uploadArea.style.pointerEvents = 'auto';
+                if (uploadArea) {
+                    uploadArea.style.opacity = '1';
+                    uploadArea.style.pointerEvents = 'auto';
+                }
             });
         }
         
-        function removerFoto(event) {
+        function removerFotoNueva(event) {
             event.preventDefault();
             fotoUrlInput.value = '';
-            const previewDiv = document.getElementById('photoPreview');
-            if (previewDiv) previewDiv.remove();
-            if (uploadArea) uploadArea.style.display = 'block';
+            if (newPhotoPreview) {
+                newPhotoPreview.style.display = 'none';
+            }
+            if (uploadArea) {
+                uploadArea.style.display = 'block';
+            }
+            if (fotoInput) {
+                fotoInput.value = '';
+            }
         }
         
         function removerFotoExistente(event) {
             event.preventDefault();
             fotoUrlInput.value = '';
-            const existingPreview = document.getElementById('photoPreviewExisting');
-            if (existingPreview) existingPreview.remove();
-            if (uploadArea) uploadArea.style.display = 'block';
+            if (existingPhotoContainer) {
+                existingPhotoContainer.style.display = 'none';
+            }
+            if (uploadArea) {
+                uploadArea.style.display = 'block';
+            }
         }
         
         // Control de tipo de precio

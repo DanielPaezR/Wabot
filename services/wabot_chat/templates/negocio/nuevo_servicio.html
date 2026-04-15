@@ -243,7 +243,7 @@
         /* Estilos para selector de moneda */
         .currency-selector {
             display: flex;
-            gap: 1rem;
+            gap: 0.8rem;
             align-items: center;
             margin-bottom: 1rem;
             padding: 0.8rem;
@@ -251,21 +251,25 @@
             border-radius: 8px;
             flex-wrap: wrap;
         }
-        
+
         .currency-selector label {
             font-weight: 600;
             color: #333;
             margin-right: 0.5rem;
         }
-        
+
         .currency-selector select {
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background: white;
             cursor: pointer;
+            flex: 1;
+            min-width: 0; /* Evita desbordamiento */
+            max-width: 100%;
+            font-size: 0.85rem;
         }
-        
+
         .currency-symbol {
             display: inline-block;
             margin-left: 8px;
