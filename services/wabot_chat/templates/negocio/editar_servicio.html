@@ -316,6 +316,22 @@
         .precio-input-group input {
             flex: 1;
         }
+
+        .remove-photo-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .remove-photo-btn:hover {
+            background: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -384,34 +400,37 @@
                     <div class="help-text">Tiempo aproximado que toma este servicio</div>
                 </div>
                 
-                <!-- Foto del servicio - VERSIÓN CORREGIDA -->
+                <!-- Foto del servicio -->
                 <div class="form-group">
                     <label>📸 Foto del Servicio (opcional)</label>
                     
-                    <!-- Contenedor para foto actual (si existe) -->
+                    <!-- Foto actual (si existe) -->
                     <div id="existingPhotoContainer" {% if not servicio or not servicio.foto_url %}style="display: none;"{% endif %}>
-                        <div class="photo-preview" id="photoPreviewExisting">
-                            <img src="{{ servicio.foto_url if servicio else '' }}" id="previewImgExisting" style="max-width: 150px; border-radius: 12px;">
+                        <div class="photo-preview">
+                            <img src="{{ servicio.foto_url if servicio else '' }}" id="existingPhotoImg" style="max-width: 150px; border-radius: 12px;">
                             <br>
-                            <a href="#" class="remove-photo" onclick="removerFotoExistente(event)">🗑️ Eliminar foto</a>
+                            <button type="button" class="remove-photo-btn" onclick="eliminarFotoExistente()">🗑️ Eliminar foto actual</button>
                         </div>
                     </div>
                     
-                    <!-- Área de subida de nueva foto (visible si no hay foto o se eliminó) -->
-                    <div class="photo-upload-area" id="uploadArea" {% if servicio and servicio.foto_url %}style="display: none;"{% endif %}>
-                        <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #94a3b8;"></i>
-                        <p>Haz clic para subir una foto</p>
-                        <small style="color: #64748b;">Formatos: JPG, PNG, GIF (máx 5MB)</small>
+                    <!-- Área para subir nueva foto -->
+                    <div id="uploadAreaContainer" {% if servicio and servicio.foto_url %}style="display: none;"{% endif %}>
+                        <div class="photo-upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #94a3b8;"></i>
+                            <p>Haz clic para subir una foto</p>
+                            <small style="color: #64748b;">Formatos: JPG, PNG, GIF (máx 5MB)</small>
+                        </div>
                     </div>
                     
-                    <!-- Preview de nueva foto (visible después de subir una nueva) -->
+                    <!-- Preview de nueva foto -->
                     <div id="newPhotoPreview" class="photo-preview" style="display: none;">
-                        <img id="previewImg" src="" style="max-width: 150px; border-radius: 12px;">
+                        <img id="newPhotoImg" src="" style="max-width: 150px; border-radius: 12px;">
                         <br>
-                        <a href="#" class="remove-photo" onclick="removerFotoNueva(event)">🗑️ Eliminar foto</a>
+                        <button type="button" class="remove-photo-btn" onclick="cancelarNuevaFoto()">🗑️ Cancelar</button>
                     </div>
                     
                     <input type="file" id="fotoInput" accept="image/*" style="display: none;">
+                    <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
                 
@@ -571,19 +590,21 @@
         // Inicializar
         updateCurrency();
         
-        // Resto del código original (upload de foto, etc.)
+                // ========== MANEJO DE FOTOS ==========
         const uploadArea = document.getElementById('uploadArea');
         const fotoInput = document.getElementById('fotoInput');
         const existingPhotoContainer = document.getElementById('existingPhotoContainer');
+        const uploadAreaContainer = document.getElementById('uploadAreaContainer');
         const newPhotoPreview = document.getElementById('newPhotoPreview');
-        const previewImg = document.getElementById('previewImg');
+        const newPhotoImg = document.getElementById('newPhotoImg');
         const fotoUrlInput = document.getElementById('foto_url');
-        
-        // Evento para abrir el selector de archivos
+
+        // Abrir selector de archivos
         if (uploadArea) {
             uploadArea.addEventListener('click', () => fotoInput.click());
         }
-        
+
+        // Subir foto nueva
         async function subirFoto(file) {
             const formData = new FormData();
             formData.append('foto', file);
@@ -606,7 +627,8 @@
                 return null;
             }
         }
-        
+
+        // Manejar selección de archivo
         if (fotoInput) {
             fotoInput.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
@@ -622,6 +644,7 @@
                     return;
                 }
                 
+                // Mostrar loading
                 if (uploadArea) {
                     uploadArea.style.opacity = '0.5';
                     uploadArea.style.pointerEvents = 'none';
@@ -630,10 +653,15 @@
                 const url = await subirFoto(file);
                 
                 if (url) {
+                    // Actualizar el campo oculto con la nueva URL
                     fotoUrlInput.value = url;
-                    if (previewImg) previewImg.src = url;
-                    if (newPhotoPreview) newPhotoPreview.style.display = 'block';
-                    if (uploadArea) uploadArea.style.display = 'none';
+                    
+                    // Mostrar preview de la nueva foto
+                    newPhotoImg.src = url;
+                    newPhotoPreview.style.display = 'block';
+                    
+                    // Ocultar área de subida y foto existente
+                    if (uploadAreaContainer) uploadAreaContainer.style.display = 'none';
                     if (existingPhotoContainer) existingPhotoContainer.style.display = 'none';
                 }
                 
@@ -641,31 +669,59 @@
                     uploadArea.style.opacity = '1';
                     uploadArea.style.pointerEvents = 'auto';
                 }
+                
+                // Limpiar input para poder subir otra foto si es necesario
+                fotoInput.value = '';
             });
         }
-        
-        function removerFotoNueva(event) {
-            event.preventDefault();
-            fotoUrlInput.value = '';
-            if (newPhotoPreview) {
-                newPhotoPreview.style.display = 'none';
-            }
-            if (uploadArea) {
-                uploadArea.style.display = 'block';
-            }
-            if (fotoInput) {
-                fotoInput.value = '';
+
+        // Eliminar foto existente (la que ya estaba guardada)
+        function eliminarFotoExistente() {
+            if (confirm('¿Eliminar esta foto del servicio?')) {
+                // Limpiar el campo oculto
+                fotoUrlInput.value = '';
+                
+                // Ocultar el contenedor de la foto existente
+                if (existingPhotoContainer) {
+                    existingPhotoContainer.style.display = 'none';
+                }
+                
+                // Mostrar el área de subida para nueva foto
+                if (uploadAreaContainer) {
+                    uploadAreaContainer.style.display = 'block';
+                }
+                
+                // Limpiar preview de nueva foto si estaba visible
+                if (newPhotoPreview) {
+                    newPhotoPreview.style.display = 'none';
+                    newPhotoImg.src = '';
+                }
             }
         }
-        
-        function removerFotoExistente(event) {
-            event.preventDefault();
-            fotoUrlInput.value = '';
-            if (existingPhotoContainer) {
-                existingPhotoContainer.style.display = 'none';
+
+        // Cancelar nueva foto (volver a mostrar la existente o área de subida)
+        function cancelarNuevaFoto() {
+            // Limpiar campo oculto si no había foto existente
+            const hadExistingPhoto = existingPhotoContainer && existingPhotoContainer.style.display !== 'none';
+            
+            if (!hadExistingPhoto) {
+                fotoUrlInput.value = '';
             }
-            if (uploadArea) {
-                uploadArea.style.display = 'block';
+            
+            // Ocultar preview de nueva foto
+            if (newPhotoPreview) {
+                newPhotoPreview.style.display = 'none';
+                newPhotoImg.src = '';
+            }
+            
+            // Si había foto existente, mostrarla de nuevo
+            if (existingPhotoContainer && existingPhotoContainer.style.display === 'none' && 
+                document.getElementById('existingPhotoImg') && document.getElementById('existingPhotoImg').src) {
+                existingPhotoContainer.style.display = 'block';
+                if (uploadAreaContainer) uploadAreaContainer.style.display = 'none';
+            } else {
+                // Si no había foto existente, mostrar área de subida
+                if (uploadAreaContainer) uploadAreaContainer.style.display = 'block';
             }
         }
         
