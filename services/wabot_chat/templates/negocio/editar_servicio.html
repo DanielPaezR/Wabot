@@ -323,6 +323,15 @@
         .precio-input-group input {
             flex: 1;
         }
+
+        /* Clases para mostrar/ocultar elementos */
+        .hidden {
+            display: none;
+        }
+
+        .visible {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -396,7 +405,7 @@
                     <label>📸 Foto del Servicio (opcional)</label>
                     
                     <!-- Foto actual (si existe) -->
-                    <div id="existingPhotoContainer" {% if not servicio or not servicio.foto_url %}style="display: none;"{% endif %}>
+                    <div id="existingPhotoContainer" class="{% if not servicio or not servicio.foto_url %}hidden{% else %}visible{% endif %}">
                         <div class="photo-preview">
                             <img src="{{ servicio.foto_url if servicio else '' }}" id="existingPhotoImg" style="max-width: 150px; border-radius: 12px;">
                             <br>
@@ -404,13 +413,10 @@
                         </div>
                     </div>
                     
-                    <!-- Área para subir nueva foto -->
-                    <div id="uploadAreaContainer" {% if servicio and servicio.foto_url %}style="display: none;"{% endif %}>
-                        <div class="photo-upload-area" id="uploadArea">
-                            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #94a3b8;"></i>
-                            <p>Haz clic para subir una foto</p>
-                            <small style="color: #64748b;">Formatos: JPG, PNG, GIF (máx 5MB)</small>
-                        </div>
+                    <!-- Input de archivo visible (no oculto) -->
+                    <div id="existingPhotoContainer" class="{% if not servicio or not servicio.foto_url %}hidden{% else %}visible{% endif %}">
+                        <input type="file" id="fotoInput" accept="image/*" style="display: block; margin-bottom: 10px;">
+                        <div class="help-text">Formatos: JPG, PNG, GIF (máx 5MB)</div>
                     </div>
                     
                     <!-- Preview de nueva foto -->
@@ -420,7 +426,7 @@
                         <button type="button" class="remove-photo-btn" onclick="cancelarNuevaFoto()">🗑️ Cancelar</button>
                     </div>
                     
-                    <input type="file" id="fotoInput" accept="image/*" style="display: none;">
+                    <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
                 
@@ -576,69 +582,16 @@
         currencySelect.addEventListener('change', updateCurrency);
         updateCurrency();
         
-        // ========== MANEJO DE FOTOS ==========
-        let uploadEventBound = false;
-        
-        // Función para inicializar el evento de subida
-        function initUploadEvent() {
-            const uploadArea = document.getElementById('uploadArea');
-            const fotoInput = document.getElementById('fotoInput');
-            
-            if (uploadArea && !uploadEventBound) {
-                const newUploadArea = uploadArea.cloneNode(true);
-                uploadArea.parentNode.replaceChild(newUploadArea, uploadArea);
-                
-                newUploadArea.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    document.getElementById('fotoInput').click();
-                });
-                uploadEventBound = true;
-            }
-            
-            if (fotoInput) {
-                fotoInput.removeEventListener('change', handleFileChange);
-                fotoInput.addEventListener('change', handleFileChange);
-            }
-        }
-        
-        // Función para manejar el cambio de archivo
-        async function handleFileChange(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            if (file.size > 5 * 1024 * 1024) {
-                alert('❌ La imagen es demasiado grande (máx 5MB)');
-                return;
-            }
-            
-            if (!file.type.match('image.*')) {
-                alert('❌ Solo se permiten imágenes');
-                return;
-            }
-            
-            const uploadArea = document.getElementById('uploadArea');
-            if (uploadArea) {
-                uploadArea.style.opacity = '0.5';
-                uploadArea.style.pointerEvents = 'none';
-            }
-            
-            const url = await subirFoto(file);
-            
-            if (url) {
-                document.getElementById('foto_url').value = url;
-                document.getElementById('newPhotoImg').src = url;
-                document.getElementById('newPhotoPreview').style.display = 'block';
-                document.getElementById('uploadAreaContainer').style.display = 'none';
-            }
-            
-            if (uploadArea) {
-                uploadArea.style.opacity = '1';
-                uploadArea.style.pointerEvents = 'auto';
-            }
-        }
-        
-        // Función para subir foto al servidor
-        async function subirFoto(file) {
+        // ========== MANEJO DE FOTO// ========== MANEJO DE FOTOS SIMPLIFICADO ==========
+        const fotoInput = document.getElementById('fotoInput');
+        const existingPhotoContainer = document.getElementById('existingPhotoContainer');
+        const uploadAreaContainer = document.getElementById('uploadAreaContainer');
+        const newPhotoPreview = document.getElementById('newPhotoPreview');
+        const newPhotoImg = document.getElementById('newPhotoImg');
+        const fotoUrlInput = document.getElementById('foto_url');
+
+        // Función para subir foto
+        async function subirFotoAlServidor(file) {
             const formData = new FormData();
             formData.append('foto', file);
             formData.append('tipo', 'servicio');
@@ -652,16 +605,53 @@
                 if (result.success) {
                     return result.url;
                 } else {
-                    alert('Error al subir la foto: ' + result.error);
+                    alert('Error: ' + result.error);
                     return null;
                 }
             } catch (error) {
-                alert('Error de conexión al subir la foto');
+                alert('Error de conexión');
                 return null;
             }
         }
-        
-        // Función para eliminar foto existente
+
+        // Evento cuando se selecciona un archivo
+        if (fotoInput) {
+            fotoInput.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('❌ La imagen es demasiado grande (máx 5MB)');
+                    return;
+                }
+                
+                if (!file.type.match('image.*')) {
+                    alert('❌ Solo se permiten imágenes');
+                    return;
+                }
+                
+                fotoInput.disabled = true;
+                fotoInput.style.opacity = '0.5';
+                
+                const url = await subirFotoAlServidor(file);
+                
+                if (url) {
+                    fotoUrlInput.value = url;
+                    newPhotoImg.src = url;
+                    newPhotoPreview.style.display = 'block';
+                    uploadAreaContainer.style.display = 'none';
+                    if (existingPhotoContainer) {
+                        existingPhotoContainer.style.display = 'none';
+                    }
+                }
+                
+                fotoInput.disabled = false;
+                fotoInput.style.opacity = '1';
+                fotoInput.value = ''; // Limpiar para poder seleccionar otra
+            };
+        }
+
+        // Eliminar foto existente
         function eliminarFotoExistente() {
             if (!confirm('¿Eliminar esta foto del servicio?')) return;
             
@@ -673,23 +663,27 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken
-                }
+                },
+                body: JSON.stringify({})
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    document.getElementById('foto_url').value = '';
+                    fotoUrlInput.value = '';
                     
-                    const existingContainer = document.getElementById('existingPhotoContainer');
-                    if (existingContainer) existingContainer.style.display = 'none';
+                    if (existingPhotoContainer) {
+                        existingPhotoContainer.style.display = 'none';
+                    }
                     
-                    const uploadContainer = document.getElementById('uploadAreaContainer');
-                    if (uploadContainer) uploadContainer.style.display = 'block';
+                    if (uploadAreaContainer) {
+                        uploadAreaContainer.style.display = 'block';
+                    }
                     
-                    uploadEventBound = false;
-                    setTimeout(() => initUploadEvent(), 100);
+                    if (newPhotoPreview) {
+                        newPhotoPreview.style.display = 'none';
+                    }
                     
-                    alert('✅ Foto eliminada. Puedes subir una nueva.');
+                    alert('✅ Foto eliminada');
                 } else {
                     alert('❌ Error al eliminar la foto');
                 }
@@ -699,16 +693,13 @@
                 alert('❌ Error de conexión');
             });
         }
-        
-        // Función para cancelar nueva foto
+
+        // Cancelar nueva foto
         function cancelarNuevaFoto() {
-            document.getElementById('foto_url').value = '';
-            document.getElementById('newPhotoPreview').style.display = 'none';
-            document.getElementById('newPhotoImg').src = '';
-            document.getElementById('uploadAreaContainer').style.display = 'block';
-            
-            uploadEventBound = false;
-            setTimeout(() => initUploadEvent(), 100);
+            fotoUrlInput.value = '';
+            newPhotoPreview.style.display = 'none';
+            newPhotoImg.src = '';
+            uploadAreaContainer.style.display = 'block';
         }
         
         // Control de tipo de precio
