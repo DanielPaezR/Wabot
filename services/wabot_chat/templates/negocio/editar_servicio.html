@@ -451,24 +451,23 @@
                     </label>
                     <div class="precio-input-group">
                         <span class="currency-symbol-badge" id="basePriceSymbol">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
-                        <input type="number" id="precio" name="precio" 
+                        <input type="number" id="precioBase" name="precio" 
                                value="{{ servicio.precio if servicio else '' }}" 
-                               min="0" id="precioBase" required placeholder="Ej: 20000">
+                               min="0" required placeholder="Ej: 20000">
                     </div>
                     <div class="help-text">Para precio fijo: valor único. Para rango: valor mínimo.</div>
                 </div>
                 
-                <div class="precio-maximo-group" id="precioMaximoGroup" 
-                     {% if servicio and servicio.tipo_precio == 'rango' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                <div class="precio-maximo-group {% if not servicio or servicio.tipo_precio != 'rango' %}hidden{% endif %}" id="precioMaximoGroup">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="precio_maximo">Precio Máximo 
                             <span class="badge badge-warning">Rango Superior</span>
                         </label>
                         <div class="precio-input-group">
                             <span class="currency-symbol-badge" id="maxPriceSymbol">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
-                            <input type="number" id="precio_maximo" name="precio_maximo" 
+                            <input type="number" id="precioMaximoInput" name="precio_maximo" 
                                    value="{{ servicio.precio_maximo if servicio and servicio.precio_maximo else '' }}" 
-                                   min="0" id="precioMaximoInput" placeholder="Ej: 50000">
+                                   min="0" placeholder="Ej: 50000">
                         </div>
                         <div class="help-text">Solo para rangos: el precio máximo que puede alcanzar el servicio.</div>
                     </div>
@@ -541,13 +540,17 @@
                 maxPriceSymbol.textContent = currencyData.symbol;
                 monedaInput.value = currentCurrency;
                 
-                precioBaseInput.step = currencyData.step;
+                if (precioBaseInput) {
+                    precioBaseInput.step = currencyData.step;
+                }
                 if (precioMaximoInput) {
                     precioMaximoInput.step = currencyData.step;
                 }
                 
                 const exampleValue = formatCurrencyExample(currencyData);
-                precioBaseInput.placeholder = `Ej: ${exampleValue}`;
+                if (precioBaseInput) {
+                    precioBaseInput.placeholder = `Ej: ${exampleValue}`;
+                }
                 if (precioMaximoInput) {
                     precioMaximoInput.placeholder = `Ej: ${exampleValue * 2.5}`;
                 }
