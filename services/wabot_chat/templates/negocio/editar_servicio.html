@@ -206,21 +206,6 @@
             border-left: 3px solid #3498db;
         }
         
-        .photo-upload-area {
-            border: 2px dashed #cbd5e1;
-            border-radius: 12px;
-            padding: 1.5rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: #f8fafc;
-        }
-        
-        .photo-upload-area:hover {
-            border-color: #3498db;
-            background: #eef2ff;
-        }
-        
         .photo-preview {
             margin-top: 1rem;
             text-align: center;
@@ -332,6 +317,15 @@
         .visible {
             display: block;
         }
+        
+        .file-input {
+            display: block;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -413,20 +407,19 @@
                         </div>
                     </div>
                     
-                    <!-- Input de archivo visible (no oculto) -->
-                    <div id="existingPhotoContainer" class="{% if not servicio or not servicio.foto_url %}hidden{% else %}visible{% endif %}">
-                        <input type="file" id="fotoInput" accept="image/*" style="display: block; margin-bottom: 10px;">
+                    <!-- Input de archivo para subir nueva foto -->
+                    <div id="uploadAreaContainer" class="{% if servicio and servicio.foto_url %}hidden{% else %}visible{% endif %}">
+                        <input type="file" id="fotoInput" accept="image/*" class="file-input">
                         <div class="help-text">Formatos: JPG, PNG, GIF (máx 5MB)</div>
                     </div>
                     
                     <!-- Preview de nueva foto -->
-                    <div id="newPhotoPreview" class="photo-preview" style="display: none;">
+                    <div id="newPhotoPreview" class="photo-preview hidden">
                         <img id="newPhotoImg" src="" style="max-width: 150px; border-radius: 12px;">
                         <br>
                         <button type="button" class="remove-photo-btn" onclick="cancelarNuevaFoto()">🗑️ Cancelar</button>
                     </div>
                     
-                    <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
                 
@@ -582,7 +575,7 @@
         currencySelect.addEventListener('change', updateCurrency);
         updateCurrency();
         
-        // ========== MANEJO DE FOTO// ========== MANEJO DE FOTOS SIMPLIFICADO ==========
+        // ========== MANEJO DE FOTOS SIMPLIFICADO ==========
         const fotoInput = document.getElementById('fotoInput');
         const existingPhotoContainer = document.getElementById('existingPhotoContainer');
         const uploadAreaContainer = document.getElementById('uploadAreaContainer');
@@ -614,6 +607,17 @@
             }
         }
 
+        // Función para mostrar/ocultar elementos
+        function mostrarElemento(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        }
+        
+        function ocultarElemento(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+
         // Evento cuando se selecciona un archivo
         if (fotoInput) {
             fotoInput.onchange = async function(e) {
@@ -631,23 +635,19 @@
                 }
                 
                 fotoInput.disabled = true;
-                fotoInput.style.opacity = '0.5';
                 
                 const url = await subirFotoAlServidor(file);
                 
                 if (url) {
                     fotoUrlInput.value = url;
                     newPhotoImg.src = url;
-                    newPhotoPreview.style.display = 'block';
-                    uploadAreaContainer.style.display = 'none';
-                    if (existingPhotoContainer) {
-                        existingPhotoContainer.style.display = 'none';
-                    }
+                    mostrarElemento('newPhotoPreview');
+                    ocultarElemento('uploadAreaContainer');
+                    ocultarElemento('existingPhotoContainer');
                 }
                 
                 fotoInput.disabled = false;
-                fotoInput.style.opacity = '1';
-                fotoInput.value = ''; // Limpiar para poder seleccionar otra
+                fotoInput.value = '';
             };
         }
 
@@ -670,19 +670,9 @@
             .then(data => {
                 if (data.success) {
                     fotoUrlInput.value = '';
-                    
-                    if (existingPhotoContainer) {
-                        existingPhotoContainer.style.display = 'none';
-                    }
-                    
-                    if (uploadAreaContainer) {
-                        uploadAreaContainer.style.display = 'block';
-                    }
-                    
-                    if (newPhotoPreview) {
-                        newPhotoPreview.style.display = 'none';
-                    }
-                    
+                    ocultarElemento('existingPhotoContainer');
+                    mostrarElemento('uploadAreaContainer');
+                    ocultarElemento('newPhotoPreview');
                     alert('✅ Foto eliminada');
                 } else {
                     alert('❌ Error al eliminar la foto');
@@ -697,9 +687,9 @@
         // Cancelar nueva foto
         function cancelarNuevaFoto() {
             fotoUrlInput.value = '';
-            newPhotoPreview.style.display = 'none';
+            ocultarElemento('newPhotoPreview');
             newPhotoImg.src = '';
-            uploadAreaContainer.style.display = 'block';
+            mostrarElemento('uploadAreaContainer');
         }
         
         // Control de tipo de precio
@@ -727,11 +717,6 @@
             radioVariable.addEventListener('change', togglePrecioMaximo);
             togglePrecioMaximo();
         }
-        
-        // Inicializar eventos al cargar la página
-        document.addEventListener('DOMContentLoaded', function() {
-            initUploadEvent();
-        });
         
         // Validación al enviar
         document.getElementById('servicioForm')?.addEventListener('submit', function(e) {
