@@ -234,13 +234,20 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .remove-photo {
-            display: inline-block;
-            margin-top: 8px;
-            color: #e74c3c;
-            font-size: 0.8rem;
+        .remove-photo-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
             cursor: pointer;
-            text-decoration: none;
+            margin-top: 8px;
+            display: inline-block;
+        }
+        
+        .remove-photo-btn:hover {
+            background: #c0392b;
         }
         
         .badge {
@@ -265,7 +272,7 @@
         /* Estilos para selector de moneda */
         .currency-selector {
             display: flex;
-            gap: 0.8rem;
+            gap: 1rem;
             align-items: center;
             margin-bottom: 1rem;
             padding: 0.8rem;
@@ -273,13 +280,13 @@
             border-radius: 8px;
             flex-wrap: wrap;
         }
-
+        
         .currency-selector label {
             font-weight: 600;
             color: #333;
             margin-right: 0.5rem;
         }
-
+        
         .currency-selector select {
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -287,11 +294,11 @@
             background: white;
             cursor: pointer;
             flex: 1;
-            min-width: 0; /* Evita desbordamiento */
+            min-width: 0;
             max-width: 100%;
             font-size: 0.85rem;
         }
-
+        
         .currency-symbol {
             display: inline-block;
             margin-left: 8px;
@@ -315,22 +322,6 @@
         
         .precio-input-group input {
             flex: 1;
-        }
-
-        .remove-photo-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            cursor: pointer;
-            margin-top: 8px;
-            display: inline-block;
-        }
-
-        .remove-photo-btn:hover {
-            background: #c0392b;
         }
     </style>
 </head>
@@ -370,9 +361,9 @@
                     <label><i class="fas fa-coins"></i> Moneda:</label>
                     <select id="currencySelect">
                         <option value="COP" data-symbol="$" data-name="Peso Colombiano">🇨🇴 COP ($) - Peso Colombiano</option>
-                        <option value="AWG" data-symbol="ƒ" data-name="Florín de Aruba">🇦🇼 AWG (ƒ) - Florín de Aruba</option>
                         <option value="USD" data-symbol="$" data-name="Dólar Estadounidense">🇺🇸 USD ($) - Dólar Estadounidense</option>
                         <option value="EUR" data-symbol="€" data-name="Euro">🇪🇺 EUR (€) - Euro</option>
+                        <option value="AWG" data-symbol="ƒ" data-name="Florín de Aruba">🇦🇼 AWG (ƒ) - Florín de Aruba</option>
                         <option value="MXN" data-symbol="$" data-name="Peso Mexicano">🇲🇽 MXN ($) - Peso Mexicano</option>
                         <option value="ARS" data-symbol="$" data-name="Peso Argentino">🇦🇷 ARS ($) - Peso Argentino</option>
                         <option value="CLP" data-symbol="$" data-name="Peso Chileno">🇨🇱 CLP ($) - Peso Chileno</option>
@@ -430,7 +421,6 @@
                     </div>
                     
                     <input type="file" id="fotoInput" accept="image/*" style="display: none;">
-                    <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
                 
@@ -517,9 +507,9 @@
         // Configuración de monedas
         const currencies = {
             'COP': { symbol: '$', name: 'Peso Colombiano', decimalPlaces: 0, step: 1000 },
-            'AWG': { symbol: 'ƒ', name: 'Florín de Aruba', decimalPlaces: 2, step: 0.01 },
             'USD': { symbol: '$', name: 'Dólar Estadounidense', decimalPlaces: 2, step: 1 },
             'EUR': { symbol: '€', name: 'Euro', decimalPlaces: 2, step: 1 },
+            'AWG': { symbol: 'ƒ', name: 'Florín de Aruba', decimalPlaces: 2, step: 0.01 },
             'MXN': { symbol: '$', name: 'Peso Mexicano', decimalPlaces: 2, step: 10 },
             'ARS': { symbol: '$', name: 'Peso Argentino', decimalPlaces: 2, step: 100 },
             'CLP': { symbol: '$', name: 'Peso Chileno', decimalPlaces: 0, step: 1000 },
@@ -552,13 +542,11 @@
                 maxPriceSymbol.textContent = currencyData.symbol;
                 monedaInput.value = currentCurrency;
                 
-                // Actualizar step de los inputs
                 precioBaseInput.step = currencyData.step;
                 if (precioMaximoInput) {
                     precioMaximoInput.step = currencyData.step;
                 }
                 
-                // Actualizar placeholder con ejemplo
                 const exampleValue = formatCurrencyExample(currencyData);
                 precioBaseInput.placeholder = `Ej: ${exampleValue}`;
                 if (precioMaximoInput) {
@@ -586,25 +574,70 @@
         
         // Evento cambio de moneda
         currencySelect.addEventListener('change', updateCurrency);
-        
-        // Inicializar
         updateCurrency();
         
-                // ========== MANEJO DE FOTOS ==========
-        const uploadArea = document.getElementById('uploadArea');
-        const fotoInput = document.getElementById('fotoInput');
-        const existingPhotoContainer = document.getElementById('existingPhotoContainer');
-        const uploadAreaContainer = document.getElementById('uploadAreaContainer');
-        const newPhotoPreview = document.getElementById('newPhotoPreview');
-        const newPhotoImg = document.getElementById('newPhotoImg');
-        const fotoUrlInput = document.getElementById('foto_url');
-
-        // Abrir selector de archivos
-        if (uploadArea) {
-            uploadArea.addEventListener('click', () => fotoInput.click());
+        // ========== MANEJO DE FOTOS ==========
+        let uploadEventBound = false;
+        
+        // Función para inicializar el evento de subida
+        function initUploadEvent() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fotoInput = document.getElementById('fotoInput');
+            
+            if (uploadArea && !uploadEventBound) {
+                const newUploadArea = uploadArea.cloneNode(true);
+                uploadArea.parentNode.replaceChild(newUploadArea, uploadArea);
+                
+                newUploadArea.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('fotoInput').click();
+                });
+                uploadEventBound = true;
+            }
+            
+            if (fotoInput) {
+                fotoInput.removeEventListener('change', handleFileChange);
+                fotoInput.addEventListener('change', handleFileChange);
+            }
         }
-
-        // Subir foto nueva
+        
+        // Función para manejar el cambio de archivo
+        async function handleFileChange(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 5 * 1024 * 1024) {
+                alert('❌ La imagen es demasiado grande (máx 5MB)');
+                return;
+            }
+            
+            if (!file.type.match('image.*')) {
+                alert('❌ Solo se permiten imágenes');
+                return;
+            }
+            
+            const uploadArea = document.getElementById('uploadArea');
+            if (uploadArea) {
+                uploadArea.style.opacity = '0.5';
+                uploadArea.style.pointerEvents = 'none';
+            }
+            
+            const url = await subirFoto(file);
+            
+            if (url) {
+                document.getElementById('foto_url').value = url;
+                document.getElementById('newPhotoImg').src = url;
+                document.getElementById('newPhotoPreview').style.display = 'block';
+                document.getElementById('uploadAreaContainer').style.display = 'none';
+            }
+            
+            if (uploadArea) {
+                uploadArea.style.opacity = '1';
+                uploadArea.style.pointerEvents = 'auto';
+            }
+        }
+        
+        // Función para subir foto al servidor
         async function subirFoto(file) {
             const formData = new FormData();
             formData.append('foto', file);
@@ -627,68 +660,14 @@
                 return null;
             }
         }
-
-        // Manejar selección de archivo
-        if (fotoInput) {
-            fotoInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('❌ La imagen es demasiado grande (máx 5MB)');
-                    return;
-                }
-                
-                if (!file.type.match('image.*')) {
-                    alert('❌ Solo se permiten imágenes');
-                    return;
-                }
-                
-                // Mostrar loading
-                if (uploadArea) {
-                    uploadArea.style.opacity = '0.5';
-                    uploadArea.style.pointerEvents = 'none';
-                }
-                
-                const url = await subirFoto(file);
-                
-                if (url) {
-                    // Actualizar el campo oculto con la nueva URL
-                    fotoUrlInput.value = url;
-                    
-                    // Mostrar preview de la nueva foto
-                    newPhotoImg.src = url;
-                    newPhotoPreview.style.display = 'block';
-                    
-                    // Ocultar área de subida y foto existente
-                    if (uploadAreaContainer) uploadAreaContainer.style.display = 'none';
-                    if (existingPhotoContainer) existingPhotoContainer.style.display = 'none';
-                }
-                
-                if (uploadArea) {
-                    uploadArea.style.opacity = '1';
-                    uploadArea.style.pointerEvents = 'auto';
-                }
-                
-                // Limpiar input para poder subir otra foto si es necesario
-                fotoInput.value = '';
-            });
-        }
-
-        // Eliminar foto existente
+        
+        // Función para eliminar foto existente
         function eliminarFotoExistente() {
             if (!confirm('¿Eliminar esta foto del servicio?')) return;
             
             const servicioId = '{{ servicio.id }}';
             const csrfToken = document.querySelector('input[name="csrf_token"]').value;
             
-            // Mostrar indicador de carga
-            const btn = event.target;
-            const originalText = btn.innerText;
-            btn.innerText = '⏳ Eliminando...';
-            btn.disabled = true;
-            
-            // Enviar solicitud al servidor
             fetch(`/negocio/servicios/${servicioId}/eliminar-foto`, {
                 method: 'POST',
                 headers: {
@@ -699,56 +678,37 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Limpiar el campo oculto
                     document.getElementById('foto_url').value = '';
                     
-                    // Ocultar el contenedor de la foto existente
                     const existingContainer = document.getElementById('existingPhotoContainer');
                     if (existingContainer) existingContainer.style.display = 'none';
                     
-                    // Mostrar el área de subida para nueva foto
                     const uploadContainer = document.getElementById('uploadAreaContainer');
                     if (uploadContainer) uploadContainer.style.display = 'block';
                     
-                    alert('✅ Foto eliminada correctamente');
+                    uploadEventBound = false;
+                    setTimeout(() => initUploadEvent(), 100);
+                    
+                    alert('✅ Foto eliminada. Puedes subir una nueva.');
                 } else {
-                    alert('❌ Error al eliminar la foto: ' + data.error);
+                    alert('❌ Error al eliminar la foto');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('❌ Error de conexión al eliminar la foto');
-            })
-            .finally(() => {
-                btn.innerText = originalText;
-                btn.disabled = false;
+                alert('❌ Error de conexión');
             });
         }
-
-        // Cancelar nueva foto (volver a mostrar la existente o área de subida)
+        
+        // Función para cancelar nueva foto
         function cancelarNuevaFoto() {
-            // Limpiar campo oculto si no había foto existente
-            const hadExistingPhoto = existingPhotoContainer && existingPhotoContainer.style.display !== 'none';
+            document.getElementById('foto_url').value = '';
+            document.getElementById('newPhotoPreview').style.display = 'none';
+            document.getElementById('newPhotoImg').src = '';
+            document.getElementById('uploadAreaContainer').style.display = 'block';
             
-            if (!hadExistingPhoto) {
-                fotoUrlInput.value = '';
-            }
-            
-            // Ocultar preview de nueva foto
-            if (newPhotoPreview) {
-                newPhotoPreview.style.display = 'none';
-                newPhotoImg.src = '';
-            }
-            
-            // Si había foto existente, mostrarla de nuevo
-            if (existingPhotoContainer && existingPhotoContainer.style.display === 'none' && 
-                document.getElementById('existingPhotoImg') && document.getElementById('existingPhotoImg').src) {
-                existingPhotoContainer.style.display = 'block';
-                if (uploadAreaContainer) uploadAreaContainer.style.display = 'none';
-            } else {
-                // Si no había foto existente, mostrar área de subida
-                if (uploadAreaContainer) uploadAreaContainer.style.display = 'block';
-            }
+            uploadEventBound = false;
+            setTimeout(() => initUploadEvent(), 100);
         }
         
         // Control de tipo de precio
@@ -776,6 +736,11 @@
             radioVariable.addEventListener('change', togglePrecioMaximo);
             togglePrecioMaximo();
         }
+        
+        // Inicializar eventos al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            initUploadEvent();
+        });
         
         // Validación al enviar
         document.getElementById('servicioForm')?.addEventListener('submit', function(e) {
