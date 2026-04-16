@@ -7573,6 +7573,31 @@ def negocio_editor_guardar():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/negocio/servicios/<int:servicio_id>/eliminar-foto', methods=['POST'])
+@login_required
+def eliminar_foto_servicio(servicio_id):
+    """Eliminar la foto de un servicio"""
+    try:
+        negocio_id = session.get('negocio_id')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE servicios 
+            SET foto_url = NULL 
+            WHERE id = %s AND negocio_id = %s
+        ''', (servicio_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Foto eliminada'})
+        
+    except Exception as e:
+        print(f"Error eliminando foto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_editor_eliminar_servicio():

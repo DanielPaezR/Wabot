@@ -675,28 +675,54 @@
             });
         }
 
-        // Eliminar foto existente (la que ya estaba guardada)
+        // Eliminar foto existente
         function eliminarFotoExistente() {
-            if (confirm('¿Eliminar esta foto del servicio?')) {
-                // Limpiar el campo oculto
-                fotoUrlInput.value = '';
-                
-                // Ocultar el contenedor de la foto existente
-                if (existingPhotoContainer) {
-                    existingPhotoContainer.style.display = 'none';
+            if (!confirm('¿Eliminar esta foto del servicio?')) return;
+            
+            const servicioId = '{{ servicio.id }}';
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            
+            // Mostrar indicador de carga
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = '⏳ Eliminando...';
+            btn.disabled = true;
+            
+            // Enviar solicitud al servidor
+            fetch(`/negocio/servicios/${servicioId}/eliminar-foto`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
                 }
-                
-                // Mostrar el área de subida para nueva foto
-                if (uploadAreaContainer) {
-                    uploadAreaContainer.style.display = 'block';
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Limpiar el campo oculto
+                    document.getElementById('foto_url').value = '';
+                    
+                    // Ocultar el contenedor de la foto existente
+                    const existingContainer = document.getElementById('existingPhotoContainer');
+                    if (existingContainer) existingContainer.style.display = 'none';
+                    
+                    // Mostrar el área de subida para nueva foto
+                    const uploadContainer = document.getElementById('uploadAreaContainer');
+                    if (uploadContainer) uploadContainer.style.display = 'block';
+                    
+                    alert('✅ Foto eliminada correctamente');
+                } else {
+                    alert('❌ Error al eliminar la foto: ' + data.error);
                 }
-                
-                // Limpiar preview de nueva foto si estaba visible
-                if (newPhotoPreview) {
-                    newPhotoPreview.style.display = 'none';
-                    newPhotoImg.src = '';
-                }
-            }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error de conexión al eliminar la foto');
+            })
+            .finally(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
         }
 
         // Cancelar nueva foto (volver a mostrar la existente o área de subida)
