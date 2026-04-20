@@ -255,6 +255,22 @@
                 flex-direction: column;
             }
         }
+
+        .precio-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .currency-symbol-badge {
+            background: #e9ecef;
+            padding: 12px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #495057;
+            min-width: 45px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -298,10 +314,33 @@
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Precio (COP) *</label>
-                    <input type="number" class="form-control" name="precio" required 
-                           min="0" step="1000" placeholder="Ej: 25000">
-                    <div class="help-text">Precio en pesos colombianos</div>
+                    <label class="form-label">Precio *</label>
+                    <div class="precio-input-group">
+                        <span class="currency-symbol-badge" id="priceSymbol">$</span>
+                        <input type="number" class="form-control" name="precio" required 
+                            min="0" id="precioInput" placeholder="Ej: 25000">
+                    </div>
+                    <div class="help-text">Precio del producto</div>
+                </div>
+
+                <!-- Selector de moneda -->
+                <div class="form-group">
+                    <label class="form-label">💰 Moneda</label>
+                    <select class="form-control" id="currencySelect" name="moneda">
+                        <option value="COP" data-symbol="$">🇨🇴 COP ($) - Peso Colombiano</option>
+                        <option value="USD" data-symbol="$">🇺🇸 USD ($) - Dólar Estadounidense</option>
+                        <option value="EUR" data-symbol="€">🇪🇺 EUR (€) - Euro</option>
+                        <option value="AWG" data-symbol="ƒ">🇦🇼 AWG (ƒ) - Florín de Aruba</option>
+                        <option value="MXN" data-symbol="$">🇲🇽 MXN ($) - Peso Mexicano</option>
+                        <option value="ARS" data-symbol="$">🇦🇷 ARS ($) - Peso Argentino</option>
+                        <option value="CLP" data-symbol="$">🇨🇱 CLP ($) - Peso Chileno</option>
+                        <option value="PEN" data-symbol="S/">🇵🇪 PEN (S/) - Sol Peruano</option>
+                        <option value="BOB" data-symbol="Bs">🇧🇴 BOB (Bs) - Boliviano</option>
+                        <option value="VES" data-symbol="Bs.S">🇻🇪 VES (Bs.S) - Bolívar Soberano</option>
+                        <option value="UYU" data-symbol="$">🇺🇾 UYU ($) - Peso Uruguayo</option>
+                        <option value="PYG" data-symbol="₲">🇵🇾 PYG (₲) - Guaraní</option>
+                    </select>
+                    <div class="help-text">Moneda en la que se mostrará el precio</div>
                 </div>
                 
                 <!-- Foto del producto -->
@@ -353,6 +392,9 @@
         const photoPreview = document.getElementById('photoPreview');
         const previewImg = document.getElementById('previewImg');
         const imagenUrlInput = document.getElementById('imagen_url');
+        const currencySelect = document.getElementById('currencySelect');
+        const priceSymbol = document.getElementById('priceSymbol');
+        const precioInput = document.getElementById('precioInput');
         
         if (uploadArea) {
             uploadArea.addEventListener('click', () => fotoInput.click());
@@ -438,6 +480,27 @@
                 return;
             }
         });
+
+        const symbols = {
+            'COP': '$', 'USD': 'US$', 'EUR': '€', 'AWG': 'ƒ',
+            'MXN': 'MX$', 'ARS': 'AR$', 'CLP': 'CL$', 'PEN': 'S/',
+            'BOB': 'Bs', 'VES': 'Bs.S', 'UYU': 'UY$', 'PYG': '₲'
+        };
+
+        const steps = {
+            'COP': 1000, 'USD': 1, 'EUR': 1, 'AWG': 0.01,
+            'MXN': 10, 'ARS': 100, 'CLP': 1000, 'PEN': 1,
+            'BOB': 1, 'VES': 1, 'UYU': 10, 'PYG': 1000
+        };
+
+        if (currencySelect) {
+            currencySelect.addEventListener('change', function() {
+                const currency = this.value;
+                priceSymbol.textContent = symbols[currency] || '$';
+                precioInput.step = steps[currency] || 1;
+                precioInput.placeholder = steps[currency] === 1000 ? 'Ej: 25000' : 'Ej: 25.00';
+            });
+        }
     </script>
 </body>
 </html>

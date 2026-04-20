@@ -7573,6 +7573,31 @@ def negocio_editor_guardar():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/negocio/servicios/<int:servicio_id>/eliminar-foto', methods=['POST'])
+@login_required
+def eliminar_foto_servicio(servicio_id):
+    """Eliminar la foto de un servicio"""
+    try:
+        negocio_id = session.get('negocio_id')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE servicios 
+            SET foto_url = NULL 
+            WHERE id = %s AND negocio_id = %s
+        ''', (servicio_id, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Foto eliminada'})
+        
+    except Exception as e:
+        print(f"Error eliminando foto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_editor_eliminar_servicio():
@@ -7752,8 +7777,8 @@ def negocio_subir_foto_servicio():
         print(f"❌ Error subiendo foto de servicio: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# =============================================================================
-# GESTIÓN DE PRODUCTOS
+    # =============================================================================
+# GESTIÓN DE PRODUCTOS CON SOPORTE MULTI-MONEDA
 # =============================================================================
 
 @app.route('/negocio/productos')
@@ -7779,7 +7804,7 @@ def negocio_productos():
 @app.route('/negocio/productos/nuevo', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_productos_nuevo():
-    """Crear nuevo producto"""
+    """Crear nuevo producto - CON SOPORTE MULTI-MONEDA"""
     negocio_id = session.get('negocio_id', 1)
     
     if request.method == 'POST':
@@ -7792,11 +7817,13 @@ def negocio_productos_nuevo():
         descripcion = request.form.get('descripcion', '')
         imagen_url = request.form.get('imagen_url', '')
         disponible = request.form.get('disponible', 'off') == 'on'
+        moneda = request.form.get('moneda', 'COP')  # ✅ NUEVO: Obtener moneda
         
         print(f"📝 [PRODUCTO] Datos recibidos:")
         print(f"   negocio_id: {negocio_id}")
         print(f"   nombre: {nombre}")
         print(f"   precio: {precio}")
+        print(f"   moneda: {moneda}")
         
         if not nombre:
             flash('El nombre del producto es requerido', 'error')
@@ -7811,11 +7838,11 @@ def negocio_productos_nuevo():
         cursor = conn.cursor()
         
         try:
-            # ✅ INSERT sin created_at
+            # ✅ INSERT con moneda
             cursor.execute('''
-                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible))
+                INSERT INTO productos (negocio_id, nombre, descripcion, precio, imagen_url, disponible, moneda)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (negocio_id, nombre, descripcion, precio, imagen_url, disponible, moneda))
             
             print(f"✅ [PRODUCTO] Filas afectadas: {cursor.rowcount}")
             conn.commit()
@@ -7837,7 +7864,7 @@ def negocio_productos_nuevo():
 @app.route('/negocio/productos/<int:producto_id>/editar', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_productos_editar(producto_id):
-    """Editar producto"""
+    """Editar producto - CON SOPORTE MULTI-MONEDA"""
     negocio_id = session.get('negocio_id', 1)
     
     conn = get_db_connection()
@@ -7862,6 +7889,7 @@ def negocio_productos_editar(producto_id):
         descripcion = request.form.get('descripcion', '')
         imagen_url = request.form.get('imagen_url', '')
         disponible = request.form.get('disponible', 'off') == 'on'
+        moneda = request.form.get('moneda', 'COP')  # ✅ NUEVO: Obtener moneda
         
         if not nombre:
             flash('El nombre del producto es requerido', 'error')
@@ -7877,9 +7905,9 @@ def negocio_productos_editar(producto_id):
         cursor_update = conn.cursor()
         cursor_update.execute('''
             UPDATE productos 
-            SET nombre = %s, descripcion = %s, precio = %s, imagen_url = %s, disponible = %s
+            SET nombre = %s, descripcion = %s, precio = %s, imagen_url = %s, disponible = %s, moneda = %s
             WHERE id = %s AND negocio_id = %s
-        ''', (nombre, descripcion, precio, imagen_url, disponible, producto_id, negocio_id))
+        ''', (nombre, descripcion, precio, imagen_url, disponible, moneda, producto_id, negocio_id))
         
         conn.commit()
         conn.close()
@@ -8045,6 +8073,14 @@ def calificar_servicio(cita_id):
     
     return render_template('calificar.html', cita=cita)
 
+# =============================================================================
+# Landing Page de Ventas para Wabot
+# =============================================================================
+
+@app.route('/wabot-ventas')
+def wabot_sales():
+    """Landing page de ventas para Wabot"""
+    return render_template('wabot_sales.html')
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
