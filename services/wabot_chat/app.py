@@ -8070,6 +8070,14 @@ def calificar_servicio(cita_id):
     
     return render_template('calificar.html', cita=cita)
 
+# =============================================================================
+# Landing Page de Ventas para Wabot
+# =============================================================================
+
+@app.route('/wabot-ventas')
+def wabot_sales():
+    """Landing page de ventas para Wabot"""
+    return render_template('wabot_sales.html')
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
