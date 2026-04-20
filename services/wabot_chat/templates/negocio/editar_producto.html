@@ -279,12 +279,48 @@
                     <input type="text" class="form-control" name="nombre" required 
                            value="{{ producto.nombre }}" placeholder="Ej: Shampoo Profesional...">
                 </div>
-                
+
+                <!-- Selector de moneda -->
                 <div class="form-group">
-                    <label class="form-label">Precio (COP) *</label>
-                    <input type="number" class="form-control" name="precio" required 
-                           min="0" step="1000" value="{{ producto.precio }}">
-                    <div class="help-text">Precio en pesos colombianos</div>
+                    <label class="form-label">💰 Moneda</label>
+                    <select class="form-control" id="currencySelect" name="moneda">
+                        <option value="COP" {% if producto.moneda == 'COP' %}selected{% endif %}>🇨🇴 COP ($) - Peso Colombiano</option>
+                        <option value="USD" {% if producto.moneda == 'USD' %}selected{% endif %}>🇺🇸 USD ($) - Dólar Estadounidense</option>
+                        <option value="EUR" {% if producto.moneda == 'EUR' %}selected{% endif %}>🇪🇺 EUR (€) - Euro</option>
+                        <option value="AWG" {% if producto.moneda == 'AWG' %}selected{% endif %}>🇦🇼 AWG (ƒ) - Florín de Aruba</option>
+                        <option value="MXN" {% if producto.moneda == 'MXN' %}selected{% endif %}>🇲🇽 MXN ($) - Peso Mexicano</option>
+                        <option value="ARS" {% if producto.moneda == 'ARS' %}selected{% endif %}>🇦🇷 ARS ($) - Peso Argentino</option>
+                        <option value="CLP" {% if producto.moneda == 'CLP' %}selected{% endif %}>🇨🇱 CLP ($) - Peso Chileno</option>
+                        <option value="PEN" {% if producto.moneda == 'PEN' %}selected{% endif %}>🇵🇪 PEN (S/) - Sol Peruano</option>
+                        <option value="BOB" {% if producto.moneda == 'BOB' %}selected{% endif %}>🇧🇴 BOB (Bs) - Boliviano</option>
+                        <option value="VES" {% if producto.moneda == 'VES' %}selected{% endif %}>🇻🇪 VES (Bs.S) - Bolívar Soberano</option>
+                        <option value="UYU" {% if producto.moneda == 'UYU' %}selected{% endif %}>🇺🇾 UYU ($) - Peso Uruguayo</option>
+                        <option value="PYG" {% if producto.moneda == 'PYG' %}selected{% endif %}>🇵🇾 PYG (₲) - Guaraní</option>
+                    </select>
+                    <div class="help-text">Moneda en la que se mostrará el precio</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Precio *</label>
+                    <div class="precio-input-group">
+                        <span class="currency-symbol-badge" id="priceSymbol">
+                            {% if producto.moneda == 'AWG' %}ƒ
+                            {% elif producto.moneda == 'EUR' %}€
+                            {% elif producto.moneda == 'USD' %}US$
+                            {% elif producto.moneda == 'MXN' %}MX$
+                            {% elif producto.moneda == 'ARS' %}AR$
+                            {% elif producto.moneda == 'CLP' %}CL$
+                            {% elif producto.moneda == 'PEN' %}S/
+                            {% elif producto.moneda == 'BOB' %}Bs
+                            {% elif producto.moneda == 'VES' %}Bs.S
+                            {% elif producto.moneda == 'UYU' %}UY$
+                            {% elif producto.moneda == 'PYG' %}₲
+                            {% else %}${% endif %}
+                        </span>
+                        <input type="number" class="form-control" name="precio" required 
+                            min="0" id="precioInput" value="{{ producto.precio }}" step="1000">
+                    </div>
+                    <div class="help-text">Precio del producto</div>
                 </div>
                 
                 <!-- Foto del producto -->

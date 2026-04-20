@@ -206,21 +206,6 @@
             border-left: 3px solid #3498db;
         }
         
-        .photo-upload-area {
-            border: 2px dashed #cbd5e1;
-            border-radius: 12px;
-            padding: 1.5rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: #f8fafc;
-        }
-        
-        .photo-upload-area:hover {
-            border-color: #3498db;
-            background: #eef2ff;
-        }
-        
         .photo-preview {
             margin-top: 1rem;
             text-align: center;
@@ -234,13 +219,20 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .remove-photo {
-            display: inline-block;
-            margin-top: 8px;
-            color: #e74c3c;
-            font-size: 0.8rem;
+        .remove-photo-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
             cursor: pointer;
-            text-decoration: none;
+            margin-top: 8px;
+            display: inline-block;
+        }
+        
+        .remove-photo-btn:hover {
+            background: #c0392b;
         }
         
         .badge {
@@ -260,6 +252,79 @@
         .badge-warning {
             background: #f39c12;
             color: white;
+        }
+        
+        /* Estilos para selector de moneda */
+        .currency-selector {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .currency-selector label {
+            font-weight: 600;
+            color: #333;
+            margin-right: 0.5rem;
+        }
+        
+        .currency-selector select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            cursor: pointer;
+            flex: 1;
+            min-width: 0;
+            max-width: 100%;
+            font-size: 0.85rem;
+        }
+        
+        .currency-symbol {
+            display: inline-block;
+            margin-left: 8px;
+            font-weight: normal;
+            color: #666;
+        }
+        
+        .precio-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .precio-input-group .currency-symbol-badge {
+            background: #e9ecef;
+            padding: 10px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .precio-input-group input {
+            flex: 1;
+        }
+
+        /* Clases para mostrar/ocultar elementos */
+        .hidden {
+            display: none;
+        }
+
+        .visible {
+            display: block;
+        }
+        
+        .file-input {
+            display: block;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
         }
     </style>
 </head>
@@ -292,6 +357,27 @@
             <form method="POST" id="servicioForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="foto_url" id="foto_url" value="{{ servicio.foto_url if servicio else '' }}">
+                <input type="hidden" name="moneda" id="monedaInput" value="{{ servicio.moneda if servicio and servicio.moneda else 'COP' }}">
+                
+                <!-- Selector de moneda -->
+                <div class="currency-selector">
+                    <label><i class="fas fa-coins"></i> Moneda:</label>
+                    <select id="currencySelect">
+                        <option value="COP" data-symbol="$" data-name="Peso Colombiano">🇨🇴 COP ($) - Peso Colombiano</option>
+                        <option value="USD" data-symbol="$" data-name="Dólar Estadounidense">🇺🇸 USD ($) - Dólar Estadounidense</option>
+                        <option value="EUR" data-symbol="€" data-name="Euro">🇪🇺 EUR (€) - Euro</option>
+                        <option value="AWG" data-symbol="ƒ" data-name="Florín de Aruba">🇦🇼 AWG (ƒ) - Florín de Aruba</option>
+                        <option value="MXN" data-symbol="$" data-name="Peso Mexicano">🇲🇽 MXN ($) - Peso Mexicano</option>
+                        <option value="ARS" data-symbol="$" data-name="Peso Argentino">🇦🇷 ARS ($) - Peso Argentino</option>
+                        <option value="CLP" data-symbol="$" data-name="Peso Chileno">🇨🇱 CLP ($) - Peso Chileno</option>
+                        <option value="PEN" data-symbol="S/" data-name="Sol Peruano">🇵🇪 PEN (S/) - Sol Peruano</option>
+                        <option value="BOB" data-symbol="Bs" data-name="Boliviano">🇧🇴 BOB (Bs) - Boliviano</option>
+                        <option value="VES" data-symbol="Bs.S" data-name="Bolívar Soberano">🇻🇪 VES (Bs.S) - Bolívar Soberano</option>
+                        <option value="UYU" data-symbol="$" data-name="Peso Uruguayo">🇺🇾 UYU ($) - Peso Uruguayo</option>
+                        <option value="PYG" data-symbol="₲" data-name="Guaraní">🇵🇾 PYG (₲) - Guaraní</option>
+                    </select>
+                    <span class="currency-symbol" id="currencySymbolDisplay">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
+                </div>
                 
                 <div class="form-group">
                     <label for="nombre">Nombre del Servicio *</label>
@@ -311,28 +397,29 @@
                 <!-- Foto del servicio -->
                 <div class="form-group">
                     <label>📸 Foto del Servicio (opcional)</label>
-                    {% if servicio and servicio.foto_url %}
-                    <div class="photo-preview" id="photoPreview">
-                        <img src="{{ servicio.foto_url }}" id="previewImg">
+                    
+                    <!-- Foto actual (si existe) -->
+                    <div id="existingPhotoContainer" class="{% if not servicio or not servicio.foto_url %}hidden{% else %}visible{% endif %}">
+                        <div class="photo-preview">
+                            <img src="{{ servicio.foto_url if servicio else '' }}" id="existingPhotoImg" style="max-width: 150px; border-radius: 12px;">
+                            <br>
+                            <button type="button" class="remove-photo-btn" onclick="eliminarFotoExistente()">🗑️ Eliminar foto actual</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Input de archivo para subir nueva foto -->
+                    <div id="uploadAreaContainer" class="{% if servicio and servicio.foto_url %}hidden{% else %}visible{% endif %}">
+                        <input type="file" id="fotoInput" accept="image/*" class="file-input">
+                        <div class="help-text">Formatos: JPG, PNG, GIF (máx 5MB)</div>
+                    </div>
+                    
+                    <!-- Preview de nueva foto -->
+                    <div id="newPhotoPreview" class="photo-preview hidden">
+                        <img id="newPhotoImg" src="" style="max-width: 150px; border-radius: 12px;">
                         <br>
-                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
+                        <button type="button" class="remove-photo-btn" onclick="cancelarNuevaFoto()">🗑️ Cancelar</button>
                     </div>
-                    <div class="photo-upload-area" id="uploadArea" style="display: none;">
-                    {% else %}
-                    <div class="photo-upload-area" id="uploadArea">
-                    {% endif %}
-                        <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #94a3b8;"></i>
-                        <p>Haz clic para subir una foto</p>
-                        <small style="color: #64748b;">Formatos: JPG, PNG, GIF (máx 5MB)</small>
-                    </div>
-                    <input type="file" id="fotoInput" accept="image/*" style="display: none;">
-                    {% if servicio and servicio.foto_url %}
-                    <div class="photo-preview" id="photoPreviewExisting" style="display: block;">
-                        <img src="{{ servicio.foto_url }}" id="previewImgExisting" style="max-width: 150px; border-radius: 12px;">
-                        <br>
-                        <a href="#" class="remove-photo" onclick="removerFotoExistente(event)">🗑️ Eliminar foto</a>
-                    </div>
-                    {% endif %}
+                    
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
                 
@@ -359,24 +446,29 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="precio">Precio Base (COP) * 
+                    <label for="precio">Precio Base * 
                         <span class="badge badge-info">Mínimo</span>
                     </label>
-                    <input type="number" id="precio" name="precio" 
-                           value="{{ servicio.precio if servicio else '' }}" 
-                           min="0" step="1000" required placeholder="Ej: 20000">
+                    <div class="precio-input-group">
+                        <span class="currency-symbol-badge" id="basePriceSymbol">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
+                        <input type="number" id="precioBase" name="precio" 
+                               value="{{ servicio.precio if servicio else '' }}" 
+                               min="0" required placeholder="Ej: 20000">
+                    </div>
                     <div class="help-text">Para precio fijo: valor único. Para rango: valor mínimo.</div>
                 </div>
                 
-                <div class="precio-maximo-group" id="precioMaximoGroup" 
-                     {% if servicio and servicio.tipo_precio == 'rango' %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                <div class="precio-maximo-group {% if not servicio or servicio.tipo_precio != 'rango' %}hidden{% endif %}" id="precioMaximoGroup">
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label for="precio_maximo">Precio Máximo (COP) 
+                        <label for="precio_maximo">Precio Máximo 
                             <span class="badge badge-warning">Rango Superior</span>
                         </label>
-                        <input type="number" id="precio_maximo" name="precio_maximo" 
-                               value="{{ servicio.precio_maximo if servicio and servicio.precio_maximo else '' }}" 
-                               min="0" step="1000" placeholder="Ej: 50000">
+                        <div class="precio-input-group">
+                            <span class="currency-symbol-badge" id="maxPriceSymbol">{{ servicio.moneda_symbol if servicio and servicio.moneda_symbol else '$' }}</span>
+                            <input type="number" id="precioMaximoInput" name="precio_maximo" 
+                                   value="{{ servicio.precio_maximo if servicio and servicio.precio_maximo else '' }}" 
+                                   min="0" placeholder="Ej: 50000">
+                        </div>
                         <div class="help-text">Solo para rangos: el precio máximo que puede alcanzar el servicio.</div>
                     </div>
                 </div>
@@ -410,15 +502,92 @@
     </div>
     
     <script>
-        const uploadArea = document.getElementById('uploadArea');
-        const fotoInput = document.getElementById('fotoInput');
-        const fotoUrlInput = document.getElementById('foto_url');
+        // Configuración de monedas
+        const currencies = {
+            'COP': { symbol: '$', name: 'Peso Colombiano', decimalPlaces: 0, step: 1000 },
+            'USD': { symbol: '$', name: 'Dólar Estadounidense', decimalPlaces: 2, step: 1 },
+            'EUR': { symbol: '€', name: 'Euro', decimalPlaces: 2, step: 1 },
+            'AWG': { symbol: 'ƒ', name: 'Florín de Aruba', decimalPlaces: 2, step: 0.01 },
+            'MXN': { symbol: '$', name: 'Peso Mexicano', decimalPlaces: 2, step: 10 },
+            'ARS': { symbol: '$', name: 'Peso Argentino', decimalPlaces: 2, step: 100 },
+            'CLP': { symbol: '$', name: 'Peso Chileno', decimalPlaces: 0, step: 1000 },
+            'PEN': { symbol: 'S/', name: 'Sol Peruano', decimalPlaces: 2, step: 1 },
+            'BOB': { symbol: 'Bs', name: 'Boliviano', decimalPlaces: 2, step: 1 },
+            'VES': { symbol: 'Bs.S', name: 'Bolívar Soberano', decimalPlaces: 2, step: 1 },
+            'UYU': { symbol: '$', name: 'Peso Uruguayo', decimalPlaces: 2, step: 10 },
+            'PYG': { symbol: '₲', name: 'Guaraní', decimalPlaces: 0, step: 1000 }
+        };
         
-        if (uploadArea) {
-            uploadArea.addEventListener('click', () => fotoInput.click());
+        let currentCurrency = '{{ servicio.moneda if servicio and servicio.moneda else "COP" }}';
+        
+        // Elementos DOM
+        const currencySelect = document.getElementById('currencySelect');
+        const currencySymbolDisplay = document.getElementById('currencySymbolDisplay');
+        const basePriceSymbol = document.getElementById('basePriceSymbol');
+        const maxPriceSymbol = document.getElementById('maxPriceSymbol');
+        const precioBaseInput = document.getElementById('precioBase');
+        const precioMaximoInput = document.getElementById('precioMaximoInput');
+        const monedaInput = document.getElementById('monedaInput');
+        
+        // Actualizar símbolos y steps según moneda seleccionada
+        function updateCurrency() {
+            currentCurrency = currencySelect.value;
+            const currencyData = currencies[currentCurrency];
+            
+            if (currencyData) {
+                currencySymbolDisplay.textContent = currencyData.symbol;
+                basePriceSymbol.textContent = currencyData.symbol;
+                maxPriceSymbol.textContent = currencyData.symbol;
+                monedaInput.value = currentCurrency;
+                
+                if (precioBaseInput) {
+                    precioBaseInput.step = currencyData.step;
+                }
+                if (precioMaximoInput) {
+                    precioMaximoInput.step = currencyData.step;
+                }
+                
+                const exampleValue = formatCurrencyExample(currencyData);
+                if (precioBaseInput) {
+                    precioBaseInput.placeholder = `Ej: ${exampleValue}`;
+                }
+                if (precioMaximoInput) {
+                    precioMaximoInput.placeholder = `Ej: ${exampleValue * 2.5}`;
+                }
+            }
         }
         
-        async function subirFoto(file) {
+        function formatCurrencyExample(currencyData) {
+            if (currencyData.decimalPlaces === 0) {
+                return currencyData.step === 1000 ? '20000' : '100';
+            }
+            return currencyData.step === 1 ? '25.00' : '100.00';
+        }
+        
+        // Establecer el valor seleccionado en el selector
+        if (currencySelect) {
+            for (let i = 0; i < currencySelect.options.length; i++) {
+                if (currencySelect.options[i].value === currentCurrency) {
+                    currencySelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // Evento cambio de moneda
+        currencySelect.addEventListener('change', updateCurrency);
+        updateCurrency();
+        
+        // ========== MANEJO DE FOTOS SIMPLIFICADO ==========
+        const fotoInput = document.getElementById('fotoInput');
+        const existingPhotoContainer = document.getElementById('existingPhotoContainer');
+        const uploadAreaContainer = document.getElementById('uploadAreaContainer');
+        const newPhotoPreview = document.getElementById('newPhotoPreview');
+        const newPhotoImg = document.getElementById('newPhotoImg');
+        const fotoUrlInput = document.getElementById('foto_url');
+
+        // Función para subir foto
+        async function subirFotoAlServidor(file) {
             const formData = new FormData();
             formData.append('foto', file);
             formData.append('tipo', 'servicio');
@@ -432,17 +601,29 @@
                 if (result.success) {
                     return result.url;
                 } else {
-                    alert('Error al subir la foto: ' + result.error);
+                    alert('Error: ' + result.error);
                     return null;
                 }
             } catch (error) {
-                alert('Error de conexión al subir la foto');
+                alert('Error de conexión');
                 return null;
             }
         }
+
+        // Función para mostrar/ocultar elementos
+        function mostrarElemento(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        }
         
+        function ocultarElemento(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+
+        // Evento cuando se selecciona un archivo
         if (fotoInput) {
-            fotoInput.addEventListener('change', async (e) => {
+            fotoInput.onchange = async function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
                 
@@ -456,54 +637,62 @@
                     return;
                 }
                 
-                uploadArea.style.opacity = '0.5';
-                uploadArea.style.pointerEvents = 'none';
+                fotoInput.disabled = true;
                 
-                const url = await subirFoto(file);
+                const url = await subirFotoAlServidor(file);
                 
                 if (url) {
                     fotoUrlInput.value = url;
-                    
-                    // Eliminar preview existente
-                    const existingPreview = document.getElementById('photoPreviewExisting');
-                    if (existingPreview) existingPreview.remove();
-                    
-                    // Crear nueva preview
-                    let previewDiv = document.getElementById('photoPreview');
-                    if (!previewDiv) {
-                        previewDiv = document.createElement('div');
-                        previewDiv.id = 'photoPreview';
-                        previewDiv.className = 'photo-preview';
-                        uploadArea.parentNode.insertBefore(previewDiv, uploadArea.nextSibling);
-                    }
-                    previewDiv.innerHTML = `
-                        <img src="${url}" style="max-width: 150px; border-radius: 12px;">
-                        <br>
-                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
-                    `;
-                    previewDiv.style.display = 'block';
-                    uploadArea.style.display = 'none';
+                    newPhotoImg.src = url;
+                    mostrarElemento('newPhotoPreview');
+                    ocultarElemento('uploadAreaContainer');
+                    ocultarElemento('existingPhotoContainer');
                 }
                 
-                uploadArea.style.opacity = '1';
-                uploadArea.style.pointerEvents = 'auto';
+                fotoInput.disabled = false;
+                fotoInput.value = '';
+            };
+        }
+
+        // Eliminar foto existente
+        function eliminarFotoExistente() {
+            if (!confirm('¿Eliminar esta foto del servicio?')) return;
+            
+            const servicioId = '{{ servicio.id }}';
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            
+            fetch(`/negocio/servicios/${servicioId}/eliminar-foto`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    fotoUrlInput.value = '';
+                    ocultarElemento('existingPhotoContainer');
+                    mostrarElemento('uploadAreaContainer');
+                    ocultarElemento('newPhotoPreview');
+                    alert('✅ Foto eliminada');
+                } else {
+                    alert('❌ Error al eliminar la foto');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error de conexión');
             });
         }
-        
-        function removerFoto(event) {
-            event.preventDefault();
+
+        // Cancelar nueva foto
+        function cancelarNuevaFoto() {
             fotoUrlInput.value = '';
-            const previewDiv = document.getElementById('photoPreview');
-            if (previewDiv) previewDiv.remove();
-            if (uploadArea) uploadArea.style.display = 'block';
-        }
-        
-        function removerFotoExistente(event) {
-            event.preventDefault();
-            fotoUrlInput.value = '';
-            const existingPreview = document.getElementById('photoPreviewExisting');
-            if (existingPreview) existingPreview.remove();
-            if (uploadArea) uploadArea.style.display = 'block';
+            ocultarElemento('newPhotoPreview');
+            newPhotoImg.src = '';
+            mostrarElemento('uploadAreaContainer');
         }
         
         // Control de tipo de precio
@@ -511,7 +700,6 @@
         const radioRango = document.getElementById('precio_rango');
         const radioVariable = document.getElementById('precio_variable');
         const precioMaximoGroup = document.getElementById('precioMaximoGroup');
-        const precioMaximoInput = document.getElementById('precio_maximo');
         
         function togglePrecioMaximo() {
             if (radioRango && radioRango.checked) {
@@ -542,7 +730,7 @@
                     return;
                 }
                 
-                const precioBase = parseFloat(document.getElementById('precio').value);
+                const precioBase = parseFloat(precioBaseInput.value);
                 const precioMax = parseFloat(precioMaximoInput.value);
                 
                 if (precioMax <= precioBase) {
