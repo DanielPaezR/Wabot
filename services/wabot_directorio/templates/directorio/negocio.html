@@ -849,20 +849,19 @@
                     <div class="producto-info">
                         <div class="producto-nombre">{{ prod.nombre }}</div>
                         <div class="producto-precio">
-                            {% if producto.moneda == 'AWG' %}ƒ
-                            {% elif producto.moneda == 'EUR' %}€
-                            {% elif producto.moneda == 'USD' %}US$
-                            {% elif producto.moneda == 'MXN' %}MX$
-                            {% elif producto.moneda == 'ARS' %}AR$
-                            {% elif producto.moneda == 'CLP' %}CL$
-                            {% elif producto.moneda == 'PEN' %}S/
-                            {% elif producto.moneda == 'BOB' %}Bs
-                            {% elif producto.moneda == 'VES' %}Bs.S
-                            {% elif producto.moneda == 'UYU' %}UY$
-                            {% elif producto.moneda == 'PYG' %}₲
-                            {% else %}$
-                            {% endif %}
-                            {{ "{:,.0f}".format(producto.precio).replace(',', '.') }}
+                            {% if prod.moneda == 'AWG' %}ƒ
+                            {% elif prod.moneda == 'EUR' %}€
+                            {% elif prod.moneda == 'USD' %}US$
+                            {% elif prod.moneda == 'MXN' %}MX$
+                            {% elif prod.moneda == 'ARS' %}AR$
+                            {% elif prod.moneda == 'CLP' %}CL$
+                            {% elif prod.moneda == 'PEN' %}S/
+                            {% elif prod.moneda == 'BOB' %}Bs
+                            {% elif prod.moneda == 'VES' %}Bs.S
+                            {% elif prod.moneda == 'UYU' %}UY$
+                            {% elif prod.moneda == 'PYG' %}₲
+                            {% else %}${% endif %}
+                            {{ "{:,.0f}".format(prod.precio).replace(',', '.') }}
                         </div>
                         {% if prod.descripcion %}
                         <div class="producto-descripcion">{{ prod.descripcion[:80] }}{% if prod.descripcion|length > 80 %}...{% endif %}</div>
