@@ -439,7 +439,7 @@
         
         // Inicializar mapa
         function initMap() {
-            map = L.map('map').setView(MEDELLIN_CENTER, 13);
+            map = L.map('map').setView([6.24420, -75.58121], 13); // Vista temporal Medellín
             
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
@@ -450,6 +450,7 @@
             
             cargarNegocios();
         }
+
         
         // Cargar negocios desde API
         async function cargarNegocios() {
@@ -458,12 +459,94 @@
                 const response = await fetch('/api/negocios');
                 allNegocios = await response.json();
                 console.log(`✅ Cargados ${allNegocios.length} negocios`);
-                aplicarFiltros();
+                
+                // Después de cargar negocios, pedir ubicación
+                pedirUbicacionAlInicio();
+                
             } catch (error) {
                 console.error('Error cargando negocios:', error);
+                hideLoader();
+                // Si hay error, mostrar Medellín
+                centrarEnMedellin();
+                aplicarFiltros();
             }
-            hideLoader();
         }
+
+        function pedirUbicacionAlInicio() {
+            if (!navigator.geolocation) {
+                console.log('Geolocalización no soportada, centrando en Medellín');
+                centrarEnMedellin();
+                currentFilters.userLocation = null;
+                aplicarFiltros();
+                hideLoader();
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    
+                    // Guardar ubicación en los filtros
+                    currentFilters.userLocation = {
+                        lat: latitude,
+                        lng: longitude
+                    };
+                    
+                    // Centrar mapa en la ubicación del usuario
+                    map.setView([latitude, longitude], 14);
+                    
+                    // Agregar marcador de ubicación actual
+                    L.marker([latitude, longitude], {
+                        icon: L.divIcon({
+                            className: 'current-location-marker',
+                            html: '<i class="fas fa-location-dot" style="color: #667eea; font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));"></i>',
+                            iconSize: [24, 24],
+                            popupAnchor: [0, -12]
+                        })
+                    }).addTo(map).bindPopup('📍 Tu ubicación').openPopup();
+                    
+                    hideLoader();
+                    
+                    // Aplicar filtros (esto solo mostrará negocios cerca)
+                    aplicarFiltros();
+                    
+                    mostrarToast(`📍 Mostrando negocios cerca de tu ubicación`);
+                },
+                (error) => {
+                    console.error('Error de geolocalización:', error);
+                    hideLoader();
+                    
+                    // Si el usuario NO acepta → centrar en Medellín
+                    centrarEnMedellin();
+                    currentFilters.userLocation = null;
+                    aplicarFiltros();
+                    
+                    let mensaje = '';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            mensaje = '📍 Permiso denegado. Mostrando negocios en Medellín';
+                            break;
+                        default:
+                            mensaje = '📍 No se pudo obtener ubicación. Mostrando Medellín';
+                    }
+                    mostrarToast(mensaje);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // Agrega esta función para centrar en Medellín
+
+        function centrarEnMedellin() {
+            const MEDELLIN_CENTER = [6.24420, -75.58121];
+            map.setView(MEDELLIN_CENTER, 13);
+        }
+
+
         
         // Aplicar filtros y actualizar mapa
         function aplicarFiltros() {
@@ -483,14 +566,71 @@
                 );
             }
             
-            // Filtro por precio (simulado con servicios)
-            // Nota: Esto requiere que los negocios tengan servicios con precios
-            // Por ahora solo filtramos si hay precios configurados
+            // ⭐ NUEVO: Filtrar por ubicación si tenemos ubicación actual
+            if (currentFilters.userLocation) {
+                filtrados = filtrados.filter(n => {
+                    if (!n.latitud || !n.longitud) return false;
+                    const distancia = calcularDistancia(
+                        currentFilters.userLocation.lat,
+                        currentFilters.userLocation.lng,
+                        n.latitud,
+                        n.longitud
+                    );
+                    // Solo mostrar negocios en un radio de 50km
+                    return distancia <= 50;
+                });
+            }
             
             actualizarMapa(filtrados);
             actualizarPanelResultados(filtrados);
         }
+
+        // Agrega esta función para calcular distancia entre dos puntos (fórmula de Haversine)
+
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
         
+        function mostrarToast(mensaje) {
+            let toast = document.getElementById('customToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'customToast';
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 80px;
+                    left: 20px;
+                    right: 20px;
+                    background: rgba(0,0,0,0.85);
+                    color: white;
+                    padding: 12px 16px;
+                    border-radius: 40px;
+                    font-size: 13px;
+                    text-align: center;
+                    z-index: 2000;
+                    backdrop-filter: blur(8px);
+                    transition: opacity 0.3s;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(toast);
+            }
+            
+            toast.textContent = mensaje;
+            toast.style.opacity = '1';
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 3000);
+        }
+
         // Actualizar marcadores en el mapa
         function actualizarMapa(negocios) {
             // Limpiar marcadores existentes
@@ -522,14 +662,24 @@
                 }
             });
             
-            // Ajustar zoom si hay resultados
-            if (negocios.length === 1 && negocios[0].latitud) {
-                map.setView([negocios[0].latitud, negocios[0].longitud], 16);
-            } else if (negocios.length > 0 && markers.length > 0) {
-                const group = L.featureGroup(markers);
-                map.fitBounds(group.getBounds().pad(0.1));
-            } else {
-                map.setView(MEDELLIN_CENTER, 13);
+            // ⭐ NUEVO: Solo ajustar zoom si hay negocios cerca (no si están en diferentes continentes)
+            if (negocios.length > 0 && markers.length > 0 && negocios.length < 20) {
+                try {
+                    const group = L.featureGroup(markers);
+                    const bounds = group.getBounds();
+                    // Verificar que los bounds no sean gigantes (distancia muy grande)
+                    const southWest = bounds.getSouthWest();
+                    const northEast = bounds.getNorthEast();
+                    const latDiff = Math.abs(northEast.lat - southWest.lat);
+                    const lngDiff = Math.abs(northEast.lng - southWest.lng);
+                    
+                    // Si la diferencia es muy grande (>5 grados), no ajustar zoom
+                    if (latDiff < 5 && lngDiff < 5) {
+                        map.fitBounds(bounds.pad(0.1));
+                    }
+                } catch (e) {
+                    console.log('No se pudo ajustar zoom');
+                }
             }
         }
         
