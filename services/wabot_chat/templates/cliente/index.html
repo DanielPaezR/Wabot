@@ -682,38 +682,23 @@
         async function cargarPromociones() {
             const negocioId = document.getElementById('negocioId').value;
             const container = document.getElementById('promocionesList');
-            const telefonoCliente = localStorage.getItem('telefono_cliente');
             
-            let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
-            if (telefonoCliente) {
-                url += `?telefono=${encodeURIComponent(telefonoCliente)}`;
-            }
-            
-            console.log("📡 [PROMO] URL:", url);
+            console.log("📡 [PROMO] Cargando promociones para negocio:", negocioId);
             container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
             
             try {
-                const response = await fetch(url);
+                const response = await fetch(`/api/cliente/verificar-elegibilidad/${negocioId}`);
                 const data = await response.json();
                 console.log("📦 [PROMO] Respuesta:", data);
                 
                 if (data.success && data.promociones && data.promociones.length > 0) {
                     let html = '';
-                    
-                    // Mostrar mensaje informativo
-                    if (data.mensaje) {
-                        const tipoAlerta = data.elegible ? 'success' : (data.cliente_identificado ? 'warning' : 'info');
-                        html += `<div class="alert alert-${tipoAlerta} mb-3 p-2 small text-center rounded-3">
-                                    <i class="fas fa-info-circle"></i> ${data.mensaje}
-                                </div>`;
-                    }
-                    
                     data.promociones.forEach(promo => {
                         html += `
                             <div class="promo-card">
                                 <div class="promo-header">
                                     <i class="fas fa-trophy"></i> ${promo.titulo}
-                                    ${promo.profesional_nombre ? `<small class="ms-2">👤 ${promo.profesional_nombre}</small>` : ''}
+                                    <small class="ms-2">👤 ${promo.profesional_nombre}</small>
                                 </div>
                                 <div class="promo-body">
                                     <div class="promo-title">${promo.titulo}</div>
@@ -722,15 +707,9 @@
                                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                         <small><i class="far fa-calendar-alt"></i> Válido hasta: ${promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Fecha por definir'}</small>
                                     </div>
-                                    ${data.elegible ? `
-                                        <button class="btn btn-warning w-100 fw-bold" onclick="abrirModalParticipar(${promo.id})">
-                                            <i class="fas fa-camera"></i> Participar ahora
-                                        </button>
-                                    ` : `
-                                        <button class="btn btn-outline-secondary w-100 fw-bold" onclick="irAAgendarCita()">
-                                            <i class="fas fa-calendar-check"></i> Agendar cita
-                                        </button>
-                                    `}
+                                    <button class="btn btn-warning w-100 fw-bold" onclick="irAAgendarCita()">
+                                        <i class="fas fa-calendar-check"></i> Participar
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -742,9 +721,6 @@
                             <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
                             <h5>No hay promociones activas</h5>
                             <p class="text-muted">Vuelve pronto para participar en concursos</p>
-                            <button class="action-button" onclick="switchSection('chat')">
-                                <i class="fas fa-calendar-check"></i> Agenda tu cita
-                            </button>
                         </div>
                     `;
                 }
