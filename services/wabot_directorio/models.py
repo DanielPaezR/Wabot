@@ -141,3 +141,17 @@ class OpinionProfesional(Base):
     fecha = Column(DateTime, default=datetime.utcnow)
     
     profesional = relationship("Profesional")
+
+class Promocion(Base):
+    __tablename__ = 'promociones'
+    
+    id = Column(Integer, primary_key=True)
+    profesional_id = Column(Integer, ForeignKey('profesionales.id'))
+    titulo = Column(String(200), nullable=False)
+    descripcion = Column(Text)
+    premio = Column(String(200))
+    imagen_url = Column(String(500))
+    fecha_inicio = Column(Date)
+    fecha_fin = Column(Date)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
