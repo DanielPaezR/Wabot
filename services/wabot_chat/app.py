@@ -373,7 +373,9 @@ def verificar_elegibilidad(negocio_id):
         JOIN profesionales p ON c.profesional_id = p.id
         JOIN promociones prom ON prom.profesional_id = p.id
         WHERE c.cliente_telefono = %s AND c.negocio_id = %s 
-        AND c.fecha = CURRENT_DATE AND c.estado = 'completado' AND prom.activa = TRUE
+        AND c.fecha = CURRENT_DATE AND c.estado = 'completado' 
+        AND prom.activa = TRUE 
+        AND CURRENT_DATE BETWEEN prom.fecha_inicio AND prom.fecha_fin
         LIMIT 1
     ''', (telefono, negocio_id))
     data = cursor.fetchone()
@@ -436,6 +438,123 @@ def api_votar(participacion_id):
     except:
         return jsonify({'success': False, 'message': 'Ya votaste'}), 400
     finally: conn.close()
+
+# =============================================================================
+# RUTAS ADICIONALES PARA GESTIÓN DE PROMOCIONES
+# =============================================================================
+
+@app.route('/participar/<int:profesional_id>')
+def participar_concurso(profesional_id):
+    """Página para que el cliente participe en el concurso desde el directorio"""
+    # Verificar si hay una promoción activa para este profesional
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('''
+        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin
+        FROM promociones 
+        WHERE profesional_id = %s AND activa = TRUE 
+        AND CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
+    ''', (profesional_id,))
+    promocion = cursor.fetchone()
+    conn.close()
+    
+    if not promocion:
+        return "No hay concurso activo en este momento", 404
+    
+    # Si está logueado, verificar elegibilidad
+    telefono = session.get('cliente_telefono')
+    if telefono:
+        # Verificar si tuvo cita hoy con este profesional
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute('''
+            SELECT id FROM citas 
+            WHERE profesional_id = %s AND cliente_telefono = %s 
+            AND fecha = CURRENT_DATE AND estado = 'completado'
+        ''', (profesional_id, telefono))
+        cita_hoy = cursor.fetchone()
+        conn.close()
+        
+        if cita_hoy:
+            return render_template('cliente/participar_concurso.html', promocion=promocion, profesional_id=profesional_id)
+    
+    # No está logueado o no tiene cita hoy - redirigir al chat del negocio
+    # Obtener el negocio_id desde el profesional
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
+    prof = cursor.fetchone()
+    conn.close()
+    
+    if prof:
+        return redirect(url_for('chat_index', negocio_id=prof['negocio_id']))
+    return "Profesional no encontrado", 404
+
+@app.route('/profesional/promociones')
+@role_required(['profesional', 'propietario'])
+def listar_promociones():
+    """Lista las promociones del profesional"""
+    profesional_id = session.get('profesional_id')
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('''
+        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activa,
+        (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = promociones.id) as participaciones
+        FROM promociones 
+        WHERE profesional_id = %s 
+        ORDER BY fecha_fin DESC
+    ''', (profesional_id,))
+    promociones = cursor.fetchall()
+    conn.close()
+    return render_template('profesional/promociones.html', promociones=promociones)
+
+@app.route('/profesional/promocion/<int:promocion_id>/participaciones')
+@role_required(['profesional', 'propietario'])
+def ver_participaciones(promocion_id):
+    """Ver las participaciones de una promoción"""
+    profesional_id = session.get('profesional_id')
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Verificar que la promoción pertenece al profesional
+    cursor.execute('SELECT id FROM promociones WHERE id = %s AND profesional_id = %s', (promocion_id, profesional_id))
+    if not cursor.fetchone():
+        return "No autorizado", 403
+    
+    cursor.execute('''
+        SELECT id, cliente_nombre, foto_url, nota, likes, fecha_creacion
+        FROM participaciones_concurso 
+        WHERE promocion_id = %s
+        ORDER BY likes DESC
+    ''', (promocion_id,))
+    participaciones = cursor.fetchall()
+    
+    cursor.execute('SELECT titulo, premio FROM promociones WHERE id = %s', (promocion_id,))
+    promocion = cursor.fetchone()
+    conn.close()
+    
+    return render_template('profesional/participaciones.html', participaciones=participaciones, promocion=promocion)
+
+@app.route('/profesional/promocion/<int:promocion_id>/cerrar', methods=['POST'])
+@role_required(['profesional', 'propietario'])
+def cerrar_promocion(promocion_id):
+    """Cierra una promoción y declara un ganador"""
+    profesional_id = session.get('profesional_id')
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Verificar que la promoción pertenece al profesional
+    cursor.execute('SELECT id FROM promociones WHERE id = %s AND profesional_id = %s', (promocion_id, profesional_id))
+    if not cursor.fetchone():
+        return "No autorizado", 403
+    
+    # Desactivar la promoción
+    cursor.execute('UPDATE promociones SET activa = FALSE WHERE id = %s', (promocion_id,))
+    conn.commit()
+    conn.close()
+    
+    flash('✅ Concurso cerrado correctamente', 'success')
+    return redirect(url_for('listar_promociones'))
 
 # =============================================================================
 # RUTAS DEL CHAT WEB

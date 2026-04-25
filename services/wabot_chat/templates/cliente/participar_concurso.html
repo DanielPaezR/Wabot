@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participar en {{ promocion.titulo }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .container { max-width: 500px; margin: 0 auto; padding: 20px; }
+        .promo-card { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .promo-title { color: #c53030; font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
+        .premio { background: linear-gradient(135deg, #ffd700, #ffb700); color: #333; padding: 15px; border-radius: 12px; font-weight: 600; margin: 15px 0; }
+        .upload-area { border: 2px dashed #ccc; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { border-color: #c53030; background: #fff5f5; }
+        .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .preview-img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="promo-card">
+            <div class="text-center mb-4">
+                <i class="fas fa-trophy fa-3x text-warning"></i>
+            </div>
+            
+            <h4 class="promo-title text-center">{{ promocion.titulo }}</h4>
+            
+            <div class="premio text-center">
+                <i class="fas fa-gift"></i> Premio: {{ promocion.premio }}
+            </div>
+            
+            {% if promocion.descripcion %}
+            <p class="text-muted">{{ promocion.descripcion }}</p>
+            {% endif %}
+            
+            <form id="formParticipar" enctype="multipart/form-data">
+                <input type="hidden" name="promocion_id" value="{{ promocion.id }}">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Sube hasta 3 fotos de tu corte</label>
+                    <div class="upload-area" onclick="document.getElementById('fotos').click()">
+                        <i class="fas fa-camera fa-2x text-muted"></i>
+                        <p class="mb-0 mt-2 text-muted">Toca para seleccionar fotos</p>
+                    </div>
+                    <input type="file" name="fotos" id="fotos" multiple accept="image/*" style="display: none;" onchange="previewFotos()">
+                    <div class="preview-grid" id="preview"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Mensaje opcional</label>
+                    <textarea name="nota" class="form-control" rows="2" placeholder="Ej: ¡Me encantó mi nuevo look!"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 py-3" id="btnSubmit">
+                    <i class="fas fa-paper-plane"></i> Participar
+                </button>
+            </form>
+            
+            <div class="text-center mt-3">
+                <a href="/" class="text-muted small">Volver al inicio</a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function previewFotos() {
+            const files = document.getElementById('fotos').files;
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+            
+            for (let i = 0; i < Math.min(files.length, 3); i++) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.innerHTML += `<img src="${e.target.result}" class="preview-img">`;
+                };
+                reader.readAsDataURL(files[i]);
+            }
+        }
+        
+        $('#formParticipar').on('submit', function(e) {
+            e.preventDefault();
+            const files = document.getElementById('fotos').files;
+            if (files.length === 0) {
+                alert('Selecciona al menos una foto');
+                return;
+            }
+            if (files.length > 3) {
+                alert('Máximo 3 fotos');
+                return;
+            }
+            
+            const btn = $('#btnSubmit');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Subiendo...');
+            
+            $.ajax({
+                url: '/api/concurso/participar',
+                method: 'POST',
+                data: new FormData(this),
+                processData: false,
+                contentType: false,
+                success: function(res) {
+                    if (res.success) {
+                        alert('¡Participación exitosa! Comparte este link con tus amigos para que voten:\n\n' + res.share_link);
+                        window.location.href = res.share_link;
+                    } else {
+                        alert('Error: ' + res.message);
+                        btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Participar');
+                    }
+                },
+                error: function() {
+                    alert('Error al subir las fotos');
+                    btn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Participar');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

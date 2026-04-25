@@ -573,11 +573,136 @@
         /* QUICK ACTIONS - MOBILE GRID */
         .quick-actions {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
         }
 
-        @media (min-width: 480px) {
+        /* NUEVO ESTILO: Tarjetas estilo Admin + App */
+        .action-card {
+            background: white;
+            padding: 1rem 0.8rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Efecto hover/active */
+        .action-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+        }
+
+        .action-card:active {
+            transform: scale(0.97);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Iconos más pequeños para móvil */
+        .action-icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        /* Títulos más compactos */
+        .action-title {
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+            font-size: 0.9rem;
+            line-height: 1.2;
+            color: #2c3e50;
+        }
+
+        /* Descripciones más pequeñas */
+        .action-desc {
+            font-size: 0.75rem;
+            color: #666;
+            line-height: 1.2;
+        }
+
+        /* COLORES ESPECÍFICOS PARA CADA BOTÓN - Estilo profesional */
+        /* Por defecto (azul) */
+        .action-card:nth-child(1) {
+            border-left: 4px solid #667eea;
+        }
+        .action-card:nth-child(1):hover {
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.25);
+        }
+
+        /* Estadísticas (verde) */
+        .action-card:nth-child(2) {
+            border-left: 4px solid #27ae60;
+        }
+        .action-card:nth-child(2):hover {
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.25);
+        }
+
+        /* Agendar (naranja) */
+        .action-card:nth-child(3) {
+            border-left: 4px solid #f39c12;
+        }
+        .action-card:nth-child(3):hover {
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.25);
+        }
+
+        /* Gestionar Horarios (rojo) */
+        .action-card.action-card-warning {
+            border-left: 4px solid #e74c3c;
+        }
+        .action-card.action-card-warning:hover {
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.25);
+        }
+
+    /* Perfil (morado) - nth-child(5) porque hay 6 elementos */
+    .quick-actions .action-card:nth-of-type(5) {
+        border-left: 4px solid #9b59b6;
+    }
+    .quick-actions .action-card:nth-of-type(5):hover {
+        box-shadow: 0 4px 15px rgba(155, 89, 182, 0.25);
+    }
+
+    /* Promociones (rojo) */
+    .quick-actions .action-card:nth-of-type(6) {
+        border-left: 4px solid #c53030;
+    }
+    .quick-actions .action-card:nth-of-type(6):hover {
+        .action-card:active::after {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+
+        /* Para tablets */
+        @media (min-width: 600px) {
+            .quick-actions {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1rem;
+            }
+            
+            .action-card {
+                min-height: 110px;
+                padding: 1rem;
+            }
+            
+            .action-icon {
+                font-size: 2rem;
+            }
+            
+            .action-title {
+                font-size: 1rem;
+            }
             .quick-actions {
                 grid-template-columns: 1fr 1fr;
             }
@@ -1208,8 +1333,8 @@
     .action-card {
         background: var(--white);
         padding: 1rem 0.8rem; /* Reducido padding */
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         text-decoration: none;
         color: inherit;
         transition: all 0.3s ease;
@@ -1256,27 +1381,22 @@
     /* COLORES ESPECÍFICOS PARA CADA BOTÓN */
     /* Por defecto (azul) */
     .action-card:nth-child(1) {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
+        border-left: 4px solid #667eea;
     }
 
     /* Estadísticas (verde) */
     .action-card:nth-child(2) {
-        background: linear-gradient(135deg, #27ae60, #2ecc71);
-        color: white;
+        border-left: 4px solid #27ae60;
     }
 
     /* Agendar (naranja) */
     .action-card:nth-child(3) {
-        background: linear-gradient(135deg, #f39c12, #f1c40f);
-        color: white;
+        border-left: 4px solid #f39c12;
     }
 
-    /* Gestionar Horarios (rojo/naranja) */
+    /* Gestionar Horarios (rojo) */
     .action-card.action-card-warning {
-        background: linear-gradient(135deg, #e74c3c, #e67e22);
-        color: white;
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-left: 4px solid #e74c3c;
     }
 
     /* Efecto para el botón de horarios */
@@ -1974,17 +2094,24 @@ console.log('Body tiene dataset profesionalId?', document.body.dataset.profesion
                 <div class="action-desc">Nueva cita</div>
             </a>
             
-            <!-- BOTÓN GESTIONAR HORARIOS - NUEVO DISEÑO -->
+            <!-- BOTÓN GESTIONAR HORARIOS -->
             <a href="/profesional/bloqueos" class="action-card action-card-warning">
                 <div class="action-icon">🚫</div>
                 <div class="action-title">Horarios</div>
                 <div class="action-desc">Bloquear horas</div>
             </a>
 
-            <a href="/profesional/perfil" class="action-card" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">
+            <a href="/profesional/perfil" class="action-card">
                 <div class="action-icon">👤</div>
                 <div class="action-title">Mi Perfil</div>
                 <div class="action-desc">Ver y editar mi perfil</div>
+            </a>
+            
+            <!-- BOTÓN GESTIONAR PROMOCIONES -->
+            <a href="/profesional/promociones" class="action-card">
+                <div class="action-icon">🏆</div>
+                <div class="action-title">Promociones</div>
+                <div class="action-desc">Crear y gestionar concursos</div>
             </a>
         </div>
         
