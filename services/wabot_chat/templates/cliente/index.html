@@ -677,8 +677,11 @@
             window.open(`/negocio/${negocioId}`, '_blank');
         }
 
-        // ========== NAVEGACIÓN MÓVIL ==========
+        // ========== CAMBIAR DE SECCIÓN ==========
         function switchSection(section) {
+            // Cerrar menú automáticamente al cambiar de sección
+            cerrarMenu();
+            
             // Ocultar todos los paneles
             document.querySelectorAll('.section-panel').forEach(panel => {
                 panel.classList.remove('active');
