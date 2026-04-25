@@ -680,81 +680,76 @@
         
         // ========== CARGAR PROMOCIONES ==========
         async function cargarPromociones() {
-            const negocioId = document.getElementById('negocioId').value;
-            const container = document.getElementById('promocionesList');
+        const negocioId = document.getElementById('negocioId').value;
+        const container = document.getElementById('promocionesList');
+        const telefonoCliente = localStorage.getItem('telefono_cliente');
+        
+        let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
+        if (telefonoCliente) {
+            url += `?telefono=${encodeURIComponent(telefonoCliente)}`;
+        }
+        
+        container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
             
-            let telefonoCliente = localStorage.getItem('telefono_cliente');
-            
-            if (!telefonoCliente) {
-                container.innerHTML = `
-                    <div class="text-center p-4 bg-white rounded-4 shadow-sm">
-                        <i class="fas fa-phone-alt fa-4x text-muted mb-3"></i>
-                        <h5>Identifícate primero</h5>
-                        <p class="text-muted">Debes compartir tu número de teléfono en el chat para ver promociones</p>
-                        <button class="action-button" onclick="switchSection('chat')">
-                            <i class="fas fa-comment-dots"></i> Ir al chat
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-            
-            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
-            
-            try {
-                const response = await fetch(`/api/cliente/verificar-elegibilidad/${negocioId}?telefono=${encodeURIComponent(telefonoCliente)}`);
-                const data = await response.json();
+            if (data.success && data.promociones && data.promociones.length > 0) {
+                let html = '';
                 
-                if (data.success && data.promociones && data.promociones.length > 0) {
-                    let html = '';
-                    data.promociones.forEach(promo => {
-                        const esElegible = data.elegible && data.data?.promocion_id === promo.id;
-                        html += `
-                            <div class="promo-card">
-                                <div class="promo-header">
-                                    <i class="fas fa-trophy"></i> ${promo.titulo || promo.nombre || 'Concurso Activo'}
-                                </div>
-                                <div class="promo-body">
-                                    <div class="promo-title">${promo.titulo || promo.nombre || 'Participa y gana'}</div>
-                                    <div class="promo-description">${promo.descripcion || 'Participa en esta promoción y gana increíbles premios'}</div>
-                                    ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
-                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                                        <small><i class="far fa-calendar-alt"></i> ${promo.fecha_inicio?.split('T')[0] || ''} - ${promo.fecha_fin?.split('T')[0] || ''}</small>
-                                        <span class="eligibility-badge ${esElegible ? 'badge-eligible' : 'badge-not-eligible'}">
-                                            ${esElegible ? '✓ Elegible' : '✗ No elegible'}
-                                        </span>
-                                    </div>
-                                    ${esElegible ? `
-                                        <button class="btn btn-warning w-100 fw-bold" onclick="abrirModalParticipar(${promo.id})">
-                                            <i class="fas fa-camera"></i> Participar ahora
-                                        </button>
-                                    ` : `
-                                        <small class="text-muted d-block text-center mt-2">
-                                            ${data.mensaje || 'Agenda y completa una cita hoy para participar'}
-                                        </small>
-                                    `}
-                                </div>
+                // Mostrar mensaje según si está identificado o no
+                if (!data.cliente_identificado) {
+                    html += `<div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle"></i> ${data.mensaje || 'Identifícate para participar'}
+                            </div>`;
+                } else if (!data.elegible) {
+                    html += `<div class="alert alert-warning mb-3">
+                                <i class="fas fa-calendar-check"></i> ${data.mensaje || 'Completa una cita para participar'}
+                            </div>`;
+                }
+                
+                data.promociones.forEach(promo => {
+                    html += `
+                        <div class="promo-card">
+                            <div class="promo-header">
+                                <i class="fas fa-trophy"></i> ${promo.titulo}
+                                ${promo.profesional_nombre ? `<small class="ms-2">👤 ${promo.profesional_nombre}</small>` : ''}
                             </div>
-                        `;
-                    });
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = `
-                        <div class="text-center p-4 bg-white rounded-4 shadow-sm">
-                            <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
-                            <h5>No hay promociones activas</h5>
-                            <p class="text-muted">Vuelve pronto para participar en concursos</p>
-                            <button class="action-button" onclick="switchSection('chat')">
-                                <i class="fas fa-calendar-check"></i> Agenda tu cita
-                            </button>
+                            <div class="promo-body">
+                                <div class="promo-title">${promo.titulo}</div>
+                                <div class="promo-description">${promo.descripcion || 'Participa y gana increíbles premios'}</div>
+                                ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
+                                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                    <small><i class="far fa-calendar-alt"></i> Válido hasta: ${promo.fecha_fin?.split('T')[0] || 'Fecha por definir'}</small>
+                                </div>
+                                <button class="btn btn-warning w-100 fw-bold" onclick="irAAgendarCita()">
+                                    <i class="fas fa-calendar-check"></i> Participar
+                                </button>
+                            </div>
                         </div>
                     `;
-                }
-            } catch (error) {
-                console.error(error);
-                container.innerHTML = '<div class="text-center p-4 text-danger">Error al cargar promociones</div>';
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center p-4 bg-white rounded-4 shadow-sm">
+                        <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
+                        <h5>No hay promociones activas</h5>
+                        <p class="text-muted">Vuelve pronto para participar en concursos</p>
+                    </div>
+                `;
             }
+        } catch (error) {
+            console.error(error);
+            container.innerHTML = '<div class="text-center p-4 text-danger">Error al cargar promociones</div>';
         }
+    }
+
+    function irAAgendarCita() {
+        const negocioId = document.getElementById('negocioId').value;
+        window.open(`/cliente/${negocioId}`, '_blank');
+    }
         
         // ========== PARTICIPAR ==========
         let currentPromoId = null;

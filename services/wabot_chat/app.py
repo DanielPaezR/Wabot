@@ -386,20 +386,37 @@ def crear_promocion():
 @app.route('/api/cliente/verificar-elegibilidad/<int:negocio_id>')
 def verificar_elegibilidad(negocio_id):
     try:
-        # Obtener teléfono del cliente desde la sesión o request
         cliente_telefono = request.args.get('telefono')
-        if not cliente_telefono:
-            return jsonify({
-                'success': True,
-                'elegible': False,
-                'mensaje': 'No se identificó al cliente',
-                'promociones': []
-            })
-        
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # 1. Obtener última cita completada del cliente para saber su barbero
+        # CASO 1: Cliente NO identificado
+        if not cliente_telefono:
+            # Mostrar TODAS las promociones activas del negocio
+            cursor.execute('''
+                SELECT p.*, prof.nombre as profesional_nombre
+                FROM promociones p
+                JOIN profesionales prof ON p.profesional_id = prof.id
+                WHERE p.negocio_id = %s 
+                  AND p.activo = TRUE 
+                  AND p.fecha_inicio <= CURRENT_DATE 
+                  AND p.fecha_fin >= CURRENT_DATE
+                ORDER BY p.fecha_fin ASC
+            ''', (negocio_id,))
+            
+            promociones = cursor.fetchall()
+            conn.close()
+            
+            return jsonify({
+                'success': True,
+                'elegible': False,
+                'cliente_identificado': False,
+                'promociones': promociones,
+                'mensaje': 'Identifícate para participar en promociones específicas'
+            })
+        
+        # CASO 2: Cliente identificado
+        # Buscar última cita completada del cliente para saber su profesional
         cursor.execute('''
             SELECT c.profesional_id, c.cliente_nombre, p.nombre as profesional_nombre
             FROM citas c
@@ -407,7 +424,6 @@ def verificar_elegibilidad(negocio_id):
             WHERE c.cliente_telefono = %s 
               AND c.negocio_id = %s 
               AND c.estado = 'completado'
-              AND DATE(c.fecha) = CURDATE()
             ORDER BY c.fecha DESC
             LIMIT 1
         ''', (cliente_telefono, negocio_id))
@@ -415,59 +431,79 @@ def verificar_elegibilidad(negocio_id):
         cita_hoy = cursor.fetchone()
         
         if not cita_hoy:
+            # Cliente identificado pero sin citas completadas
+            # Mostrar promociones generales del negocio
+            cursor.execute('''
+                SELECT p.*, prof.nombre as profesional_nombre
+                FROM promociones p
+                JOIN profesionales prof ON p.profesional_id = prof.id
+                WHERE p.negocio_id = %s 
+                  AND p.activo = TRUE 
+                  AND p.fecha_inicio <= CURRENT_DATE 
+                  AND p.fecha_fin >= CURRENT_DATE
+                ORDER BY p.fecha_fin ASC
+            ''', (negocio_id,))
+            
+            promociones = cursor.fetchall()
+            conn.close()
+            
             return jsonify({
                 'success': True,
                 'elegible': False,
-                'mensaje': 'Debes tener una cita completada hoy para participar'
+                'cliente_identificado': True,
+                'promociones': promociones,
+                'mensaje': 'Agenda y completa una cita para participar en promociones exclusivas'
             })
         
+        # Cliente identificado CON cita completada - mostrar solo promoción de SU profesional
         profesional_id = cita_hoy['profesional_id']
         
-        # 2. Buscar promociones activas SOLO de ese profesional
         cursor.execute('''
             SELECT * FROM promociones 
             WHERE profesional_id = %s 
               AND activo = TRUE 
-              AND fecha_inicio <= CURDATE() 
-              AND fecha_fin >= CURDATE()
+              AND fecha_inicio <= CURRENT_DATE 
+              AND fecha_fin >= CURRENT_DATE
         ''', (profesional_id,))
         
         promociones = cursor.fetchall()
-        
         conn.close()
         
-        if not promociones:
+        if promociones:
+            promo = promociones[0]
+            return jsonify({
+                'success': True,
+                'elegible': True,
+                'cliente_identificado': True,
+                'promociones': [{
+                    'id': promo['id'],
+                    'titulo': promo['titulo'],
+                    'descripcion': promo['descripcion'],
+                    'premio': promo['premio'],
+                    'imagen_url': promo['imagen_url'],
+                    'fecha_inicio': promo['fecha_inicio'],
+                    'fecha_fin': promo['fecha_fin'],
+                    'profesional_nombre': cita_hoy['profesional_nombre']
+                }],
+                'data': {
+                    'cliente_nombre': cita_hoy['cliente_nombre'],
+                    'profesional_nombre': cita_hoy['profesional_nombre'],
+                    'promocion_id': promo['id']
+                }
+            })
+        else:
             return jsonify({
                 'success': True,
                 'elegible': False,
-                'mensaje': 'No hay promociones activas para tu barbero'
+                'cliente_identificado': True,
+                'promociones': [],
+                'mensaje': 'No hay promociones activas para tu profesional'
             })
-        
-        # Tomar la primera promoción activa
-        promo = promociones[0]
-        
-        return jsonify({
-            'success': True,
-            'elegible': True,
-            'promocion': {
-                'id': promo['id'],
-                'titulo': promo['titulo'],
-                'descripcion': promo['descripcion'],
-                'premio': promo['premio'],
-                'imagen_url': promo['imagen_url'],
-                'fecha_fin': promo['fecha_fin']
-            },
-            'data': {
-                'cliente_nombre': cita_hoy['cliente_nombre'],
-                'profesional_nombre': cita_hoy['profesional_nombre'],
-                'promocion_id': promo['id']
-            }
-        })
         
     except Exception as e:
         print(f"Error en verificar_elegibilidad: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
+        return jsonify({'success': False, 'error': str(e), 'promociones': []}), 500
+        
 @app.route('/api/concurso/participar', methods=['POST'])
 def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
