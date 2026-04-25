@@ -337,37 +337,44 @@ def utility_processor():
 @app.route('/profesional/promocion/crear', methods=['POST'])
 @role_required(['profesional', 'propietario'])
 def crear_promocion():
-    """Permite al profesional crear el concurso del mes"""
     try:
+        print("=" * 50)
+        print("📝 CREANDO PROMOCIÓN")
+        print(f"Form: {dict(request.form)}")
+        
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
+        
+        print(f"Profesional ID: {profesional_id}")
+        print(f"Negocio ID: {negocio_id}")
+        
         titulo = request.form.get('titulo')
         premio = request.form.get('premio')
         descripcion = request.form.get('descripcion')
         fecha_inicio = request.form.get('inicio')
         fecha_fin = request.form.get('fin')
         
-        # Validar que los campos requeridos no estén vacíos
-        if not titulo or not fecha_inicio or not fecha_fin:
-            flash('❌ Título y fechas son obligatorios', 'error')
-            return redirect(url_for('profesional_dashboard'))
-
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # ✅ CORREGIDO: 7 placeholders ÷ 7 valores (sin incluir activo)
         cursor.execute('''
             INSERT INTO promociones (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
         ''', (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
         
+        new_id = cursor.fetchone()[0]
         conn.commit()
         conn.close()
         
+        print(f"✅ Promoción creada con ID: {new_id}")
+        print("=" * 50)
+        
         flash('✅ Concurso mensual publicado correctamente', 'success')
-        return redirect(url_for('listar_promociones'))  # ← Redirigir a listado, no dashboard
+        return redirect(url_for('listar_promociones'))
         
     except Exception as e:
+        print(f"❌ ERROR: {e}")
         flash(f'❌ Error: {str(e)}', 'error')
         return redirect(url_for('profesional_dashboard'))
 
