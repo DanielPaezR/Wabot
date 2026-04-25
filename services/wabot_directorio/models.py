@@ -148,6 +148,7 @@ class Promocion(Base):
     
     id = Column(Integer, primary_key=True)
     profesional_id = Column(Integer, ForeignKey('profesionales.id'))
+    negocio_id = Column(Integer, ForeignKey('negocios.id'))
     titulo = Column(String(200), nullable=False)
     descripcion = Column(Text)
     premio = Column(String(200))

@@ -227,7 +227,7 @@ def perfil_profesional(profesional_id):
         FotoTrabajoProfesional.profesional_id == profesional_id
     ).all()
     
-    # Obtener promoción activa del profesional
+    # ========== OBTENER PROMOCIÓN ACTIVA DEL PROFESIONAL ==========
     from datetime import datetime
     fecha_actual = datetime.now().date()
     
