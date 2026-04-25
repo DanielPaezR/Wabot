@@ -577,19 +577,19 @@
         <!-- Menú Desplegable -->
         <div class="dropdown-overlay" id="dropdownOverlay"></div>
         <div class="dropdown-menu-custom" id="dropdownMenu">
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); cerrarMenu(); return false;">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); cerrarMenu();">
                 <i class="fas fa-comment-dots"></i>
                 <span>💬 Chat de Citas</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cerrarMenu(); cargarPromociones(); return false;">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cerrarMenu(); cargarPromociones();">
                 <i class="fas fa-gift"></i>
                 <span>🎁 Promociones</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); cerrarMenu(); return false;">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); cerrarMenu();">
                 <i class="fas fa-store"></i>
                 <span>🏪 Directorio</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); cerrarMenu(); return false;">
+            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); cerrarMenu();">
                 <i class="fas fa-redo-alt"></i>
                 <span>🔄 Reiniciar Chat</span>
             </a>
@@ -677,7 +677,7 @@
             window.open(`/negocio/${negocioId}`, '_blank');
         }
 
-        // ========== CAMBIAR DE SECCIÓN ==========
+        // ========== NAVEGACIÓN MÓVIL ==========
         function switchSection(section) {
             // Cerrar menú automáticamente al cambiar de sección
             cerrarMenu();
