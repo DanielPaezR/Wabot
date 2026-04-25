@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>WaBot - {{ negocio.nombre }}</title>
 
     <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
@@ -13,392 +13,463 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* Layout Sidebar */
-        .main-layout {
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
-        
-        .sidebar {
-            width: 280px;
-            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-            color: white;
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ========== LAYOUT MÓVIL ========== */
+        .mobile-container {
             display: flex;
             flex-direction: column;
-            transition: all 0.3s ease;
-            z-index: 100;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        
-        .sidebar-header {
-            padding: 24px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .sidebar-header img {
-            border-radius: 12px;
-        }
-        
-        .sidebar-header h4 {
-            font-size: 1.2rem;
-            margin: 10px 0 0;
-            font-weight: 600;
-        }
-        
-        .sidebar-header p {
-            font-size: 0.7rem;
-            opacity: 0.7;
-            margin: 5px 0 0;
-        }
-        
-        .nav-link-custom {
-            padding: 14px 24px;
-            color: #cbd5e1;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            transition: all 0.2s;
-            margin: 4px 12px;
-            border-radius: 12px;
-        }
-        
-        .nav-link-custom i {
-            width: 24px;
-            font-size: 1.2rem;
-        }
-        
-        .nav-link-custom:hover {
-            background: rgba(255,255,255,0.1);
-            color: white;
-        }
-        
-        .nav-link-custom.active {
-            background: #3b82f6;
-            color: white;
-            box-shadow: 0 4px 12px rgba(59,130,246,0.3);
-        }
-        
-        .content-area {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
+            height: 100vh;
             background: #f8fafc;
         }
-        
+
+        /* ========== BOTTOM TAB BAR ========== */
+        .bottom-tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 8px 16px 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 30px;
+            transition: all 0.2s ease;
+            flex: 1;
+            max-width: 100px;
+        }
+
+        .tab-item i {
+            font-size: 24px;
+            color: #94a3b8;
+            transition: all 0.2s;
+        }
+
+        .tab-item span {
+            font-size: 11px;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        .tab-item.active i {
+            color: #3b82f6;
+            transform: translateY(-2px);
+        }
+
+        .tab-item.active span {
+            color: #3b82f6;
+        }
+
+        .tab-item:active {
+            transform: scale(0.95);
+        }
+
+        /* ========== CONTENIDO PRINCIPAL ========== */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px;
+            height: 100%;
+        }
+
         .section-panel {
             display: none;
-            height: 100%;
-            overflow-y: auto;
-            position: relative;
+            padding: 16px;
+            animation: fadeIn 0.3s ease;
         }
-        
+
         .section-panel.active {
             display: block;
         }
-        
-        /* Chat Styles (existentes) */
-        .chat-container {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .chat-header {
-            background: white;
-            padding: 16px 20px;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background: white;
-        }
-        
-        .chat-header h5 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin: 0;
-            color: #1e293b;
-        }
-        
-        .chat-header small {
-            font-size: 0.7rem;
-            color: #64748b;
-        }
-        
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: #f8fafc;
-        }
-        
-        .chat-input {
-            background: white;
-            padding: 16px 20px;
-            border-top: 1px solid #e2e8f0;
-        }
-        
-        .message {
-            margin-bottom: 16px;
-            padding: 10px 16px;
-            border-radius: 18px;
-            max-width: 85%;
-            word-wrap: break-word;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .user-message {
-            background: #3b82f6;
-            color: white;
-            margin-left: auto;
-            border-bottom-right-radius: 6px;
-        }
-        
-        .bot-message {
-            background: white;
-            color: #334155;
-            margin-right: auto;
-            border-bottom-left-radius: 6px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        /* Professional Grid */
+
+        /* ========== HEADER ========== */
+        .mobile-header {
+            background: white;
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .mobile-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0;
+            color: #1e293b;
+        }
+
+        .mobile-header p {
+            font-size: 12px;
+            color: #64748b;
+            margin: 4px 0 0;
+        }
+
+        /* ========== CHAT STYLES ========== */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 140px);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            line-height: 1.4;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: #3b82f6;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message {
+            background: white;
+            color: #1e293b;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .chat-input-container {
+            background: white;
+            padding: 12px 16px;
+            border-top: 1px solid #e2e8f0;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 30px;
+            background: #f1f5f9;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .input-wrapper button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .input-wrapper button:active {
+            transform: scale(0.95);
+        }
+
+        /* ========== PROFESSIONAL GRID ========== */
         .professionals-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 12px;
             margin-top: 12px;
         }
-        
+
         .professional-card {
             background: white;
-            border-radius: 12px;
-            padding: 10px;
+            border-radius: 16px;
+            padding: 12px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
             border: 1px solid #e2e8f0;
         }
-        
-        .professional-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+        .professional-card:active {
+            transform: scale(0.98);
         }
-        
+
         .professional-img {
-            width: 70px;
-            height: 70px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            margin: 0 auto 8px;
+            margin: 0 auto 10px;
             overflow: hidden;
-            border: 2px solid #3b82f6;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
+
         .professional-img img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        
+
+        .default-avatar {
+            font-size: 40px;
+            color: #94a3b8;
+        }
+
+        .professional-info strong {
+            font-size: 14px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .specialty {
+            font-size: 11px;
+            color: #64748b;
+        }
+
         .select-professional-btn {
             background: #3b82f6;
             color: white;
             border: none;
-            border-radius: 20px;
-            padding: 6px 12px;
-            font-size: 0.75rem;
+            border-radius: 30px;
+            padding: 8px 12px;
+            font-size: 12px;
             width: 100%;
-            margin-top: 8px;
+            margin-top: 10px;
+            font-weight: 500;
         }
-        
-        /* Promociones Styles */
+
+        /* ========== PROMOCIONES ========== */
         .promo-card {
             background: white;
             border-radius: 20px;
             margin-bottom: 16px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
             border: 1px solid #e2e8f0;
-            transition: all 0.2s;
         }
-        
-        .promo-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        }
-        
+
         .promo-header {
             background: linear-gradient(135deg, #f59e0b, #ef4444);
             color: white;
             padding: 12px 16px;
+            font-weight: 600;
         }
-        
+
         .promo-body {
             padding: 16px;
         }
-        
+
         .promo-title {
-            font-size: 1.1rem;
+            font-size: 18px;
             font-weight: 700;
             margin-bottom: 8px;
         }
-        
+
         .promo-description {
             color: #64748b;
-            font-size: 0.85rem;
+            font-size: 14px;
             margin-bottom: 12px;
         }
-        
+
         .promo-prize {
             background: #fef3c7;
-            padding: 8px 12px;
+            padding: 10px;
             border-radius: 12px;
             margin-bottom: 12px;
         }
-        
-        .promo-prize span {
-            font-weight: 700;
-            color: #d97706;
-        }
-        
+
         .eligibility-badge {
             display: inline-block;
             padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 12px;
             font-weight: 600;
         }
-        
+
         .badge-eligible { background: #d1fae5; color: #065f46; }
         .badge-not-eligible { background: #fee2e2; color: #991b1b; }
-        
-        /* Directorio Styles */
+
+        /* ========== DIRECTORIO ========== */
         .directorio-card {
-            background: white;
-            border-radius: 20px;
-            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            padding: 32px 24px;
             text-align: center;
-            margin-bottom: 16px;
-            border: 1px solid #e2e8f0;
-        }
-        
-        .directorio-icon {
-            font-size: 48px;
-            color: #3b82f6;
-            margin-bottom: 16px;
-        }
-        
-        .directorio-btn {
-            background: #3b82f6;
             color: white;
+        }
+
+        .directorio-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .directorio-card h4 {
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+
+        .directorio-card p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 24px;
+        }
+
+        .directorio-btn {
+            background: white;
+            color: #667eea;
             border: none;
-            padding: 12px 24px;
+            padding: 14px 28px;
             border-radius: 40px;
-            font-weight: 600;
-            margin-top: 16px;
+            font-weight: 700;
             display: inline-flex;
             align-items: center;
             gap: 8px;
             text-decoration: none;
+            font-size: 16px;
         }
-        
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 70px;
-            }
-            .sidebar span,
-            .sidebar-header h4,
-            .sidebar-header p {
-                display: none;
-            }
-            .sidebar-header {
-                padding: 16px 0;
-                text-align: center;
-            }
-            .nav-link-custom {
-                justify-content: center;
-                padding: 14px 0;
-                margin: 4px 8px;
-            }
-            .nav-link-custom i {
-                margin: 0;
-            }
-            .professionals-grid {
-                grid-template-columns: 1fr;
-            }
+
+        /* ========== BOTONES DE ACCIÓN ========== */
+        .action-button {
+            background: #f1f5f9;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 500;
+            width: 100%;
+            margin-bottom: 8px;
         }
-        
-        @media (min-width: 768px) and (max-width: 1024px) {
-            .professionals-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+
+        /* ========== MODAL MÓVIL ========== */
+        .modal-mobile {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 24px 24px 0 0;
+            padding: 20px;
+            z-index: 2000;
+            animation: slideUp 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        
-        @media (min-width: 1024px) {
-            .professionals-grid {
-                grid-template-columns: repeat(3, 1fr);
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1999;
+        }
+
+        /* ========== UTILITIES ========== */
+        .btn-reset {
+            background: none;
+            border: none;
+            color: #64748b;
+            padding: 8px;
+        }
+
+        /* ========== SAFE AREA ========== */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .bottom-tab-bar {
+                padding-bottom: calc(20px + env(safe-area-inset-bottom));
+            }
+            .main-content {
+                padding-bottom: calc(80px + env(safe-area-inset-bottom));
             }
         }
     </style>
 </head>
 <body>
-    <div class="main-layout">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header text-center">
-                <img src="/static/icons/icon-192x192.png" width="50" alt="WaBot">
-                <h4>WaBot</h4>
-                <p>Agenda tu cita</p>
+    <div class="mobile-container">
+        <!-- Header Móvil -->
+        <div class="mobile-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-comment-dots text-primary"></i> {{ negocio.nombre }}</h1>
+                    <p>Agenda tu cita en segundos</p>
+                </div>
+                <button class="btn-reset" onclick="resetConversacion()">
+                    <i class="fas fa-redo-alt fa-lg"></i>
+                </button>
             </div>
-            <a href="#" class="nav-link-custom active" onclick="switchSection('chat')">
-                <i class="fas fa-comments"></i> <span>Chat de Citas</span>
-            </a>
-            <a href="#" class="nav-link-custom" onclick="switchSection('promociones')">
-                <i class="fas fa-gift"></i> <span>Promociones</span>
-            </a>
-            <a href="#" class="nav-link-custom" onclick="switchSection('directorio')">
-                <i class="fas fa-map-marked-alt"></i> <span>Directorio</span>
-            </a>
         </div>
 
-        <div class="content-area">
-            <!-- Panel de Chat -->
+        <!-- Contenido Principal -->
+        <div class="main-content">
+            <!-- Panel Chat -->
             <div id="chatSection" class="section-panel active">
                 <div class="chat-container">
-                    <div class="chat-header">
-                        <div>
-                            <h5><i class="fas fa-comment-dots"></i> {{ negocio.nombre }}</h5>
-                            <small>Agenda tu cita en segundos</small>
-                        </div>
-                        <div>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="resetConversacion()">
-                                <i class="fas fa-redo-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
                     <div class="chat-messages" id="chatMessages">
                         <div class="message bot-message">
                             <i class="fas fa-robot"></i> ¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte?
                         </div>
                     </div>
                     
-                    <div class="chat-input">
-                        <div class="input-group">
-                            <input type="text" id="userInput" class="form-control" placeholder="Escribe tu mensaje..." autocomplete="off">
-                            <button class="btn btn-primary" id="sendButton">
+                    <div class="chat-input-container">
+                        <div class="input-wrapper">
+                            <input type="text" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
+                            <button id="sendButton">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
@@ -406,24 +477,22 @@
                 </div>
             </div>
 
-            <!-- Panel de Promociones -->
-            <div id="promocionesSection" class="section-panel p-3">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3><i class="fas fa-gift text-warning"></i> Promociones Activas</h3>
+            <!-- Panel Promociones -->
+            <div id="promocionesSection" class="section-panel">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <i class="fas fa-gift fa-2x text-warning"></i>
+                    <h3 class="m-0 fs-4 fw-bold">Promociones</h3>
                 </div>
                 <div id="promocionesList"></div>
             </div>
 
-            <!-- Panel de Directorio -->
-            <div id="directorioSection" class="section-panel p-3">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3><i class="fas fa-store text-primary"></i> Directorio de Negocios</h3>
-                </div>
-                <div class="directorio-card text-center">
+            <!-- Panel Directorio -->
+            <div id="directorioSection" class="section-panel">
+                <div class="directorio-card">
                     <div class="directorio-icon">
-                        <i class="fas fa-map-marked-alt"></i>
+                        <i class="fas fa-store"></i>
                     </div>
-                    <h4>Encuentra tu próximo destino</h4>
+                    <h4>Directorio de Negocios</h4>
                     <p>Explora todos los negocios disponibles en nuestra plataforma, con fotos, servicios y más.</p>
                     <a href="https://wabot-directorio-production.up.railway.app/directorio" 
                        target="_blank" 
@@ -432,6 +501,22 @@
                     </a>
                 </div>
             </div>
+        </div>
+
+        <!-- Bottom Tab Bar (Reemplaza el sidebar) -->
+        <div class="bottom-tab-bar">
+            <button class="tab-item active" onclick="switchSection('chat')">
+                <i class="fas fa-comment-dots"></i>
+                <span>Chat</span>
+            </button>
+            <button class="tab-item" onclick="switchSection('promociones')">
+                <i class="fas fa-gift"></i>
+                <span>Promos</span>
+            </button>
+            <button class="tab-item" onclick="switchSection('directorio')">
+                <i class="fas fa-store"></i>
+                <span>Directorio</span>
+            </button>
         </div>
     </div>
 
@@ -442,28 +527,28 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // ========== FUNCIONES DE NAVEGACIÓN ==========
+        // ========== NAVEGACIÓN MÓVIL ==========
         function switchSection(section) {
             // Ocultar todos los paneles
             document.querySelectorAll('.section-panel').forEach(panel => {
                 panel.classList.remove('active');
             });
-            // Quitar active de todos los nav links
-            document.querySelectorAll('.nav-link-custom').forEach(link => {
-                link.classList.remove('active');
+            // Quitar active de los tabs
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.classList.remove('active');
             });
             
-            // Mostrar el panel seleccionado
+            // Mostrar panel seleccionado
             if (section === 'chat') {
                 document.getElementById('chatSection').classList.add('active');
-                document.querySelector('.nav-link-custom[onclick*="chat"]').classList.add('active');
+                document.querySelectorAll('.tab-item')[0].classList.add('active');
             } else if (section === 'promociones') {
                 document.getElementById('promocionesSection').classList.add('active');
-                document.querySelector('.nav-link-custom[onclick*="promociones"]').classList.add('active');
+                document.querySelectorAll('.tab-item')[1].classList.add('active');
                 cargarPromociones();
             } else if (section === 'directorio') {
                 document.getElementById('directorioSection').classList.add('active');
-                document.querySelector('.nav-link-custom[onclick*="directorio"]').classList.add('active');
+                document.querySelectorAll('.tab-item')[2].classList.add('active');
             }
         }
         
@@ -471,16 +556,16 @@
         async function cargarPromociones() {
             const negocioId = document.getElementById('negocioId').value;
             const container = document.getElementById('promocionesList');
-            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando promociones...</div>';
+            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
             
             try {
                 const response = await fetch(`/api/cliente/verificar-elegibilidad/${negocioId}`);
                 const data = await response.json();
                 
-                if (data.success && data.promociones && data.promociones.length > 0) {
+                if (data.success && data.promociones?.length > 0) {
                     let html = '';
                     data.promociones.forEach(promo => {
-                        const esElegible = data.elegible && data.data && data.data.promocion_id === promo.id;
+                        const esElegible = data.elegible && data.data?.promocion_id === promo.id;
                         html += `
                             <div class="promo-card">
                                 <div class="promo-header">
@@ -489,15 +574,15 @@
                                 <div class="promo-body">
                                     <div class="promo-title">${promo.nombre || 'Participa y gana'}</div>
                                     <div class="promo-description">${promo.descripcion || 'Participa en esta promoción y gana increíbles premios'}</div>
-                                    ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <span>${promo.premio}</span></div>` : ''}
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="small">📅 Validez: ${promo.fecha_inicio?.split('T')[0]} - ${promo.fecha_fin?.split('T')[0] || 'Indefinido'}</span>
+                                    ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
+                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                        <small><i class="far fa-calendar-alt"></i> ${promo.fecha_inicio?.split('T')[0]} - ${promo.fecha_fin?.split('T')[0] || 'Indefinido'}</small>
                                         <span class="eligibility-badge ${esElegible ? 'badge-eligible' : 'badge-not-eligible'}">
                                             ${esElegible ? '✓ Elegible' : '✗ No elegible'}
                                         </span>
                                     </div>
                                     ${esElegible ? `
-                                        <button class="btn btn-warning w-100 mt-2" onclick="abrirModalParticipar(${promo.id})">
+                                        <button class="btn btn-warning w-100 fw-bold" onclick="abrirModalParticipar(${promo.id})">
                                             <i class="fas fa-camera"></i> Participar ahora
                                         </button>
                                     ` : `
@@ -512,120 +597,122 @@
                     container.innerHTML = html;
                 } else {
                     container.innerHTML = `
-                        <div class="text-center p-4 bg-white rounded-3 shadow-sm">
-                            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                        <div class="text-center p-4 bg-white rounded-4 shadow-sm">
+                            <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
                             <h5>No hay promociones activas</h5>
-                            <p class="text-muted">Vuelve pronto para participar en concursos y promociones especiales</p>
-                            <button class="btn btn-outline-primary" onclick="switchSection('chat')">
+                            <p class="text-muted">Vuelve pronto para participar en concursos</p>
+                            <button class="action-button" onclick="switchSection('chat')">
                                 <i class="fas fa-calendar-check"></i> Agenda tu cita
                             </button>
                         </div>
                     `;
                 }
             } catch (error) {
-                console.error('Error cargando promociones:', error);
+                console.error(error);
                 container.innerHTML = '<div class="text-center p-4 text-danger">Error al cargar promociones</div>';
             }
         }
         
-        // ========== PARTICIPAR EN PROMOCIÓN ==========
+        // ========== PARTICIPAR ==========
         let currentPromoId = null;
         
         function abrirModalParticipar(promoId) {
             currentPromoId = promoId;
-            // Crear modal dinámico o usar uno existente
-            let modal = document.getElementById('modalParticipar');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'modalParticipar';
-                modal.className = 'modal fade';
-                modal.innerHTML = `
-                    <div class="modal-dialog modal-dialog-centered">
-                        <form id="formParticipar" class="modal-content" enctype="multipart/form-data">
-                            <div class="modal-header">
-                                <h5 class="modal-title">🎁 Participar en Concurso</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <input type="hidden" name="promocion_id" id="promoIdInput">
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold">📸 Tus mejores fotos (Máx 3)</label>
-                                    <input type="file" name="fotos" class="form-control" multiple accept="image/*" id="fotosInput" required>
-                                    <small class="text-muted">Comparte tus fotos para participar en el concurso</small>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-bold">✏️ Mensaje o nota</label>
-                                    <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-warning">📤 Participar</button>
-                            </div>
-                        </form>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-                
-                // Evento del formulario
-                document.getElementById('formParticipar').addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    const files = document.getElementById('fotosInput').files;
-                    if (files.length === 0) {
-                        alert('Debes subir al menos una foto');
-                        return;
-                    }
-                    if (files.length > 3) {
-                        alert('Máximo 3 fotos');
-                        return;
-                    }
-                    
-                    const btn = this.querySelector('button[type="submit"]');
-                    btn.disabled = true;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-                    
-                    const formData = new FormData(this);
-                    
-                    try {
-                        const response = await fetch('/api/concurso/participar', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const result = await response.json();
-                        if (result.success) {
-                            alert('✅ ¡Participación exitosa! Comparte tu enlace para recibir votos.');
-                            prompt('📤 Copia tu enlace de votación para compartir:', result.share_link);
-                            bootstrap.Modal.getInstance(modal).hide();
-                            this.reset();
-                        } else {
-                            alert('❌ Error: ' + result.message);
-                        }
-                    } catch (error) {
-                        alert('❌ Error al participar');
-                    } finally {
-                        btn.disabled = false;
-                        btn.innerHTML = '📤 Participar';
-                    }
-                });
-            }
             
-            document.getElementById('promoIdInput').value = promoId;
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
+            // Eliminar modal existente
+            const existingModal = document.getElementById('modalParticipar');
+            if (existingModal) existingModal.remove();
+            
+            // Crear overlay y modal
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.onclick = () => cerrarModal();
+            
+            const modal = document.createElement('div');
+            modal.id = 'modalParticipar';
+            modal.className = 'modal-mobile';
+            modal.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="m-0 fw-bold">🎁 Participar</h5>
+                    <button class="btn-close" onclick="cerrarModal()"></button>
+                </div>
+                <form id="formParticipar">
+                    <input type="hidden" name="promocion_id" value="${promoId}">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">📸 Fotos (Máx 3)</label>
+                        <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
+                        <small class="text-muted">Comparte tus mejores fotos</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">✏️ Mensaje</label>
+                        <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100 fw-bold py-2">
+                        📤 Participar
+                    </button>
+                </form>
+            `;
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(modal);
+            
+            document.getElementById('formParticipar').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const files = e.target.fotos.files;
+                if (files.length === 0) {
+                    alert('Debes subir al menos una foto');
+                    return;
+                }
+                if (files.length > 3) {
+                    alert('Máximo 3 fotos');
+                    return;
+                }
+                
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+                
+                const formData = new FormData(e.target);
+                try {
+                    const response = await fetch('/api/concurso/participar', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('✅ ¡Participación exitosa!');
+                        if (result.share_link) {
+                            prompt('📤 Copia tu enlace para compartir:', result.share_link);
+                        }
+                        cerrarModal();
+                        e.target.reset();
+                    } else {
+                        alert('❌ Error: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('❌ Error al participar');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '📤 Participar';
+                }
+            });
         }
         
-        // ========== RESET CONVERSACIÓN ==========
+        function cerrarModal() {
+            document.querySelectorAll('.modal-overlay, .modal-mobile').forEach(el => el.remove());
+        }
+        
+        // ========== RESET ==========
         function resetConversacion() {
-            if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
+            if (confirm('¿Reiniciar conversación?')) {
                 localStorage.removeItem('telefono_cliente');
                 localStorage.removeItem('push_activado');
-                const sessionId = document.getElementById('sessionId').value;
                 fetch('/cliente/reset', { method: 'POST' })
                     .then(() => location.reload());
             }
         }
         
-        // ========== CHAT FUNCTIONALITY ==========
+        // ========== CHAT ==========
         document.addEventListener('DOMContentLoaded', function() {
             const chatMessages = document.getElementById('chatMessages');
             const userInput = document.getElementById('userInput');
@@ -641,7 +728,7 @@
             function addUserMessage(message) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message user-message';
-                msgDiv.innerHTML = `<strong><i class="fas fa-user"></i> Tú:</strong><br>${message.replace(/\n/g, '<br>')}`;
+                msgDiv.innerHTML = `<strong>Tú:</strong><br>${message.replace(/\n/g, '<br>')}`;
                 chatMessages.appendChild(msgDiv);
                 scrollToBottom();
             }
@@ -652,7 +739,7 @@
                 msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>${message.replace(/\n/g, '<br>')}`;
                 chatMessages.appendChild(msgDiv);
                 
-                if (options && options.length > 0) {
+                if (options?.length) {
                     const isProfessionals = options[0].type === 'professional' || options[0].image;
                     
                     if (isProfessionals) {
@@ -663,11 +750,11 @@
                             card.className = 'professional-card';
                             card.innerHTML = `
                                 <div class="professional-img">
-                                    ${opt.image ? `<img src="${opt.image}" alt="${opt.name}" onerror="this.src='/static/default-avatar.png'">` : `<div class="default-avatar"><i class="fas fa-user"></i></div>`}
+                                    ${opt.image ? `<img src="${opt.image}" onerror="this.src=''">` : '<div class="default-avatar"><i class="fas fa-user"></i></div>'}
                                 </div>
                                 <div class="professional-info">
                                     <strong>${opt.name || opt.text}</strong>
-                                    ${opt.specialty ? `<small class="specialty">${opt.specialty}</small>` : ''}
+                                    ${opt.specialty ? `<div class="specialty">${opt.specialty}</div>` : ''}
                                 </div>
                                 <button class="select-professional-btn" data-value="${opt.value}">Seleccionar</button>
                             `;
@@ -686,9 +773,8 @@
                         btnsContainer.className = 'd-flex flex-wrap gap-2 mt-2';
                         options.forEach(opt => {
                             const btn = document.createElement('button');
-                            btn.className = 'btn btn-sm btn-outline-primary';
+                            btn.className = 'btn btn-sm btn-outline-primary rounded-pill px-3 py-1';
                             btn.textContent = opt.text || opt.name;
-                            btn.style.borderRadius = '30px';
                             btn.addEventListener('click', () => {
                                 userInput.value = opt.value;
                                 sendMessage();
@@ -734,7 +820,7 @@
             setTimeout(() => {
                 userInput.value = 'hola';
                 sendMessage();
-            }, 500);
+            }, 300);
         });
     </script>
 </body>
