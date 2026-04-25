@@ -15,7 +15,8 @@ from models import (
     FotoNegocio, 
     FotoTrabajoProfesional,
     Servicio,
-    ConfiguracionHorario
+    ConfiguracionHorario,
+    Promocion
 )
 
 from dotenv import load_dotenv
