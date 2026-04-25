@@ -3,7 +3,7 @@ Manejador de chat web para agendamiento de citas
 Versión convertida desde whatsapp_handler.py sin Twilio
 """
 
-from flask import Blueprint
+from flask import Blueprint, session as flask_session
 from datetime import datetime, time, timedelta
 import database as db
 import json
@@ -733,6 +733,19 @@ def saludo_inicial(numero, negocio_id):
         # Crear conversación activa en estado de solicitar teléfono inicial
         clave_conversacion = f"{numero}_{negocio_id}"
         
+        # PERSISTENCIA: Si el cliente ya fue identificado en este navegador
+        if flask_session.get('cliente_telefono'):
+            conversaciones_activas[clave_conversacion] = {
+                'estado': 'menu_principal',
+                'telefono_cliente': flask_session['cliente_telefono'],
+                'cliente_nombre': flask_session.get('cliente_nombre', 'Cliente'),
+                'timestamp': datetime.now(tz_colombia)
+            }
+            return renderizar_plantilla('telefono_validado_existente', negocio_id, {
+                'nombre_cliente': flask_session.get('cliente_nombre')
+            })
+
+        
         # Limpiar conversación si existe
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
@@ -782,6 +795,16 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
     
     # Guardar teléfono en la conversación
     conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
+    
+    # Persistir en la sesión del navegador para futuras visitas
+    flask_session['cliente_telefono'] = telefono
+    if nombre_cliente:
+        flask_session['cliente_nombre'] = nombre_cliente
+    
+    # Persistir en la sesión del navegador
+    flask_session['cliente_telefono'] = telefono
+    if nombre_cliente:
+        flask_session['cliente_nombre'] = nombre_cliente
     
     if nombre_cliente:
         # Cliente existente reconocido

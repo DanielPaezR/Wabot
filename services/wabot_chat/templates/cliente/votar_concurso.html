@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Vota por el Corte de {{ p.cliente_nombre }} | {{ p.promo_titulo }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 450px;
+            width: 100%;
+            padding: 25px;
+            text-align: center;
+        }
+        .promo-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #c53030;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .client-name {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .post-image {
+            width: 100%;
+            max-height: 350px;
+            object-fit: cover;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        .post-image-placeholder {
+            width: 100%;
+            height: 200px; /* Altura fija para el placeholder */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0e0e0;
+            color: #888;
+            font-size: 3rem;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        .post-note {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .likes-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .like-count {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #c53030;
+        }
+        .like-button {
+            background: linear-gradient(135deg, #c53030 0%, #e53e3e 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 5px 15px rgba(197, 48, 48, 0.3);
+        }
+        .like-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(197, 48, 48, 0.4);
+        }
+        .like-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        .message-area {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .message-area.success {
+            color: #28a745;
+            font-weight: 600;
+        }
+        .message-area.error {
+            color: #dc3545;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="concursoContainer" data-participacion-id="{{ p.id }}">
+        <h1 class="promo-title">
+            <i class="fas fa-trophy"></i> {{ p.promo_titulo }}
+        </h1>
+        <h2 class="client-name">Corte de {{ p.cliente_nombre }}</h2>
+        
+        {% if p.foto_url %}
+            <div class="images-gallery">
+                {% for url in p.foto_url.split(',') %}
+                    <img src="{{ url }}" alt="Corte de {{ p.cliente_nombre }}" class="post-image" style="margin-bottom: 10px;">
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="post-image-placeholder">
+                <i class="fas fa-image"></i>
+            </div>
+        {% endif %}
+        
+        {% if p.nota %}
+            <p class="post-note">{{ p.nota }}</p>
+        {% endif %}
+        
+        <div class="likes-section">
+            <span class="like-count" id="likeCount">{{ p.likes }}</span>
+            <button class="like-button" id="likeButton">
+                <i class="fas fa-heart"></i> Me gusta
+            </button>
+        </div>
+        
+        <div id="messageArea" class="message-area"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const participacionId = $('#concursoContainer').data('participacion-id');
+            const likeButton = $('#likeButton');
+            const likeCountSpan = $('#likeCount');
+            const messageArea = $('#messageArea');
+            const localStorageKey = `liked_post_${participacionId}`;
+
+            // Verificar si ya se ha votado por este post en este navegador
+            if (localStorage.getItem(localStorageKey) === 'true') {
+                likeButton.prop('disabled', true).text('❤️ Ya votaste');
+                messageArea.text('¡Gracias por tu voto!').addClass('success');
+            }
+
+            likeButton.on('click', function() {
+                likeButton.prop('disabled', true).text('Cargando...');
+                messageArea.removeClass('success error').text('');
+
+                $.ajax({
+                    url: `/api/concurso/like/${participacionId}`,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    success: function(response) {
+                        if (response.success) {
+                            let currentLikes = parseInt(likeCountSpan.text());
+                            likeCountSpan.text(currentLikes + 1);
+                            likeButton.text('❤️ ¡Voto registrado!');
+                            messageArea.text('¡Gracias por tu voto!').addClass('success');
+                            localStorage.setItem(localStorageKey, 'true'); // Marcar como votado
+                        } else {
+                            likeButton.prop('disabled', false).html('<i class="fas fa-heart"></i> Me gusta');
+                            messageArea.text(response.message || 'Error al registrar el voto').addClass('error');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Error de conexión';
+                        likeButton.prop('disabled', false).html('<i class="fas fa-heart"></i> Me gusta');
+                        messageArea.text(errorMsg).addClass('error');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

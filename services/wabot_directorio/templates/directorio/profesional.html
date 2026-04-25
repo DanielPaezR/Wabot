@@ -417,6 +417,28 @@
             {% endif %}
         </div>
         
+        <!-- NUEVA SECCIÓN: CONCURSO MENSUAL -->
+        <div class="section" style="background: linear-gradient(135deg, #fff5f5 0%, #fff 100%); border: 2px solid #feb2b2;">
+            <div class="section-title" style="color: #c53030;">
+                <i class="fas fa-trophy"></i>
+                ¡Gana un corte gratis este mes!
+            </div>
+            <div style="font-size: 13px; color: #4a5568; margin-bottom: 12px;">
+                Sube una foto de tu último corte con <strong>{{ profesional.nombre }}</strong>, compártela y el que tenga más likes al finalizar el mes gana.
+            </div>
+            
+            {% if usuario_logueado %}
+                <button onclick="window.location.href='/participar/{{ profesional.id }}'" 
+                        style="width: 100%; background: #c53030; color: white; border: none; padding: 10px; border-radius: 12px; font-weight: 600; cursor: pointer;">
+                    <i class="fas fa-camera"></i> Participar ahora
+                </button>
+            {% else %}
+                <div style="text-align: center; padding: 10px; background: #edf2f7; border-radius: 8px; font-size: 12px;">
+                    <i class="fas fa-info-circle"></i> Agenda tu cita primero para participar.
+                </div>
+            {% endif %}
+        </div>
+        
         <!-- Galería de trabajos -->
         <div class="section">
             <div class="section-title">

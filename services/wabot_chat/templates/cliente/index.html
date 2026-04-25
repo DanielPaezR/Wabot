@@ -18,6 +18,29 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
+        /* Estilos Sidebar */
+        .main-layout { display: flex; height: 100vh; }
+        .sidebar {
+            width: 260px; background: #1a202c; color: white;
+            display: flex; flex-direction: column; padding: 20px 0;
+        }
+        .nav-link-custom {
+            padding: 15px 25px; color: #a0aec0; text-decoration: none;
+            display: flex; align-items: center; gap: 12px; transition: 0.3s;
+        }
+        .nav-link-custom:hover, .nav-link-custom.active {
+            background: #2d3748; color: white; border-left: 4px solid #3182ce;
+        }
+        .content-area { flex: 1; position: relative; overflow: hidden; }
+        .section-panel { display: none; height: 100%; }
+        .section-panel.active { display: block; }
+        
+        @media (max-width: 768px) {
+            .sidebar { width: 60px; }
+            .sidebar span { display: none; }
+            .nav-link-custom { justify-content: center; padding: 15px 0; }
+        }
+
         :root {
             --primary-color: #007bff;
             --secondary-color: #6c757d;
@@ -623,10 +646,152 @@
     </style>
 </head>
 <body>
-    
-    <!-- Overlay para cerrar menú -->
-    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="main-layout">
+        <!-- Sidebar Izquierda -->
+        <div class="sidebar">
+            <div class="text-center mb-4">
+                <img src="/static/icons/icon-192x192.png" width="40" alt="Logo">
+            </div>
+            <a href="#" class="nav-link-custom active" onclick="switchSection('chat')">
+                <i class="fas fa-comments"></i> <span>Chat de Citas</span>
+            </a>
+            <a href="https://wabot-directorio-production.up.railway.app/mapa" class="nav-link-custom">
+                <i class="fas fa-map-marked-alt"></i> <span>Ciudad (Mapa)</span>
+            </a>
+            <a href="#" class="nav-link-custom" onclick="switchSection('promociones')">
+                <i class="fas fa-gift"></i> <span>Promociones</span>
+            </a>
+        </div>
 
+        <div class="content-area">
+            <!-- Panel de Chat (Existente) -->
+            <div id="chatSection" class="section-panel active">
+                <div class="chat-header" style="position: absolute;">
+                    <div class="header-left">
+                        <a href="https://wabot-directorio-production.up.railway.app/negocio/{{ negocio.id }}" target="_blank" class="header-icon-btn"><i class="fas fa-store"></i></a>
+                    </div>
+                    <div class="header-center">
+                        <h5>{{ negocio.nombre }}</h5>
+                        <small>Agenda tu cita</small>
+                    </div>
+                    <div class="header-right">
+                        <button class="header-icon-btn" id="menuToggleBtn"><i class="fas fa-ellipsis-v"></i></button>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatMessages" style="position: absolute; top: 60px; bottom: 100px; width: 100%;"></div>
+                <div class="chat-input" style="position: absolute; bottom: 0; width: 100%;">
+                    <div class="input-group-custom">
+                        <input type="text" id="userInput" placeholder="Escribe tu mensaje...">
+                        <button class="send-btn" id="sendButton"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Promociones (Nuevo) -->
+            <div id="promocionesSection" class="section-panel p-4 overflow-auto">
+                <h3>🎁 Promociones y Eventos</h3>
+                <div id="promoContent">
+                    <p class="text-muted">Cargando promociones...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchSection(section) {
+            $('.section-panel').removeClass('active');
+            $('.nav-link-custom').removeClass('active');
+            
+            if(section === 'chat') {
+                $('#chatSection').addClass('active');
+                $('a[onclick*="chat"]').addClass('active');
+            } else {
+                $('#promocionesSection').addClass('active');
+                $('a[onclick*="promociones"]').addClass('active');
+                loadPromociones();
+            }
+        }
+        
+        function loadPromociones() {
+            const nId = $('#negocioId').val();
+            $.get(`/api/cliente/verificar-elegibilidad/${nId}`, function(res) {
+                if(res.elegible) {
+                    const d = res.data;
+                    $('#promoContent').html(`
+                        <div class="card border-success shadow-sm">
+                            <div class="card-body">
+                                <h5 class="text-success"><i class="fas fa-check-circle"></i> ¡Puedes participar!</h5>
+                                <p class="small">Vimos que tuviste cita hoy con <b>${d.profesional_nombre}</b>.</p>
+                                <hr>
+                                <h6>${d.titulo}</h6>
+                                <button class="btn btn-success w-100 mt-2" onclick="abrirModalParticipar(${d.promocion_id})">
+                                    Subir fotos de mi corte
+                                </button>
+                            </div>
+                        </div>
+                    `);
+                } else {
+                    $('#promoContent').html(`
+                        <div class="text-center p-4">
+                            <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                            <h5>Participación restringida</h5>
+                            <p class="text-muted small">Para participar en el concurso, debes tener una cita <b>completada el día de hoy</b>.</p>
+                            <button class="btn btn-outline-primary btn-sm" onclick="switchSection('chat')">Agendar cita ahora</button>
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        function abrirModalParticipar(pId) {
+            $('#promoIdInput').val(pId);
+            new bootstrap.Modal(document.getElementById('modalSubirFotos')).show();
+        }
+
+        $('#formParticipar').on('submit', function(e) {
+            e.preventDefault();
+            const files = $('#fotosInput')[0].files;
+            if(files.length > 3) return alert("Máximo 3 fotos");
+            
+            const btn = $(this).find('button[type="submit"]');
+            btn.prop('disabled', true).text('Subiendo...');
+            
+            $.ajax({
+                url: '/api/concurso/participar',
+                method: 'POST',
+                data: new FormData(this),
+                processData: false, contentType: false,
+                success: function(res) {
+                    alert("¡Participación exitosa! Comparte este link con tus amigos.");
+                    prompt("Copia tu link de votación:", res.share_link);
+                    location.reload();
+                },
+                error: () => { alert("Error al subir"); btn.prop('disabled', false).text('Subir y Participar'); }
+            });
+        });
+    </script>
+    
+    <!-- MODAL CARGA -->
+    <div class="modal fade" id="modalSubirFotos" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <form id="formParticipar" class="modal-content" enctype="multipart/form-data">
+                <div class="modal-header"><h5>Participar en Concurso</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <input type="hidden" name="promocion_id" id="promoIdInput">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Tus fotos (Máx 3)</label>
+                        <input type="file" name="fotos" class="form-control" multiple accept="image/*" id="fotosInput" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nota o mensaje</label>
+                        <textarea name="nota" class="form-control" rows="2" placeholder="Ej: ¡Me encantó mi degradado!"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">Subir y Generar Link</button></div>
+            </form>
+        </div>
+    </div>
+    </script>
     <!-- Header fijo mejorado -->
     <div class="chat-header">
         <div class="header-left">

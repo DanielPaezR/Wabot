@@ -34,6 +34,12 @@ tz_colombia = pytz.timezone('America/Bogota')
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 app.register_blueprint(push_bp, url_prefix='/push')
+app.register_blueprint(web_chat_bp, url_prefix='/cliente')
+
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(days=30)
 
 # Configuración para subir imágenes
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -322,14 +328,118 @@ def utility_processor():
     """Agregar funciones útiles a todos los templates"""
     def now():
         return datetime.now(tz_colombia)
-    return dict(now=now)
-
-# Registrar blueprint de WhatsApp
-app.register_blueprint(web_chat_bp, url_prefix='/web_chat')
+    return dict(now=now);
 
 # =============================================================================
-# RUTAS BÁSICAS - AGREGAR AL PRINCIPIO
+# GESTIÓN DE PROMOCIONES Y CONCURSOS (EVENTOS MENSUALES)
 # =============================================================================
+
+@app.route('/profesional/promocion/crear', methods=['POST'])
+@role_required(['profesional', 'propietario'])
+def crear_promocion():
+    """Permite al profesional crear el concurso del mes"""
+    try:
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        titulo, premio = request.form.get('titulo'), request.form.get('premio')
+        descripcion = request.form.get('descripcion')
+        fecha_inicio, fecha_fin = request.form.get('inicio'), request.form.get('fin')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO promociones (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ''', (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
+        conn.commit()
+        conn.close()
+        flash('✅ Concurso mensual publicado correctamente', 'success')
+        return redirect(url_for('profesional_dashboard'))
+    except Exception as e:
+        flash(f'❌ Error: {str(e)}', 'error')
+        return redirect(url_for('profesional_dashboard'))
+
+@app.route('/api/cliente/verificar-elegibilidad/<int:negocio_id>')
+def verificar_elegibilidad(negocio_id):
+    """Verifica si el cliente tuvo una cita completada HOY para participar"""
+    telefono = session.get('cliente_telefono')
+    if not telefono: return jsonify({'elegible': False, 'razon': 'No identificado'})
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('''
+        SELECT c.profesional_id, p.nombre as profesional_nombre, prom.id as promocion_id, prom.titulo
+        FROM citas c
+        JOIN profesionales p ON c.profesional_id = p.id
+        JOIN promociones prom ON prom.profesional_id = p.id
+        WHERE c.cliente_telefono = %s AND c.negocio_id = %s 
+        AND c.fecha = CURRENT_DATE AND c.estado = 'completado' AND prom.activa = TRUE
+        LIMIT 1
+    ''', (telefono, negocio_id))
+    data = cursor.fetchone()
+    conn.close()
+    return jsonify({'elegible': True, 'data': data}) if data else jsonify({'elegible': False})
+
+@app.route('/api/concurso/participar', methods=['POST'])
+def api_participar_concurso():
+    """Sube hasta 3 fotos a Cloudinary y registra la participación"""
+    try:
+        import cloudinary.uploader
+        telefono = session.get('cliente_telefono')
+        nombre = session.get('cliente_nombre', 'Cliente')
+        promocion_id = request.form.get('promocion_id')
+        files = request.files.getlist('fotos')
+
+        if not telefono or not files:
+            return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
+
+        urls = []
+        for file in files[:3]:
+            res = cloudinary.uploader.upload(file, folder="concursos_clientes")
+            urls.append(res['secure_url'])
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO participaciones_concurso (promocion_id, cliente_telefono, cliente_nombre, foto_url, nota)
+            VALUES (%s, %s, %s, %s, %s) RETURNING id
+        ''', (promocion_id, telefono, nombre, ",".join(urls), request.form.get('nota', '')))
+        p_id = cursor.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'share_link': f"{request.host_url}vota/{p_id}"})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/vota/<int:participacion_id>')
+def ver_post_concurso(participacion_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('''
+        SELECT p.*, pr.titulo as promo_titulo FROM participaciones_concurso p 
+        JOIN promociones pr ON p.promocion_id = pr.id WHERE p.id = %s
+    ''', (participacion_id,))
+    p = cursor.fetchone()
+    conn.close()
+    return render_template('cliente/votar_concurso.html', p=p) if p else ("No encontrado", 404)
+
+@app.route('/api/concurso/like/<int:participacion_id>', methods=['POST'])
+def api_votar(participacion_id):
+    ip = request.remote_addr
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('INSERT INTO likes_concurso (participacion_id, ip_address) VALUES (%s, %s)', (participacion_id, ip))
+        cursor.execute('UPDATE participaciones_concurso SET likes = likes + 1 WHERE id = %s', (participacion_id,))
+        conn.commit()
+        return jsonify({'success': True})
+    except:
+        return jsonify({'success': False, 'message': 'Ya votaste'}), 400
+    finally: conn.close()
+
+# =============================================================================
+# RUTAS DEL CHAT WEB
+
 
 @app.route('/')
 def index():
