@@ -503,7 +503,7 @@ def verificar_elegibilidad(negocio_id):
     except Exception as e:
         print(f"Error en verificar_elegibilidad: {e}")
         return jsonify({'success': False, 'error': str(e), 'promociones': []}), 500
-        
+    
 @app.route('/api/concurso/participar', methods=['POST'])
 def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
