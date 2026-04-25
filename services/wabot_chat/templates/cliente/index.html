@@ -8,326 +8,165 @@
     <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
     <link rel="icon" href="/static/favicon.ico">
 
-    <!-- Estilos -->
+    <!-- Bootstrap + Font Awesome -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="/static/icons/icon-192x192.png" sizes="192x192">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
-        /* Estilos Sidebar */
-        .main-layout { display: flex; height: 100vh; }
-        .sidebar {
-            width: 260px; background: #1a202c; color: white;
-            display: flex; flex-direction: column; padding: 20px 0;
-        }
-        .nav-link-custom {
-            padding: 15px 25px; color: #a0aec0; text-decoration: none;
-            display: flex; align-items: center; gap: 12px; transition: 0.3s;
-        }
-        .nav-link-custom:hover, .nav-link-custom.active {
-            background: #2d3748; color: white; border-left: 4px solid #3182ce;
-        }
-        .content-area { flex: 1; position: relative; overflow: hidden; }
-        .section-panel { display: none; height: 100%; }
-        .section-panel.active { display: block; }
-        
-        @media (max-width: 768px) {
-            .sidebar { width: 60px; }
-            .sidebar span { display: none; }
-            .nav-link-custom { justify-content: center; padding: 15px 0; }
-        }
-
-        :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --user-msg-bg: #007bff;
-            --bot-msg-bg: #e9ecef;
-        }
-        
-        * {
-            -webkit-tap-highlight-color: transparent;
-            box-sizing: border-box;
-        }
-        
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
+        /* Layout Sidebar */
+        .main-layout {
+            display: flex;
+            height: 100vh;
             overflow: hidden;
         }
         
-        body {
-            background-color: #f5f5f5;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            z-index: 100;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
         
-        .chat-container {
-            width: 100%;
-            max-width: 500px;
-            height: 100vh;
-            margin: 0 auto;
-            background: white;
-            display: block;
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header img {
+            border-radius: 12px;
+        }
+        
+        .sidebar-header h4 {
+            font-size: 1.2rem;
+            margin: 10px 0 0;
+            font-weight: 600;
+        }
+        
+        .sidebar-header p {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin: 5px 0 0;
+        }
+        
+        .nav-link-custom {
+            padding: 14px 24px;
+            color: #cbd5e1;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: all 0.2s;
+            margin: 4px 12px;
+            border-radius: 12px;
+        }
+        
+        .nav-link-custom i {
+            width: 24px;
+            font-size: 1.2rem;
+        }
+        
+        .nav-link-custom:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .nav-link-custom.active {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+        }
+        
+        .content-area {
+            flex: 1;
             position: relative;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+        
+        .section-panel {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .section-panel.active {
+            display: block;
+        }
+        
+        /* Chat Styles (existentes) */
+        .chat-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         
         .chat-header {
-            background: linear-gradient(135deg, var(--primary-color), #0056b3);
-            color: white;
-            padding: 12px 16px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            max-width: 500px;
-            margin: 0 auto;
-            z-index: 1000;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-        
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .header-center {
-            flex: 1;
-            text-align: center;
-        }
-        
-        .header-center h5 {
-            margin: 0;
-            font-weight: 600;
-            font-size: 1.1rem;
-            line-height: 1.3;
-        }
-        
-        .header-center small {
-            opacity: 0.9;
-            font-size: 0.75rem;
-            display: block;
-        }
-        
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .header-icon-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-size: 1.1rem;
-        }
-        
-        .header-icon-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        /* Menú desplegable */
-        .menu-dropdown {
-            position: relative;
-        }
-        
-        .menu-content {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            margin-top: 8px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            min-width: 200px;
-            z-index: 1100;
-            display: none;
-            overflow: hidden;
         }
         
-        .menu-content.show {
-            display: block;
-            animation: slideDown 0.2s ease;
+        .chat-header h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+            color: #1e293b;
         }
         
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .menu-item {
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #333;
-            cursor: pointer;
-            transition: background 0.2s;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .menu-item:last-child {
-            border-bottom: none;
-        }
-        
-        .menu-item:hover {
-            background: #f8f9fa;
-        }
-        
-        .menu-item i {
-            width: 20px;
-            color: var(--primary-color);
-        }
-        
-        .menu-item.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .menu-item.disabled:hover {
-            background: transparent;
+        .chat-header small {
+            font-size: 0.7rem;
+            color: #64748b;
         }
         
         .chat-messages {
-            position: fixed;
-            top: 64px;
-            bottom: 120px;
-            left: 0;
-            right: 0;
-            max-width: 500px;
-            margin: 0 auto;
+            flex: 1;
             overflow-y: auto;
-            overflow-x: hidden;
-            padding: 16px;
-            background: #fafafa;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .chat-messages::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .chat-messages::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
+            padding: 20px;
+            background: #f8fafc;
         }
         
         .chat-input {
             background: white;
-            padding: 12px 16px;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            max-width: 500px;
-            margin: 0 auto;
-            border-top: 1px solid #e0e0e0;
-            z-index: 1000;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .input-group-custom {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        
-        .input-group-custom input {
-            flex: 1;
-            border: 1px solid #ddd;
-            border-radius: 25px;
-            padding: 10px 16px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.2s;
-            background: #f8f9fa;
-        }
-        
-        .input-group-custom input:focus {
-            border-color: var(--primary-color);
-            background: white;
-        }
-        
-        .send-btn {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-        
-        .send-btn:hover {
-            background: #0056b3;
-            transform: scale(1.05);
-        }
-        
-        .reset-btn-container {
-            margin-top: 8px;
-            display: flex;
-            justify-content: center;
-        }
-        
-        .reset-btn {
-            background: transparent;
-            border: 1px solid #ddd;
-            color: #666;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .reset-btn:hover {
-            background: #f0f0f0;
-            border-color: #ccc;
+            padding: 16px 20px;
+            border-top: 1px solid #e2e8f0;
         }
         
         .message {
-            margin-bottom: 12px;
-            padding: 10px 14px;
+            margin-bottom: 16px;
+            padding: 10px 16px;
             border-radius: 18px;
             max-width: 85%;
             word-wrap: break-word;
             animation: fadeIn 0.3s ease;
-            line-height: 1.4;
-            font-size: 0.95rem;
+        }
+        
+        .user-message {
+            background: #3b82f6;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 6px;
+        }
+        
+        .bot-message {
+            background: white;
+            color: #334155;
+            margin-right: auto;
+            border-bottom-left-radius: 6px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         
         @keyframes fadeIn {
@@ -335,521 +174,264 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .user-message {
-            background-color: var(--user-msg-bg);
-            color: white;
-            margin-left: auto;
-            border-bottom-right-radius: 6px;
-        }
-        
-        .bot-message {
-            background-color: white;
-            color: #333;
-            margin-right: auto;
-            border-bottom-left-radius: 6px;
-            border: 1px solid #e8e8e8;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        
-        .bot-message strong {
-            color: var(--primary-color);
-        }
-        
-        .opciones-numeradas {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 10px;
-        }
-        
-        .opcion-btn {
-            flex: 0 0 calc(50% - 3px);
-            padding: 10px 8px;
-            border-radius: 8px;
-            background: white;
-            border: 1px solid #dee2e6;
-            color: #495057;
-            font-size: 0.9rem;
-            min-height: 44px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .opcion-btn:hover {
-            background: #f8f9fa;
-            border-color: var(--primary-color);
-        }
-        
-        .horarios-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 10px;
-        }
-        
-        .hora-btn {
-            flex: 0 0 calc(33.333% - 3.5px);
-            padding: 8px 4px;
-            border-radius: 6px;
-            background: white;
-            border: 1px solid #28a745;
-            color: #28a745;
-            font-size: 0.8rem;
-            min-height: 40px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .hora-btn:hover {
-            background: #28a745;
-            color: white;
-        }
-        
-        .opciones-navegacion {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 12px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        
-        .nav-btn {
-            flex: 1;
-            min-width: 100px;
-            padding: 10px 8px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            min-height: 44px;
-            cursor: pointer;
-        }
-        
-        .nav-next {
-            background: white;
-            border: 1px solid var(--primary-color);
-            color: var(--primary-color);
-        }
-        
-        .confirmacion-opciones {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 12px;
-        }
-        
-        .confirm-btn {
-            flex: 1;
-            padding: 12px 10px;
-            border-radius: 8px;
-            font-weight: 500;
-            min-height: 44px;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-        
-        .confirm-yes {
-            background: #28a745;
-            color: white;
-            border: 1px solid #28a745;
-        }
-        
-        .confirm-no {
-            background: #dc3545;
-            color: white;
-            border: 1px solid #dc3545;
-        }
-        
-        .typing-indicator {
-            display: flex;
-            padding: 10px;
-            margin-bottom: 12px;
-        }
-        
-        .typing-indicator span {
-            height: 8px;
-            width: 8px;
-            background-color: #bbb;
-            border-radius: 50%;
-            margin: 0 2px;
-            animation: typing 1s infinite ease-in-out;
-        }
-        
-        @keyframes typing {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-        
-        .pagination-info {
-            font-size: 0.75rem;
-            color: #6c757d;
-            text-align: center;
-            margin-top: 8px;
-            padding: 6px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-        
+        /* Professional Grid */
         .professionals-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 12px;
             margin-top: 12px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            border: 1px solid #e0e0e0;
         }
-
+        
         .professional-card {
             background: white;
-            border-radius: 10px;
-            padding: 8px;
+            border-radius: 12px;
+            padding: 10px;
             text-align: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-            transition: all 0.2s ease;
             cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            border: 1px solid #e0e0e0;
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
         }
-
+        
         .professional-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-
+        
         .professional-img {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
+            margin: 0 auto 8px;
             overflow: hidden;
-            margin-bottom: 6px;
-            position: relative;
-            border: 2px solid var(--primary-color);
-            background: #f8f9fa;
+            border: 2px solid #3b82f6;
         }
-
+        
         .professional-img img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-
-        .default-avatar {
-            width: 100%;
-            height: 100%;
-            background: #e9ecef;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: #6c757d;
-        }
-
-        .professional-info {
-            margin-bottom: 6px;
-            width: 100%;
-        }
-
-        .professional-info strong {
-            display: block;
-            color: #333;
-            font-size: 0.85rem;
-            margin-bottom: 2px;
-            font-weight: 600;
-            line-height: 1.2;
-        }
-
-        .professional-info .specialty {
-            color: #6c757d;
-            font-size: 0.7rem;
-            display: block;
-            line-height: 1.2;
-        }
-
+        
         .select-professional-btn {
-            background: var(--primary-color);
+            background: #3b82f6;
             color: white;
             border: none;
-            border-radius: 6px;
-            padding: 5px 8px;
-            width: 100%;
+            border-radius: 20px;
+            padding: 6px 12px;
             font-size: 0.75rem;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 4px;
-            font-weight: 500;
-        }
-
-        .select-professional-btn:hover {
-            background: #0056b3;
-        }
-
-        /* Overlay para cerrar menú al hacer clic fuera */
-        .menu-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 1050;
-            display: none;
+            width: 100%;
+            margin-top: 8px;
         }
         
-        .menu-overlay.show {
-            display: block;
+        /* Promociones Styles */
+        .promo-card {
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
         }
-
-        @media (min-width: 768px) {
-            .chat-container {
-                height: 90vh;
-                margin: 20px auto;
-                border: 1px solid #ddd;
-                border-radius: 20px;
-                box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+        
+        .promo-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        
+        .promo-header {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            padding: 12px 16px;
+        }
+        
+        .promo-body {
+            padding: 16px;
+        }
+        
+        .promo-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .promo-description {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+        
+        .promo-prize {
+            background: #fef3c7;
+            padding: 8px 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .promo-prize span {
+            font-weight: 700;
+            color: #d97706;
+        }
+        
+        .eligibility-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .badge-eligible { background: #d1fae5; color: #065f46; }
+        .badge-not-eligible { background: #fee2e2; color: #991b1b; }
+        
+        /* Directorio Styles */
+        .directorio-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 16px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .directorio-icon {
+            font-size: 48px;
+            color: #3b82f6;
+            margin-bottom: 16px;
+        }
+        
+        .directorio-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            margin-top: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
             }
-            
-            .chat-header {
-                border-radius: 20px 20px 0 0;
+            .sidebar span,
+            .sidebar-header h4,
+            .sidebar-header p {
+                display: none;
             }
-            
+            .sidebar-header {
+                padding: 16px 0;
+                text-align: center;
+            }
+            .nav-link-custom {
+                justify-content: center;
+                padding: 14px 0;
+                margin: 4px 8px;
+            }
+            .nav-link-custom i {
+                margin: 0;
+            }
+            .professionals-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .professionals-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 1024px) {
             .professionals-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
-        }
-        
-        .chat-messages::after {
-            content: '';
-            display: block;
-            height: 20px;
-        }
-        
-        /* Badge de notificación */
-        .notification-badge {
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            background: #ff4757;
-            color: white;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid var(--primary-color);
         }
     </style>
 </head>
 <body>
     <div class="main-layout">
-        <!-- Sidebar Izquierda -->
+        <!-- Sidebar -->
         <div class="sidebar">
-            <div class="text-center mb-4">
-                <img src="/static/icons/icon-192x192.png" width="40" alt="Logo">
+            <div class="sidebar-header text-center">
+                <img src="/static/icons/icon-192x192.png" width="50" alt="WaBot">
+                <h4>WaBot</h4>
+                <p>Agenda tu cita</p>
             </div>
             <a href="#" class="nav-link-custom active" onclick="switchSection('chat')">
                 <i class="fas fa-comments"></i> <span>Chat de Citas</span>
             </a>
-            <a href="https://wabot-directorio-production.up.railway.app/mapa" class="nav-link-custom">
-                <i class="fas fa-map-marked-alt"></i> <span>Ciudad (Mapa)</span>
-            </a>
             <a href="#" class="nav-link-custom" onclick="switchSection('promociones')">
                 <i class="fas fa-gift"></i> <span>Promociones</span>
+            </a>
+            <a href="#" class="nav-link-custom" onclick="switchSection('directorio')">
+                <i class="fas fa-map-marked-alt"></i> <span>Directorio</span>
             </a>
         </div>
 
         <div class="content-area">
-            <!-- Panel de Chat (Existente) -->
+            <!-- Panel de Chat -->
             <div id="chatSection" class="section-panel active">
-                <div class="chat-header" style="position: absolute;">
-                    <div class="header-left">
-                        <a href="https://wabot-directorio-production.up.railway.app/negocio/{{ negocio.id }}" target="_blank" class="header-icon-btn"><i class="fas fa-store"></i></a>
-                    </div>
-                    <div class="header-center">
-                        <h5>{{ negocio.nombre }}</h5>
-                        <small>Agenda tu cita</small>
-                    </div>
-                    <div class="header-right">
-                        <button class="header-icon-btn" id="menuToggleBtn"><i class="fas fa-ellipsis-v"></i></button>
-                    </div>
-                </div>
-                <div class="chat-messages" id="chatMessages" style="position: absolute; top: 60px; bottom: 100px; width: 100%;"></div>
-                <div class="chat-input" style="position: absolute; bottom: 0; width: 100%;">
-                    <div class="input-group-custom">
-                        <input type="text" id="userInput" placeholder="Escribe tu mensaje...">
-                        <button class="send-btn" id="sendButton"><i class="fas fa-paper-plane"></i></button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Panel de Promociones (Nuevo) -->
-            <div id="promocionesSection" class="section-panel p-4 overflow-auto">
-                <h3>🎁 Promociones y Eventos</h3>
-                <div id="promoContent">
-                    <p class="text-muted">Cargando promociones...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function switchSection(section) {
-            $('.section-panel').removeClass('active');
-            $('.nav-link-custom').removeClass('active');
-            
-            if(section === 'chat') {
-                $('#chatSection').addClass('active');
-                $('a[onclick*="chat"]').addClass('active');
-            } else {
-                $('#promocionesSection').addClass('active');
-                $('a[onclick*="promociones"]').addClass('active');
-                loadPromociones();
-            }
-        }
-        
-        function loadPromociones() {
-            const nId = $('#negocioId').val();
-            $.get(`/api/cliente/verificar-elegibilidad/${nId}`, function(res) {
-                if(res.elegible) {
-                    const d = res.data;
-                    $('#promoContent').html(`
-                        <div class="card border-success shadow-sm">
-                            <div class="card-body">
-                                <h5 class="text-success"><i class="fas fa-check-circle"></i> ¡Puedes participar!</h5>
-                                <p class="small">Vimos que tuviste cita hoy con <b>${d.profesional_nombre}</b>.</p>
-                                <hr>
-                                <h6>${d.titulo}</h6>
-                                <button class="btn btn-success w-100 mt-2" onclick="abrirModalParticipar(${d.promocion_id})">
-                                    Subir fotos de mi corte
-                                </button>
-                            </div>
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <div>
+                            <h5><i class="fas fa-comment-dots"></i> {{ negocio.nombre }}</h5>
+                            <small>Agenda tu cita en segundos</small>
                         </div>
-                    `);
-                } else {
-                    $('#promoContent').html(`
-                        <div class="text-center p-4">
-                            <i class="fas fa-lock fa-3x text-muted mb-3"></i>
-                            <h5>Participación restringida</h5>
-                            <p class="text-muted small">Para participar en el concurso, debes tener una cita <b>completada el día de hoy</b>.</p>
-                            <button class="btn btn-outline-primary btn-sm" onclick="switchSection('chat')">Agendar cita ahora</button>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="resetConversacion()">
+                                <i class="fas fa-redo-alt"></i>
+                            </button>
                         </div>
-                    `);
-                }
-            });
-        }
-
-        function abrirModalParticipar(pId) {
-            $('#promoIdInput').val(pId);
-            new bootstrap.Modal(document.getElementById('modalSubirFotos')).show();
-        }
-
-        $('#formParticipar').on('submit', function(e) {
-            e.preventDefault();
-            const files = $('#fotosInput')[0].files;
-            if(files.length > 3) return alert("Máximo 3 fotos");
-            
-            const btn = $(this).find('button[type="submit"]');
-            btn.prop('disabled', true).text('Subiendo...');
-            
-            $.ajax({
-                url: '/api/concurso/participar',
-                method: 'POST',
-                data: new FormData(this),
-                processData: false, contentType: false,
-                success: function(res) {
-                    alert("¡Participación exitosa! Comparte este link con tus amigos.");
-                    prompt("Copia tu link de votación:", res.share_link);
-                    location.reload();
-                },
-                error: () => { alert("Error al subir"); btn.prop('disabled', false).text('Subir y Participar'); }
-            });
-        });
-    </script>
-    
-    <!-- MODAL CARGA -->
-    <div class="modal fade" id="modalSubirFotos" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <form id="formParticipar" class="modal-content" enctype="multipart/form-data">
-                <div class="modal-header"><h5>Participar en Concurso</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <input type="hidden" name="promocion_id" id="promoIdInput">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Tus fotos (Máx 3)</label>
-                        <input type="file" name="fotos" class="form-control" multiple accept="image/*" id="fotosInput" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Nota o mensaje</label>
-                        <textarea name="nota" class="form-control" rows="2" placeholder="Ej: ¡Me encantó mi degradado!"></textarea>
+                    
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message bot-message">
+                            <i class="fas fa-robot"></i> ¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte?
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">Subir y Generar Link</button></div>
-            </form>
-        </div>
-    </div>
-    </script>
-    <!-- Header fijo mejorado -->
-    <div class="chat-header">
-        <div class="header-left">
-            <a href="https://wabot-directorio-production.up.railway.app/negocio/{{ negocio.id }}" 
-               target="_blank" 
-               class="header-icon-btn"
-               title="Ver perfil del negocio">
-                <i class="fas fa-store"></i>
-            </a>
-        </div>
-        
-        <div class="header-center">
-            <h5>{{ negocio.nombre }} {{ negocio.emoji if negocio.emoji else '💈' }}</h5>
-            <small><i class="fas fa-calendar-alt"></i> Agenda tu cita</small>
-        </div>
-        
-        <div class="header-right">
-            <!-- Menú de 3 puntos -->
-            <div class="menu-dropdown">
-                <button class="header-icon-btn" id="menuToggleBtn" title="Más opciones">
-                    <i class="fas fa-ellipsis-v"></i>
-                </button>
-                <div class="menu-content" id="menuContent">
-                    <div class="menu-item" id="menuHelp">
-                        <i class="fas fa-question-circle"></i>
-                        <span>Ayuda</span>
-                    </div>
-                    <div class="menu-item" id="menuInstall" style="display: none;">
-                        <i class="fas fa-download"></i>
-                        <span>Instalar App</span>
-                    </div>
-                    <div class="menu-item" id="menuNotifications" style="display: none;">
-                        <i class="fas fa-bell"></i>
-                        <span>Activar Notificaciones</span>
+                    
+                    <div class="chat-input">
+                        <div class="input-group">
+                            <input type="text" id="userInput" class="form-control" placeholder="Escribe tu mensaje..." autocomplete="off">
+                            <button class="btn btn-primary" id="sendButton">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Área de mensajes -->
-    <div class="chat-messages" id="chatMessages">
-        <!-- Mensajes se cargarán aquí -->
-    </div>
-    
-    <!-- Footer simplificado -->
-    <div class="chat-input">
-        <div class="input-group-custom">
-            <input type="text" id="userInput" 
-                   placeholder="Escribe tu mensaje..." autocomplete="off">
-            <button class="send-btn" id="sendButton" title="Enviar mensaje">
-                <i class="fas fa-paper-plane"></i>
-            </button>
-        </div>
-        <div class="reset-btn-container">
-            <button class="reset-btn" id="resetButton" title="Reiniciar conversación">
-                <i class="fas fa-redo-alt"></i> Reiniciar conversación
-            </button>
+
+            <!-- Panel de Promociones -->
+            <div id="promocionesSection" class="section-panel p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3><i class="fas fa-gift text-warning"></i> Promociones Activas</h3>
+                </div>
+                <div id="promocionesList"></div>
+            </div>
+
+            <!-- Panel de Directorio -->
+            <div id="directorioSection" class="section-panel p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3><i class="fas fa-store text-primary"></i> Directorio de Negocios</h3>
+                </div>
+                <div class="directorio-card text-center">
+                    <div class="directorio-icon">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <h4>Encuentra tu próximo destino</h4>
+                    <p>Explora todos los negocios disponibles en nuestra plataforma, con fotos, servicios y más.</p>
+                    <a href="https://wabot-directorio-production.up.railway.app/directorio" 
+                       target="_blank" 
+                       class="directorio-btn">
+                        <i class="fas fa-map-marker-alt"></i> Ver Directorio
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -858,378 +440,301 @@
     <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="{{ url_for('static', filename='js/push-cliente.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        $(document).ready(function() {
-            const chatMessages = $('#chatMessages');
-            const userInput = $('#userInput');
-            const sendButton = $('#sendButton');
-            const sessionId = $('#sessionId').val();
-            const negocioId = $('#negocioId').val();
-            const negocioNombre = $('#negocioNombre').val();
-            
-            console.log("✅ Chat inicializado para negocio ID:", negocioId, "Nombre:", negocioNombre);
-            
-            // Variables para notificaciones push
-            let telefonoCliente = localStorage.getItem('telefono_cliente');
-            let pushActivado = localStorage.getItem('push_activado') === 'true';
-            let deferredPrompt = null;
-            
-            // Manejo del menú desplegable
-            const menuToggleBtn = $('#menuToggleBtn');
-            const menuContent = $('#menuContent');
-            const menuOverlay = $('#menuOverlay');
-            
-            menuToggleBtn.click(function(e) {
-                e.stopPropagation();
-                menuContent.toggleClass('show');
-                menuOverlay.toggleClass('show');
+        // ========== FUNCIONES DE NAVEGACIÓN ==========
+        function switchSection(section) {
+            // Ocultar todos los paneles
+            document.querySelectorAll('.section-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            // Quitar active de todos los nav links
+            document.querySelectorAll('.nav-link-custom').forEach(link => {
+                link.classList.remove('active');
             });
             
-            menuOverlay.click(function() {
-                menuContent.removeClass('show');
-                menuOverlay.removeClass('show');
-            });
-            
-            // Cerrar menú al hacer clic en un item
-            $('.menu-item').click(function() {
-                menuContent.removeClass('show');
-                menuOverlay.removeClass('show');
-            });
-            
-            // Cerrar menú al hacer clic fuera
-            $(document).click(function(e) {
-                if (!$(e.target).closest('.menu-dropdown').length) {
-                    menuContent.removeClass('show');
-                    menuOverlay.removeClass('show');
-                }
-            });
-            
-            // Función para obtener teléfono del cliente
-            function obtenerTelefonoCliente() {
-                return telefonoCliente;
+            // Mostrar el panel seleccionado
+            if (section === 'chat') {
+                document.getElementById('chatSection').classList.add('active');
+                document.querySelector('.nav-link-custom[onclick*="chat"]').classList.add('active');
+            } else if (section === 'promociones') {
+                document.getElementById('promocionesSection').classList.add('active');
+                document.querySelector('.nav-link-custom[onclick*="promociones"]').classList.add('active');
+                cargarPromociones();
+            } else if (section === 'directorio') {
+                document.getElementById('directorioSection').classList.add('active');
+                document.querySelector('.nav-link-custom[onclick*="directorio"]').classList.add('active');
             }
+        }
+        
+        // ========== CARGAR PROMOCIONES ==========
+        async function cargarPromociones() {
+            const negocioId = document.getElementById('negocioId').value;
+            const container = document.getElementById('promocionesList');
+            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando promociones...</div>';
             
-            // Función para activar notificaciones
-            async function activarNotificaciones() {
-                if (!telefonoCliente) {
-                    mostrarNotificacion('Por favor, primero completa el registro con tu número de teléfono.', 'warning');
-                    return;
-                }
+            try {
+                const response = await fetch(`/api/cliente/verificar-elegibilidad/${negocioId}`);
+                const data = await response.json();
                 
-                try {
-                    const menuNotifItem = $('#menuNotifications');
-                    menuNotifItem.html('<i class="fas fa-spinner fa-spin"></i><span>Activando...</span>');
-                    
-                    const push = new window.PushClienteNotifications();
-                    const success = await push.inicializar(telefonoCliente, negocioId);
-                    
-                    if (success) {
-                        localStorage.setItem('push_activado', 'true');
-                        pushActivado = true;
-                        menuNotifItem.html('<i class="fas fa-check-circle" style="color: #28a745;"></i><span>Notificaciones Activadas</span>');
-                        menuNotifItem.addClass('disabled');
-                        
-                        // Enviar notificación de prueba
-                        await push.testNotificacion();
-                        
-                        addBotMessage('✅ ¡Notificaciones activadas! Recibirás recordatorios de tus citas.');
-                    } else {
-                        menuNotifItem.html('<i class="fas fa-bell"></i><span>Activar Notificaciones</span>');
-                        addBotMessage('❌ No se pudieron activar las notificaciones. Asegúrate de permitir las notificaciones en tu navegador.');
-                    }
-                } catch (error) {
-                    console.error('Error activando notificaciones:', error);
-                    $('#menuNotifications').html('<i class="fas fa-bell"></i><span>Activar Notificaciones</span>');
-                    addBotMessage('❌ Error al activar notificaciones. Intenta nuevamente.');
-                }
-            }
-            
-            // Escuchar cambios en el teléfono del cliente
-            function escucharTelefonoCliente() {
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                            const mensajes = document.querySelectorAll('.bot-message');
-                            const ultimoMensaje = mensajes[mensajes.length - 1];
-                            if (ultimoMensaje) {
-                                const texto = ultimoMensaje.textContent;
-                                const telefonoMatch = texto.match(/\b(3\d{9})\b/);
-                                if (telefonoMatch && !telefonoCliente) {
-                                    telefonoCliente = telefonoMatch[1];
-                                    localStorage.setItem('telefono_cliente', telefonoCliente);
-                                    console.log("📱 Teléfono detectado:", telefonoCliente);
-                                    
-                                    // Mostrar opción de notificaciones en el menú
-                                    $('#menuNotifications').show();
-                                    addBotMessage('💡 Puedes activar las notificaciones desde el menú (⋮) para recibir recordatorios.');
-                                }
-                            }
-                        }
+                if (data.success && data.promociones && data.promociones.length > 0) {
+                    let html = '';
+                    data.promociones.forEach(promo => {
+                        const esElegible = data.elegible && data.data && data.data.promocion_id === promo.id;
+                        html += `
+                            <div class="promo-card">
+                                <div class="promo-header">
+                                    <i class="fas fa-trophy"></i> ${promo.nombre || 'Concurso Activo'}
+                                </div>
+                                <div class="promo-body">
+                                    <div class="promo-title">${promo.nombre || 'Participa y gana'}</div>
+                                    <div class="promo-description">${promo.descripcion || 'Participa en esta promoción y gana increíbles premios'}</div>
+                                    ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <span>${promo.premio}</span></div>` : ''}
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="small">📅 Validez: ${promo.fecha_inicio?.split('T')[0]} - ${promo.fecha_fin?.split('T')[0] || 'Indefinido'}</span>
+                                        <span class="eligibility-badge ${esElegible ? 'badge-eligible' : 'badge-not-eligible'}">
+                                            ${esElegible ? '✓ Elegible' : '✗ No elegible'}
+                                        </span>
+                                    </div>
+                                    ${esElegible ? `
+                                        <button class="btn btn-warning w-100 mt-2" onclick="abrirModalParticipar(${promo.id})">
+                                            <i class="fas fa-camera"></i> Participar ahora
+                                        </button>
+                                    ` : `
+                                        <small class="text-muted d-block text-center mt-2">
+                                            ${data.mensaje || 'Agenda y completa una cita hoy para participar'}
+                                        </small>
+                                    `}
+                                </div>
+                            </div>
+                        `;
                     });
-                });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center p-4 bg-white rounded-3 shadow-sm">
+                            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                            <h5>No hay promociones activas</h5>
+                            <p class="text-muted">Vuelve pronto para participar en concursos y promociones especiales</p>
+                            <button class="btn btn-outline-primary" onclick="switchSection('chat')">
+                                <i class="fas fa-calendar-check"></i> Agenda tu cita
+                            </button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error cargando promociones:', error);
+                container.innerHTML = '<div class="text-center p-4 text-danger">Error al cargar promociones</div>';
+            }
+        }
+        
+        // ========== PARTICIPAR EN PROMOCIÓN ==========
+        let currentPromoId = null;
+        
+        function abrirModalParticipar(promoId) {
+            currentPromoId = promoId;
+            // Crear modal dinámico o usar uno existente
+            let modal = document.getElementById('modalParticipar');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'modalParticipar';
+                modal.className = 'modal fade';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-dialog-centered">
+                        <form id="formParticipar" class="modal-content" enctype="multipart/form-data">
+                            <div class="modal-header">
+                                <h5 class="modal-title">🎁 Participar en Concurso</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <input type="hidden" name="promocion_id" id="promoIdInput">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">📸 Tus mejores fotos (Máx 3)</label>
+                                    <input type="file" name="fotos" class="form-control" multiple accept="image/*" id="fotosInput" required>
+                                    <small class="text-muted">Comparte tus fotos para participar en el concurso</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">✏️ Mensaje o nota</label>
+                                    <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-warning">📤 Participar</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                document.body.appendChild(modal);
                 
-                observer.observe(document.getElementById('chatMessages'), { 
-                    childList: true, 
-                    subtree: true,
-                    characterData: true 
+                // Evento del formulario
+                document.getElementById('formParticipar').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const files = document.getElementById('fotosInput').files;
+                    if (files.length === 0) {
+                        alert('Debes subir al menos una foto');
+                        return;
+                    }
+                    if (files.length > 3) {
+                        alert('Máximo 3 fotos');
+                        return;
+                    }
+                    
+                    const btn = this.querySelector('button[type="submit"]');
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+                    
+                    const formData = new FormData(this);
+                    
+                    try {
+                        const response = await fetch('/api/concurso/participar', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('✅ ¡Participación exitosa! Comparte tu enlace para recibir votos.');
+                            prompt('📤 Copia tu enlace de votación para compartir:', result.share_link);
+                            bootstrap.Modal.getInstance(modal).hide();
+                            this.reset();
+                        } else {
+                            alert('❌ Error: ' + result.message);
+                        }
+                    } catch (error) {
+                        alert('❌ Error al participar');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '📤 Participar';
+                    }
                 });
             }
             
-            // Mostrar notificación temporal
-            function mostrarNotificacion(mensaje, tipo = 'info') {
-                const notifDiv = $(`<div class="alert alert-${tipo} alert-dismissible fade show" role="alert" style="position: fixed; bottom: 130px; left: 20px; right: 20px; z-index: 1100; max-width: 460px; margin: 0 auto; border-radius: 12px;">
-                    ${mensaje}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>`);
-                $('body').append(notifDiv);
-                setTimeout(() => notifDiv.fadeOut(500, () => notifDiv.remove()), 3000);
+            document.getElementById('promoIdInput').value = promoId;
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        }
+        
+        // ========== RESET CONVERSACIÓN ==========
+        function resetConversacion() {
+            if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
+                localStorage.removeItem('telefono_cliente');
+                localStorage.removeItem('push_activado');
+                const sessionId = document.getElementById('sessionId').value;
+                fetch('/cliente/reset', { method: 'POST' })
+                    .then(() => location.reload());
             }
+        }
+        
+        // ========== CHAT FUNCTIONALITY ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatMessages = document.getElementById('chatMessages');
+            const userInput = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendButton');
+            const sessionId = document.getElementById('sessionId').value;
+            const negocioId = document.getElementById('negocioId').value;
+            const negocioNombre = document.getElementById('negocioNombre').value;
             
             function scrollToBottom() {
-                setTimeout(() => {
-                    const messagesEl = chatMessages[0];
-                    messagesEl.scrollTop = messagesEl.scrollHeight;
-                }, 100);
-            }
-            
-            function showTypingIndicator() {
-                chatMessages.append(`
-                    <div class="typing-indicator">
-                        <span></span><span></span><span></span>
-                    </div>
-                `);
-                scrollToBottom();
-            }
-            
-            function hideTypingIndicator() {
-                $('.typing-indicator').remove();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
             
             function addUserMessage(message) {
-                if (!message.trim()) return;
-                const messageHtml = `
-                    <div class="message user-message">
-                        <strong><i class="fas fa-user"></i> Tú:</strong><br>
-                        ${message.replace(/\n/g, '<br>')}
-                    </div>
-                `;
-                chatMessages.append(messageHtml);
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message user-message';
+                msgDiv.innerHTML = `<strong><i class="fas fa-user"></i> Tú:</strong><br>${message.replace(/\n/g, '<br>')}`;
+                chatMessages.appendChild(msgDiv);
                 scrollToBottom();
             }
             
-            function addBotMessage(message, options = null, pagination = null) {
-                console.log("🤖 Mensaje del bot:", message);
-                
-                const messageHtml = `
-                    <div class="message bot-message">
-                        <strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>
-                        ${message.replace(/\n/g, '<br>')}
-                    </div>
-                `;
-                
-                chatMessages.append(messageHtml);
+            function addBotMessage(message, options = null) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message bot-message';
+                msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>${message.replace(/\n/g, '<br>')}`;
+                chatMessages.appendChild(msgDiv);
                 
                 if (options && options.length > 0) {
-                    const isProfessionalsWithPhotos = options.some(opt => 
-                        (opt.image || opt.type === 'professional') && opt.rating !== undefined
-                    );
+                    const isProfessionals = options[0].type === 'professional' || options[0].image;
                     
-                    if (isProfessionalsWithPhotos) {
-                        let optionsHtml = `<div class="professionals-grid">`;
-                        options.forEach((option) => {
-                            let imageUrl = option.image || '';
-                            if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-                                imageUrl = '/' + imageUrl;
-                            }
-                            const hasImage = imageUrl && imageUrl !== '';
-                            
-                            optionsHtml += `
-                                <div class="professional-card" data-opcion="${option.value}">
-                                    <div class="professional-img">
-                                        ${hasImage ? 
-                                            `<img src="${imageUrl}" alt="${option.name || option.text}" 
-                                                onerror="this.onerror=null; this.src='/static/default-avatar.png';">` : 
-                                            `<div class="default-avatar"><i class="fas fa-user"></i></div>`
-                                        }
-                                    </div>
-                                    <div class="professional-info">
-                                        <strong>${option.name || option.text}</strong>
-                                        ${option.specialty ? `<small class="specialty">${option.specialty}</small>` : ''}
-                                    </div>
-                                    <button class="select-professional-btn">Seleccionar</button>
+                    if (isProfessionals) {
+                        const grid = document.createElement('div');
+                        grid.className = 'professionals-grid';
+                        options.forEach(opt => {
+                            const card = document.createElement('div');
+                            card.className = 'professional-card';
+                            card.innerHTML = `
+                                <div class="professional-img">
+                                    ${opt.image ? `<img src="${opt.image}" alt="${opt.name}" onerror="this.src='/static/default-avatar.png'">` : `<div class="default-avatar"><i class="fas fa-user"></i></div>`}
                                 </div>
+                                <div class="professional-info">
+                                    <strong>${opt.name || opt.text}</strong>
+                                    ${opt.specialty ? `<small class="specialty">${opt.specialty}</small>` : ''}
+                                </div>
+                                <button class="select-professional-btn" data-value="${opt.value}">Seleccionar</button>
                             `;
+                            grid.appendChild(card);
                         });
-                        optionsHtml += '</div>';
-                        chatMessages.append(optionsHtml);
+                        chatMessages.appendChild(grid);
                         
-                        $('.select-professional-btn').off('click').on('click', function() {
-                            const professionalCard = $(this).closest('.professional-card');
-                            const optionValue = professionalCard.data('opcion');
-                            userInput.val(optionValue);
-                            sendMessage();
+                        grid.querySelectorAll('.select-professional-btn').forEach(btn => {
+                            btn.addEventListener('click', () => {
+                                userInput.value = btn.dataset.value;
+                                sendMessage();
+                            });
                         });
-                        
                     } else {
-                        let containerClass = 'opciones-numeradas';
-                        let buttonClass = 'opcion-btn';
-                        
-                        if (options.some(opt => opt.text && opt.text.includes(':'))) {
-                            containerClass = 'horarios-options';
-                            buttonClass = 'hora-btn';
-                        } else if (options.some(opt => opt.text && opt.text.includes('Siguiente'))) {
-                            containerClass = 'opciones-navegacion';
-                            buttonClass = 'nav-btn';
-                        } else if (options.some(opt => opt.text && (opt.text.includes('Confirmar') || opt.text.includes('confirmar')))) {
-                            containerClass = 'confirmacion-opciones';
-                            buttonClass = 'confirm-btn';
-                        }
-                        
-                        let optionsHtml = `<div class="${containerClass}">`;
-                        options.forEach(option => {
-                            let btnClass = buttonClass;
-                            if (option.text && (option.text.includes('Confirmar') || option.text.includes('confirmar'))) btnClass += ' confirm-yes';
-                            else if (option.text && (option.text.includes('Cancelar') || option.text.includes('cancelar'))) btnClass += ' confirm-no';
-                            else if (option.text && option.text.includes('Siguiente')) btnClass += ' nav-next';
-                            
-                            optionsHtml += `<button class="${btnClass}" data-opcion="${option.value}">${option.text || option.name}</button>`;
+                        const btnsContainer = document.createElement('div');
+                        btnsContainer.className = 'd-flex flex-wrap gap-2 mt-2';
+                        options.forEach(opt => {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-sm btn-outline-primary';
+                            btn.textContent = opt.text || opt.name;
+                            btn.style.borderRadius = '30px';
+                            btn.addEventListener('click', () => {
+                                userInput.value = opt.value;
+                                sendMessage();
+                            });
+                            btnsContainer.appendChild(btn);
                         });
-                        optionsHtml += '</div>';
-                        
-                        chatMessages.append(optionsHtml);
-                        
-                        $('button[data-opcion]').off('click').on('click', function() {
-                            userInput.val($(this).data('opcion'));
-                            sendMessage();
-                        });
+                        chatMessages.appendChild(btnsContainer);
                     }
                 }
-                
-                if (pagination) {
-                    chatMessages.append(`<div class="pagination-info">${pagination}</div>`);
-                }
-                
-                setTimeout(() => scrollToBottom(), 200);
+                scrollToBottom();
             }
             
-            function sendMessage() {
-                const message = userInput.val().trim();
+            async function sendMessage() {
+                const message = userInput.value.trim();
                 if (!message) return;
                 
                 addUserMessage(message);
-                userInput.val('');
-                showTypingIndicator();
-                
-                $.ajax({
-                    url: '/cliente/send',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({
-                        message: message,
-                        session_id: sessionId,
-                        negocio_id: negocioId
-                    }),
-                    success: function(response) {
-                        hideTypingIndicator();
-                        if (response.error) {
-                            addBotMessage(`❌ ${response.error}`);
-                            return;
-                        }
-                        addBotMessage(response.message, response.options, response.pagination);
-                    },
-                    error: function(xhr, status, error) {
-                        hideTypingIndicator();
-                        addBotMessage('❌ Error al procesar tu mensaje. Intenta de nuevo.');
-                    }
-                });
-            }
-            
-            // Eventos principales
-            sendButton.click(sendMessage);
-            userInput.keypress(function(e) {
-                if (e.which === 13) sendMessage();
-            });
-            
-            $('#resetButton').click(function() {
-                if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
-                    localStorage.removeItem('telefono_cliente');
-                    localStorage.removeItem('push_activado');
-                    $.post('/cliente/reset', function() {
-                        location.reload();
-                    });
-                }
-            });
-            
-            // Eventos del menú
-            $('#menuHelp').click(function() {
-                userInput.val('ayuda');
-                sendMessage();
-            });
-            
-            $('#menuInstall').click(async function() {
-                if (!deferredPrompt) {
-                    mostrarNotificacion('📱 La instalación no está disponible en este momento.', 'info');
-                    return;
-                }
+                userInput.value = '';
                 
                 try {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    deferredPrompt = null;
-                    $('#menuInstall').hide();
-                    
-                    if (outcome === 'accepted') {
-                        mostrarNotificacion('✅ ¡App instalada correctamente!', 'success');
+                    const response = await fetch('/cliente/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message, session_id: sessionId, negocio_id: negocioId })
+                    });
+                    const data = await response.json();
+                    if (data.error) {
+                        addBotMessage(`❌ ${data.error}`);
+                    } else {
+                        addBotMessage(data.message, data.options);
                     }
                 } catch (error) {
-                    console.error("Error al instalar:", error);
+                    addBotMessage('❌ Error de conexión. Intenta de nuevo.');
                 }
+            }
+            
+            sendButton.addEventListener('click', sendMessage);
+            userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
             });
             
-            $('#menuNotifications').click(function() {
-                if (!$(this).hasClass('disabled')) {
-                    activarNotificaciones();
-                }
-            });
-            
-            // Iniciar conversación
+            // Iniciar chat
             setTimeout(() => {
-                userInput.val('hola');
+                userInput.value = 'hola';
                 sendMessage();
-            }, 800);
-            
-            // Detectar teléfono del cliente
-            escucharTelefonoCliente();
-            
-            // Si ya había teléfono guardado, mostrar opción de notificaciones
-            if (telefonoCliente) {
-                $('#menuNotifications').show();
-                if (pushActivado) {
-                    $('#menuNotifications').html('<i class="fas fa-check-circle" style="color: #28a745;"></i><span>Notificaciones Activadas</span>');
-                    $('#menuNotifications').addClass('disabled');
-                }
-            }
-            
-            // PWA Installation
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                $('#menuInstall').show();
-            });
-            
-            window.addEventListener('appinstalled', () => {
-                $('#menuInstall').hide();
-                deferredPrompt = null;
-                mostrarNotificacion('✅ ¡App instalada!', 'success');
-            });
-            
-            // Registrar Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(reg => console.log("✅ SW registrado:", reg.scope))
-                    .catch(err => console.log("❌ Error SW:", err));
-            }
+            }, 500);
         });
     </script>
 </body>
