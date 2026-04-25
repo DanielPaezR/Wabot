@@ -335,34 +335,53 @@ def utility_processor():
 # =============================================================================
 
 @app.route('/profesional/promocion/crear', methods=['POST'])
-@role_required(['profesional', 'propietario'])
+@login_required
 def crear_promocion():
     try:
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
-        titulo = request.form.get('titulo')
-        premio = request.form.get('premio')
-        descripcion = request.form.get('descripcion')
+        
+        if not profesional_id:
+            flash('No se pudo identificar al profesional', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        titulo = request.form.get('titulo', '').strip()
+        premio = request.form.get('premio', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
         fecha_inicio = request.form.get('inicio')
         fecha_fin = request.form.get('fin')
-
+        
+        if not titulo:
+            flash('El título es obligatorio', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # ✅ Insertar con activo = TRUE explícitamente
         cursor.execute('''
-            INSERT INTO promociones (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ''', (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
+            INSERT INTO promociones (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+            RETURNING id
+        ''', (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
+        
+        result = cursor.fetchone()
+        promo_id = result[0] if result else None
         
         conn.commit()
         conn.close()
         
-        flash('✅ Concurso mensual publicado correctamente', 'success')
-        return redirect(url_for('listar_promociones'))
+        if promo_id:
+            flash('✅ Promoción creada exitosamente (activada automáticamente)', 'success')
+        else:
+            flash('❌ Error al crear la promoción', 'error')
+        
+        return redirect(url_for('profesional_promociones'))
         
     except Exception as e:
-        flash(f'❌ Error: {str(e)}', 'error')
-        return redirect(url_for('profesional_dashboard'))
+        print(f"❌ ERROR: {e}")
+        flash(f'Error al crear la promoción: {str(e)}', 'error')
+        return redirect(url_for('profesional_promociones'))
 
 @app.route('/api/cliente/verificar-elegibilidad/<int:negocio_id>')
 def verificar_elegibilidad(negocio_id):
@@ -370,7 +389,12 @@ def verificar_elegibilidad(negocio_id):
         # Obtener teléfono del cliente desde la sesión o request
         cliente_telefono = request.args.get('telefono')
         if not cliente_telefono:
-            return jsonify({'success': False, 'message': 'No se identificó el cliente'})
+            return jsonify({
+                'success': True,
+                'elegible': False,
+                'mensaje': 'No se identificó al cliente',
+                'promociones': []
+            })
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -569,6 +593,37 @@ def listar_promociones():
     promociones = cursor.fetchall()
     conn.close()
     return render_template('profesional/promociones.html', promociones=promociones)
+
+@app.route('/profesional/promocion/eliminar/<int:promo_id>', methods=['POST'])
+@login_required
+def eliminar_promocion(promo_id):
+    """Eliminar (desactivar) una promoción"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            flash('No autorizado', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # En lugar de eliminar, desactivamos la promoción
+        cursor.execute('''
+            UPDATE promociones 
+            SET activo = FALSE 
+            WHERE id = %s AND profesional_id = %s
+        ''', (promo_id, profesional_id))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Promoción eliminada correctamente', 'success')
+        
+    except Exception as e:
+        print(f"❌ Error eliminando promoción: {e}")
+        flash('Error al eliminar la promoción', 'error')
+    
+    return redirect(url_for('profesional_promociones'))
 
 @app.route('/profesional/promocion/<int:promocion_id>/participaciones')
 @role_required(['profesional', 'propietario'])
