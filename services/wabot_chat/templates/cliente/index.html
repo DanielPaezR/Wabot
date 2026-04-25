@@ -577,19 +577,19 @@
         <!-- Menú Desplegable -->
         <div class="dropdown-overlay" id="dropdownOverlay"></div>
         <div class="dropdown-menu-custom" id="dropdownMenu">
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); cerrarMenu();">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); cerrarMenu(); return false;">
                 <i class="fas fa-comment-dots"></i>
                 <span>💬 Chat de Citas</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cerrarMenu(); cargarPromociones();">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cerrarMenu(); cargarPromociones(); return false;">
                 <i class="fas fa-gift"></i>
                 <span>🎁 Promociones</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); cerrarMenu();">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); cerrarMenu(); return false;">
                 <i class="fas fa-store"></i>
                 <span>🏪 Directorio</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); cerrarMenu();">
+            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); cerrarMenu(); return false;">
                 <i class="fas fa-redo-alt"></i>
                 <span>🔄 Reiniciar Chat</span>
             </a>
