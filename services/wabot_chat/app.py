@@ -338,43 +338,29 @@ def utility_processor():
 @role_required(['profesional', 'propietario'])
 def crear_promocion():
     try:
-        print("=" * 50)
-        print("📝 CREANDO PROMOCIÓN")
-        print(f"Form: {dict(request.form)}")
-        
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
-        
-        print(f"Profesional ID: {profesional_id}")
-        print(f"Negocio ID: {negocio_id}")
-        
         titulo = request.form.get('titulo')
         premio = request.form.get('premio')
         descripcion = request.form.get('descripcion')
         fecha_inicio = request.form.get('inicio')
         fecha_fin = request.form.get('fin')
-        
+
         conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
             INSERT INTO promociones (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
         ''', (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
         
-        new_id = cursor.fetchone()[0]
         conn.commit()
         conn.close()
-        
-        print(f"✅ Promoción creada con ID: {new_id}")
-        print("=" * 50)
         
         flash('✅ Concurso mensual publicado correctamente', 'success')
         return redirect(url_for('listar_promociones'))
         
     except Exception as e:
-        print(f"❌ ERROR: {e}")
         flash(f'❌ Error: {str(e)}', 'error')
         return redirect(url_for('profesional_dashboard'))
 
