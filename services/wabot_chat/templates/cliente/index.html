@@ -20,6 +20,10 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: #f8fafc;
@@ -239,18 +243,20 @@
         .main-content {
             flex: 1;
             overflow-y: auto;
-            padding-bottom: 80px;
+            padding-bottom: 0; /* Eliminado el padding fijo */
+            display: flex;
+            flex-direction: column;
             height: 100%;
         }
 
         .section-panel {
             display: none;
-            padding: 16px;
-            animation: fadeIn 0.3s ease;
+            height: 100%;
+            flex-direction: column;
         }
 
         .section-panel.active {
-            display: block;
+            display: flex;
         }
 
         @keyframes fadeIn {
@@ -258,11 +264,12 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ========== CHAT STYLES ========== */
+        /* ========== CHAT STYLES (con input pegado al fondo) ========== */
         .chat-container {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 140px);
+            height: 100%;
+            position: relative;
         }
 
         .chat-messages {
@@ -272,6 +279,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
+            min-height: 0;
         }
 
         .message {
@@ -304,13 +312,13 @@
             border: 1px solid #e2e8f0;
         }
 
-        /* Input de WhatsApp (restaurado) */
+        /* Input pegado al final */
         .chat-input-container {
             background: white;
             padding: 12px 16px;
             border-top: 1px solid #e2e8f0;
-            position: sticky;
-            bottom: 0;
+            flex-shrink: 0;
+            width: 100%;
         }
 
         .input-wrapper {
@@ -550,8 +558,8 @@
             .bottom-tab-bar {
                 padding-bottom: calc(20px + env(safe-area-inset-bottom));
             }
-            .main-content {
-                padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            .chat-input-container {
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
             }
         }
     </style>
@@ -577,19 +585,19 @@
         <!-- Menú Desplegable -->
         <div class="dropdown-overlay" id="dropdownOverlay"></div>
         <div class="dropdown-menu-custom" id="dropdownMenu">
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); cerrarMenu();">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); return false;">
                 <i class="fas fa-comment-dots"></i>
                 <span>💬 Chat de Citas</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cerrarMenu(); cargarPromociones();">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cargarPromociones(); return false;">
                 <i class="fas fa-gift"></i>
                 <span>🎁 Promociones</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); cerrarMenu();">
+            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); return false;">
                 <i class="fas fa-store"></i>
                 <span>🏪 Directorio</span>
             </a>
-            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); cerrarMenu();">
+            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); return false;">
                 <i class="fas fa-redo-alt"></i>
                 <span>🔄 Reiniciar Chat</span>
             </a>
@@ -606,7 +614,7 @@
                         </div>
                     </div>
                     
-                    <!-- Input de WhatsApp (restaurado) -->
+                    <!-- Input de WhatsApp pegado al fondo -->
                     <div class="chat-input-container">
                         <div class="input-wrapper">
                             <input type="text" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
@@ -643,6 +651,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Bottom Tab Bar (Navegación rápida) -->
+        <div class="bottom-tab-bar">
+            <button class="tab-item active" onclick="switchSection('chat')">
+                <i class="fas fa-comment-dots"></i>
+                <span>Chat</span>
+            </button>
+            <button class="tab-item" onclick="switchSection('promociones'); cargarPromociones();">
+                <i class="fas fa-gift"></i>
+                <span>Promos</span>
+            </button>
+            <button class="tab-item" onclick="switchSection('directorio')">
+                <i class="fas fa-store"></i>
+                <span>Directorio</span>
+            </button>
+        </div>
     </div>
 
     <input type="hidden" id="sessionId" value="{{ session_id }}">
@@ -673,7 +697,6 @@
         // ========== VER PERFIL DEL NEGOCIO ==========
         function verPerfilNegocio() {
             const negocioId = document.getElementById('negocioId').value;
-            // Redirige al perfil del negocio (ajusta la URL según tu ruta)
             window.open(`/negocio/${negocioId}`, '_blank');
         }
 
@@ -698,7 +721,6 @@
             } else if (section === 'promociones') {
                 document.getElementById('promocionesSection').classList.add('active');
                 document.querySelectorAll('.tab-item')[1].classList.add('active');
-                cargarPromociones();
             } else if (section === 'directorio') {
                 document.getElementById('directorioSection').classList.add('active');
                 document.querySelectorAll('.tab-item')[2].classList.add('active');
@@ -863,6 +885,22 @@
             }
         }
         
+        // ========== MANEJO DEL TECLADO (input se mantiene visible) ==========
+        function handleKeyboardScroll() {
+            const inputElement = document.getElementById('userInput');
+            if (!inputElement) return;
+            
+            inputElement.addEventListener('focus', function() {
+                setTimeout(() => {
+                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const messagesContainer = document.getElementById('chatMessages');
+                    if (messagesContainer) {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                }, 300);
+            });
+        }
+        
         // ========== CHAT ==========
         document.addEventListener('DOMContentLoaded', function() {
             const chatMessages = document.getElementById('chatMessages');
@@ -966,6 +1004,9 @@
             userInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') sendMessage();
             });
+            
+            // Iniciar el manejo del teclado
+            handleKeyboardScroll();
             
             // Iniciar chat
             setTimeout(() => {

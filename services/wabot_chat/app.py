@@ -348,8 +348,8 @@ def crear_promocion():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO promociones (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO promociones (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
         ''', (negocio_id, profesional_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
         conn.commit()
         conn.close()
@@ -509,7 +509,7 @@ def participar_concurso(profesional_id):
     cursor.execute('''
         SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin
         FROM promociones 
-        WHERE profesional_id = %s AND activa = TRUE 
+        WHERE profesional_id = %s AND activo = TRUE 
         AND CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
     ''', (profesional_id,))
     promocion = cursor.fetchone()
@@ -555,7 +555,7 @@ def listar_promociones():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute('''
-        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activa,
+        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo,
         (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = promociones.id) as participaciones
         FROM promociones 
         WHERE profesional_id = %s 
@@ -606,7 +606,7 @@ def cerrar_promocion(promocion_id):
         return "No autorizado", 403
     
     # Desactivar la promoción
-    cursor.execute('UPDATE promociones SET activa = FALSE WHERE id = %s', (promocion_id,))
+    cursor.execute('UPDATE promociones SET activo = FALSE WHERE id = %s', (promocion_id,))
     conn.commit()
     conn.close()
     
