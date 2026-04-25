@@ -613,15 +613,14 @@ def eliminar_promocion(promo_id):
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             flash('No autorizado', 'error')
-            return redirect(url_for('profesional_promociones'))
+            return redirect(url_for('listar_promociones'))
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # En lugar de eliminar, desactivamos la promoción
+        # Verificar que la promoción pertenece al profesional
         cursor.execute('''
-            UPDATE promociones 
-            SET activo = FALSE 
+            DELETE FROM promociones 
             WHERE id = %s AND profesional_id = %s
         ''', (promo_id, profesional_id))
         
@@ -634,7 +633,7 @@ def eliminar_promocion(promo_id):
         print(f"❌ Error eliminando promoción: {e}")
         flash('Error al eliminar la promoción', 'error')
     
-    return redirect(url_for('profesional_promociones'))
+    return redirect(url_for('listar_promociones'))
 
 @app.route('/profesional/promocion/<int:promocion_id>/participaciones')
 @role_required(['profesional', 'propietario'])
