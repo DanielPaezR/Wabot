@@ -618,6 +618,12 @@ def cerrar_promocion(promocion_id):
     flash('✅ Concurso cerrado correctamente', 'success')
     return redirect(url_for('listar_promociones'))
 
+@app.route('/negocio/<int:negocio_id>')
+def redirigir_negocio(negocio_id):
+    """Redirigir al perfil del negocio en el directorio"""
+    directorio_url = os.environ.get('DIRECTORIO_URL', 'https://wabot-directorio-production.up.railway.app')
+    return redirect(f"{directorio_url}/negocio/{negocio_id}")
+
 # =============================================================================
 # RUTAS DEL CHAT WEB
 

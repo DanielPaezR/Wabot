@@ -697,7 +697,9 @@
         // ========== VER PERFIL DEL NEGOCIO ==========
         function verPerfilNegocio() {
             const negocioId = document.getElementById('negocioId').value;
-            window.open(`/negocio/${negocioId}`, '_blank');
+            // Usar la URL del directorio, no la del chat
+            const directorioUrl = 'https://wabot-directorio-production.up.railway.app';
+            window.open(`${directorioUrl}/negocio/${negocioId}`, '_blank');
         }
 
         // ========== NAVEGACIÓN MÓVIL ==========
