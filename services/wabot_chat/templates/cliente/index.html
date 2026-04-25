@@ -182,68 +182,11 @@
             border-bottom: none;
         }
 
-        /* ========== BOTTOM TAB BAR ========== */
-        .bottom-tab-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            padding: 8px 16px 20px;
-            border-top: 1px solid rgba(0, 0, 0, 0.05);
-            z-index: 1000;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-        }
-
-        .tab-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 8px 16px;
-            border-radius: 30px;
-            transition: all 0.2s ease;
-            flex: 1;
-            max-width: 100px;
-        }
-
-        .tab-item i {
-            font-size: 24px;
-            color: #94a3b8;
-            transition: all 0.2s;
-        }
-
-        .tab-item span {
-            font-size: 11px;
-            font-weight: 500;
-            color: #94a3b8;
-        }
-
-        .tab-item.active i {
-            color: #3b82f6;
-            transform: translateY(-2px);
-        }
-
-        .tab-item.active span {
-            color: #3b82f6;
-        }
-
-        .tab-item:active {
-            transform: scale(0.95);
-        }
-
         /* ========== CONTENIDO PRINCIPAL ========== */
         .main-content {
             flex: 1;
             overflow-y: auto;
-            padding-bottom: 0; /* Eliminado el padding fijo */
+            padding-bottom: 0;
             display: flex;
             flex-direction: column;
             height: 100%;
@@ -264,7 +207,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ========== CHAT STYLES (con input pegado al fondo) ========== */
+        /* ========== CHAT STYLES ========== */
         .chat-container {
             display: flex;
             flex-direction: column;
@@ -555,9 +498,6 @@
 
         /* ========== SAFE AREA ========== */
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
-            .bottom-tab-bar {
-                padding-bottom: calc(20px + env(safe-area-inset-bottom));
-            }
             .chat-input-container {
                 padding-bottom: calc(12px + env(safe-area-inset-bottom));
             }
@@ -577,7 +517,7 @@
                     <p>Agenda tu cita en segundos</p>
                 </div>
             </div>
-            <button class="profile-btn" id="profileBtn" onclick="verPerfilNegocio()">
+            <button class="profile-btn" onclick="verPerfilNegocio()">
                 <i class="fas fa-store"></i>
             </button>
         </div>
@@ -614,7 +554,6 @@
                         </div>
                     </div>
                     
-                    <!-- Input de WhatsApp pegado al fondo -->
                     <div class="chat-input-container">
                         <div class="input-wrapper">
                             <input type="text" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
@@ -651,22 +590,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Bottom Tab Bar (Navegación rápida) -->
-        <div class="bottom-tab-bar">
-            <button class="tab-item active" onclick="switchSection('chat')">
-                <i class="fas fa-comment-dots"></i>
-                <span>Chat</span>
-            </button>
-            <button class="tab-item" onclick="switchSection('promociones'); cargarPromociones();">
-                <i class="fas fa-gift"></i>
-                <span>Promos</span>
-            </button>
-            <button class="tab-item" onclick="switchSection('directorio')">
-                <i class="fas fa-store"></i>
-                <span>Directorio</span>
-            </button>
-        </div>
     </div>
 
     <input type="hidden" id="sessionId" value="{{ session_id }}">
@@ -697,35 +620,61 @@
         // ========== VER PERFIL DEL NEGOCIO ==========
         function verPerfilNegocio() {
             const negocioId = document.getElementById('negocioId').value;
-            // Usar la URL del directorio, no la del chat
             const directorioUrl = 'https://wabot-directorio-production.up.railway.app';
             window.open(`${directorioUrl}/negocio/${negocioId}`, '_blank');
         }
 
         // ========== NAVEGACIÓN MÓVIL ==========
         function switchSection(section) {
-            // Cerrar menú automáticamente al cambiar de sección
             cerrarMenu();
             
-            // Ocultar todos los paneles
             document.querySelectorAll('.section-panel').forEach(panel => {
                 panel.classList.remove('active');
             });
-            // Quitar active de los tabs
-            document.querySelectorAll('.tab-item').forEach(tab => {
-                tab.classList.remove('active');
-            });
             
-            // Mostrar panel seleccionado
             if (section === 'chat') {
                 document.getElementById('chatSection').classList.add('active');
-                document.querySelectorAll('.tab-item')[0].classList.add('active');
             } else if (section === 'promociones') {
                 document.getElementById('promocionesSection').classList.add('active');
-                document.querySelectorAll('.tab-item')[1].classList.add('active');
+                cargarPromociones();
             } else if (section === 'directorio') {
                 document.getElementById('directorioSection').classList.add('active');
-                document.querySelectorAll('.tab-item')[2].classList.add('active');
+            }
+        }
+        
+        // ========== DETECTAR Y GUARDAR TELÉFONO DEL CLIENTE ==========
+        function iniciarDetectorTelefono() {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                        const mensajes = document.querySelectorAll('.bot-message');
+                        const ultimoMensaje = mensajes[mensajes.length - 1];
+                        if (ultimoMensaje) {
+                            const texto = ultimoMensaje.textContent;
+                            const telefonoMatch = texto.match(/\b(3\d{9})\b/);
+                            if (telefonoMatch && !localStorage.getItem('telefono_cliente')) {
+                                const telefono = telefonoMatch[1];
+                                localStorage.setItem('telefono_cliente', telefono);
+                                console.log("📱 Teléfono detectado y guardado:", telefono);
+                                
+                                // Si el panel de promociones está activo, recargarlo automáticamente
+                                const promocionesPanel = document.getElementById('promocionesSection');
+                                if (promocionesPanel && promocionesPanel.classList.contains('active')) {
+                                    cargarPromociones();
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+            
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                observer.observe(chatMessages, { 
+                    childList: true, 
+                    subtree: true,
+                    characterData: true 
+                });
             }
         }
         
@@ -733,44 +682,44 @@
         async function cargarPromociones() {
             const negocioId = document.getElementById('negocioId').value;
             const container = document.getElementById('promocionesList');
+            
+            let telefonoCliente = localStorage.getItem('telefono_cliente');
+            
+            if (!telefonoCliente) {
+                container.innerHTML = `
+                    <div class="text-center p-4 bg-white rounded-4 shadow-sm">
+                        <i class="fas fa-phone-alt fa-4x text-muted mb-3"></i>
+                        <h5>Identifícate primero</h5>
+                        <p class="text-muted">Debes compartir tu número de teléfono en el chat para ver promociones</p>
+                        <button class="action-button" onclick="switchSection('chat')">
+                            <i class="fas fa-comment-dots"></i> Ir al chat
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
             container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
             
             try {
-                // Obtener el teléfono del cliente desde localStorage
-                const telefonoCliente = localStorage.getItem('telefono_cliente');
-
-                if (!telefonoCliente) {
-                    container.innerHTML = `
-                        <div class="text-center p-4 bg-white rounded-4 shadow-sm">
-                            <i class="fas fa-phone-alt fa-4x text-muted mb-3"></i>
-                            <h5>Identifícate primero</h5>
-                            <p class="text-muted">Completa el chat con tu número de teléfono para ver promociones</p>
-                            <button class="action-button" onclick="switchSection('chat')">
-                                <i class="fas fa-comment-dots"></i> Ir al chat
-                            </button>
-                        </div>
-                    `;
-                    return;
-                }
-
                 const response = await fetch(`/api/cliente/verificar-elegibilidad/${negocioId}?telefono=${encodeURIComponent(telefonoCliente)}`);
                 const data = await response.json();
                 
-                if (data.success && data.promociones?.length > 0) {
+                if (data.success && data.promociones && data.promociones.length > 0) {
                     let html = '';
                     data.promociones.forEach(promo => {
                         const esElegible = data.elegible && data.data?.promocion_id === promo.id;
                         html += `
                             <div class="promo-card">
                                 <div class="promo-header">
-                                    <i class="fas fa-trophy"></i> ${promo.nombre || 'Concurso Activo'}
+                                    <i class="fas fa-trophy"></i> ${promo.titulo || promo.nombre || 'Concurso Activo'}
                                 </div>
                                 <div class="promo-body">
-                                    <div class="promo-title">${promo.nombre || 'Participa y gana'}</div>
+                                    <div class="promo-title">${promo.titulo || promo.nombre || 'Participa y gana'}</div>
                                     <div class="promo-description">${promo.descripcion || 'Participa en esta promoción y gana increíbles premios'}</div>
                                     ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
                                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                                        <small><i class="far fa-calendar-alt"></i> ${promo.fecha_inicio?.split('T')[0]} - ${promo.fecha_fin?.split('T')[0] || 'Indefinido'}</small>
+                                        <small><i class="far fa-calendar-alt"></i> ${promo.fecha_inicio?.split('T')[0] || ''} - ${promo.fecha_fin?.split('T')[0] || ''}</small>
                                         <span class="eligibility-badge ${esElegible ? 'badge-eligible' : 'badge-not-eligible'}">
                                             ${esElegible ? '✓ Elegible' : '✗ No elegible'}
                                         </span>
@@ -904,7 +853,7 @@
             }
         }
         
-        // ========== MANEJO DEL TECLADO (input se mantiene visible) ==========
+        // ========== MANEJO DEL TECLADO ==========
         function handleKeyboardScroll() {
             const inputElement = document.getElementById('userInput');
             if (!inputElement) return;
@@ -1024,10 +973,9 @@
                 if (e.key === 'Enter') sendMessage();
             });
             
-            // Iniciar el manejo del teclado
             handleKeyboardScroll();
+            iniciarDetectorTelefono();
             
-            // Iniciar chat
             setTimeout(() => {
                 userInput.value = 'hola';
                 sendMessage();
