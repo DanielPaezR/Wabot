@@ -577,22 +577,33 @@ def participar_concurso(profesional_id):
     return "Profesional no encontrado", 404
 
 @app.route('/profesional/promociones')
-@role_required(['profesional', 'propietario'])
+@login_required
 def listar_promociones():
     """Lista las promociones del profesional"""
     profesional_id = session.get('profesional_id')
+    if not profesional_id:
+        return redirect(url_for('profesional_dashboard'))
+    
+    from datetime import date
+    today = date.today()
+    
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
     cursor.execute('''
         SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo,
-        (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = promociones.id) as participaciones
+               (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = promociones.id) as participaciones
         FROM promociones 
         WHERE profesional_id = %s 
         ORDER BY fecha_fin DESC
     ''', (profesional_id,))
+    
     promociones = cursor.fetchall()
     conn.close()
-    return render_template('profesional/promociones.html', promociones=promociones)
+    
+    return render_template('profesional/promociones.html', 
+                         promociones=promociones,
+                         today=today)
 
 @app.route('/profesional/promocion/eliminar/<int:promo_id>', methods=['POST'])
 @login_required
