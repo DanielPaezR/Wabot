@@ -3,6 +3,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import os
 import sys
+from datetime import datetime
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -226,7 +227,7 @@ def perfil_profesional(profesional_id):
         FotoTrabajoProfesional.profesional_id == profesional_id
     ).all()
     
-    # ========== NUEVO: OBTENER PROMOCIÓN ACTIVA DEL PROFESIONAL ==========
+    # Obtener promoción activa del profesional
     from datetime import datetime
     fecha_actual = datetime.now().date()
     
