@@ -52,6 +52,7 @@
             z-index: 100;
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(10px);
+            flex-shrink: 0;
         }
 
         .header-left {
@@ -186,35 +187,29 @@
         .main-content {
             flex: 1;
             overflow-y: auto;
-            padding-bottom: 0;
             display: flex;
             flex-direction: column;
-            height: 100%;
+            min-height: 0;
         }
 
         .section-panel {
             display: none;
-            height: 100%;
+            flex: 1;
             flex-direction: column;
+            min-height: 0;
         }
 
         .section-panel.active {
             display: flex;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ========== CHAT CONTAINER FIX ========== */
+        /* ========== CHAT STYLES ========== */
         .chat-container {
             display: flex;
             flex-direction: column;
             height: 100%;
-            min-height: 0; /* Importante para flex en móviles */
-            position: relative;
-            background: #f8fafc;
+            flex: 1;
+            min-height: 0;
         }
 
         .chat-messages {
@@ -224,60 +219,16 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            min-height: 0; /* Importante para scroll */
-        }
-
-        /* Input siempre visible en la parte inferior */
-        .chat-input-container {
-            background: white;
-            padding: 12px 16px;
-            border-top: 1px solid #e2e8f0;
-            flex-shrink: 0;
-            width: 100%;
-            margin-top: auto; /* Empuja el input hacia abajo */
-        }
-
-        .input-wrapper {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .input-wrapper input {
-            flex: 1;
-            border: 1px solid #e2e8f0;
-            padding: 14px 18px;
-            border-radius: 30px;
-            background: #f8fafc;
-            font-size: 16px;
-            outline: none;
-        }
-
-        .input-wrapper input:focus {
-            border-color: #3b82f6;
-            background: white;
-        }
-
-        .input-wrapper button {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            background: #3b82f6;
-            border: none;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
+            min-height: 0;
         }
 
         .message {
             max-width: 85%;
-            padding: 12px 16px;
-            border-radius: 20px;
+            padding: 10px 14px;
+            border-radius: 18px;
             font-size: 14px;
             line-height: 1.4;
-            animation: slideUp 0.3s ease;
+            animation: slideUp 0.2s ease;
         }
 
         @keyframes slideUp {
@@ -297,11 +248,11 @@
             color: #1e293b;
             align-self: flex-start;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             border: 1px solid #e2e8f0;
         }
 
-        /* Input pegado al final */
+        /* Input siempre visible en la parte inferior */
         .chat-input-container {
             background: white;
             padding: 12px 16px;
@@ -318,22 +269,22 @@
 
         .input-wrapper input {
             flex: 1;
-            border: none;
-            padding: 14px 18px;
+            border: 1px solid #e2e8f0;
+            padding: 12px 16px;
             border-radius: 30px;
-            background: #f1f5f9;
+            background: #f8fafc;
             font-size: 15px;
             outline: none;
         }
 
         .input-wrapper input:focus {
-            background: #ffffff;
-            box-shadow: 0 0 0 2px #3b82f6;
+            border-color: #3b82f6;
+            background: white;
         }
 
         .input-wrapper button {
-            width: 52px;
-            height: 52px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             background: #3b82f6;
             border: none;
@@ -341,6 +292,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
             transition: all 0.2s;
         }
 
@@ -354,6 +306,7 @@
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 12px;
             margin-top: 12px;
+            padding: 0 4px;
         }
 
         .professional-card {
@@ -371,10 +324,10 @@
         }
 
         .professional-img {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
-            margin: 0 auto 10px;
+            margin: 0 auto 8px;
             overflow: hidden;
             background: #f1f5f9;
             display: flex;
@@ -389,18 +342,18 @@
         }
 
         .default-avatar {
-            font-size: 40px;
+            font-size: 36px;
             color: #94a3b8;
         }
 
         .professional-info strong {
-            font-size: 14px;
+            font-size: 13px;
             display: block;
             margin-bottom: 4px;
         }
 
         .specialty {
-            font-size: 11px;
+            font-size: 10px;
             color: #64748b;
         }
 
@@ -409,10 +362,10 @@
             color: white;
             border: none;
             border-radius: 30px;
-            padding: 8px 12px;
-            font-size: 12px;
+            padding: 6px 10px;
+            font-size: 11px;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 8px;
             font-weight: 500;
         }
 
@@ -422,15 +375,16 @@
             border-radius: 20px;
             margin-bottom: 16px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             border: 1px solid #e2e8f0;
         }
 
         .promo-header {
             background: linear-gradient(135deg, #f59e0b, #ef4444);
             color: white;
-            padding: 12px 16px;
+            padding: 10px 16px;
             font-weight: 600;
+            font-size: 14px;
         }
 
         .promo-body {
@@ -438,34 +392,44 @@
         }
 
         .promo-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             margin-bottom: 8px;
         }
 
         .promo-description {
             color: #64748b;
-            font-size: 14px;
+            font-size: 13px;
             margin-bottom: 12px;
         }
 
         .promo-prize {
             background: #fef3c7;
-            padding: 10px;
+            padding: 8px 12px;
             border-radius: 12px;
             margin-bottom: 12px;
+            font-size: 13px;
         }
 
-        .eligibility-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
+        .badge-eligible {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11px;
             font-weight: 600;
+            display: inline-block;
         }
 
-        .badge-eligible { background: #d1fae5; color: #065f46; }
-        .badge-not-eligible { background: #fee2e2; color: #991b1b; }
+        .badge-not-eligible {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+        }
 
         /* ========== DIRECTORIO ========== */
         .directorio-card {
@@ -477,33 +441,33 @@
         }
 
         .directorio-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
+            font-size: 56px;
+            margin-bottom: 16px;
         }
 
         .directorio-card h4 {
-            font-size: 24px;
+            font-size: 22px;
             margin-bottom: 12px;
         }
 
         .directorio-card p {
-            font-size: 14px;
+            font-size: 13px;
             opacity: 0.9;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .directorio-btn {
             background: white;
             color: #667eea;
             border: none;
-            padding: 14px 28px;
+            padding: 12px 24px;
             border-radius: 40px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
             gap: 8px;
             text-decoration: none;
-            font-size: 16px;
+            font-size: 14px;
         }
 
         /* ========== MODAL MÓVIL ========== */
@@ -513,11 +477,11 @@
             left: 0;
             right: 0;
             background: white;
-            border-radius: 24px 24px 0 0;
+            border-radius: 20px 20px 0 0;
             padding: 20px;
             z-index: 2000;
             animation: slideUp 0.3s ease;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow-y: auto;
         }
 
@@ -531,7 +495,6 @@
             z-index: 1999;
         }
 
-        /* ========== BOTONES DE ACCIÓN ========== */
         .action-button {
             background: #f1f5f9;
             border: none;
@@ -546,6 +509,9 @@
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
             .chat-input-container {
                 padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+            .modal-mobile {
+                padding-bottom: calc(20px + env(safe-area-inset-bottom));
             }
         }
     </style>
@@ -615,9 +581,9 @@
             <div id="promocionesSection" class="section-panel">
                 <div class="d-flex align-items-center gap-2 mb-3">
                     <i class="fas fa-gift fa-2x text-warning"></i>
-                    <h3 class="m-0 fs-4 fw-bold">Promociones</h3>
+                    <h3 class="m-0 fs-5 fw-bold">Promociones</h3>
                 </div>
-                <div id="promocionesList"></div>
+                <div id="promocionesList" class="px-1"></div>
             </div>
 
             <!-- Panel Directorio -->
@@ -689,21 +655,24 @@
         }
         
         // ========== DETECTAR Y GUARDAR TELÉFONO DEL CLIENTE ==========
+        let telefonoGuardado = false;
+        
         function iniciarDetectorTelefono() {
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'characterData' || mutation.type === 'childList') {
                         const mensajes = document.querySelectorAll('.bot-message');
                         const ultimoMensaje = mensajes[mensajes.length - 1];
-                        if (ultimoMensaje) {
+                        if (ultimoMensaje && !telefonoGuardado) {
                             const texto = ultimoMensaje.textContent;
                             const telefonoMatch = texto.match(/\b(3\d{9})\b/);
-                            if (telefonoMatch && !localStorage.getItem('telefono_cliente')) {
+                            if (telefonoMatch) {
                                 const telefono = telefonoMatch[1];
                                 localStorage.setItem('telefono_cliente', telefono);
+                                telefonoGuardado = true;
                                 console.log("📱 Teléfono detectado y guardado:", telefono);
                                 
-                                // Si el panel de promociones está activo, recargarlo automáticamente
+                                // Si el panel de promociones está activo, recargarlo
                                 const promocionesPanel = document.getElementById('promocionesSection');
                                 if (promocionesPanel && promocionesPanel.classList.contains('active')) {
                                     cargarPromociones();
@@ -730,14 +699,13 @@
             const container = document.getElementById('promocionesList');
             const telefonoCliente = localStorage.getItem('telefono_cliente');
             
-            console.log("📡 [PROMO] Cargando promociones para negocio:", negocioId);
-            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
-            
-            // Construir URL con teléfono si existe
             let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
             if (telefonoCliente) {
                 url += `?telefono=${encodeURIComponent(telefonoCliente)}`;
             }
+            
+            console.log("📡 [PROMO] URL:", url);
+            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
             
             try {
                 const response = await fetch(url);
@@ -758,15 +726,17 @@
                                     <div class="promo-title">${promo.titulo}</div>
                                     <div class="promo-description">${promo.descripcion || 'Participa y gana increíbles premios'}</div>
                                     ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
-                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                         <small><i class="far fa-calendar-alt"></i> Válido hasta: ${promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Fecha por definir'}</small>
-                                        ${esElegible ? '<span class="badge-eligible ms-2">✓ Elegible</span>' : '<span class="badge-not-eligible ms-2">✗ No elegible</span>'}
+                                        <span class="${esElegible ? 'badge-eligible' : 'badge-not-eligible'}">
+                                            ${esElegible ? '✓ Elegible para participar' : '✗ No elegible aún'}
+                                        </span>
                                     </div>
                                     ${esElegible ? 
-                                        `<button class="btn btn-success w-100 fw-bold" onclick="abrirModalParticipar(${promo.id})">
+                                        `<button class="btn btn-success w-100 fw-bold py-2" onclick="abrirModalParticipar(${promo.id})">
                                             <i class="fas fa-camera"></i> Participar ahora
                                         </button>` :
-                                        `<button class="btn btn-warning w-100 fw-bold" onclick="irAAgendarCita()">
+                                        `<button class="btn btn-warning w-100 fw-bold py-2" onclick="irAAgendarCita()">
                                             <i class="fas fa-calendar-check"></i> Agendar cita para participar
                                         </button>`
                                     }
@@ -799,7 +769,6 @@
         let currentPromoId = null;
         
         function abrirModalParticipar(promoId) {
-            // ✅ Verificar que el cliente tenga teléfono (esté identificado)
             const telefonoCliente = localStorage.getItem('telefono_cliente');
             if (!telefonoCliente) {
                 alert('🔐 Primero debes identificarte en el chat con tu número de teléfono');
@@ -807,22 +776,18 @@
                 return;
             }
             
-            console.log("🎁 Abriendo modal para promoción:", promoId);
             currentPromoId = promoId;
             
-            // Eliminar modal existente si lo hay
+            // Eliminar modal existente
             const existingModal = document.getElementById('modalParticipar');
             if (existingModal) existingModal.remove();
-            
             const existingOverlay = document.querySelector('.modal-overlay');
             if (existingOverlay) existingOverlay.remove();
             
-            // Crear overlay
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
             overlay.onclick = () => cerrarModal();
             
-            // Crear modal
             const modal = document.createElement('div');
             modal.id = 'modalParticipar';
             modal.className = 'modal-mobile';
@@ -836,7 +801,7 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">📸 Fotos (Máx 3)</label>
                         <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
-                        <small class="text-muted">Comparte tus mejores fotos del servicio</small>
+                        <small class="text-muted">Comparte tus mejores fotos</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">✏️ Mensaje</label>
@@ -851,66 +816,57 @@
             document.body.appendChild(overlay);
             document.body.appendChild(modal);
             
-            // Agregar evento al formulario
-            const form = document.getElementById('formParticipar');
-            if (form) {
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
+            document.getElementById('formParticipar').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const files = e.target.fotos.files;
+                if (files.length === 0) {
+                    alert('❌ Debes subir al menos una foto');
+                    return;
+                }
+                if (files.length > 3) {
+                    alert('❌ Máximo 3 fotos');
+                    return;
+                }
+                
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+                
+                const formData = new FormData(e.target);
+                formData.append('telefono', telefonoCliente);
+                
+                try {
+                    const response = await fetch('/api/concurso/participar', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
                     
-                    const files = e.target.fotos.files;
-                    if (files.length === 0) {
-                        alert('❌ Debes subir al menos una foto');
-                        return;
-                    }
-                    if (files.length > 3) {
-                        alert('❌ Máximo 3 fotos');
-                        return;
-                    }
-                    
-                    const btn = e.target.querySelector('button[type="submit"]');
-                    const originalText = btn.innerHTML;
-                    btn.disabled = true;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-                    
-                    const formData = new FormData(e.target);
-                    // Agregar el teléfono del cliente al formulario
-                    formData.append('telefono', localStorage.getItem('telefono_cliente'));
-                    
-                    try {
-                        const response = await fetch('/api/concurso/participar', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            alert('✅ ¡Participación exitosa! 🎉');
-                            if (result.share_link) {
-                                const copiar = confirm('📤 ¿Quieres copiar tu enlace para compartir y recibir votos?');
-                                if (copiar) {
-                                    navigator.clipboard.writeText(result.share_link);
-                                    alert('✅ Enlace copiado al portapapeles');
-                                }
+                    if (result.success) {
+                        alert('✅ ¡Participación exitosa! 🎉');
+                        if (result.share_link) {
+                            const copiar = confirm('📤 ¿Quieres copiar tu enlace para compartir y recibir votos?');
+                            if (copiar) {
+                                navigator.clipboard.writeText(result.share_link);
+                                alert('✅ Enlace copiado al portapapeles');
                             }
-                            cerrarModal();
-                            e.target.reset();
-                            // Recargar promociones para actualizar contador
-                            setTimeout(() => cargarPromociones(), 1000);
-                        } else {
-                            alert('❌ Error: ' + (result.message || 'No se pudo procesar la participación'));
                         }
-                    } catch (error) {
-                        console.error('Error al participar:', error);
-                        alert('❌ Error de conexión. Intenta nuevamente.');
-                    } finally {
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
+                        cerrarModal();
+                        e.target.reset();
+                        setTimeout(() => cargarPromociones(), 1000);
+                    } else {
+                        alert('❌ Error: ' + (result.message || 'No se pudo procesar la participación'));
                     }
-                });
-            }
+                } catch (error) {
+                    console.error('Error al participar:', error);
+                    alert('❌ Error de conexión. Intenta nuevamente.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '📤 Participar';
+                }
+            });
         }
-
-        // Función auxiliar para cerrar el modal
+        
         function cerrarModal() {
             const modal = document.getElementById('modalParticipar');
             const overlay = document.querySelector('.modal-overlay');
@@ -919,34 +875,14 @@
             document.body.style.overflow = 'auto';
         }
         
-        function cerrarModal() {
-            document.querySelectorAll('.modal-overlay, .modal-mobile').forEach(el => el.remove());
-        }
-        
         // ========== RESET ==========
         function resetConversacion() {
             if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
                 localStorage.removeItem('telefono_cliente');
-                localStorage.removeItem('push_activado');
+                telefonoGuardado = false;
                 fetch('/cliente/reset', { method: 'POST' })
                     .then(() => location.reload());
             }
-        }
-        
-        // ========== MANEJO DEL TECLADO ==========
-        function handleKeyboardScroll() {
-            const inputElement = document.getElementById('userInput');
-            if (!inputElement) return;
-            
-            inputElement.addEventListener('focus', function() {
-                setTimeout(() => {
-                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    const messagesContainer = document.getElementById('chatMessages');
-                    if (messagesContainer) {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                }, 300);
-            });
         }
         
         // ========== CHAT ==========
@@ -965,7 +901,7 @@
             function addUserMessage(message) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message user-message';
-                msgDiv.innerHTML = `<strong>Tú:</strong><br>${message.replace(/\n/g, '<br>')}`;
+                msgDiv.innerHTML = `<strong>Tú:</strong><br>${escapeHtml(message)}`;
                 chatMessages.appendChild(msgDiv);
                 scrollToBottom();
             }
@@ -973,10 +909,10 @@
             function addBotMessage(message, options = null) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message bot-message';
-                msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>${message.replace(/\n/g, '<br>')}`;
+                msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>${escapeHtml(message)}`;
                 chatMessages.appendChild(msgDiv);
                 
-                if (options?.length) {
+                if (options && options.length > 0) {
                     const isProfessionals = options[0].type === 'professional' || options[0].image;
                     
                     if (isProfessionals) {
@@ -990,8 +926,8 @@
                                     ${opt.image ? `<img src="${opt.image}" onerror="this.src=''">` : '<div class="default-avatar"><i class="fas fa-user"></i></div>'}
                                 </div>
                                 <div class="professional-info">
-                                    <strong>${opt.name || opt.text}</strong>
-                                    ${opt.specialty ? `<div class="specialty">${opt.specialty}</div>` : ''}
+                                    <strong>${escapeHtml(opt.name || opt.text)}</strong>
+                                    ${opt.specialty ? `<div class="specialty">${escapeHtml(opt.specialty)}</div>` : ''}
                                 </div>
                                 <button class="select-professional-btn" data-value="${opt.value}">Seleccionar</button>
                             `;
@@ -1024,6 +960,13 @@
                 scrollToBottom();
             }
             
+            function escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
             async function sendMessage() {
                 const message = userInput.value.trim();
                 if (!message) return;
@@ -1044,6 +987,7 @@
                         addBotMessage(data.message, data.options);
                     }
                 } catch (error) {
+                    console.error('Error:', error);
                     addBotMessage('❌ Error de conexión. Intenta de nuevo.');
                 }
             }
@@ -1053,7 +997,6 @@
                 if (e.key === 'Enter') sendMessage();
             });
             
-            handleKeyboardScroll();
             iniciarDetectorTelefono();
             
             setTimeout(() => {
