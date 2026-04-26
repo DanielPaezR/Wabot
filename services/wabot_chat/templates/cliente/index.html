@@ -661,10 +661,13 @@
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                        const mensajes = document.querySelectorAll('.bot-message');
-                        const ultimoMensaje = mensajes[mensajes.length - 1];
-                        if (ultimoMensaje && !telefonoGuardado) {
-                            const texto = ultimoMensaje.textContent;
+                        // ✅ Solo mirar mensajes del USUARIO, no del bot
+                        const mensajesUsuario = document.querySelectorAll('.user-message');
+                        const ultimoMensajeUsuario = mensajesUsuario[mensajesUsuario.length - 1];
+                        
+                        if (ultimoMensajeUsuario && !telefonoGuardado) {
+                            const texto = ultimoMensajeUsuario.textContent;
+                            console.log("🔍 Analizando mensaje del USUARIO:", texto);
                             const telefonoMatch = texto.match(/\b(3\d{9})\b/);
                             if (telefonoMatch) {
                                 const telefono = telefonoMatch[1];
