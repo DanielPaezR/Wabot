@@ -598,6 +598,10 @@ def participar_concurso(profesional_id):
     
     if not promocion:
         return "No hay concurso activo en este momento", 404
+
+    print(f"DEBUG: Accediendo a /participar/{profesional_id}")
+    print(f"DEBUG: Promoción activa encontrada: {promocion['titulo']} (ID: {promocion['id']})")
+
     
     # Si está logueado, verificar elegibilidad
     telefono = session.get('cliente_telefono')
@@ -605,6 +609,10 @@ def participar_concurso(profesional_id):
         # Verificar si tuvo cita hoy con este profesional
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        print(f"DEBUG: Verificando cita completada para profesional_id={profesional_id}, cliente_telefono={telefono}, fecha=CURRENT_DATE, estado='completado'")
+        # Use CURRENT_DATE for PostgreSQL, 'date('now')' for SQLite if needed, but schema says DATE
+
         cursor.execute('''
             SELECT id FROM citas 
             WHERE profesional_id = %s AND cliente_telefono = %s 
@@ -612,17 +620,24 @@ def participar_concurso(profesional_id):
         ''', (profesional_id, telefono))
         cita_hoy = cursor.fetchone()
         conn.close()
+
+        print(f"DEBUG: Resultado de la consulta de cita_hoy: {cita_hoy}")
         
         if cita_hoy:
             return render_template('cliente/participar_concurso.html', promocion=promocion, profesional_id=profesional_id)
     
     # No está logueado o no tiene cita hoy - redirigir al chat del negocio
     # Obtener el negocio_id desde el profesional
+    print(f"DEBUG: Cliente no elegible o no logueado. Redirigiendo a chat.")
+    print(f"DEBUG: Intentando obtener negocio_id para profesional {profesional_id}")
+
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
     prof = cursor.fetchone()
     conn.close()
+
+    print(f"DEBUG: Negocio encontrado para redirección: {prof['negocio_id'] if prof else 'N/A'}")
     
     if prof:
         return redirect(url_for('chat_index', negocio_id=prof['negocio_id']))
