@@ -338,10 +338,17 @@ def utility_processor():
 @login_required
 def crear_promocion():
     try:
+        print("="*50)
+        print("🚀 INICIANDO crear_promocion")
+        
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
         
+        print(f"📌 profesional_id: {profesional_id}")
+        print(f"📌 negocio_id: {negocio_id}")
+        
         if not profesional_id:
+            print("❌ No hay profesional_id en sesión")
             flash('No se pudo identificar al profesional', 'error')
             return redirect(url_for('profesional_promociones'))
         
@@ -351,36 +358,73 @@ def crear_promocion():
         fecha_inicio = request.form.get('inicio')
         fecha_fin = request.form.get('fin')
         
+        print(f"📝 Datos del formulario:")
+        print(f"   titulo: {titulo}")
+        print(f"   premio: {premio}")
+        print(f"   descripcion: {descripcion[:50]}...")
+        print(f"   fecha_inicio: {fecha_inicio}")
+        print(f"   fecha_fin: {fecha_fin}")
+        
         if not titulo:
+            print("❌ Título vacío")
             flash('El título es obligatorio', 'error')
             return redirect(url_for('profesional_promociones'))
         
-        # ✅ Usar una conexión normal, sin RealDictCursor para el INSERT
-        conn = get_db_connection()
-        cursor = conn.cursor()  # cursor normal (tupla)
+        # Validar fechas
+        from datetime import date
+        if not fecha_inicio:
+            fecha_inicio = date.today()
+            print(f"📅 fecha_inicio por defecto: {fecha_inicio}")
         
+        print("🔌 Conectando a la base de datos...")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        print("📝 Ejecutando INSERT...")
         cursor.execute('''
             INSERT INTO promociones (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
             VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
             RETURNING id
         ''', (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
         
+        print("📥 Obteniendo resultado...")
         result = cursor.fetchone()
-        # result es una tupla (id,)
-        promo_id = result[0] if result else None
+        print(f"   result tipo: {type(result)}")
+        print(f"   result contenido: {result}")
+        
+        # ✅ Acceder correctamente según el tipo
+        if result:
+            if isinstance(result, tuple):
+                promo_id = result[0]
+            elif isinstance(result, dict):
+                promo_id = result.get('id')
+            else:
+                promo_id = result
+        else:
+            promo_id = None
+        
+        print(f"✅ promo_id obtenido: {promo_id}")
         
         conn.commit()
+        print("💾 Commit realizado")
+        
         conn.close()
+        print("🔌 Conexión cerrada")
         
         if promo_id:
+            print(f"🎉 Promoción creada con ID: {promo_id}")
             flash('✅ Promoción creada exitosamente', 'success')
         else:
+            print("❌ No se pudo obtener el ID de la promoción")
             flash('❌ Error al crear la promoción', 'error')
         
+        print("➡️ Redirigiendo a profesional_promociones")
         return redirect(url_for('profesional_promociones'))
         
     except Exception as e:
-        print(f"❌ ERROR en crear_promocion: {e}")
+        print(f"❌❌❌ ERROR CRÍTICO en crear_promocion: {e}")
+        import traceback
+        traceback.print_exc()
         flash(f'Error al crear la promoción: {str(e)}', 'error')
         return redirect(url_for('profesional_promociones'))
 
@@ -528,14 +572,21 @@ def participar_concurso(profesional_id):
 @app.route('/profesional/promociones')
 @login_required
 def profesional_promociones():
+    print("="*50)
+    print("🚀 INICIANDO profesional_promociones")
+    
     profesional_id = session.get('profesional_id')
+    print(f"📌 profesional_id: {profesional_id}")
+    
     if not profesional_id:
+        print("❌ No hay profesional_id, redirigiendo a dashboard")
         return redirect(url_for('profesional_dashboard'))
     
+    print("🔌 Conectando a la base de datos...")
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
-    # ✅ Mostrar todas las promociones del profesional, sin filtro de fechas
+    print("📝 Ejecutando SELECT...")
     cursor.execute('''
         SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo
         FROM promociones 
@@ -544,11 +595,19 @@ def profesional_promociones():
     ''', (profesional_id,))
     
     promociones = cursor.fetchall()
+    print(f"📦 Promociones encontradas: {len(promociones)}")
+    
+    for promo in promociones:
+        print(f"   - ID: {promo['id']}, Título: {promo['titulo']}")
+    
     conn.close()
+    print("🔌 Conexión cerrada")
     
     from datetime import date
     today = date.today()
+    print(f"📅 Fecha actual: {today}")
     
+    print("➡️ Renderizando template")
     return render_template('profesional/promociones.html', 
                          promociones=promociones,
                          today=today)
