@@ -436,7 +436,7 @@ def verificar_elegibilidad(negocio_id):
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Obtener todas las promociones activas del negocio (sin filtro de profesional)
+        # Obtener promociones activas
         cursor.execute('''
             SELECT p.*, prof.nombre as profesional_nombre
             FROM promociones p
@@ -450,20 +450,17 @@ def verificar_elegibilidad(negocio_id):
         
         promociones = cursor.fetchall()
         
-        # Verificar elegibilidad del cliente
+        # Verificar elegibilidad: ¿tiene al menos una cita completada?
         elegible = False
         if cliente_telefono:
             cursor.execute('''
-                SELECT c.id FROM citas c
-                JOIN promociones p ON p.profesional_id = c.profesional_id
-                WHERE c.cliente_telefono = %s 
-                  AND c.negocio_id = %s
-                  AND c.estado = 'completado'
-                  AND DATE(c.fecha) = CURRENT_DATE
-                LIMIT 1
-            ''', (cliente_telefono, negocio_id))
+                SELECT COUNT(*) as total FROM citas 
+                WHERE cliente_telefono = %s AND estado = 'completado'
+            ''', (cliente_telefono,))
             
-            elegible = cursor.fetchone() is not None
+            result = cursor.fetchone()
+            elegible = result['total'] > 0 if result else False
+            print(f"📞 Cliente {cliente_telefono} - Citas completadas: {result['total'] if result else 0} - Elegible: {elegible}")
         
         conn.close()
         
@@ -482,30 +479,76 @@ def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
     try:
         import cloudinary.uploader
-        telefono = session.get('cliente_telefono')
-        nombre = session.get('cliente_nombre', 'Cliente')
+        from datetime import datetime
+        
+        # ✅ Obtener teléfono del formulario, NO de la sesión
+        telefono = request.form.get('telefono')
+        nombre = request.form.get('nombre', 'Cliente')
         promocion_id = request.form.get('promocion_id')
         files = request.files.getlist('fotos')
-
-        if not telefono or not files:
+        nota = request.form.get('nota', '')
+        
+        print(f"📞 Teléfono recibido: {telefono}")
+        print(f"🎁 Promoción ID: {promocion_id}")
+        print(f"📸 Cantidad de fotos: {len(files)}")
+        
+        # Validaciones
+        if not telefono or not promocion_id or not files:
             return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
-
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # ✅ Validar que el cliente tenga al menos una cita completada
+        cursor.execute('''
+            SELECT COUNT(*) as total FROM citas 
+            WHERE cliente_telefono = %s AND estado = 'completado'
+        ''', (telefono,))
+        
+        total_citas = cursor.fetchone()[0]
+        print(f"📊 Citas completadas: {total_citas}")
+        
+        if total_citas == 0:
+            conn.close()
+            return jsonify({'success': False, 'message': 'No tienes citas completadas para participar'}), 400
+        
+        # ✅ Validar que no haya participado ya en esta promoción
+        cursor.execute('''
+            SELECT id FROM participaciones_concurso 
+            WHERE promocion_id = %s AND cliente_telefono = %s
+        ''', (promocion_id, telefono))
+        
+        if cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'message': 'Ya participaste en esta promoción'}), 400
+        
+        # Subir fotos a Cloudinary
         urls = []
         for file in files[:3]:
             res = cloudinary.uploader.upload(file, folder="concursos_clientes")
             urls.append(res['secure_url'])
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        
+        # Guardar participación
         cursor.execute('''
-            INSERT INTO participaciones_concurso (promocion_id, cliente_telefono, cliente_nombre, foto_url, nota)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-        ''', (promocion_id, telefono, nombre, ",".join(urls), request.form.get('nota', '')))
+            INSERT INTO participaciones_concurso (promocion_id, cliente_telefono, cliente_nombre, foto_url, nota, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            RETURNING id
+        ''', (promocion_id, telefono, nombre, ",".join(urls), nota))
+        
         p_id = cursor.fetchone()[0]
         conn.commit()
         conn.close()
-        return jsonify({'success': True, 'share_link': f"{request.host_url}vota/{p_id}"})
+        
+        return jsonify({
+            'success': True, 
+            'share_link': f"{request.host_url}vota/{p_id}",
+            'message': 'Participación exitosa'
+        })
+        
     except Exception as e:
+        print(f"❌ Error en api_participar_concurso: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/vota/<int:participacion_id>')
