@@ -343,7 +343,7 @@ def crear_promocion():
         
         if not profesional_id:
             flash('No se pudo identificar al profesional', 'error')
-            return redirect(url_for('profesional_promociones'))
+            return redirect(url_for('profesional_promociones'))  # ✅ nombre correcto
         
         titulo = request.form.get('titulo', '').strip()
         premio = request.form.get('premio', '').strip()
@@ -356,9 +356,8 @@ def crear_promocion():
             return redirect(url_for('profesional_promociones'))
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor()  # ✅ cursor normal (tupla), no RealDictCursor
         
-        # ✅ Insertar con activo = TRUE explícitamente
         cursor.execute('''
             INSERT INTO promociones (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
             VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
@@ -366,13 +365,14 @@ def crear_promocion():
         ''', (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
         
         result = cursor.fetchone()
+        # ✅ result es una tupla (id,)
         promo_id = result[0] if result else None
         
         conn.commit()
         conn.close()
         
         if promo_id:
-            flash('✅ Promoción creada exitosamente (activada automáticamente)', 'success')
+            flash('✅ Promoción creada exitosamente', 'success')
         else:
             flash('❌ Error al crear la promoción', 'error')
         
@@ -527,7 +527,6 @@ def participar_concurso(profesional_id):
 @app.route('/profesional/promociones')
 @login_required
 def profesional_promociones():
-    """Lista las promociones del profesional"""
     profesional_id = session.get('profesional_id')
     if not profesional_id:
         return redirect(url_for('profesional_dashboard'))
@@ -537,7 +536,6 @@ def profesional_promociones():
     
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
     cursor.execute('''
         SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo,
                (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = promociones.id) as participaciones
@@ -545,7 +543,6 @@ def profesional_promociones():
         WHERE profesional_id = %s 
         ORDER BY fecha_fin DESC
     ''', (profesional_id,))
-    
     promociones = cursor.fetchall()
     conn.close()
     
