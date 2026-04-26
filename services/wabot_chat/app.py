@@ -613,11 +613,14 @@ def participar_concurso(profesional_id):
         print(f"DEBUG: Verificando cita completada para profesional_id={profesional_id}, cliente_telefono={telefono}, fecha=CURRENT_DATE, estado='completado'")
         # Use CURRENT_DATE for PostgreSQL, 'date('now')' for SQLite if needed, but schema says DATE
 
+        # ✅ Usar la fecha local de Colombia para evitar errores de servidor UTC
+        fecha_hoy = datetime.now(tz_colombia).date()
+        
         cursor.execute('''
             SELECT id FROM citas 
             WHERE profesional_id = %s AND cliente_telefono = %s 
-            AND fecha = CURRENT_DATE AND estado = 'completado'
-        ''', (profesional_id, telefono))
+            AND fecha = %s AND estado = 'completado'
+        ''', (profesional_id, telefono, fecha_hoy))
         cita_hoy = cursor.fetchone()
         conn.close()
 
