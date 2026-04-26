@@ -586,19 +586,20 @@ def profesional_promociones():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
-    print("📝 Ejecutando SELECT...")
+    print("📝 Ejecutando SELECT con subconsulta de participaciones...")
     cursor.execute('''
-        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo
-        FROM promociones 
-        WHERE profesional_id = %s 
-        ORDER BY id DESC
+        SELECT p.id, p.titulo, p.premio, p.descripcion, p.fecha_inicio, p.fecha_fin, p.activo,
+               (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = p.id) as participaciones
+        FROM promociones p
+        WHERE p.profesional_id = %s 
+        ORDER BY p.id DESC
     ''', (profesional_id,))
     
     promociones = cursor.fetchall()
     print(f"📦 Promociones encontradas: {len(promociones)}")
     
     for promo in promociones:
-        print(f"   - ID: {promo['id']}, Título: {promo['titulo']}")
+        print(f"   - ID: {promo['id']}, Título: {promo['titulo']}, Participaciones: {promo.get('participaciones', 0)}")
     
     conn.close()
     print("🔌 Conexión cerrada")
