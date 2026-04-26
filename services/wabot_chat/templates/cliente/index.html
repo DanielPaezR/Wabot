@@ -207,12 +207,14 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ========== CHAT STYLES ========== */
+        /* ========== CHAT CONTAINER FIX ========== */
         .chat-container {
             display: flex;
             flex-direction: column;
             height: 100%;
+            min-height: 0; /* Importante para flex en móviles */
             position: relative;
+            background: #f8fafc;
         }
 
         .chat-messages {
@@ -222,7 +224,51 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            min-height: 0;
+            min-height: 0; /* Importante para scroll */
+        }
+
+        /* Input siempre visible en la parte inferior */
+        .chat-input-container {
+            background: white;
+            padding: 12px 16px;
+            border-top: 1px solid #e2e8f0;
+            flex-shrink: 0;
+            width: 100%;
+            margin-top: auto; /* Empuja el input hacia abajo */
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            border: 1px solid #e2e8f0;
+            padding: 14px 18px;
+            border-radius: 30px;
+            background: #f8fafc;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .input-wrapper input:focus {
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        .input-wrapper button {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
         }
 
         .message {
@@ -682,18 +728,26 @@
         async function cargarPromociones() {
             const negocioId = document.getElementById('negocioId').value;
             const container = document.getElementById('promocionesList');
+            const telefonoCliente = localStorage.getItem('telefono_cliente');
             
             console.log("📡 [PROMO] Cargando promociones para negocio:", negocioId);
             container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
             
+            // Construir URL con teléfono si existe
+            let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
+            if (telefonoCliente) {
+                url += `?telefono=${encodeURIComponent(telefonoCliente)}`;
+            }
+            
             try {
-                const response = await fetch(`/api/cliente/verificar-elegibilidad/${negocioId}`);
+                const response = await fetch(url);
                 const data = await response.json();
                 console.log("📦 [PROMO] Respuesta:", data);
                 
                 if (data.success && data.promociones && data.promociones.length > 0) {
                     let html = '';
                     data.promociones.forEach(promo => {
+                        const esElegible = data.elegible === true;
                         html += `
                             <div class="promo-card">
                                 <div class="promo-header">
@@ -706,10 +760,16 @@
                                     ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
                                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                         <small><i class="far fa-calendar-alt"></i> Válido hasta: ${promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Fecha por definir'}</small>
+                                        ${esElegible ? '<span class="badge-eligible ms-2">✓ Elegible</span>' : '<span class="badge-not-eligible ms-2">✗ No elegible</span>'}
                                     </div>
-                                    <button class="btn btn-warning w-100 fw-bold" onclick="irAAgendarCita()">
-                                        <i class="fas fa-calendar-check"></i> Participar
-                                    </button>
+                                    ${esElegible ? 
+                                        `<button class="btn btn-success w-100 fw-bold" onclick="abrirModalParticipar(${promo.id})">
+                                            <i class="fas fa-camera"></i> Participar ahora
+                                        </button>` :
+                                        `<button class="btn btn-warning w-100 fw-bold" onclick="irAAgendarCita()">
+                                            <i class="fas fa-calendar-check"></i> Agendar cita para participar
+                                        </button>`
+                                    }
                                 </div>
                             </div>
                         `;
@@ -739,36 +799,51 @@
         let currentPromoId = null;
         
         function abrirModalParticipar(promoId) {
+            // ✅ Verificar que el cliente tenga teléfono (esté identificado)
+            const telefonoCliente = localStorage.getItem('telefono_cliente');
+            if (!telefonoCliente) {
+                alert('🔐 Primero debes identificarte en el chat con tu número de teléfono');
+                irAAgendarCita();
+                return;
+            }
+            
+            console.log("🎁 Abriendo modal para promoción:", promoId);
             currentPromoId = promoId;
             
+            // Eliminar modal existente si lo hay
             const existingModal = document.getElementById('modalParticipar');
             if (existingModal) existingModal.remove();
             
+            const existingOverlay = document.querySelector('.modal-overlay');
+            if (existingOverlay) existingOverlay.remove();
+            
+            // Crear overlay
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
             overlay.onclick = () => cerrarModal();
             
+            // Crear modal
             const modal = document.createElement('div');
             modal.id = 'modalParticipar';
             modal.className = 'modal-mobile';
             modal.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="m-0 fw-bold">🎁 Participar</h5>
-                    <button class="btn-close" onclick="cerrarModal()"></button>
+                    <h5 class="m-0 fw-bold">🎁 Participar en Concurso</h5>
+                    <button type="button" class="btn-close" onclick="cerrarModal()">&times;</button>
                 </div>
-                <form id="formParticipar">
+                <form id="formParticipar" enctype="multipart/form-data">
                     <input type="hidden" name="promocion_id" value="${promoId}">
                     <div class="mb-3">
                         <label class="form-label fw-bold">📸 Fotos (Máx 3)</label>
                         <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
-                        <small class="text-muted">Comparte tus mejores fotos</small>
+                        <small class="text-muted">Comparte tus mejores fotos del servicio</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">✏️ Mensaje</label>
                         <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
                     </div>
                     <button type="submit" class="btn btn-warning w-100 fw-bold py-2">
-                        📤 Participar
+                        📤 Enviar participación
                     </button>
                 </form>
             `;
@@ -776,46 +851,72 @@
             document.body.appendChild(overlay);
             document.body.appendChild(modal);
             
-            document.getElementById('formParticipar').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const files = e.target.fotos.files;
-                if (files.length === 0) {
-                    alert('Debes subir al menos una foto');
-                    return;
-                }
-                if (files.length > 3) {
-                    alert('Máximo 3 fotos');
-                    return;
-                }
-                
-                const btn = e.target.querySelector('button[type="submit"]');
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-                
-                const formData = new FormData(e.target);
-                try {
-                    const response = await fetch('/api/concurso/participar', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        alert('✅ ¡Participación exitosa!');
-                        if (result.share_link) {
-                            prompt('📤 Copia tu enlace para compartir:', result.share_link);
-                        }
-                        cerrarModal();
-                        e.target.reset();
-                    } else {
-                        alert('❌ Error: ' + result.message);
+            // Agregar evento al formulario
+            const form = document.getElementById('formParticipar');
+            if (form) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const files = e.target.fotos.files;
+                    if (files.length === 0) {
+                        alert('❌ Debes subir al menos una foto');
+                        return;
                     }
-                } catch (error) {
-                    alert('❌ Error al participar');
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = '📤 Participar';
-                }
-            });
+                    if (files.length > 3) {
+                        alert('❌ Máximo 3 fotos');
+                        return;
+                    }
+                    
+                    const btn = e.target.querySelector('button[type="submit"]');
+                    const originalText = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+                    
+                    const formData = new FormData(e.target);
+                    // Agregar el teléfono del cliente al formulario
+                    formData.append('telefono', localStorage.getItem('telefono_cliente'));
+                    
+                    try {
+                        const response = await fetch('/api/concurso/participar', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            alert('✅ ¡Participación exitosa! 🎉');
+                            if (result.share_link) {
+                                const copiar = confirm('📤 ¿Quieres copiar tu enlace para compartir y recibir votos?');
+                                if (copiar) {
+                                    navigator.clipboard.writeText(result.share_link);
+                                    alert('✅ Enlace copiado al portapapeles');
+                                }
+                            }
+                            cerrarModal();
+                            e.target.reset();
+                            // Recargar promociones para actualizar contador
+                            setTimeout(() => cargarPromociones(), 1000);
+                        } else {
+                            alert('❌ Error: ' + (result.message || 'No se pudo procesar la participación'));
+                        }
+                    } catch (error) {
+                        console.error('Error al participar:', error);
+                        alert('❌ Error de conexión. Intenta nuevamente.');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
+                });
+            }
+        }
+
+        // Función auxiliar para cerrar el modal
+        function cerrarModal() {
+            const modal = document.getElementById('modalParticipar');
+            const overlay = document.querySelector('.modal-overlay');
+            if (modal) modal.remove();
+            if (overlay) overlay.remove();
+            document.body.style.overflow = 'auto';
         }
         
         function cerrarModal() {

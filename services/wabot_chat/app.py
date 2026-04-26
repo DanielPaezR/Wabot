@@ -430,12 +430,13 @@ def crear_promocion():
 
 @app.route('/api/cliente/verificar-elegibilidad/<int:negocio_id>')
 def verificar_elegibilidad(negocio_id):
-    """Endpoint SIMPLE: devuelve todas las promociones activas del negocio"""
     try:
+        cliente_telefono = request.args.get('telefono')
+        
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # SIMPLEMENTE todas las promociones activas del negocio
+        # Obtener todas las promociones activas del negocio (sin filtro de profesional)
         cursor.execute('''
             SELECT p.*, prof.nombre as profesional_nombre
             FROM promociones p
@@ -448,12 +449,27 @@ def verificar_elegibilidad(negocio_id):
         ''', (negocio_id,))
         
         promociones = cursor.fetchall()
-        conn.close()
         
-        print(f"📦 [PROMO] Promociones encontradas: {len(promociones)}")
+        # Verificar elegibilidad del cliente
+        elegible = False
+        if cliente_telefono:
+            cursor.execute('''
+                SELECT c.id FROM citas c
+                JOIN promociones p ON p.profesional_id = c.profesional_id
+                WHERE c.cliente_telefono = %s 
+                  AND c.negocio_id = %s
+                  AND c.estado = 'completado'
+                  AND DATE(c.fecha) = CURRENT_DATE
+                LIMIT 1
+            ''', (cliente_telefono, negocio_id))
+            
+            elegible = cursor.fetchone() is not None
+        
+        conn.close()
         
         return jsonify({
             'success': True,
+            'elegible': elegible,
             'promociones': promociones
         })
         
