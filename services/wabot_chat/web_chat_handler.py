@@ -437,6 +437,9 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         # ✅ Limpiar también la sesión persistente para permitir cambio de número
         if 'cliente_telefono' in flask_session:
             flask_session.pop('cliente_telefono')
+
+        if 'cliente_nombre' in flask_session:
+            flask_session.pop('cliente_nombre')
         
         # Mostrar saludo inicial (pedirá teléfono)
         return saludo_inicial(numero, negocio_id)

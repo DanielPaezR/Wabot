@@ -455,7 +455,7 @@ def verificar_elegibilidad(negocio_id):
         if cliente_telefono:
             cursor.execute('''
                 SELECT COUNT(*) as total FROM citas 
-                WHERE cliente_telefono = %s AND estado = 'completado'
+                WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
             ''', (cliente_telefono,))
             
             result = cursor.fetchone()
@@ -502,7 +502,7 @@ def api_participar_concurso():
         # ✅ Validar que el cliente tenga al menos una cita completada
         cursor.execute('''
             SELECT COUNT(*) as total FROM citas 
-            WHERE cliente_telefono = %s AND estado = 'completado'
+            WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
         ''', (telefono,))
         
         total_citas = cursor.fetchone()[0]
@@ -619,7 +619,8 @@ def participar_concurso(profesional_id):
         cursor.execute('''
             SELECT id FROM citas 
             WHERE profesional_id = %s AND cliente_telefono = %s 
-            AND fecha = %s AND estado = 'completado'
+            AND fecha::date = %s 
+            AND estado IN ('completado', 'completada')
         ''', (profesional_id, telefono, fecha_hoy))
         cita_hoy = cursor.fetchone()
         conn.close()
