@@ -26,7 +26,6 @@ import scheduler as scheduler
 from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
 import psycopg2
-from config import DATABASE_URL
 
 # Cargar variables de entorno
 load_dotenv()
@@ -481,6 +480,7 @@ def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
     try:
         import cloudinary.uploader
+        import psycopg2
         from datetime import datetime
         
         telefono = request.form.get('telefono')
@@ -496,8 +496,12 @@ def api_participar_concurso():
         if not telefono or not promocion_id or not files:
             return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
         
-        # ✅ Crear conexión NUEVA sin RealDictCursor
+        # ✅ Obtener DATABASE_URL de las variables de entorno
         DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'message': 'Error de configuración de base de datos'}), 500
+        
+        # Crear conexión NUEVA sin RealDictCursor
         conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()  # cursor normal (tuplas)
         
