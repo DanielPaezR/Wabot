@@ -526,7 +526,7 @@ def participar_concurso(profesional_id):
 
 @app.route('/profesional/promociones')
 @login_required
-def listar_promociones():
+def profesional_promociones():
     """Lista las promociones del profesional"""
     profesional_id = session.get('profesional_id')
     if not profesional_id:
@@ -629,7 +629,7 @@ def cerrar_promocion(promocion_id):
     conn.close()
     
     flash('✅ Concurso cerrado correctamente', 'success')
-    return redirect(url_for('listar_promociones'))
+    return redirect(url_for('profesional_promociones'))
 
 @app.route('/negocio/<int:negocio_id>')
 def redirigir_negocio(negocio_id):
