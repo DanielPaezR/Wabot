@@ -792,6 +792,32 @@ def redirigir_negocio(negocio_id):
     directorio_url = os.environ.get('DIRECTORIO_URL', 'https://wabot-directorio-production.up.railway.app')
     return redirect(f"{directorio_url}/negocio/{negocio_id}")
 
+@app.route('/api/concurso/ranking/<int:promocion_id>')
+def ranking_concurso(promocion_id):
+    """Obtener ranking de participantes de una promoción"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, cliente_nombre, likes, foto_url, nota
+            FROM participaciones_concurso 
+            WHERE promocion_id = %s
+            ORDER BY likes DESC, id ASC
+        ''', (promocion_id,))
+        
+        participaciones = cursor.fetchall()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'participaciones': participaciones
+        })
+        
+    except Exception as e:
+        print(f"❌ Error en ranking_concurso: {e}")
+        return jsonify({'success': False, 'error': str(e), 'participaciones': []}), 500
+
 # =============================================================================
 # RUTAS DEL CHAT WEB
 
