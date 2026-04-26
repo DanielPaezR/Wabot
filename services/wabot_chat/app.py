@@ -434,7 +434,7 @@ def verificar_elegibilidad(negocio_id):
         cliente_telefono = request.args.get('telefono')
         
         conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)  # Para lectura está bien
         
         # Obtener promociones activas
         cursor.execute('''
@@ -450,17 +450,19 @@ def verificar_elegibilidad(negocio_id):
         
         promociones = cursor.fetchall()
         
-        # Verificar elegibilidad: ¿tiene al menos una cita completada?
+        # Verificar elegibilidad (usar cursor normal para COUNT)
         elegible = False
         if cliente_telefono:
-            cursor.execute('''
-                SELECT COUNT(*) as total FROM citas 
-                WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
+            cursor2 = conn.cursor()  # cursor normal
+            cursor2.execute('''
+                SELECT COUNT(*) FROM citas 
+                WHERE cliente_telefono = %s AND estado = 'completado'
             ''', (cliente_telefono,))
             
-            result = cursor.fetchone()
-            elegible = result['total'] > 0 if result else False
-            print(f"📞 Cliente {cliente_telefono} - Citas completadas: {result['total'] if result else 0} - Elegible: {elegible}")
+            total = cursor2.fetchone()[0]
+            elegible = total > 0
+            cursor2.close()
+            print(f"📞 Cliente {cliente_telefono} - Citas completadas: {total} - Elegible: {elegible}")
         
         conn.close()
         
@@ -481,38 +483,37 @@ def api_participar_concurso():
         import cloudinary.uploader
         from datetime import datetime
         
-        # ✅ Obtener teléfono del formulario, NO de la sesión
+        # Obtener teléfono del formulario
         telefono = request.form.get('telefono')
         nombre = request.form.get('nombre', 'Cliente')
         promocion_id = request.form.get('promocion_id')
         files = request.files.getlist('fotos')
         nota = request.form.get('nota', '')
         
-        print(f"📞 Teléfono recibido: {telefono}")
+        print(f"📞 Teléfono: {telefono}")
         print(f"🎁 Promoción ID: {promocion_id}")
-        print(f"📸 Cantidad de fotos: {len(files)}")
+        print(f"📸 Fotos: {len(files)}")
         
-        # Validaciones
         if not telefono or not promocion_id or not files:
             return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
         
         conn = get_db_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor()  # ✅ Usar cursor normal, NO RealDictCursor
         
-        # ✅ Validar que el cliente tenga al menos una cita completada
+        # Validar que el cliente tenga al menos una cita completada
         cursor.execute('''
-            SELECT COUNT(*) as total FROM citas 
-            WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
+            SELECT COUNT(*) FROM citas 
+            WHERE cliente_telefono = %s AND estado = 'completado'
         ''', (telefono,))
         
-        total_citas = cursor.fetchone()[0]
+        total_citas = cursor.fetchone()[0]  # ✅ Ahora es una tupla, funciona con [0]
         print(f"📊 Citas completadas: {total_citas}")
         
         if total_citas == 0:
             conn.close()
             return jsonify({'success': False, 'message': 'No tienes citas completadas para participar'}), 400
         
-        # ✅ Validar que no haya participado ya en esta promoción
+        # Validar que no haya participado ya
         cursor.execute('''
             SELECT id FROM participaciones_concurso 
             WHERE promocion_id = %s AND cliente_telefono = %s
@@ -535,15 +536,29 @@ def api_participar_concurso():
             RETURNING id
         ''', (promocion_id, telefono, nombre, ",".join(urls), nota))
         
-        p_id = cursor.fetchone()[0]
+        result = cursor.fetchone()
+        # ✅ Manejar si es tupla o diccionario
+        if result:
+            if isinstance(result, tuple):
+                p_id = result[0]
+            elif isinstance(result, dict):
+                p_id = result.get('id')
+            else:
+                p_id = result
+        else:
+            p_id = None
+        
         conn.commit()
         conn.close()
         
-        return jsonify({
-            'success': True, 
-            'share_link': f"{request.host_url}vota/{p_id}",
-            'message': 'Participación exitosa'
-        })
+        if p_id:
+            return jsonify({
+                'success': True, 
+                'share_link': f"{request.host_url}vota/{p_id}",
+                'message': 'Participación exitosa'
+            })
+        else:
+            return jsonify({'success': False, 'message': 'No se pudo guardar la participación'}), 500
         
     except Exception as e:
         print(f"❌ Error en api_participar_concurso: {e}")
