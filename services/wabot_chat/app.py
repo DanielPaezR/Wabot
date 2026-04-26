@@ -25,6 +25,8 @@ from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler as scheduler
 from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
+import psycopg2
+from config import DATABASE_URL
 
 # Cargar variables de entorno
 load_dotenv()
@@ -479,6 +481,7 @@ def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
     try:
         import cloudinary.uploader
+        from datetime import datetime
         
         telefono = request.form.get('telefono')
         nombre = request.form.get('nombre', 'Cliente')
@@ -493,10 +496,10 @@ def api_participar_concurso():
         if not telefono or not promocion_id or not files:
             return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
         
-        conn = get_db_connection()
-        
-        # ✅ Usar cursor NORMAL (no RealDictCursor)
-        cursor = conn.cursor()
+        # ✅ Crear conexión NUEVA sin RealDictCursor
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()  # cursor normal (tuplas)
         
         # Validar elegibilidad
         cursor.execute('''
@@ -505,11 +508,11 @@ def api_participar_concurso():
         ''', (telefono,))
         
         result = cursor.fetchone()
-        # Ahora result es una tupla (porque usamos cursor normal)
         total_citas = result[0] if result else 0
         print(f"📊 Citas completadas: {total_citas}")
         
         if total_citas == 0:
+            cursor.close()
             conn.close()
             return jsonify({'success': False, 'message': 'No tienes citas completadas para participar'}), 400
         
@@ -520,6 +523,7 @@ def api_participar_concurso():
         ''', (promocion_id, telefono))
         
         if cursor.fetchone():
+            cursor.close()
             conn.close()
             return jsonify({'success': False, 'message': 'Ya participaste en esta promoción'}), 400
         
@@ -541,6 +545,7 @@ def api_participar_concurso():
         print(f"✅ Participación guardada con ID: {p_id}")
         
         conn.commit()
+        cursor.close()
         conn.close()
         
         if p_id:
