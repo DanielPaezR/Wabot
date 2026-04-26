@@ -818,6 +818,65 @@ def ranking_concurso(promocion_id):
         print(f"❌ Error en ranking_concurso: {e}")
         return jsonify({'success': False, 'error': str(e), 'participaciones': []}), 500
 
+@app.route('/api/concurso/mi-participacion', methods=['GET'])
+def mi_participacion():
+    """Obtener participación del cliente en una promoción específica"""
+    try:
+        promocion_id = request.args.get('promocion_id')
+        telefono = request.args.get('telefono')
+        
+        if not promocion_id or not telefono:
+            return jsonify({'success': False, 'message': 'Faltan datos'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, foto_url, nota, likes, fecha_creacion
+            FROM participaciones_concurso 
+            WHERE promocion_id = %s AND cliente_telefono = %s
+        ''', (promocion_id, telefono))
+        
+        participacion = cursor.fetchone()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'participacion': participacion
+        })
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/concurso/eliminar-participacion', methods=['DELETE'])
+def eliminar_participacion():
+    """Eliminar participación del cliente"""
+    try:
+        data = request.get_json()
+        promocion_id = data.get('promocion_id')
+        telefono = data.get('telefono')
+        
+        if not promocion_id or not telefono:
+            return jsonify({'success': False, 'message': 'Faltan datos'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            DELETE FROM participaciones_concurso 
+            WHERE promocion_id = %s AND cliente_telefono = %s
+        ''', (promocion_id, telefono))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Participación eliminada'})
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # =============================================================================
 # RUTAS DEL CHAT WEB
 
