@@ -659,6 +659,7 @@ def eliminar_promocion(promo_id):
     
     return redirect(url_for('listar_promociones'))
 
+
 @app.route('/profesional/promocion/<int:promocion_id>/participaciones')
 @role_required(['profesional', 'propietario'])
 def ver_participaciones(promocion_id):
