@@ -434,7 +434,7 @@ def verificar_elegibilidad(negocio_id):
         cliente_telefono = request.args.get('telefono')
         
         conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)  # Para lectura está bien
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # Obtener promociones activas
         cursor.execute('''
@@ -450,19 +450,17 @@ def verificar_elegibilidad(negocio_id):
         
         promociones = cursor.fetchall()
         
-        # Verificar elegibilidad (usar cursor normal para COUNT)
+        # Verificar elegibilidad: ¿tiene al menos una cita completada?
         elegible = False
         if cliente_telefono:
-            cursor2 = conn.cursor()  # cursor normal
-            cursor2.execute('''
-                SELECT COUNT(*) FROM citas 
-                WHERE cliente_telefono = %s AND estado = 'completado'
+            cursor.execute('''
+                SELECT COUNT(*) as total FROM citas 
+                WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
             ''', (cliente_telefono,))
             
-            total = cursor2.fetchone()[0]
-            elegible = total > 0
-            cursor2.close()
-            print(f"📞 Cliente {cliente_telefono} - Citas completadas: {total} - Elegible: {elegible}")
+            result = cursor.fetchone()
+            elegible = result['total'] > 0 if result else False
+            print(f"📞 Cliente {cliente_telefono} - Citas completadas: {result['total'] if result else 0} - Elegible: {elegible}")
         
         conn.close()
         
