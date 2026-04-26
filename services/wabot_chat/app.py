@@ -343,7 +343,7 @@ def crear_promocion():
         
         if not profesional_id:
             flash('No se pudo identificar al profesional', 'error')
-            return redirect(url_for('profesional_promociones'))  # ✅ nombre correcto
+            return redirect(url_for('profesional_promociones'))
         
         titulo = request.form.get('titulo', '').strip()
         premio = request.form.get('premio', '').strip()
@@ -355,8 +355,9 @@ def crear_promocion():
             flash('El título es obligatorio', 'error')
             return redirect(url_for('profesional_promociones'))
         
+        # ✅ Usar una conexión normal, sin RealDictCursor para el INSERT
         conn = get_db_connection()
-        cursor = conn.cursor()  # ✅ cursor normal (tupla), no RealDictCursor
+        cursor = conn.cursor()  # cursor normal (tupla)
         
         cursor.execute('''
             INSERT INTO promociones (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
@@ -365,7 +366,7 @@ def crear_promocion():
         ''', (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
         
         result = cursor.fetchone()
-        # ✅ result es una tupla (id,)
+        # result es una tupla (id,)
         promo_id = result[0] if result else None
         
         conn.commit()
@@ -379,7 +380,7 @@ def crear_promocion():
         return redirect(url_for('profesional_promociones'))
         
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        print(f"❌ ERROR en crear_promocion: {e}")
         flash(f'Error al crear la promoción: {str(e)}', 'error')
         return redirect(url_for('profesional_promociones'))
 
@@ -531,20 +532,22 @@ def profesional_promociones():
     if not profesional_id:
         return redirect(url_for('profesional_dashboard'))
     
-    from datetime import date
-    today = date.today()
-    
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # ✅ Mostrar todas las promociones del profesional, sin filtro de fechas
     cursor.execute('''
-        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo,
-               (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = promociones.id) as participaciones
+        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo
         FROM promociones 
         WHERE profesional_id = %s 
-        ORDER BY fecha_fin DESC
+        ORDER BY id DESC
     ''', (profesional_id,))
+    
     promociones = cursor.fetchall()
     conn.close()
+    
+    from datetime import date
+    today = date.today()
     
     return render_template('profesional/promociones.html', 
                          promociones=promociones,
