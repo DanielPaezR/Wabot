@@ -479,9 +479,7 @@ def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
     try:
         import cloudinary.uploader
-        from datetime import datetime
         
-        # Obtener teléfono del formulario
         telefono = request.form.get('telefono')
         nombre = request.form.get('nombre', 'Cliente')
         promocion_id = request.form.get('promocion_id')
@@ -496,22 +494,26 @@ def api_participar_concurso():
             return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
         
         conn = get_db_connection()
-        cursor = conn.cursor()  # ✅ Usar cursor normal, NO RealDictCursor
         
-        # Validar que el cliente tenga al menos una cita completada
+        # ✅ Usar cursor NORMAL (no RealDictCursor)
+        cursor = conn.cursor()
+        
+        # Validar elegibilidad
         cursor.execute('''
             SELECT COUNT(*) FROM citas 
-            WHERE cliente_telefono = %s AND estado = 'completado'
+            WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
         ''', (telefono,))
         
-        total_citas = cursor.fetchone()[0]  # ✅ Ahora es una tupla, funciona con [0]
+        result = cursor.fetchone()
+        # Ahora result es una tupla (porque usamos cursor normal)
+        total_citas = result[0] if result else 0
         print(f"📊 Citas completadas: {total_citas}")
         
         if total_citas == 0:
             conn.close()
             return jsonify({'success': False, 'message': 'No tienes citas completadas para participar'}), 400
         
-        # Validar que no haya participado ya
+        # Validar participación única
         cursor.execute('''
             SELECT id FROM participaciones_concurso 
             WHERE promocion_id = %s AND cliente_telefono = %s
@@ -534,17 +536,9 @@ def api_participar_concurso():
             RETURNING id
         ''', (promocion_id, telefono, nombre, ",".join(urls), nota))
         
-        result = cursor.fetchone()
-        # ✅ Manejar si es tupla o diccionario
-        if result:
-            if isinstance(result, tuple):
-                p_id = result[0]
-            elif isinstance(result, dict):
-                p_id = result.get('id')
-            else:
-                p_id = result
-        else:
-            p_id = None
+        result_id = cursor.fetchone()
+        p_id = result_id[0] if result_id else None
+        print(f"✅ Participación guardada con ID: {p_id}")
         
         conn.commit()
         conn.close()
