@@ -773,6 +773,8 @@
         
         function abrirModalParticipar(promoId) {
             const telefonoCliente = localStorage.getItem('telefono_cliente');
+            const nombreCliente = localStorage.getItem('cliente_nombre') || '';
+            
             if (!telefonoCliente) {
                 alert('🔐 Primero debes identificarte en el chat con tu número de teléfono');
                 irAAgendarCita();
@@ -782,10 +784,7 @@
             currentPromoId = promoId;
             
             // Eliminar modal existente
-            const existingModal = document.getElementById('modalParticipar');
-            if (existingModal) existingModal.remove();
-            const existingOverlay = document.querySelector('.modal-overlay');
-            if (existingOverlay) existingOverlay.remove();
+            document.querySelectorAll('.modal-overlay, #modalParticipar').forEach(el => el?.remove());
             
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
@@ -801,15 +800,25 @@
                 </div>
                 <form id="formParticipar" enctype="multipart/form-data">
                     <input type="hidden" name="promocion_id" value="${promoId}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">👤 Tu nombre</label>
+                        <input type="text" name="nombre" class="form-control" 
+                            value="${escapeHtml(nombreCliente)}" 
+                            placeholder="Tu nombre" required>
+                    </div>
+                    
                     <div class="mb-3">
                         <label class="form-label fw-bold">📸 Fotos (Máx 3)</label>
                         <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
                         <small class="text-muted">Comparte tus mejores fotos</small>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label fw-bold">✏️ Mensaje</label>
                         <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
                     </div>
+                    
                     <button type="submit" class="btn btn-warning w-100 fw-bold py-2">
                         📤 Enviar participación
                     </button>
@@ -819,8 +828,16 @@
             document.body.appendChild(overlay);
             document.body.appendChild(modal);
             
+            // Evento del formulario
             document.getElementById('formParticipar').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                
+                const nombre = e.target.nombre.value.trim();
+                if (!nombre) {
+                    alert('❌ Por favor, ingresa tu nombre');
+                    return;
+                }
+                
                 const files = e.target.fotos.files;
                 if (files.length === 0) {
                     alert('❌ Debes subir al menos una foto');
@@ -847,26 +864,32 @@
                     
                     if (result.success) {
                         alert('✅ ¡Participación exitosa! 🎉');
-                        if (result.share_link) {
-                            const copiar = confirm('📤 ¿Quieres copiar tu enlace para compartir y recibir votos?');
-                            if (copiar) {
-                                navigator.clipboard.writeText(result.share_link);
-                                alert('✅ Enlace copiado al portapapeles');
-                            }
+                        if (result.share_link && confirm('📤 ¿Compartir enlace para recibir votos?')) {
+                            navigator.clipboard.writeText(result.share_link);
+                            alert('✅ Enlace copiado al portapapeles');
                         }
                         cerrarModal();
-                        e.target.reset();
-                        setTimeout(() => cargarPromociones(), 1000);
+                        cargarPromociones();
                     } else {
                         alert('❌ Error: ' + (result.message || 'No se pudo procesar la participación'));
                     }
                 } catch (error) {
-                    console.error('Error al participar:', error);
+                    console.error(error);
                     alert('❌ Error de conexión. Intenta nuevamente.');
                 } finally {
                     btn.disabled = false;
-                    btn.innerHTML = '📤 Participar';
+                    btn.innerHTML = '📤 Enviar participación';
                 }
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
             });
         }
         
