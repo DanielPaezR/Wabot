@@ -857,13 +857,15 @@ def eliminar_participacion():
         promocion_id = data.get('promocion_id')
         telefono = data.get('telefono')
         
+        print(f"🗑️ Eliminando participación - Promoción: {promocion_id}, Teléfono: {telefono}")
+        
         if not promocion_id or not telefono:
             return jsonify({'success': False, 'message': 'Faltan datos'}), 400
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Primero, obtener el ID de la participación
+        # Obtener el ID de la participación
         cursor.execute('''
             SELECT id FROM participaciones_concurso 
             WHERE promocion_id = %s AND cliente_telefono = %s
@@ -875,19 +877,23 @@ def eliminar_participacion():
             return jsonify({'success': False, 'message': 'Participación no encontrada'}), 404
         
         participacion_id = result[0]
+        print(f"📌 Participación ID encontrada: {participacion_id}")
         
-        # Eliminar los likes asociados primero
+        # Contar likes antes de eliminar
+        cursor.execute('SELECT COUNT(*) FROM likes_concurso WHERE participacion_id = %s', (participacion_id,))
+        likes_count = cursor.fetchone()[0]
+        print(f"❤️ Likes asociados a eliminar: {likes_count}")
+        
+        # Eliminar likes
         cursor.execute('DELETE FROM likes_concurso WHERE participacion_id = %s', (participacion_id,))
         
-        # Luego eliminar la participación
-        cursor.execute('''
-            DELETE FROM participaciones_concurso 
-            WHERE id = %s
-        ''', (participacion_id,))
+        # Eliminar participación
+        cursor.execute('DELETE FROM participaciones_concurso WHERE id = %s', (participacion_id,))
         
         conn.commit()
         conn.close()
         
+        print(f"✅ Participación eliminada correctamente")
         return jsonify({'success': True, 'message': 'Participación eliminada correctamente'})
         
     except Exception as e:
