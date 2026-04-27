@@ -492,6 +492,19 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Botones de compartir fuera de la tarjeta para no capturarlos en la imagen -->
+            <div style="margin-top: 20px; text-align: center;">
+                <div class="share-buttons" style="justify-content: center;">
+                    <button class="share-btn whatsapp" id="shareWhatsappBtn">
+                        <i class="fab fa-whatsapp"></i> Compartir en Estado
+                    </button>
+                    <button class="share-btn copy" id="shareCopyBtn">
+                        <i class="fas fa-link"></i> Copiar enlace
+                    </button>
+                </div>
+                <div id="shareMessage"></div>
+            </div>
             
             <!-- Tabla de posiciones -->
             <div class="ranking-card">
@@ -527,18 +540,6 @@
             </div>
         </div>
         
-        <!-- Botones de compartir fuera de la tarjeta para no capturarlos en la imagen -->
-        <div style="margin-top: 20px; text-align: center;">
-            <div class="share-buttons" style="justify-content: center;">
-                <button class="share-btn whatsapp" id="shareWhatsappBtn">
-                    <i class="fab fa-whatsapp"></i> Compartir en Estado
-                </button>
-                <button class="share-btn copy" id="shareCopyBtn">
-                    <i class="fas fa-link"></i> Copiar enlace
-                </button>
-            </div>
-            <div id="shareMessage"></div>
-        </div>
         
         <div class="footer">
             <p>© 2025 Wabot - Automatiza tu negocio y conecta con más clientes</p>
@@ -639,7 +640,7 @@
                     try {
                         await navigator.share({
                             title: `🎯 ${shareTitle}`,
-                            text: `${participanteNombre} necesita tu voto`,
+                            text: `${participanteNombre} necesita tu voto 🔗 ${shareUrl}`,
                             files: [imagenFile]
                         });
                         mostrarMensaje('✅ Compartido exitosamente', 'success');
