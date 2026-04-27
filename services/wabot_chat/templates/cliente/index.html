@@ -22,21 +22,27 @@
 
         html, body {
             height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: #f8fafc;
-            overflow: hidden;
-            height: 100vh;
         }
 
         /* ========== LAYOUT MÓVIL ========== */
         .mobile-container {
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            height: 100%;
+            width: 100%;
             background: #f8fafc;
+            position: relative;
         }
 
         /* ========== HEADER CON MENÚ Y PERFIL ========== */
@@ -47,12 +53,10 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            position: sticky;
-            top: 0;
+            flex-shrink: 0;
             z-index: 100;
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(10px);
-            flex-shrink: 0;
         }
 
         .header-left {
@@ -183,13 +187,13 @@
             border-bottom: none;
         }
 
-        /* ========== CONTENIDO PRINCIPAL ========== */
+        /* ========== CONTENIDO PRINCIPAL - FLEX con min-height 0 ========== */
         .main-content {
             flex: 1;
-            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            min-height: 0;
+            min-height: 0;  /* CRUCIAL para que flex funcione correctamente */
+            overflow: hidden;
         }
 
         .section-panel {
@@ -203,7 +207,7 @@
             display: flex;
         }
 
-        /* ========== CHAT STYLES ========== */
+        /* ========== CHAT STYLES - Input pegado al fondo ========== */
         .chat-container {
             display: flex;
             flex-direction: column;
@@ -220,6 +224,7 @@
             flex-direction: column;
             gap: 12px;
             min-height: 0;
+            -webkit-overflow-scrolling: touch;
         }
 
         .message {
@@ -252,7 +257,7 @@
             border: 1px solid #e2e8f0;
         }
 
-        /* Input siempre visible en la parte inferior */
+        /* Input fijo en la parte inferior */
         .chat-input-container {
             background: white;
             padding: 12px 16px;
@@ -294,6 +299,7 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
 
         .input-wrapper button:active {
@@ -438,6 +444,7 @@
             padding: 32px 24px;
             text-align: center;
             color: white;
+            margin: 16px;
         }
 
         .directorio-icon {
@@ -514,6 +521,18 @@
                 padding-bottom: calc(20px + env(safe-area-inset-bottom));
             }
         }
+
+        /* ========== SCROLLBAR STYLES ========== */
+        .chat-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -566,6 +585,7 @@
                         </div>
                     </div>
                     
+                    <!-- Input pegado al fondo -->
                     <div class="chat-input-container">
                         <div class="input-wrapper">
                             <input type="text" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
@@ -579,11 +599,11 @@
 
             <!-- Panel Promociones -->
             <div id="promocionesSection" class="section-panel">
-                <div class="d-flex align-items-center gap-2 mb-3">
+                <div class="d-flex align-items-center gap-2 mb-3 px-2">
                     <i class="fas fa-gift fa-2x text-warning"></i>
                     <h3 class="m-0 fs-5 fw-bold">Promociones</h3>
                 </div>
-                <div id="promocionesList" class="px-1"></div>
+                <div id="promocionesList" class="px-2"></div>
             </div>
 
             <!-- Panel Directorio -->
@@ -661,7 +681,6 @@
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                        // ✅ Solo mirar mensajes del USUARIO, no del bot
                         const mensajesUsuario = document.querySelectorAll('.user-message');
                         const ultimoMensajeUsuario = mensajesUsuario[mensajesUsuario.length - 1];
                         
@@ -675,7 +694,6 @@
                                 telefonoGuardado = true;
                                 console.log("📱 Teléfono detectado y guardado:", telefono);
                                 
-                                // Si el panel de promociones está activo, recargarlo
                                 const promocionesPanel = document.getElementById('promocionesSection');
                                 if (promocionesPanel && promocionesPanel.classList.contains('active')) {
                                     cargarPromociones();
@@ -717,10 +735,28 @@
                 
                 if (data.success && data.promociones && data.promociones.length > 0) {
                     let html = '';
-                    data.promociones.forEach(promo => {
-                        const esElegible = data.elegible === true;
+                    
+                    // Para cada promoción, verificar si el cliente ya participó
+                    for (const promo of data.promociones) {
+                        let participacion = null;
+                        let elegible = data.elegible === true;
+                        
+                        // Si el cliente está identificado, verificar si ya participó
+                        if (telefonoCliente) {
+                            try {
+                                const checkRes = await fetch(`/api/concurso/mi-participacion?promocion_id=${promo.id}&telefono=${telefonoCliente}`);
+                                const checkData = await checkRes.json();
+                                if (checkData.success && checkData.participacion) {
+                                    participacion = checkData.participacion;
+                                    elegible = true;
+                                }
+                            } catch (e) {
+                                console.error("Error verificando participación:", e);
+                            }
+                        }
+                        
                         html += `
-                            <div class="promo-card">
+                            <div class="promo-card" data-promo-id="${promo.id}">
                                 <div class="promo-header">
                                     <i class="fas fa-trophy"></i> ${promo.titulo}
                                     <small class="ms-2">👤 ${promo.profesional_nombre}</small>
@@ -731,22 +767,30 @@
                                     ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
                                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                         <small><i class="far fa-calendar-alt"></i> Válido hasta: ${promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Fecha por definir'}</small>
-                                        <span class="${esElegible ? 'badge-eligible' : 'badge-not-eligible'}">
-                                            ${esElegible ? '✓ Elegible para participar' : '✗ No elegible aún'}
-                                        </span>
+                                        ${participacion ? '<span class="badge-eligible">✓ Ya participaste</span>' : (elegible ? '<span class="badge-eligible">✓ Elegible</span>' : '<span class="badge-not-eligible">✗ No elegible aún</span>')}
                                     </div>
-                                    ${esElegible ? 
-                                        `<button class="btn btn-success w-100 fw-bold py-2" onclick="abrirModalParticipar(${promo.id})">
+                                    ${participacion ? `
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-info w-50 fw-bold py-2" onclick="verMiParticipacion(${participacion.id})">
+                                                <i class="fas fa-eye"></i> Ver mi entrada
+                                            </button>
+                                            <button class="btn btn-danger w-50 fw-bold py-2" onclick="eliminarParticipacion(${promo.id})">
+                                                <i class="fas fa-trash-alt"></i> Eliminar
+                                            </button>
+                                        </div>
+                                    ` : (elegible ? `
+                                        <button class="btn btn-success w-100 fw-bold py-2" onclick="abrirModalParticipar(${promo.id})">
                                             <i class="fas fa-camera"></i> Participar ahora
-                                        </button>` :
-                                        `<button class="btn btn-warning w-100 fw-bold py-2" onclick="irAAgendarCita()">
+                                        </button>
+                                    ` : `
+                                        <button class="btn btn-warning w-100 fw-bold py-2" onclick="irAAgendarCita()">
                                             <i class="fas fa-calendar-check"></i> Agendar cita para participar
-                                        </button>`
-                                    }
+                                        </button>
+                                    `)}
                                 </div>
                             </div>
                         `;
-                    });
+                    }
                     container.innerHTML = html;
                 } else {
                     container.innerHTML = `
@@ -760,6 +804,44 @@
             } catch (error) {
                 console.error("❌ [PROMO] Error:", error);
                 container.innerHTML = '<div class="text-center p-4 text-danger">Error al cargar promociones</div>';
+            }
+        }
+
+        // Nueva función: Ver mi participación
+        function verMiParticipacion(participacionId) {
+            window.open(`/vota/${participacionId}`, '_blank');
+        }
+
+        // Nueva función: Eliminar participación
+        async function eliminarParticipacion(promocionId) {
+            const telefonoCliente = localStorage.getItem('telefono_cliente');
+            if (!telefonoCliente) {
+                alert('No estás identificado');
+                return;
+            }
+            
+            if (!confirm('¿Estás seguro de eliminar tu participación? Esta acción no se puede deshacer.')) return;
+            
+            try {
+                const response = await fetch('/api/concurso/eliminar-participacion', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        promocion_id: parseInt(promocionId),
+                        telefono: telefonoCliente
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Participación eliminada correctamente');
+                    cargarPromociones(); // Recargar la lista
+                } else {
+                    alert('❌ Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error de conexión');
             }
         }
 
@@ -783,7 +865,6 @@
             
             currentPromoId = promoId;
             
-            // Eliminar modal existente
             document.querySelectorAll('.modal-overlay, #modalParticipar').forEach(el => el?.remove());
             
             const overlay = document.createElement('div');
@@ -796,7 +877,7 @@
             modal.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="m-0 fw-bold">🎁 Participar en Concurso</h5>
-                    <button type="button" class="btn-close" onclick="cerrarModal()">&times;</button>
+                    <button type="button" class="btn-close" onclick="cerrarModal()"></button>
                 </div>
                 <form id="formParticipar" enctype="multipart/form-data">
                     <input type="hidden" name="promocion_id" value="${promoId}">
@@ -828,7 +909,6 @@
             document.body.appendChild(overlay);
             document.body.appendChild(modal);
             
-            // Evento del formulario
             document.getElementById('formParticipar').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
@@ -885,12 +965,9 @@
 
         function escapeHtml(str) {
             if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
         
         function cerrarModal() {
@@ -935,7 +1012,7 @@
             function addBotMessage(message, options = null) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message bot-message';
-                msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${negocioNombre}:</strong><br>${escapeHtml(message)}`;
+                msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${escapeHtml(negocioNombre)}:</strong><br>${escapeHtml(message)}`;
                 chatMessages.appendChild(msgDiv);
                 
                 if (options && options.length > 0) {
@@ -955,7 +1032,7 @@
                                     <strong>${escapeHtml(opt.name || opt.text)}</strong>
                                     ${opt.specialty ? `<div class="specialty">${escapeHtml(opt.specialty)}</div>` : ''}
                                 </div>
-                                <button class="select-professional-btn" data-value="${opt.value}">Seleccionar</button>
+                                <button class="select-professional-btn" data-value="${escapeHtml(opt.value)}">Seleccionar</button>
                             `;
                             grid.appendChild(card);
                         });
@@ -986,13 +1063,6 @@
                 scrollToBottom();
             }
             
-            function escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-            
             async function sendMessage() {
                 const message = userInput.value.trim();
                 if (!message) return;
@@ -1021,6 +1091,14 @@
             sendButton.addEventListener('click', sendMessage);
             userInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') sendMessage();
+            });
+            
+            // Manejo del teclado - scroll automático cuando el input recibe foco
+            userInput.addEventListener('focus', function() {
+                setTimeout(() => {
+                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    scrollToBottom();
+                }, 100);
             });
             
             iniciarDetectorTelefono();
