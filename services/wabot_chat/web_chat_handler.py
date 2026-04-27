@@ -3,7 +3,7 @@ Manejador de chat web para agendamiento de citas
 Versión convertida desde whatsapp_handler.py sin Twilio
 """
 
-from flask import Blueprint
+from flask import Blueprint, session as flask_session
 from datetime import datetime, time, timedelta
 import database as db
 import json
@@ -248,36 +248,6 @@ def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
         print(f"⚠️ Error guardando en BD: {e}")
         return False
 
-def limpiar_formato_whatsapp(texto):
-    """
-    Limpiar formato WhatsApp (*negrita*, _cursiva_) para el chat web
-    """
-    if not texto:
-        return texto
-    
-    # Reemplazar formato WhatsApp por HTML
-    texto = texto.replace('*', '')  # Quitar asteriscos de negrita
-    texto = texto.replace('_', '')  # Quitar guiones bajos de cursiva
-    
-    # Reemplazar emojis por iconos si lo prefieres (opcional)
-    emoji_map = {
-        '👨‍💼': '<i class="fas fa-user-tie"></i>',
-        '💼': '<i class="fas fa-briefcase"></i>',
-        '💰': '<i class="fas fa-money-bill-wave"></i>',
-        '📅': '<i class="fas fa-calendar-alt"></i>',
-        '⏰': '<i class="fas fa-clock"></i>',
-        '🎫': '<i class="fas fa-ticket-alt"></i>',
-        '✅': '<i class="fas fa-check-circle"></i>',
-        '❌': '<i class="fas fa-times-circle"></i>',
-        '💡': '<i class="fas fa-lightbulb"></i>',
-        '📋': '<i class="fas fa-clipboard-list"></i>',
-    }
-    
-    for emoji, icon in emoji_map.items():
-        texto = texto.replace(emoji, f'{icon} ')
-    
-    return texto
-
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
     """Motor principal de plantillas - CORREGIDO PARA POSTGRESQL"""
     try:
@@ -463,6 +433,13 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         print(f"🔧 [DEBUG] Comando '0' detectado - Volviendo al menú principal")
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
+        
+        # ✅ Limpiar también la sesión persistente para permitir cambio de número
+        if 'cliente_telefono' in flask_session:
+            flask_session.pop('cliente_telefono')
+
+        if 'cliente_nombre' in flask_session:
+            flask_session.pop('cliente_nombre')
         
         # Mostrar saludo inicial (pedirá teléfono)
         return saludo_inicial(numero, negocio_id)
@@ -733,6 +710,19 @@ def saludo_inicial(numero, negocio_id):
         # Crear conversación activa en estado de solicitar teléfono inicial
         clave_conversacion = f"{numero}_{negocio_id}"
         
+        # PERSISTENCIA: Si el cliente ya fue identificado en este navegador
+        if flask_session.get('cliente_telefono'):
+            conversaciones_activas[clave_conversacion] = {
+                'estado': 'menu_principal',
+                'telefono_cliente': flask_session['cliente_telefono'],
+                'cliente_nombre': flask_session.get('cliente_nombre', 'Cliente'),
+                'timestamp': datetime.now(tz_colombia)
+            }
+            return renderizar_plantilla('telefono_validado_existente', negocio_id, {
+                'nombre_cliente': flask_session.get('cliente_nombre')
+            })
+
+        
         # Limpiar conversación si existe
         if clave_conversacion in conversaciones_activas:
             del conversaciones_activas[clave_conversacion]
@@ -782,6 +772,16 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
     
     # Guardar teléfono en la conversación
     conversaciones_activas[clave_conversacion]['telefono_cliente'] = telefono
+    
+    # Persistir en la sesión del navegador para futuras visitas
+    flask_session['cliente_telefono'] = telefono
+    if nombre_cliente:
+        flask_session['cliente_nombre'] = nombre_cliente
+    
+    # Persistir en la sesión del navegador
+    flask_session['cliente_telefono'] = telefono
+    if nombre_cliente:
+        flask_session['cliente_nombre'] = nombre_cliente
     
     if nombre_cliente:
         # Cliente existente reconocido
@@ -2916,13 +2916,28 @@ Recibirás recordatorios por correo electrónico.'''
     
 def limpiar_formato_whatsapp(texto):
     """
-    Limpiar formato WhatsApp (*negrita*, _cursiva_) para el chat web
+    Limpiar formato WhatsApp (*negrita*, _cursiva_) y convertir emojis a iconos para el chat web
     """
     if not texto:
         return texto
     
-    # Reemplazar formato WhatsApp por HTML para mejor visualización
-    texto = texto.replace('*', '')  # Quitar asteriscos de negrita
-    texto = texto.replace('_', '')  # Quitar guiones bajos de cursiva
+    # Reemplazar formato WhatsApp por HTML
+    texto = texto.replace('*', '').replace('_', '')
+    
+    emoji_map = {
+        '👨‍💼': '<i class="fas fa-user-tie"></i>',
+        '💼': '<i class="fas fa-briefcase"></i>',
+        '💰': '<i class="fas fa-money-bill-wave"></i>',
+        '📅': '<i class="fas fa-calendar-alt"></i>',
+        '⏰': '<i class="fas fa-clock"></i>',
+        '🎫': '<i class="fas fa-ticket-alt"></i>',
+        '✅': '<i class="fas fa-check-circle"></i>',
+        '❌': '<i class="fas fa-times-circle"></i>',
+        '💡': '<i class="fas fa-lightbulb"></i>',
+        '📋': '<i class="fas fa-clipboard-list"></i>',
+    }
+    
+    for emoji, icon in emoji_map.items():
+        texto = texto.replace(emoji, f'{icon} ')
     
     return texto

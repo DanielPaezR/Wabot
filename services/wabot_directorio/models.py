@@ -1,8 +1,9 @@
 # services/wabot_directorio/models.py
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, ForeignKey, JSON, DECIMAL
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, ForeignKey, JSON, DECIMAL, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
+
 
 Base = declarative_base()
 
@@ -141,3 +142,18 @@ class OpinionProfesional(Base):
     fecha = Column(DateTime, default=datetime.utcnow)
     
     profesional = relationship("Profesional")
+
+class Promocion(Base):
+    __tablename__ = 'promociones'
+    
+    id = Column(Integer, primary_key=True)
+    profesional_id = Column(Integer, ForeignKey('profesionales.id'))
+    negocio_id = Column(Integer, ForeignKey('negocios.id'))
+    titulo = Column(String(200), nullable=False)
+    descripcion = Column(Text)
+    premio = Column(String(200))
+    imagen_url = Column(String(500))
+    fecha_inicio = Column(Date)
+    fecha_fin = Column(Date)
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

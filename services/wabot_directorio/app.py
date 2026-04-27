@@ -3,6 +3,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import os
 import sys
+from datetime import datetime
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -15,7 +16,8 @@ from models import (
     FotoNegocio, 
     FotoTrabajoProfesional,
     Servicio,
-    ConfiguracionHorario
+    ConfiguracionHorario,
+    Promocion
 )
 
 from dotenv import load_dotenv
@@ -214,7 +216,6 @@ def perfil_profesional(profesional_id):
         negocio_emoji = negocio.emoji or "🏢"
         negocio_portada_url = negocio.foto_portada
         
-        # Si no hay portada, buscar la primera foto de la galería
         if not negocio_portada_url:
             primera_foto = db_session.query(FotoNegocio).filter(
                 FotoNegocio.negocio_id == negocio.id
@@ -226,12 +227,36 @@ def perfil_profesional(profesional_id):
         FotoTrabajoProfesional.profesional_id == profesional_id
     ).all()
     
+    # ========== OBTENER PROMOCIÓN ACTIVA DEL PROFESIONAL ==========
+    from datetime import datetime
+    fecha_actual = datetime.now().date()
+    
+    promocion_activa = db_session.query(Promocion).filter(
+        Promocion.profesional_id == profesional_id,
+        Promocion.activo == True,
+        Promocion.fecha_inicio <= fecha_actual,
+        Promocion.fecha_fin >= fecha_actual
+    ).first()
+    
+    promocion_data = None
+    if promocion_activa:
+        promocion_data = {
+            'id': promocion_activa.id,
+            'titulo': promocion_activa.titulo,
+            'descripcion': promocion_activa.descripcion,
+            'premio': promocion_activa.premio,
+            'fecha_inicio': promocion_activa.fecha_inicio,
+            'fecha_fin': promocion_activa.fecha_fin,
+            'imagen_url': promocion_activa.imagen_url
+        }
+    
     return render_template('directorio/profesional.html',
                          profesional=profesional,
                          fotos_trabajo=fotos_trabajo,
                          negocio_nombre=negocio_nombre,
                          negocio_emoji=negocio_emoji,
-                         negocio_portada_url=negocio_portada_url) 
+                         negocio_portada_url=negocio_portada_url,
+                         promocion=promocion_data)
 
 
 

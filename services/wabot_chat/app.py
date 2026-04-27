@@ -25,6 +25,7 @@ from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler as scheduler
 from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
+import psycopg2
 
 # Cargar variables de entorno
 load_dotenv()
@@ -34,6 +35,12 @@ tz_colombia = pytz.timezone('America/Bogota')
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
 app.register_blueprint(push_bp, url_prefix='/push')
+app.register_blueprint(web_chat_bp, url_prefix='/cliente')
+
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(days=30)
 
 # Configuración para subir imágenes
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -322,14 +329,593 @@ def utility_processor():
     """Agregar funciones útiles a todos los templates"""
     def now():
         return datetime.now(tz_colombia)
-    return dict(now=now)
-
-# Registrar blueprint de WhatsApp
-app.register_blueprint(web_chat_bp, url_prefix='/web_chat')
+    return dict(now=now);
 
 # =============================================================================
-# RUTAS BÁSICAS - AGREGAR AL PRINCIPIO
+# GESTIÓN DE PROMOCIONES Y CONCURSOS (EVENTOS MENSUALES)
 # =============================================================================
+
+@app.route('/profesional/promocion/crear', methods=['POST'])
+@login_required
+def crear_promocion():
+    try:
+        print("="*50)
+        print("🚀 INICIANDO crear_promocion")
+        
+        profesional_id = session.get('profesional_id')
+        negocio_id = session.get('negocio_id')
+        
+        print(f"📌 profesional_id: {profesional_id}")
+        print(f"📌 negocio_id: {negocio_id}")
+        
+        if not profesional_id:
+            print("❌ No hay profesional_id en sesión")
+            flash('No se pudo identificar al profesional', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        titulo = request.form.get('titulo', '').strip()
+        premio = request.form.get('premio', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        fecha_inicio = request.form.get('inicio')
+        fecha_fin = request.form.get('fin')
+        
+        print(f"📝 Datos del formulario:")
+        print(f"   titulo: {titulo}")
+        print(f"   premio: {premio}")
+        print(f"   descripcion: {descripcion[:50]}...")
+        print(f"   fecha_inicio: {fecha_inicio}")
+        print(f"   fecha_fin: {fecha_fin}")
+        
+        if not titulo:
+            print("❌ Título vacío")
+            flash('El título es obligatorio', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        # Validar fechas
+        from datetime import date
+        if not fecha_inicio:
+            fecha_inicio = date.today()
+            print(f"📅 fecha_inicio por defecto: {fecha_inicio}")
+        
+        print("🔌 Conectando a la base de datos...")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        print("📝 Ejecutando INSERT...")
+        cursor.execute('''
+            INSERT INTO promociones (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+            RETURNING id
+        ''', (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
+        
+        print("📥 Obteniendo resultado...")
+        result = cursor.fetchone()
+        print(f"   result tipo: {type(result)}")
+        print(f"   result contenido: {result}")
+        
+        # ✅ Acceder correctamente según el tipo
+        if result:
+            if isinstance(result, tuple):
+                promo_id = result[0]
+            elif isinstance(result, dict):
+                promo_id = result.get('id')
+            else:
+                promo_id = result
+        else:
+            promo_id = None
+        
+        print(f"✅ promo_id obtenido: {promo_id}")
+        
+        conn.commit()
+        print("💾 Commit realizado")
+        
+        conn.close()
+        print("🔌 Conexión cerrada")
+        
+        if promo_id:
+            print(f"🎉 Promoción creada con ID: {promo_id}")
+            flash('✅ Promoción creada exitosamente', 'success')
+        else:
+            print("❌ No se pudo obtener el ID de la promoción")
+            flash('❌ Error al crear la promoción', 'error')
+        
+        print("➡️ Redirigiendo a profesional_promociones")
+        return redirect(url_for('profesional_promociones'))
+        
+    except Exception as e:
+        print(f"❌❌❌ ERROR CRÍTICO en crear_promocion: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al crear la promoción: {str(e)}', 'error')
+        return redirect(url_for('profesional_promociones'))
+
+@app.route('/api/cliente/verificar-elegibilidad/<int:negocio_id>')
+def verificar_elegibilidad(negocio_id):
+    try:
+        cliente_telefono = request.args.get('telefono')
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Obtener promociones activas
+        cursor.execute('''
+            SELECT p.*, prof.nombre as profesional_nombre
+            FROM promociones p
+            JOIN profesionales prof ON p.profesional_id = prof.id
+            WHERE p.negocio_id = %s 
+              AND p.activo = TRUE 
+              AND p.fecha_inicio <= CURRENT_DATE 
+              AND p.fecha_fin >= CURRENT_DATE
+            ORDER BY p.fecha_fin ASC
+        ''', (negocio_id,))
+        
+        promociones = cursor.fetchall()
+        
+        # Verificar elegibilidad: ¿tiene al menos una cita completada?
+        elegible = False
+        if cliente_telefono:
+            cursor.execute('''
+                SELECT COUNT(*) as total FROM citas 
+                WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
+            ''', (cliente_telefono,))
+            
+            result = cursor.fetchone()
+            elegible = result['total'] > 0 if result else False
+            print(f"📞 Cliente {cliente_telefono} - Citas completadas: {result['total'] if result else 0} - Elegible: {elegible}")
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'elegible': elegible,
+            'promociones': promociones
+        })
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return jsonify({'success': False, 'error': str(e), 'promociones': []}), 500
+    
+@app.route('/api/concurso/participar', methods=['POST'])
+def api_participar_concurso():
+    """Sube hasta 3 fotos a Cloudinary y registra la participación"""
+    try:
+        import cloudinary.uploader
+        import psycopg2
+        from datetime import datetime
+        
+        telefono = request.form.get('telefono')
+        nombre = request.form.get('nombre', 'Cliente')
+        promocion_id = request.form.get('promocion_id')
+        files = request.files.getlist('fotos')
+        nota = request.form.get('nota', '')
+        
+        print(f"📞 Teléfono: {telefono}")
+        print(f"🎁 Promoción ID: {promocion_id}")
+        print(f"📸 Fotos: {len(files)}")
+        
+        if not telefono or not promocion_id or not files:
+            return jsonify({'success': False, 'message': 'Faltan datos o fotos'}), 400
+        
+        # ✅ Obtener DATABASE_URL de las variables de entorno
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'message': 'Error de configuración de base de datos'}), 500
+        
+        # Crear conexión NUEVA sin RealDictCursor
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()  # cursor normal (tuplas)
+        
+        # Validar elegibilidad
+        cursor.execute('''
+            SELECT COUNT(*) FROM citas 
+            WHERE cliente_telefono = %s AND estado IN ('completado', 'completada')
+        ''', (telefono,))
+        
+        result = cursor.fetchone()
+        total_citas = result[0] if result else 0
+        print(f"📊 Citas completadas: {total_citas}")
+        
+        if total_citas == 0:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': 'No tienes citas completadas para participar'}), 400
+        
+        # Validar participación única
+        cursor.execute('''
+            SELECT id FROM participaciones_concurso 
+            WHERE promocion_id = %s AND cliente_telefono = %s
+        ''', (promocion_id, telefono))
+        
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': 'Ya participaste en esta promoción'}), 400
+        
+        # Subir fotos a Cloudinary
+        urls = []
+        for file in files[:3]:
+            res = cloudinary.uploader.upload(file, folder="concursos_clientes")
+            urls.append(res['secure_url'])
+        
+        # Guardar participación
+        cursor.execute('''
+            INSERT INTO participaciones_concurso (promocion_id, cliente_telefono, cliente_nombre, foto_url, nota, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            RETURNING id
+        ''', (promocion_id, telefono, nombre, ",".join(urls), nota))
+        
+        result_id = cursor.fetchone()
+        p_id = result_id[0] if result_id else None
+        print(f"✅ Participación guardada con ID: {p_id}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if p_id:
+            return jsonify({
+                'success': True, 
+                'share_link': f"{request.host_url}vota/{p_id}",
+                'message': 'Participación exitosa'
+            })
+        else:
+            return jsonify({'success': False, 'message': 'No se pudo guardar la participación'}), 500
+        
+    except Exception as e:
+        print(f"❌ Error en api_participar_concurso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/vota/<int:participacion_id>')
+def ver_post_concurso(participacion_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('''
+        SELECT p.*, pr.titulo as promo_titulo FROM participaciones_concurso p 
+        JOIN promociones pr ON p.promocion_id = pr.id WHERE p.id = %s
+    ''', (participacion_id,))
+    p = cursor.fetchone()
+    conn.close()
+    return render_template('cliente/votar_concurso.html', p=p) if p else ("No encontrado", 404)
+
+@app.route('/api/concurso/like/<int:participacion_id>', methods=['POST'])
+def api_votar(participacion_id):
+    ip = request.remote_addr
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('INSERT INTO likes_concurso (participacion_id, ip_address) VALUES (%s, %s)', (participacion_id, ip))
+        cursor.execute('UPDATE participaciones_concurso SET likes = likes + 1 WHERE id = %s', (participacion_id,))
+        conn.commit()
+        return jsonify({'success': True})
+    except:
+        return jsonify({'success': False, 'message': 'Ya votaste'}), 400
+    finally: conn.close()
+
+# =============================================================================
+# RUTAS ADICIONALES PARA GESTIÓN DE PROMOCIONES
+# =============================================================================
+
+@app.route('/participar/<int:profesional_id>')
+def participar_concurso(profesional_id):
+    """Página para que el cliente participe en el concurso desde el directorio"""
+    # Verificar si hay una promoción activa para este profesional
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('''
+        SELECT id, titulo, premio, descripcion, fecha_inicio, fecha_fin
+        FROM promociones 
+        WHERE profesional_id = %s AND activo = TRUE 
+        AND CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
+    ''', (profesional_id,))
+    promocion = cursor.fetchone()
+    conn.close()
+    
+    if not promocion:
+        return "No hay concurso activo en este momento", 404
+
+    print(f"DEBUG: Accediendo a /participar/{profesional_id}")
+    print(f"DEBUG: Promoción activa encontrada: {promocion['titulo']} (ID: {promocion['id']})")
+
+    
+    # Si está logueado, verificar elegibilidad
+    telefono = session.get('cliente_telefono')
+    if telefono:
+        # Verificar si tuvo cita hoy con este profesional
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        print(f"DEBUG: Verificando cita completada para profesional_id={profesional_id}, cliente_telefono={telefono}, fecha=CURRENT_DATE, estado='completado'")
+        # Use CURRENT_DATE for PostgreSQL, 'date('now')' for SQLite if needed, but schema says DATE
+
+        # ✅ Usar la fecha local de Colombia para evitar errores de servidor UTC
+        fecha_hoy = datetime.now(tz_colombia).date()
+        
+        cursor.execute('''
+            SELECT id FROM citas 
+            WHERE profesional_id = %s AND cliente_telefono = %s 
+            AND fecha::date = %s 
+            AND estado IN ('completado', 'completada')
+        ''', (profesional_id, telefono, fecha_hoy))
+        cita_hoy = cursor.fetchone()
+        conn.close()
+
+        print(f"DEBUG: Resultado de la consulta de cita_hoy: {cita_hoy}")
+        
+        if cita_hoy:
+            return render_template('cliente/participar_concurso.html', promocion=promocion, profesional_id=profesional_id)
+    
+    # No está logueado o no tiene cita hoy - redirigir al chat del negocio
+    # Obtener el negocio_id desde el profesional
+    print(f"DEBUG: Cliente no elegible o no logueado. Redirigiendo a chat.")
+    print(f"DEBUG: Intentando obtener negocio_id para profesional {profesional_id}")
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
+    prof = cursor.fetchone()
+    conn.close()
+
+    print(f"DEBUG: Negocio encontrado para redirección: {prof['negocio_id'] if prof else 'N/A'}")
+    
+    if prof:
+        return redirect(url_for('chat_index', negocio_id=prof['negocio_id']))
+    return "Profesional no encontrado", 404
+
+@app.route('/profesional/promociones')
+@login_required
+def profesional_promociones():
+    print("="*50)
+    print("🚀 INICIANDO profesional_promociones")
+    
+    profesional_id = session.get('profesional_id')
+    print(f"📌 profesional_id: {profesional_id}")
+    
+    if not profesional_id:
+        print("❌ No hay profesional_id, redirigiendo a dashboard")
+        return redirect(url_for('profesional_dashboard'))
+    
+    print("🔌 Conectando a la base de datos...")
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    print("📝 Ejecutando SELECT con subconsulta de participaciones...")
+    cursor.execute('''
+        SELECT p.id, p.titulo, p.premio, p.descripcion, p.fecha_inicio, p.fecha_fin, p.activo,
+               (SELECT COUNT(*) FROM participaciones_concurso WHERE promocion_id = p.id) as participaciones
+        FROM promociones p
+        WHERE p.profesional_id = %s 
+        ORDER BY p.id DESC
+    ''', (profesional_id,))
+    
+    promociones = cursor.fetchall()
+    print(f"📦 Promociones encontradas: {len(promociones)}")
+    
+    for promo in promociones:
+        print(f"   - ID: {promo['id']}, Título: {promo['titulo']}, Participaciones: {promo.get('participaciones', 0)}")
+    
+    conn.close()
+    print("🔌 Conexión cerrada")
+    
+    from datetime import date
+    today = date.today()
+    print(f"📅 Fecha actual: {today}")
+    
+    print("➡️ Renderizando template")
+    return render_template('profesional/promociones.html', 
+                         promociones=promociones,
+                         today=today)
+
+@app.route('/profesional/promocion/eliminar/<int:promo_id>', methods=['POST'])
+@login_required
+def eliminar_promocion(promo_id):
+    """Eliminar (desactivar) una promoción"""
+    try:
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            flash('No autorizado', 'error')
+            return redirect(url_for('listar_promociones'))
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar que la promoción pertenece al profesional
+        cursor.execute('''
+            DELETE FROM promociones 
+            WHERE id = %s AND profesional_id = %s
+        ''', (promo_id, profesional_id))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('✅ Promoción eliminada correctamente', 'success')
+        
+    except Exception as e:
+        print(f"❌ Error eliminando promoción: {e}")
+        flash('Error al eliminar la promoción', 'error')
+    
+    return redirect(url_for('listar_promociones'))
+
+
+@app.route('/profesional/promocion/<int:promocion_id>/participaciones')
+@role_required(['profesional', 'propietario'])
+def ver_participaciones(promocion_id):
+    """Ver las participaciones de una promoción"""
+    profesional_id = session.get('profesional_id')
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Verificar que la promoción pertenece al profesional
+    cursor.execute('SELECT id FROM promociones WHERE id = %s AND profesional_id = %s', (promocion_id, profesional_id))
+    if not cursor.fetchone():
+        return "No autorizado", 403
+    
+    cursor.execute('''
+        SELECT id, cliente_nombre, foto_url, nota, likes, fecha_creacion
+        FROM participaciones_concurso 
+        WHERE promocion_id = %s
+        ORDER BY likes DESC
+    ''', (promocion_id,))
+    participaciones = cursor.fetchall()
+    
+    cursor.execute('SELECT titulo, premio FROM promociones WHERE id = %s', (promocion_id,))
+    promocion = cursor.fetchone()
+    conn.close()
+    
+    return render_template('profesional/participaciones.html', participaciones=participaciones, promocion=promocion)
+
+@app.route('/profesional/promocion/<int:promocion_id>/cerrar', methods=['POST'])
+@role_required(['profesional', 'propietario'])
+def cerrar_promocion(promocion_id):
+    """Cierra una promoción y declara un ganador"""
+    profesional_id = session.get('profesional_id')
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Verificar que la promoción pertenece al profesional
+    cursor.execute('SELECT id FROM promociones WHERE id = %s AND profesional_id = %s', (promocion_id, profesional_id))
+    if not cursor.fetchone():
+        return "No autorizado", 403
+    
+    # Desactivar la promoción
+    cursor.execute('UPDATE promociones SET activo = FALSE WHERE id = %s', (promocion_id,))
+    conn.commit()
+    conn.close()
+    
+    flash('✅ Concurso cerrado correctamente', 'success')
+    return redirect(url_for('profesional_promociones'))
+
+@app.route('/negocio/<int:negocio_id>')
+def redirigir_negocio(negocio_id):
+    """Redirigir al perfil del negocio en el directorio"""
+    directorio_url = os.environ.get('DIRECTORIO_URL', 'https://wabot-directorio-production.up.railway.app')
+    return redirect(f"{directorio_url}/negocio/{negocio_id}")
+
+@app.route('/api/concurso/ranking/<int:promocion_id>')
+def ranking_concurso(promocion_id):
+    """Obtener ranking de participantes de una promoción"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, cliente_nombre, likes, foto_url, nota
+            FROM participaciones_concurso 
+            WHERE promocion_id = %s
+            ORDER BY likes DESC, id ASC
+        ''', (promocion_id,))
+        
+        participaciones = cursor.fetchall()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'participaciones': participaciones
+        })
+        
+    except Exception as e:
+        print(f"❌ Error en ranking_concurso: {e}")
+        return jsonify({'success': False, 'error': str(e), 'participaciones': []}), 500
+
+@app.route('/api/concurso/mi-participacion', methods=['GET'])
+def mi_participacion():
+    """Obtener participación del cliente en una promoción específica"""
+    try:
+        promocion_id = request.args.get('promocion_id')
+        telefono = request.args.get('telefono')
+        
+        if not promocion_id or not telefono:
+            return jsonify({'success': False, 'message': 'Faltan datos'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT id, foto_url, nota, likes, fecha_creacion
+            FROM participaciones_concurso 
+            WHERE promocion_id = %s AND cliente_telefono = %s
+        ''', (promocion_id, telefono))
+        
+        participacion = cursor.fetchone()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'participacion': participacion
+        })
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/concurso/eliminar-participacion', methods=['DELETE'])
+def eliminar_participacion():
+    """Eliminar participación del cliente y sus likes asociados"""
+    try:
+        import psycopg2
+        
+        data = request.get_json()
+        promocion_id = data.get('promocion_id')
+        telefono = data.get('telefono')
+        
+        print(f"🗑️ Eliminando participación - Promoción: {promocion_id}, Teléfono: {telefono}")
+        
+        if not promocion_id or not telefono:
+            return jsonify({'success': False, 'message': 'Faltan datos'}), 400
+        
+        # ✅ Crear conexión DIRECTA con psycopg2 (NO usar get_db_connection)
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'message': 'Error de configuración'}), 500
+        
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()  # Esto es un cursor normal que devuelve tuplas
+        
+        # Obtener el ID de la participación
+        cursor.execute('''
+            SELECT id FROM participaciones_concurso 
+            WHERE promocion_id = %s AND cliente_telefono = %s
+        ''', (promocion_id, telefono))
+        
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': 'Participación no encontrada'}), 404
+        
+        # ✅ Con cursor NORMAL, result es una tupla: acceder con [0]
+        participacion_id = result[0]
+        print(f"📌 Participación ID encontrada: {participacion_id}")
+        
+        # Contar likes
+        cursor.execute('SELECT COUNT(*) FROM likes_concurso WHERE participacion_id = %s', (participacion_id,))
+        likes_count = cursor.fetchone()[0]
+        print(f"❤️ Likes asociados a eliminar: {likes_count}")
+        
+        # Eliminar likes
+        cursor.execute('DELETE FROM likes_concurso WHERE participacion_id = %s', (participacion_id,))
+        
+        # Eliminar participación
+        cursor.execute('DELETE FROM participaciones_concurso WHERE id = %s', (participacion_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Participación eliminada correctamente")
+        return jsonify({'success': True, 'message': 'Participación eliminada correctamente'})
+        
+    except Exception as e:
+        print(f"❌ Error eliminando participación: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# RUTAS DEL CHAT WEB
+
 
 @app.route('/')
 def index():

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Promociones</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header {
+            background: white;
+            padding: 16px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-danger { background: #ef4444; color: white; font-size: 12px; padding: 6px 12px; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
+        .card {
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            padding: 14px 16px;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .card-header.active { background: #d1fae5; color: #065f46; }
+        .card-header.expired { background: #fee2e2; color: #991b1b; }
+        .card-body { padding: 16px; }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-active { background: #d1fae5; color: #065f46; }
+        .badge-expired { background: #fee2e2; color: #991b1b; }
+        .empty-state { text-align: center; padding: 40px; color: #64748b; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 14px; }
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header { padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 16px; }
+        .modal-footer { padding: 16px; border-top: 1px solid #e2e8f0; display: flex; gap: 12px; justify-content: flex-end; }
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-close:active { background: #f1f5f9; }
+        @media (max-width: 480px) {
+            body { padding: 12px; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2><i class="fas fa-gift text-warning"></i> Mis Promociones</h2>
+            <button class="btn btn-primary" onclick="abrirModalCrear()">
+                <i class="fas fa-plus"></i> Crear
+            </button>
+        </div>
+
+        <div id="promocionesList">
+            {% if promociones %}
+                {% for promo in promociones %}
+                {% set expirada = promo.fecha_fin and promo.fecha_fin < today %}
+                <div class="card">
+                    <div class="card-header {% if not expirada %}active{% else %}expired{% endif %}">
+                        <div>
+                            <i class="fas fa-trophy"></i> 
+                            <strong>{{ promo.titulo }}</strong>
+                            <span class="badge {% if not expirada %}badge-active{% else %}badge-expired{% endif %} ms-2">
+                                {% if not expirada %}Activo{% else %}Expirado{% endif %}
+                            </span>
+                            {% if promo.participaciones > 0 %}
+                            <span class="badge" style="background:#e0e7ff; color:#3730a3;">📸 {{ promo.participaciones }} participaciones</span>
+                            {% endif %}
+                        </div>
+                        <form method="POST" action="{{ url_for('eliminar_promocion', promo_id=promo.id) }}" style="display: inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar esta promoción? Se perderán todas las participaciones.')">
+                                <i class="fas fa-trash-alt"></i> Eliminar
+                            </button>
+                        </form>
+                    </div>
+                    <div class="card-body">
+                        {% if promo.descripcion %}
+                        <p class="mb-2"><i class="fas fa-align-left"></i> {{ promo.descripcion }}</p>
+                        {% endif %}
+                        {% if promo.premio %}
+                        <p class="mb-2"><i class="fas fa-award text-warning"></i> <strong>Premio:</strong> {{ promo.premio }}</p>
+                        {% endif %}
+                        <p class="mb-1"><i class="far fa-calendar-alt"></i> <strong>Vigencia:</strong> 
+                            {{ promo.fecha_inicio.strftime('%d/%m/%Y') if promo.fecha_inicio else 'Inmediato' }} - 
+                            {{ promo.fecha_fin.strftime('%d/%m/%Y') if promo.fecha_fin else 'Indefinido' }}
+                        </p>
+                        {% if expirada %}
+                        <p class="text-danger mt-2"><i class="fas fa-clock"></i> Esta promoción ya expiró</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-gift fa-3x mb-3"></i>
+                    <p>No tienes promociones creadas</p>
+                    <button class="btn btn-primary mt-3" onclick="abrirModalCrear()">Crear primera promoción</button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal Crear Promoción -->
+    <div id="modalCrear" class="modal">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('crear_promocion') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h4><i class="fas fa-plus-circle"></i> Nueva Promoción</h4>
+                    <button type="button" class="btn-close" onclick="cerrarModal('modalCrear')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Título *</label>
+                        <input type="text" name="titulo" placeholder="Ej: Concurso de Cortes" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Premio</label>
+                        <input type="text" name="premio" placeholder="Ej: 1 Corte Premium Gratis">
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" rows="3" placeholder="Describe tu promoción..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Inicio</label>
+                        <input type="date" name="inicio" value="{{ today }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Fin</label>
+                        <input type="date" name="fin" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModal('modalCrear')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Promoción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalCrear() {
+            document.getElementById('modalCrear').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function cerrarModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalCrear').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModal('modalCrear');
+        });
+    </script>
+</body>
+</html>
