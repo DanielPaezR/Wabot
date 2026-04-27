@@ -820,7 +820,6 @@ def ranking_concurso(promocion_id):
 
 @app.route('/api/concurso/mi-participacion', methods=['GET'])
 def mi_participacion():
-    """Obtener participación del cliente en una promoción específica"""
     try:
         promocion_id = request.args.get('promocion_id')
         telefono = request.args.get('telefono')
@@ -829,7 +828,8 @@ def mi_participacion():
             return jsonify({'success': False, 'message': 'Faltan datos'}), 400
         
         conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        # ✅ Usar cursor normal para obtener tuplas
+        cursor = conn.cursor()
         
         cursor.execute('''
             SELECT id, foto_url, nota, likes, fecha_creacion
@@ -837,7 +837,19 @@ def mi_participacion():
             WHERE promocion_id = %s AND cliente_telefono = %s
         ''', (promocion_id, telefono))
         
-        participacion = cursor.fetchone()
+        result = cursor.fetchone()
+        
+        participacion = None
+        if result:
+            participacion = {
+                'id': result[0],
+                'foto_url': result[1],
+                'nota': result[2],
+                'likes': result[3],
+                'fecha_creacion': result[4]
+            }
+        
+        cursor.close()
         conn.close()
         
         return jsonify({
@@ -846,7 +858,7 @@ def mi_participacion():
         })
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error en mi_participacion: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/concurso/eliminar-participacion', methods=['DELETE'])
@@ -863,6 +875,8 @@ def eliminar_participacion():
             return jsonify({'success': False, 'message': 'Faltan datos'}), 400
         
         conn = get_db_connection()
+        
+        # ✅ Usar cursor NORMAL (no RealDictCursor) para obtener tuplas
         cursor = conn.cursor()
         
         # Obtener el ID de la participación
@@ -872,10 +886,13 @@ def eliminar_participacion():
         ''', (promocion_id, telefono))
         
         result = cursor.fetchone()
+        
         if not result:
+            cursor.close()
             conn.close()
             return jsonify({'success': False, 'message': 'Participación no encontrada'}), 404
         
+        # ✅ Con cursor normal, result es una tupla: acceder con [0]
         participacion_id = result[0]
         print(f"📌 Participación ID encontrada: {participacion_id}")
         
@@ -891,6 +908,7 @@ def eliminar_participacion():
         cursor.execute('DELETE FROM participaciones_concurso WHERE id = %s', (participacion_id,))
         
         conn.commit()
+        cursor.close()
         conn.close()
         
         print(f"✅ Participación eliminada correctamente")
