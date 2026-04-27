@@ -545,65 +545,47 @@
         console.log("Promoción ID:", promocionId);
         
         // ========== FUNCIONES DE COMPARTIR ==========
-        async function shareCardAsStatus() {
-            // Seleccionar el elemento HTML que quieres compartir (la card del concurso)
-            const cardElement = document.querySelector('.promo-card');
+        async function shareWhatsAppStatusWithAPI() {
+            const apiUrl = 'https://quickchart.io/chart';  // API gratuita
             
-            if (!cardElement) {
-                alert('No se encontró la tarjeta para compartir');
-                return;
-            }
-            
-            // Mostrar loader
-            mostrarLoader('Generando imagen...');
-            
-            try {
-                // Clonar el elemento para no afectar el original
-                const cloneCard = cardElement.cloneNode(true);
-                cloneCard.style.position = 'absolute';
-                cloneCard.style.top = '-9999px';
-                cloneCard.style.width = '1080px';  // Tamaño para estado
-                document.body.appendChild(cloneCard);
-                
-                // Usar html2canvas (requiere librería)
-                const canvas = await html2canvas(cloneCard, {
-                    scale: 2,
-                    backgroundColor: '#ffffff',
-                    useCORS: true,
-                    allowTaint: false
-                });
-                
-                // Remover clon
-                document.body.removeChild(cloneCard);
-                
-                // Convertir a blob
-                canvas.toBlob(async (blob) => {
-                    const file = new File([blob], 'concurso.png', { type: 'image/png' });
-                    
-                    // Compartir
-                    if (navigator.share && navigator.canShare({ files: [file] })) {
-                        await navigator.share({
-                            title: '🎯 Participa en el concurso',
-                            text: `✨ ${participanteNombre} necesita tu voto ✨`,
-                            files: [file]
-                        });
-                    } else {
-                        // Descargar imagen
-                        const link = document.createElement('a');
-                        link.download = 'concurso-status.png';
-                        link.href = URL.createObjectURL(blob);
-                        link.click();
-                        
-                        alert('📸 Imagen guardada. Súbela manualmente a tu estado de WhatsApp.');
+            const config = {
+                type: 'bar',
+                data: {
+                    labels: ['Votos'],
+                    datasets: [{
+                        label: `${participanteNombre}`,
+                        data: [votosActuales || 0],
+                        backgroundColor: '#25D366'
+                    }]
+                },
+                options: {
+                    title: { display: true, text: `🎯 ${shareTitle}` },
+                    plugins: {
+                        htmlText: `
+                            <div style="text-align:center; padding:20px;">
+                                <h2>✨ ${participanteNombre} ✨</h2>
+                                <p>📸 ¡Mira este increíble trabajo!</p>
+                                <p>🔗 ${shareUrl}</p>
+                                <p>💪 ¡Vota ahora!</p>
+                            </div>
+                        `
                     }
-                    
-                    ocultarLoader();
-                }, 'image/png');
+                }
+            };
+            
+            const chartUrl = `${apiUrl}?c=${encodeURIComponent(JSON.stringify(config))}`;
+            
+            // Compartir la imagen generada
+            if (navigator.share) {
+                const response = await fetch(chartUrl);
+                const blob = await response.blob();
+                const file = new File([blob], 'concurso-status.png', { type: 'image/png' });
                 
-            } catch (error) {
-                console.error('Error:', error);
-                ocultarLoader();
-                alert('❌ Error al generar imagen');
+                await navigator.share({
+                    title: `🎯 ${shareTitle}`,
+                    text: `👤 ${participanteNombre} - ¡Vota por mí!`,
+                    files: [file]
+                });
             }
         }
         
