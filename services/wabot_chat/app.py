@@ -851,7 +851,7 @@ def mi_participacion():
 
 @app.route('/api/concurso/eliminar-participacion', methods=['DELETE'])
 def eliminar_participacion():
-    """Eliminar participación del cliente"""
+    """Eliminar participación del cliente y sus likes asociados"""
     try:
         data = request.get_json()
         promocion_id = data.get('promocion_id')
@@ -863,18 +863,37 @@ def eliminar_participacion():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Primero, obtener el ID de la participación
         cursor.execute('''
-            DELETE FROM participaciones_concurso 
+            SELECT id FROM participaciones_concurso 
             WHERE promocion_id = %s AND cliente_telefono = %s
         ''', (promocion_id, telefono))
+        
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Participación no encontrada'}), 404
+        
+        participacion_id = result[0]
+        
+        # Eliminar los likes asociados primero
+        cursor.execute('DELETE FROM likes_concurso WHERE participacion_id = %s', (participacion_id,))
+        
+        # Luego eliminar la participación
+        cursor.execute('''
+            DELETE FROM participaciones_concurso 
+            WHERE id = %s
+        ''', (participacion_id,))
         
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'message': 'Participación eliminada'})
+        return jsonify({'success': True, 'message': 'Participación eliminada correctamente'})
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Error eliminando participación: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # =============================================================================
