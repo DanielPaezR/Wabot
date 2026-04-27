@@ -477,12 +477,6 @@
                             <button class="share-btn whatsapp" id="shareWhatsappBtn">
                                 <i class="fab fa-whatsapp"></i> WhatsApp
                             </button>
-                            <button class="share-btn instagram" id="shareInstagramBtn">
-                                <i class="fab fa-instagram"></i> Instagram
-                            </button>
-                            <button class="share-btn facebook" id="shareFacebookBtn">
-                                <i class="fab fa-facebook"></i> Facebook
-                            </button>
                             <button class="share-btn copy" id="shareCopyBtn">
                                 <i class="fas fa-link"></i> Copiar enlace
                             </button>
@@ -551,20 +545,68 @@
         console.log("Promoción ID:", promocionId);
         
         // ========== FUNCIONES DE COMPARTIR ==========
-        function shareWhatsApp() {
-            const text = `🎯 *${shareTitle}*%0a%0a👤 *${participanteNombre}*%0a📸 ¡Mira este increíble trabajo y apóyalo con tu voto!%0a%0a🔗 ${shareUrl}%0a%0a✨ *¡Vota ahora!* ✨`;
-            window.open(`https://wa.me/?text=${text}`, '_blank');
+        async function shareCardAsStatus() {
+            // Seleccionar el elemento HTML que quieres compartir (la card del concurso)
+            const cardElement = document.querySelector('.promo-card');
+            
+            if (!cardElement) {
+                alert('No se encontró la tarjeta para compartir');
+                return;
+            }
+            
+            // Mostrar loader
+            mostrarLoader('Generando imagen...');
+            
+            try {
+                // Clonar el elemento para no afectar el original
+                const cloneCard = cardElement.cloneNode(true);
+                cloneCard.style.position = 'absolute';
+                cloneCard.style.top = '-9999px';
+                cloneCard.style.width = '1080px';  // Tamaño para estado
+                document.body.appendChild(cloneCard);
+                
+                // Usar html2canvas (requiere librería)
+                const canvas = await html2canvas(cloneCard, {
+                    scale: 2,
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    allowTaint: false
+                });
+                
+                // Remover clon
+                document.body.removeChild(cloneCard);
+                
+                // Convertir a blob
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], 'concurso.png', { type: 'image/png' });
+                    
+                    // Compartir
+                    if (navigator.share && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: '🎯 Participa en el concurso',
+                            text: `✨ ${participanteNombre} necesita tu voto ✨`,
+                            files: [file]
+                        });
+                    } else {
+                        // Descargar imagen
+                        const link = document.createElement('a');
+                        link.download = 'concurso-status.png';
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                        
+                        alert('📸 Imagen guardada. Súbela manualmente a tu estado de WhatsApp.');
+                    }
+                    
+                    ocultarLoader();
+                }, 'image/png');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                ocultarLoader();
+                alert('❌ Error al generar imagen');
+            }
         }
         
-        function shareInstagram() {
-            const text = `🎯 ${shareTitle}\n\n👤 ${participanteNombre}\n📸 ¡Mira este increíble trabajo y apóyalo con tu voto!\n\n🔗 ${shareUrl}\n\n✨ ¡Vota ahora! ✨`;
-            navigator.clipboard.writeText(text);
-            showShareMessage('✅ Mensaje copiado. Pégalo en tu estado de Instagram o publicación.');
-        }
-        
-        function shareFacebook() {
-            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank', 'width=600,height=400');
-        }
         
         function copyLink() {
             navigator.clipboard.writeText(shareUrl);
@@ -583,8 +625,6 @@
         
         // Asignar eventos a los botones de compartir
         document.getElementById('shareWhatsappBtn').addEventListener('click', shareWhatsApp);
-        document.getElementById('shareInstagramBtn').addEventListener('click', shareInstagram);
-        document.getElementById('shareFacebookBtn').addEventListener('click', shareFacebook);
         document.getElementById('shareCopyBtn').addEventListener('click', copyLink);
         
         // ========== RANKING ==========
