@@ -820,6 +820,7 @@ def ranking_concurso(promocion_id):
 
 @app.route('/api/concurso/mi-participacion', methods=['GET'])
 def mi_participacion():
+    """Obtener participación del cliente en una promoción específica"""
     try:
         promocion_id = request.args.get('promocion_id')
         telefono = request.args.get('telefono')
@@ -828,8 +829,7 @@ def mi_participacion():
             return jsonify({'success': False, 'message': 'Faltan datos'}), 400
         
         conn = get_db_connection()
-        # ✅ Usar cursor normal para obtener tuplas
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         cursor.execute('''
             SELECT id, foto_url, nota, likes, fecha_creacion
@@ -837,19 +837,7 @@ def mi_participacion():
             WHERE promocion_id = %s AND cliente_telefono = %s
         ''', (promocion_id, telefono))
         
-        result = cursor.fetchone()
-        
-        participacion = None
-        if result:
-            participacion = {
-                'id': result[0],
-                'foto_url': result[1],
-                'nota': result[2],
-                'likes': result[3],
-                'fecha_creacion': result[4]
-            }
-        
-        cursor.close()
+        participacion = cursor.fetchone()
         conn.close()
         
         return jsonify({
@@ -858,7 +846,7 @@ def mi_participacion():
         })
         
     except Exception as e:
-        print(f"Error en mi_participacion: {e}")
+        print(f"Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/concurso/eliminar-participacion', methods=['DELETE'])
