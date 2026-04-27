@@ -853,6 +853,8 @@ def mi_participacion():
 def eliminar_participacion():
     """Eliminar participación del cliente y sus likes asociados"""
     try:
+        import psycopg2
+        
         data = request.get_json()
         promocion_id = data.get('promocion_id')
         telefono = data.get('telefono')
@@ -862,10 +864,13 @@ def eliminar_participacion():
         if not promocion_id or not telefono:
             return jsonify({'success': False, 'message': 'Faltan datos'}), 400
         
-        conn = get_db_connection()
+        # ✅ Crear conexión DIRECTA con psycopg2 (NO usar get_db_connection)
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        if not DATABASE_URL:
+            return jsonify({'success': False, 'message': 'Error de configuración'}), 500
         
-        # ✅ Usar cursor NORMAL (no RealDictCursor) para obtener tuplas
-        cursor = conn.cursor()
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()  # Esto es un cursor normal que devuelve tuplas
         
         # Obtener el ID de la participación
         cursor.execute('''
@@ -880,11 +885,11 @@ def eliminar_participacion():
             conn.close()
             return jsonify({'success': False, 'message': 'Participación no encontrada'}), 404
         
-        # ✅ Con cursor normal, result es una tupla: acceder con [0]
+        # ✅ Con cursor NORMAL, result es una tupla: acceder con [0]
         participacion_id = result[0]
         print(f"📌 Participación ID encontrada: {participacion_id}")
         
-        # Contar likes antes de eliminar
+        # Contar likes
         cursor.execute('SELECT COUNT(*) FROM likes_concurso WHERE participacion_id = %s', (participacion_id,))
         likes_count = cursor.fetchone()[0]
         print(f"❤️ Likes asociados a eliminar: {likes_count}")
