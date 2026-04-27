@@ -483,12 +483,13 @@
                         </div>
                     {% endif %}
                     
-                    <div class="like-section" id="likeSectionForImage">
+                    <div class="like-section">
                         <span class="like-count" id="likeCount">{{ p.likes }}</span>
                         <span class="like-label">votos</span>
-                        <div style="background: linear-gradient(135deg, #c53030 0%, #e53e3e 100%); color: white; padding: 14px; border-radius: 40px; text-align: center; font-weight: 600;">
-                            <i class="fas fa-heart"></i> ¡Vota por mí!
-                        </div>
+                        <button class="like-button" id="likeButton">
+                            <i class="fas fa-heart"></i> Dar me gusta
+                        </button>
+                        <div id="messageArea" class="message-area" style="display: none;"></div>
                     </div>
                 </div>
             </div>
