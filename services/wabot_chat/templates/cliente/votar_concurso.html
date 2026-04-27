@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>🏆 Concurso: {{ p.promo_titulo }} | Wabot</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- html2canvas para capturar imagen de la tarjeta -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -226,7 +228,6 @@
             margin-top: 10px;
             font-size: 0.75rem;
             display: none;
-            color: #10b981;
         }
         
         .ranking-card {
@@ -395,6 +396,27 @@
             border-top: 1px solid #e2e8f0;
         }
         
+        /* Loader */
+        .custom-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .custom-loader i {
+            font-size: 40px;
+        }
+        
         @media (max-width: 640px) {
             body {
                 padding: 12px;
@@ -433,8 +455,8 @@
              data-participacion-id="{{ p.id }}" 
              data-promocion-id="{{ p.promocion_id }}">
             
-            <!-- Tarjeta del participante -->
-            <div class="participant-card">
+            <!-- Tarjeta del participante (se usará para capturar imagen) -->
+            <div class="participant-card" id="participantCardToShare">
                 <div class="participant-header">
                     <h2>{{ p.cliente_nombre }}</h2>
                     <p><i class="fas fa-cut"></i> Participante</p>
@@ -443,7 +465,7 @@
                     {% if p.foto_url %}
                         <div class="participant-images">
                             {% for url in p.foto_url.split(',') %}
-                                <img src="{{ url }}" alt="Trabajo de {{ p.cliente_nombre }}" loading="lazy">
+                                <img src="{{ url }}" alt="Trabajo de {{ p.cliente_nombre }}" loading="lazy" crossorigin="anonymous">
                             {% endfor %}
                         </div>
                     {% else %}
@@ -461,27 +483,12 @@
                         </div>
                     {% endif %}
                     
-                    <div class="like-section">
+                    <div class="like-section" id="likeSectionForImage">
                         <span class="like-count" id="likeCount">{{ p.likes }}</span>
                         <span class="like-label">votos</span>
-                        <button class="like-button" id="likeButton">
-                            <i class="fas fa-heart"></i> Dar me gusta
-                        </button>
-                        <div id="messageArea" class="message-area" style="display: none;"></div>
-                    </div>
-                    
-                    <!-- Sección de compartir -->
-                    <div class="share-section">
-                        <p><i class="fas fa-share-alt"></i> Comparte esta publicación</p>
-                        <div class="share-buttons">
-                            <button class="share-btn whatsapp" id="shareWhatsappBtn">
-                                <i class="fab fa-whatsapp"></i> WhatsApp
-                            </button>
-                            <button class="share-btn copy" id="shareCopyBtn">
-                                <i class="fas fa-link"></i> Copiar enlace
-                            </button>
+                        <div style="background: linear-gradient(135deg, #c53030 0%, #e53e3e 100%); color: white; padding: 14px; border-radius: 40px; text-align: center; font-weight: 600;">
+                            <i class="fas fa-heart"></i> ¡Vota por mí!
                         </div>
-                        <div id="shareMessage"></div>
                     </div>
                 </div>
             </div>
@@ -520,6 +527,19 @@
             </div>
         </div>
         
+        <!-- Botones de compartir fuera de la tarjeta para no capturarlos en la imagen -->
+        <div style="margin-top: 20px; text-align: center;">
+            <div class="share-buttons" style="justify-content: center;">
+                <button class="share-btn whatsapp" id="shareWhatsappBtn">
+                    <i class="fab fa-whatsapp"></i> Compartir en Estado
+                </button>
+                <button class="share-btn copy" id="shareCopyBtn">
+                    <i class="fas fa-link"></i> Copiar enlace
+                </button>
+            </div>
+            <div id="shareMessage"></div>
+        </div>
+        
         <div class="footer">
             <p>© 2025 Wabot - Automatiza tu negocio y conecta con más clientes</p>
         </div>
@@ -527,7 +547,7 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        // Obtener datos desde los atributos del contenedor
+        // ========== DATOS GLOBALES ==========
         const container = document.getElementById('concursoContainer');
         const participacionId = container.dataset.participacionId;
         const promocionId = container.dataset.promocionId;
@@ -541,73 +561,184 @@
         const shareTitle = document.querySelector('.contest-header h1').textContent;
         const participanteNombre = document.querySelector('.participant-header h2').textContent;
         
-        console.log("Participación ID:", participacionId);
-        console.log("Promoción ID:", promocionId);
-        
-        // ========== FUNCIONES DE COMPARTIR ==========
-        async function shareWhatsAppStatusWithAPI() {
-            const apiUrl = 'https://quickchart.io/chart';  // API gratuita
-            
-            const config = {
-                type: 'bar',
-                data: {
-                    labels: ['Votos'],
-                    datasets: [{
-                        label: `${participanteNombre}`,
-                        data: [votosActuales || 0],
-                        backgroundColor: '#25D366'
-                    }]
-                },
-                options: {
-                    title: { display: true, text: `🎯 ${shareTitle}` },
-                    plugins: {
-                        htmlText: `
-                            <div style="text-align:center; padding:20px;">
-                                <h2>✨ ${participanteNombre} ✨</h2>
-                                <p>📸 ¡Mira este increíble trabajo!</p>
-                                <p>🔗 ${shareUrl}</p>
-                                <p>💪 ¡Vota ahora!</p>
-                            </div>
-                        `
-                    }
-                }
-            };
-            
-            const chartUrl = `${apiUrl}?c=${encodeURIComponent(JSON.stringify(config))}`;
-            
-            // Compartir la imagen generada
-            if (navigator.share) {
-                const response = await fetch(chartUrl);
-                const blob = await response.blob();
-                const file = new File([blob], 'concurso-status.png', { type: 'image/png' });
-                
-                await navigator.share({
-                    title: `🎯 ${shareTitle}`,
-                    text: `👤 ${participanteNombre} - ¡Vota por mí!`,
-                    files: [file]
-                });
+        // ========== FUNCIONES COMPARTIR CON HTML2CANVAS ==========
+        function mostrarLoader(texto) {
+            let loader = document.getElementById('customLoader');
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.id = 'customLoader';
+                loader.className = 'custom-loader';
+                loader.innerHTML = `
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <div id="loaderText">${texto}</div>
+                `;
+                document.body.appendChild(loader);
+            } else {
+                document.getElementById('loaderText').innerHTML = texto;
+                loader.style.display = 'flex';
             }
         }
         
+        function ocultarLoader() {
+            const loader = document.getElementById('customLoader');
+            if (loader) loader.style.display = 'none';
+        }
+        
+        function mostrarMensaje(texto, tipo) {
+            const msgDiv = document.getElementById('shareMessage');
+            msgDiv.textContent = texto;
+            msgDiv.style.display = 'block';
+            msgDiv.style.color = tipo === 'error' ? '#ef4444' : '#10b981';
+            setTimeout(() => {
+                msgDiv.style.display = 'none';
+            }, 4000);
+        }
+        
+        async function shareToWhatsAppStatus() {
+            console.log('🟢 Iniciando generación de imagen para Estado de WhatsApp');
+            
+            // Buscar la tarjeta del participante
+            const cardElement = document.getElementById('participantCardToShare');
+            
+            if (!cardElement) {
+                mostrarMensaje('No se encontró la tarjeta para compartir', 'error');
+                return;
+            }
+            
+            mostrarLoader('Preparando imagen para Estado de WhatsApp...');
+            
+            try {
+                // Guardar estilos originales
+                const originalOverflow = document.body.style.overflow;
+                document.body.style.overflow = 'hidden';
+                
+                // Configuración para mejor calidad
+                const canvas = await html2canvas(cardElement, {
+                    scale: 2.5,
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    logging: false,
+                    allowTaint: false,
+                    windowWidth: cardElement.scrollWidth,
+                    windowHeight: cardElement.scrollHeight
+                });
+                
+                document.body.style.overflow = originalOverflow;
+                
+                // Convertir a blob
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1.0));
+                const imagenFile = new File([blob], `concurso-${Date.now()}.png`, { type: 'image/png' });
+                
+                ocultarLoader();
+                
+                // Crear mensaje de texto para acompañar la imagen
+                const mensajeTexto = `🎯 *${shareTitle}*%0a%0a👤 *${participanteNombre}*%0a✨ *¡Mira este trabajo y apóyalo con tu voto!* ✨%0a%0a🔗 ${shareUrl}%0a%0a💪 *¡Cada voto cuenta!*`;
+                
+                // Intentar compartir usando Web Share API (móviles)
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [imagenFile] })) {
+                    try {
+                        await navigator.share({
+                            title: `🎯 ${shareTitle}`,
+                            text: `${participanteNombre} necesita tu voto`,
+                            files: [imagenFile]
+                        });
+                        mostrarMensaje('✅ Compartido exitosamente', 'success');
+                    } catch (shareError) {
+                        console.log('Error en share API, usando fallback:', shareError);
+                        abrirWhatsAppConImagen(mensajeTexto, imagenFile);
+                    }
+                } else {
+                    abrirWhatsAppConImagen(mensajeTexto, imagenFile);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                ocultarLoader();
+                mostrarMensaje('Error al generar imagen: ' + error.message, 'error');
+            }
+        }
+        
+        function abrirWhatsAppConImagen(mensajeTexto, imagenFile) {
+            // Guardar imagen temporalmente
+            const imageUrl = URL.createObjectURL(imagenFile);
+            
+            // Crear modal con opciones
+            const modalHtml = `
+                <div class="modal fade" id="shareImageModal" tabindex="-1" data-bs-backdrop="static" style="display: block; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000;">
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: white; border-radius: 24px 24px 0 0; padding: 24px; max-height: 85vh; overflow-y: auto;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <img src="${imageUrl}" style="max-width: 100%; max-height: 300px; border-radius: 16px; border: 1px solid #e2e8f0;">
+                        </div>
+                        <h5 style="text-align: center; margin-bottom: 16px;">📱 Compartir en Estado</h5>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <button id="openWhatsAppBtn" style="background: #25D366; color: white; border: none; padding: 14px; border-radius: 40px; font-weight: 600; cursor: pointer;">
+                                <i class="fab fa-whatsapp"></i> Abrir WhatsApp y compartir
+                            </button>
+                            <button id="downloadImageBtn" style="background: #64748b; color: white; border: none; padding: 14px; border-radius: 40px; font-weight: 600; cursor: pointer;">
+                                <i class="fas fa-download"></i> Guardar imagen
+                            </button>
+                            <button id="copyLinkBtn" style="background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 40px; font-weight: 600; cursor: pointer;">
+                                <i class="fas fa-link"></i> Copiar enlace de votación
+                            </button>
+                            <button id="closeModalBtn" style="background: #e2e8f0; color: #1e293b; border: none; padding: 12px; border-radius: 40px; cursor: pointer;">
+                                Cerrar
+                            </button>
+                        </div>
+                        <p style="text-align: center; font-size: 12px; color: #64748b; margin-top: 16px;">
+                            💡 Si guardas la imagen, súbela manualmente a tu Estado de WhatsApp
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // Eliminar modal existente
+            const existingModal = document.getElementById('shareImageModal');
+            if (existingModal) existingModal.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Eventos del modal
+            document.getElementById('openWhatsAppBtn').onclick = () => {
+                window.open(`https://wa.me/?text=${mensajeTexto}`, '_blank');
+                mostrarMensaje('✅ WhatsApp abierto. Comparte el enlace en tu estado.', 'success');
+                setTimeout(() => descargarImagen(imagenFile), 1000);
+                cerrarModal();
+            };
+            
+            document.getElementById('downloadImageBtn').onclick = () => {
+                descargarImagen(imagenFile);
+                mostrarMensaje('✅ Imagen guardada. Ahora súbela a tu Estado de WhatsApp.', 'success');
+                setTimeout(() => {
+                    window.open(`https://wa.me/?text=${mensajeTexto}`, '_blank');
+                }, 500);
+                cerrarModal();
+            };
+            
+            document.getElementById('copyLinkBtn').onclick = () => {
+                navigator.clipboard.writeText(shareUrl);
+                mostrarMensaje('✅ Enlace copiado al portapapeles', 'success');
+                cerrarModal();
+            };
+            
+            document.getElementById('closeModalBtn').onclick = () => cerrarModal();
+        }
+        
+        function descargarImagen(imagenFile) {
+            const link = document.createElement('a');
+            link.download = `whatsapp-status-${Date.now()}.png`;
+            link.href = URL.createObjectURL(imagenFile);
+            link.click();
+        }
+        
+        function cerrarModal() {
+            const modal = document.getElementById('shareImageModal');
+            if (modal) modal.remove();
+        }
         
         function copyLink() {
             navigator.clipboard.writeText(shareUrl);
-            showShareMessage('✅ Enlace copiado al portapapeles');
+            mostrarMensaje('✅ Enlace copiado al portapapeles', 'success');
         }
-        
-        function showShareMessage(message) {
-            const msgDiv = document.getElementById('shareMessage');
-            msgDiv.textContent = message;
-            msgDiv.style.display = 'block';
-            msgDiv.style.color = '#10b981';
-            setTimeout(() => {
-                msgDiv.style.display = 'none';
-            }, 3000);
-        }
-        
-        // Asignar eventos a los botones de compartir
-        document.getElementById('shareWhatsappBtn').addEventListener('click', shareWhatsApp);
-        document.getElementById('shareCopyBtn').addEventListener('click', copyLink);
         
         // ========== RANKING ==========
         async function cargarRanking() {
@@ -659,51 +790,81 @@
             return div.innerHTML;
         }
         
-        // Verificar si ya votó
+        // ========== SISTEMA DE VOTOS ==========
         if (localStorage.getItem(localStorageKey) === 'true') {
-            likeButton.disabled = true;
-            likeButton.innerHTML = '<i class="fas fa-heart"></i> Ya votaste';
+            if (likeButton) {
+                likeButton.disabled = true;
+                likeButton.innerHTML = '<i class="fas fa-heart"></i> Ya votaste';
+            }
         }
         
-        // Evento de voto
-        likeButton.addEventListener('click', async () => {
-            likeButton.disabled = true;
-            likeButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-            messageArea.style.display = 'block';
-            messageArea.className = 'message-area';
-            messageArea.textContent = '';
-            
-            try {
-                const response = await fetch(`/api/concurso/like/${participacionId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const result = await response.json();
+        if (likeButton) {
+            likeButton.addEventListener('click', async () => {
+                likeButton.disabled = true;
+                likeButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                if (messageArea) {
+                    messageArea.style.display = 'block';
+                    messageArea.className = 'message-area';
+                    messageArea.textContent = '';
+                }
                 
-                if (result.success) {
-                    const currentLikes = parseInt(likeCountSpan.textContent);
-                    likeCountSpan.textContent = currentLikes + 1;
-                    likeButton.innerHTML = '<i class="fas fa-heart"></i> ¡Voto registrado!';
-                    messageArea.textContent = '✅ ¡Gracias por tu voto!';
-                    messageArea.classList.add('success');
-                    localStorage.setItem(localStorageKey, 'true');
-                    cargarRanking();
-                } else {
+                try {
+                    const response = await fetch(`/api/concurso/like/${participacionId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const currentLikes = parseInt(likeCountSpan.textContent);
+                        likeCountSpan.textContent = currentLikes + 1;
+                        likeButton.innerHTML = '<i class="fas fa-heart"></i> ¡Voto registrado!';
+                        if (messageArea) {
+                            messageArea.textContent = '✅ ¡Gracias por tu voto!';
+                            messageArea.classList.add('success');
+                        }
+                        localStorage.setItem(localStorageKey, 'true');
+                        cargarRanking();
+                    } else {
+                        likeButton.disabled = false;
+                        likeButton.innerHTML = '<i class="fas fa-heart"></i> Dar me gusta';
+                        if (messageArea) {
+                            messageArea.textContent = result.message || 'Error al votar';
+                            messageArea.classList.add('error');
+                        }
+                    }
+                } catch (error) {
                     likeButton.disabled = false;
                     likeButton.innerHTML = '<i class="fas fa-heart"></i> Dar me gusta';
-                    messageArea.textContent = result.message || 'Error al votar';
-                    messageArea.classList.add('error');
+                    if (messageArea) {
+                        messageArea.textContent = 'Error de conexión. Intenta de nuevo.';
+                        messageArea.classList.add('error');
+                    }
                 }
-            } catch (error) {
-                likeButton.disabled = false;
-                likeButton.innerHTML = '<i class="fas fa-heart"></i> Dar me gusta';
-                messageArea.textContent = 'Error de conexión. Intenta de nuevo.';
-                messageArea.classList.add('error');
-            }
-        });
+            });
+        }
         
-        // Cargar ranking al iniciar
-        cargarRanking();
+        // ========== ASIGNAR EVENTOS A BOTONES ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            const shareBtn = document.getElementById('shareWhatsappBtn');
+            const copyBtn = document.getElementById('shareCopyBtn');
+            
+            if (shareBtn) {
+                const newBtn = shareBtn.cloneNode(true);
+                shareBtn.parentNode.replaceChild(newBtn, shareBtn);
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    shareToWhatsAppStatus();
+                });
+            }
+            
+            if (copyBtn) {
+                copyBtn.addEventListener('click', copyLink);
+            }
+            
+            // Cargar ranking
+            cargarRanking();
+        });
     </script>
 </body>
 </html>
