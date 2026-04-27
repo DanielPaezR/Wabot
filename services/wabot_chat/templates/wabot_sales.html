@@ -165,6 +165,65 @@ body{
   text-decoration:none;
 }
 
+/* PRICING - 3 cards */
+.pricing-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:2rem;
+  margin-top:2rem;
+}
+
+.pricing-card{
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  padding:2rem;
+  border-radius:25px;
+  text-align:center;
+  transition:.3s;
+}
+
+.pricing-card:hover{
+  transform:translateY(-8px);
+  box-shadow:0 20px 40px rgba(99,102,241,.3);
+}
+
+.pricing-card h3{
+  font-size:1.5rem;
+  margin-bottom:.5rem;
+}
+
+.pricing-currency{
+  font-size:.9rem;
+  opacity:.8;
+}
+
+.pricing-price{
+  font-size:2.5rem;
+  font-weight:800;
+  margin:1rem 0;
+}
+
+.pricing-price small{
+  font-size:1rem;
+  font-weight:400;
+}
+
+.pricing-btn{
+  background:white;
+  color:#6366f1;
+  padding:.8rem 2rem;
+  border-radius:999px;
+  text-decoration:none;
+  font-weight:700;
+  display:inline-block;
+  margin-top:1rem;
+  transition:.2s;
+}
+
+.pricing-btn:hover{
+  transform:scale(1.05);
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
+}
+
 /* STEPS */
 .steps{
   display:grid;
@@ -193,28 +252,6 @@ body{
   font-weight:bold;
 }
 
-/* PRICING */
-.pricing-card{
-  background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  padding:3rem;
-  border-radius:25px;
-  text-align:center;
-}
-
-.pricing-price{
-  font-size:2.5rem;
-  margin:1rem 0;
-}
-
-.pricing-btn{
-  background:white;
-  color:#6366f1;
-  padding:.8rem 2rem;
-  border-radius:999px;
-  text-decoration:none;
-  font-weight:700;
-}
-
 /* FOOTER */
 .footer{
   text-align:center;
@@ -224,6 +261,7 @@ body{
 
 @media(max-width:768px){
 .hero h1{font-size:2.2rem}
+.pricing-grid{grid-template-columns:1fr}
 }
 
 </style>
@@ -288,17 +326,56 @@ body{
   </div>
 </section>
 
+<!-- SECCIÓN DE PRECIOS CON 3 CARD (COP, AWG, USD) - PRECIOS REALISTAS -->
 <section class="section">
-  <div class="pricing-card">
-    <h2>WABot</h2>
-    <div class="pricing-price">$15.000</div>
-    <p>por profesional / mes</p>
+  <h2 class="section-title">Planes mensuales</h2>
+  <p class="section-subtitle">Elige la moneda que prefieras. Todos los planes incluyen las mismas funcionalidades.</p>
 
-    <div style="margin:1rem 0; font-size:.9rem;">
-      ⚡ + $30.000 de configuración (única vez)
+  <div class="pricing-grid">
+    <!-- Card 1: Pesos Colombianos -->
+    <div class="pricing-card">
+      <h3>🇨🇴 WABot COP</h3>
+      <div class="pricing-price">
+        $15.000 <small>COP</small>
+      </div>
+      <p>por profesional / mes</p>
+      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
+        ⚡ + $30.000 COP<br>configuración única
+      </div>
+      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20COP" class="pricing-btn" target="_blank">
+        Contratar en COP
+      </a>
     </div>
 
-    <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20para%20mi%20negocio" class="pricing-btn" target="_blank">Contratar ahora</a>
+    <!-- Card 2: Florines Arubanos (AWG) - 8 AWG (~15.000 COP) -->
+    <div class="pricing-card">
+      <h3>🇦🇼 WABot AWG</h3>
+      <div class="pricing-price">
+        30 <small>AWG</small>
+      </div>
+      <p>pa profesional / luna</p>
+      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
+        ⚡ + 40 AWG<br>configuración único
+      </div>
+      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20AWG" class="pricing-btn" target="_blank">
+        Contratar en AWG
+      </a>
+    </div>
+
+    <!-- Card 3: Dólares Americanos - 4 USD (~15.000 COP) -->
+    <div class="pricing-card">
+      <h3>🇺🇸 WABot USD</h3>
+      <div class="pricing-price">
+        $15 <small>USD</small>
+      </div>
+      <p>per professional / month</p>
+      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
+        ⚡ + $20 USD<br>one-time setup
+      </div>
+      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20USD" class="pricing-btn" target="_blank">
+        Hire in USD
+      </a>
+    </div>
   </div>
 </section>
 
