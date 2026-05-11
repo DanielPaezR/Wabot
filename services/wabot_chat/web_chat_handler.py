@@ -571,7 +571,11 @@ def obtener_contexto_de_negocio(negocio_id):
         fecha_str = fecha.strftime('%Y-%m-%d')
         dia_horario = db.obtener_horarios_por_dia(negocio_id, fecha_str)
         if dia_horario and dia_horario.get('activo'):
-            horarios.append(f"{fecha.strftime('%a %d/%m')}: {dia_horario.get('hora_inicio')} - {dia_horario.get('hora_fin')}")
+            dias_es = {'Mon': 'Lunes', 'Tue': 'Martes', 'Wed': 'Miércoles', 'Thu': 'Jueves', 
+           'Fri': 'Viernes', 'Sat': 'Sábado', 'Sun': 'Domingo'}
+            dia_en = fecha.strftime('%a')
+            dia_es = dias_es.get(dia_en, dia_en)
+            horarios.append(f"{dia_es} {fecha.strftime('%d/%m')}: {dia_horario.get('hora_inicio')} - {dia_horario.get('hora_fin')}")
 
     configuracion = {}
     try:
@@ -1053,6 +1057,8 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         elif paso_actual == 'confirmando_cita':
             opciones_extra = generar_opciones_confirmacion()
         elif paso_actual == 'menu_principal':
+            opciones_extra = generar_opciones_menu_principal()
+        elif paso_actual == 'ia_libre':
             opciones_extra = generar_opciones_menu_principal()
         elif paso_actual == 'solicitando_telefono_inicial':
             opciones_extra = None  # No hay opciones para este paso
