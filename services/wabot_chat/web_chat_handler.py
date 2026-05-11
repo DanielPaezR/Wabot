@@ -720,28 +720,50 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
         return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
 
     prompt_negocio = construir_prompt_negocio(negocio_id)
+    
+    # ✅ NUEVO: Informar a la IA qué datos YA conocemos del cliente
+    datos_cliente_msg = None
+    if nombre_cliente and telefono_cliente:
+        datos_cliente_msg = (
+            f'DATOS DEL CLIENTE (YA LOS TIENES, NO LOS PIDAS): '
+            f'Nombre: "{nombre_cliente}". '
+            f'Teléfono: "{telefono_cliente}". '
+            f'Salúdalo por su nombre "{nombre_cliente}" y NO le pidas ni nombre ni teléfono.'
+        )
+    elif telefono_cliente:
+        datos_cliente_msg = (
+            f'DATOS DEL CLIENTE (YA LOS TIENES, NO LOS PIDAS): '
+            f'Teléfono: "{telefono_cliente}". '
+            f'NO le pidas el teléfono. Si no sabes su nombre, pregúntaselo.'
+        )
+    
     messages = [
         {
             'role': 'system',
             'content': (
-                'Eres un asistente inteligente para agendar citas en un negocio. ' 
-                'Solo puedes usar las herramientas disponibles. Si necesitas agendar, ' 
-                'consultar horarios, cancelar o revisar precios, llama a la herramienta adecuada. ' 
-                'No inventes horarios ni servicios. Si no tienes suficiente información, pide más detalles en español.'
+                'Eres un asistente inteligente para agendar citas en un negocio. '
+                'REGLAS IMPORTANTES: '
+                '1) Si ya conoces el nombre del cliente, salúdalo por su nombre SIEMPRE. '
+                '2) Si ya tienes su teléfono, NO se lo pidas NUNCA. '
+                '3) NO pidas ningún dato que ya conozcas. '
+                '4) Usa las herramientas (tools) para agendar, cancelar, consultar horarios o precios. '
+                '5) NO inventes horarios, profesionales ni servicios. '
+                '6) Si el cliente solo saluda con "hola", "holiwis", etc., responde con un saludo breve y ofrece ayuda. '
+                '7) Sé amable, usa emojis y responde en español.'
             )
         },
         {
             'role': 'system',
             'content': prompt_negocio
-        },
-        {
-            'role': 'system',
-            'content': (
-                'Cuando contestes usa un tono amable y claro. Siempre reemplaza las variables: '
-                '{nombre_cliente}, {profesional_nombre}, {servicio_nombre}, {fecha}, {hora}.'
-            )
         }
     ]
+    
+    # ✅ Agregar datos del cliente como mensaje del sistema (solo si existen)
+    if datos_cliente_msg:
+        messages.append({
+            'role': 'system',
+            'content': datos_cliente_msg
+        })
 
     if historial:
         messages.extend(historial[-10:])
@@ -750,6 +772,8 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
 
     print(f"🔧 [IA] Prompt negocio: {prompt_negocio}")
     print(f"🔧 [IA] Mensaje usuario: {mensaje}")
+    if datos_cliente_msg:
+        print(f"🔧 [IA] Datos cliente conocidos: {datos_cliente_msg}")
     print(f"🔧 [IA] Historial previo (últimos {len(historial[-5:])} mensajes)")
 
     try:
