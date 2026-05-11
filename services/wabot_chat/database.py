@@ -1538,6 +1538,60 @@ def normalizar_hora(hora_str):
         print(f"⚠️ Error normalizando hora '{hora_str}': {e}")
         return hora_str
 
+def verificar_disponibilidad(profesional_id, fecha, hora, duracion_minutos):
+    """
+    Verifica si un profesional está disponible en una fecha y hora específicas.
+    Reemplaza la función inexistente que llama ia_agendar_cita()
+    """
+    from datetime import datetime, timedelta
+    
+    try:
+        # Obtener citas del día
+        citas = obtener_citas_dia(None, profesional_id, fecha)  # None para negocio_id
+        
+        if not citas:
+            return True  # No hay citas, está disponible
+        
+        # Convertir hora a datetime para comparar
+        hora_inicio = datetime.strptime(hora, '%H:%M')
+        hora_fin = hora_inicio + timedelta(minutes=int(duracion_minutos))
+        
+        # Verificar solapamiento con cada cita existente
+        for cita in citas:
+            cita_hora_str = cita.get('hora', '')
+            cita_duracion = cita.get('duracion', 0)
+            cita_estado = cita.get('estado', '')
+            
+            # Ignorar citas canceladas
+            if cita_estado and cita_estado.lower() in ['cancelado', 'cancelada']:
+                continue
+            
+            try:
+                # Normalizar hora de la cita
+                if 'AM' in cita_hora_str or 'PM' in cita_hora_str:
+                    cita_hora_obj = datetime.strptime(cita_hora_str.strip(), '%I:%M %p')
+                    cita_hora_str = cita_hora_obj.strftime('%H:%M')
+                
+                cita_hora = datetime.strptime(cita_hora_str, '%H:%M')
+                cita_fin = cita_hora + timedelta(minutes=int(cita_duracion))
+                
+                # Verificar solapamiento
+                if (hora_inicio.time() < cita_fin.time() and 
+                    hora_fin.time() > cita_hora.time()):
+                    print(f"❌ Conflicto: {hora} solapa con cita {cita_hora_str}")
+                    return False
+                    
+            except Exception as e:
+                print(f"⚠️ Error procesando cita {cita_hora_str}: {e}")
+                continue
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error en verificar_disponibilidad: {e}")
+        # En caso de error, mejor prevenir y decir que NO está disponible
+        return False
+
 
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
     """Agregar nueva cita a la base de datos"""

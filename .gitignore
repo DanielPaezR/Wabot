@@ -36,3 +36,4 @@ Thumbs.db
 
 # Twilio
 twilio_creds.py
+services\wabot_chat\templates\wabot_sales.html

@@ -2965,6 +2965,83 @@ def negocio_configuracion():
                          dias_semana=dias_semana,
                          config_actual=config_actual)
 
+@app.route('/negocio/prompt-ia', methods=['GET', 'POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_prompt_ia():
+    """Panel para editar el prompt personalizado de IA del negocio"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    # Obtener negocio actual
+    negocio = db.obtener_negocio_por_id(negocio_id)
+    if not negocio:
+        flash('Negocio no encontrado', 'error')
+        return redirect(url_for('negocio_dashboard'))
+    
+    # Obtener prompt_ia actual
+    prompt_actual = ''
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT prompt_ia FROM negocios WHERE id = %s', (negocio_id,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            if isinstance(result, dict):
+                prompt_actual = result.get('prompt_ia', '')
+            elif isinstance(result, (list, tuple)):
+                prompt_actual = result[0] if result[0] else ''
+    except Exception as e:
+        print(f"⚠️ Error obteniendo prompt_ia: {e}")
+    
+    # Obtener contexto para mostrar variables disponibles
+    from web_chat_handler import obtener_contexto_de_negocio
+    contexto = obtener_contexto_de_negocio(negocio_id)
+    
+    if request.method == 'POST':
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('negocio_prompt_ia'))
+        
+        nuevo_prompt = request.form.get('prompt_ia', '').strip()
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE negocios SET prompt_ia = %s WHERE id = %s
+            ''', (nuevo_prompt, negocio_id))
+            conn.commit()
+            conn.close()
+            
+            flash('✅ Prompt de IA actualizado exitosamente', 'success')
+        except Exception as e:
+            print(f"❌ Error guardando prompt_ia: {e}")
+            flash('❌ Error al guardar el prompt', 'error')
+        
+        return redirect(url_for('negocio_prompt_ia'))
+    
+    # Variables disponibles para el prompt
+    variables_disponibles = [
+        '{nombre_negocio}',
+        '{profesionales}',
+        '{servicios}',
+        '{direccion}',
+        '{telefono}',
+        '{horarios}',
+        '{nombre_cliente}',
+        '{profesional_nombre}',
+        '{servicio_nombre}',
+        '{fecha}',
+        '{hora}'
+    ]
+    
+    return render_template('negocio/prompt_ia.html',
+                         negocio=negocio,
+                         prompt_actual=prompt_actual,
+                         contexto=contexto,
+                         variables_disponibles=variables_disponibles)
+
 @app.route('/actualizar-cache/<int:negocio_id>')
 def actualizar_cache(negocio_id):
     """Forzar actualización de cache para un negocio"""

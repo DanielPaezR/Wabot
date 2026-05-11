@@ -9,13 +9,28 @@ import database as db
 import json
 import os
 import pytz
+import re
 from dotenv import load_dotenv
 from database import obtener_servicio_personalizado_cliente
 import pywebpush
-import database as db 
+import database as db
 from database import obtener_citas_dia, obtener_horarios_por_dia, obtener_duracion_servicio
 
 load_dotenv()
+
+try:
+    import openai
+except ImportError:
+    openai = None
+    print("⚠️ [IA] openai no está instalado. El agente IA no estará disponible.")
+
+OPENAI_MODEL = os.getenv('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo-0613')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+if openai and OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
+elif openai:
+    print('⚠️ [IA] OPENAI_API_KEY no configurada. El agente IA no estará disponible.')
 
 print(f"🔑 [ENV-CHECK] VAPID_PUBLIC_KEY exists: {bool(os.getenv('VAPID_PUBLIC_KEY'))}")
 print(f"🔑 [ENV-CHECK] VAPID_PRIVATE_KEY exists: {bool(os.getenv('VAPID_PRIVATE_KEY'))}")
@@ -325,6 +340,633 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
         return f"❌ Error al procesar plantilla '{nombre_plantilla}'"
 
 # =============================================================================
+# AGENTE CONVERSACIONAL DE IA - HÍBRIDO CON FLUJO NUMÉRICO
+# =============================================================================
+
+OPENAI_TOOLS = [
+    {
+        "name": "agendar_cita",
+        "description": "Agenda una cita con un profesional, servicio, fecha y hora.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "profesional_nombre": {
+                    "type": "string",
+                    "description": "Nombre del profesional o su especialidad."
+                },
+                "servicio_nombre": {
+                    "type": "string",
+                    "description": "Nombre del servicio que desea el cliente."
+                },
+                "fecha": {
+                    "type": "string",
+                    "description": "Fecha de la cita en formato YYYY-MM-DD, DD/MM/YYYY o expresiones como 'mañana'."
+                },
+                "hora": {
+                    "type": "string",
+                    "description": "Hora en formato HH:MM o 12h, por ejemplo '3:30 PM'."
+                },
+                "cliente_nombre": {
+                    "type": "string",
+                    "description": "Nombre del cliente que agenda la cita."
+                },
+                "cliente_telefono": {
+                    "type": "string",
+                    "description": "Teléfono del cliente de 10 dígitos."
+                }
+            },
+            "required": ["profesional_nombre", "servicio_nombre", "fecha", "hora", "cliente_telefono"]
+        }
+    },
+    {
+        "name": "ver_mis_citas",
+        "description": "Consulta las citas activas del cliente usando su teléfono.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "telefono": {
+                    "type": "string",
+                    "description": "Teléfono de 10 dígitos del cliente."
+                }
+            },
+            "required": ["telefono"]
+        }
+    },
+    {
+        "name": "cancelar_cita",
+        "description": "Cancela una cita existente usando su ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "cita_id": {
+                    "type": "string",
+                    "description": "ID de la cita a cancelar."
+                }
+            },
+            "required": ["cita_id"]
+        }
+    },
+    {
+        "name": "consultar_horarios",
+        "description": "Consulta los horarios disponibles de un profesional en una fecha específica.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "profesional_nombre": {
+                    "type": "string",
+                    "description": "Nombre del profesional."
+                },
+                "fecha": {
+                    "type": "string",
+                    "description": "Fecha en formato YYYY-MM-DD o expresiones como 'mañana'."
+                }
+            },
+            "required": ["profesional_nombre", "fecha"]
+        }
+    },
+    {
+        "name": "consultar_precios",
+        "description": "Consulta el precio de un servicio específico.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "servicio_nombre": {
+                    "type": "string",
+                    "description": "Nombre del servicio."
+                }
+            },
+            "required": ["servicio_nombre"]
+        }
+    }
+]
+
+
+def es_mensaje_numerico(mensaje):
+    return bool(re.fullmatch(r'\d+', mensaje.strip()))
+
+
+def normalizar_fecha_usuario(fecha_text):
+    if not fecha_text or not isinstance(fecha_text, str):
+        return None
+
+    texto = fecha_text.strip().lower()
+    hoy = datetime.now(tz_colombia).date()
+
+    if texto in ['hoy']:
+        return hoy.strftime('%Y-%m-%d')
+    if texto in ['mañana', 'manana']:
+        return (hoy + timedelta(days=1)).strftime('%Y-%m-%d')
+    if texto.startswith('el '):
+        texto = texto[3:]
+
+    dias_semana = {
+        'lunes': 0,
+        'martes': 1,
+        'miercoles': 2,
+        'miércoles': 2,
+        'jueves': 3,
+        'viernes': 4,
+        'sabado': 5,
+        'sábado': 5,
+        'domingo': 6
+    }
+
+    for nombre_dia, valor in dias_semana.items():
+        if nombre_dia in texto:
+            delta = (valor - hoy.weekday() + 7) % 7
+            if delta == 0:
+                delta = 7
+            return (hoy + timedelta(days=delta)).strftime('%Y-%m-%d')
+
+    formatos = ['%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%d/%m', '%d-%m']
+    for fmt in formatos:
+        try:
+            fecha_obj = datetime.strptime(texto, fmt)
+            if '%Y' not in fmt:
+                fecha_obj = fecha_obj.replace(year=hoy.year)
+                if fecha_obj.date() < hoy:
+                    fecha_obj = fecha_obj.replace(year=hoy.year + 1)
+            return fecha_obj.strftime('%Y-%m-%d')
+        except Exception:
+            continue
+
+    return None
+
+
+def normalizar_hora_usuario(hora_text):
+    if not hora_text or not isinstance(hora_text, str):
+        return None
+
+    texto = hora_text.strip().lower().replace('.', ':')
+    texto = re.sub(r'\s+', '', texto)
+
+    if texto.endswith('am') or texto.endswith('pm'):
+        try:
+            return datetime.strptime(texto, '%I:%M%p').strftime('%H:%M')
+        except Exception:
+            try:
+                return datetime.strptime(texto, '%I%p').strftime('%H:%M')
+            except Exception:
+                return None
+
+    if re.fullmatch(r'\d{1,2}:\d{2}', texto):
+        try:
+            return datetime.strptime(texto, '%H:%M').strftime('%H:%M')
+        except Exception:
+            return None
+
+    if re.fullmatch(r'\d{1,2}', texto):
+        hora = int(texto)
+        if 0 <= hora < 24:
+            return f"{hora:02d}:00"
+
+    return None
+
+
+def quitar_caracteres(nombre):
+    if not nombre or not isinstance(nombre, str):
+        return ''
+    return re.sub(r'[^a-z0-9áéíóúüñ]', '', nombre.lower())
+
+
+def buscar_profesional_por_nombre(nombre, profesionales):
+    if not profesionales:
+        return None
+    busqueda = quitar_caracteres(nombre)
+    for profesional in profesionales:
+        if quitar_caracteres(profesional.get('nombre', '')) == busqueda:
+            return profesional
+    for profesional in profesionales:
+        nombre_limpio = quitar_caracteres(profesional.get('nombre', ''))
+        if busqueda in nombre_limpio or nombre_limpio in busqueda:
+            return profesional
+    return profesionales[0]
+
+
+def buscar_servicio_por_nombre(nombre, servicios):
+    if not servicios:
+        return None
+    busqueda = quitar_caracteres(nombre)
+    for servicio in servicios:
+        if quitar_caracteres(servicio.get('nombre', '')) == busqueda:
+            return servicio
+    for servicio in servicios:
+        nombre_limpio = quitar_caracteres(servicio.get('nombre', ''))
+        if busqueda in nombre_limpio or nombre_limpio in busqueda:
+            return servicio
+    return servicios[0]
+
+
+def obtener_contexto_de_negocio(negocio_id):
+    negocio = db.obtener_negocio_por_id(negocio_id) or {}
+    profesionales = db.obtener_profesionales(negocio_id) or []
+    servicios = db.obtener_servicios(negocio_id) or []
+    nombre_profesionales = [p.get('nombre') for p in profesionales if p.get('nombre')]
+    nombre_servicios = [s.get('nombre') for s in servicios if s.get('nombre')]
+
+    horarios = []
+    hoy = datetime.now(tz_colombia).date()
+    for i in range(7):
+        fecha = hoy + timedelta(days=i)
+        fecha_str = fecha.strftime('%Y-%m-%d')
+        dia_horario = db.obtener_horarios_por_dia(negocio_id, fecha_str)
+        if dia_horario and dia_horario.get('activo'):
+            horarios.append(f"{fecha.strftime('%a %d/%m')}: {dia_horario.get('hora_inicio')} - {dia_horario.get('hora_fin')}")
+
+    configuracion = {}
+    try:
+        configuracion = json.loads(negocio.get('configuracion') or '{}')
+    except Exception:
+        configuracion = {}
+
+    return {
+        'negocio': {
+            'nombre': negocio.get('nombre', 'Negocio'),
+            'direccion': negocio.get('direccion', 'Dirección no disponible'),
+            'telefono': negocio.get('telefono_whatsapp', 'No disponible'),
+            'tipo_negocio': negocio.get('tipo_negocio', 'general'),
+            'configuracion': configuracion
+        },
+        'profesionales': nombre_profesionales,
+        'servicios': nombre_servicios,
+        'horarios': horarios
+    }
+
+
+def construir_prompt_negocio(negocio_id):
+    """Construye el prompt del negocio usando su prompt_ia personalizado"""
+    contexto = obtener_contexto_de_negocio(negocio_id)
+    negocio = contexto['negocio']
+    profesionales = contexto['profesionales']
+    servicios = contexto['servicios']
+    horarios = contexto['horarios']
+    
+    # ✅ NUEVO: Obtener prompt_ia personalizado de la BD
+    prompt_personalizado = ''
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT prompt_ia FROM negocios WHERE id = %s', (negocio_id,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            if isinstance(result, dict):
+                prompt_personalizado = result.get('prompt_ia', '')
+            elif isinstance(result, (list, tuple)):
+                prompt_personalizado = result[0] if result[0] else ''
+    except Exception as e:
+        print(f"⚠️ [IA] No se pudo obtener prompt_ia personalizado: {e}")
+    
+    # Si hay prompt personalizado, usarlo como base
+    if prompt_personalizado and prompt_personalizado.strip():
+        # Reemplazar variables en el prompt personalizado
+        prompt = prompt_personalizado
+        prompt = prompt.replace('{nombre_negocio}', negocio.get('nombre', 'Negocio'))
+        prompt = prompt.replace('{profesionales}', ', '.join(profesionales) if profesionales else 'No hay profesionales')
+        prompt = prompt.replace('{servicios}', ', '.join(servicios) if servicios else 'No hay servicios')
+        prompt = prompt.replace('{direccion}', negocio.get('direccion', 'No disponible'))
+        prompt = prompt.replace('{telefono}', negocio.get('telefono', 'No disponible'))
+        
+        # Agregar horarios si el prompt no los incluye
+        if '{horarios}' in prompt and horarios:
+            prompt = prompt.replace('{horarios}', ', '.join(horarios))
+        elif horarios:
+            prompt += f"\nHorarios: {', '.join(horarios)}"
+        
+        return prompt
+    
+    # Si no hay prompt personalizado, usar el genérico
+    prompt = (
+        f"Negocio: {negocio['nombre']}. "
+        f"Dirección: {negocio['direccion']}. "
+        f"Teléfono de contacto: {negocio['telefono']}. "
+        f"Tipo de negocio: {negocio['tipo_negocio']}. "
+        f"Profesionales disponibles: {', '.join(profesionales) if profesionales else 'No hay profesionales registrados'}. "
+        f"Servicios disponibles: {', '.join(servicios) if servicios else 'No hay servicios registrados'}. "
+    )
+    
+    if horarios:
+        prompt += f"Horarios próximos: {', '.join(horarios)}. "
+    
+    return prompt
+
+
+def format_ia_template(template, variables):
+    texto = template
+    for key, valor in variables.items():
+        texto = texto.replace(f"{{{key}}}", str(valor or ''))
+    return texto
+
+
+def es_mensaje_despedida(mensaje):
+    if not mensaje or not isinstance(mensaje, str):
+        return False
+    return bool(re.search(r'\b(gracias|gracias\.|gracias!|gracias\,|chao|adiós|adios|hasta luego|hasta pronto|nos vemos|bye)\b', mensaje.lower()))
+
+
+def finalizar_conversacion(numero, negocio_id, mensaje):
+    clave_conversacion = f"{numero}_{negocio_id}"
+    if clave_conversacion in conversaciones_activas:
+        del conversaciones_activas[clave_conversacion]
+    print(f"🔧 [CHAT WEB] Finalizando conversación para {clave_conversacion} debido a despedida: {mensaje}")
+    return '¡Gracias por escribir! Si necesitas una nueva cita, escríbeme nuevamente o selecciona una opción cuando regreses.'
+
+
+def buscar_profesional_por_nombre_estricto(nombre, profesionales):
+    if not nombre or not profesionales:
+        return None
+    busqueda = quitar_caracteres(nombre)
+    for profesional in profesionales:
+        if quitar_caracteres(profesional.get('nombre', '')) == busqueda:
+            return profesional
+    for profesional in profesionales:
+        nombre_limpio = quitar_caracteres(profesional.get('nombre', ''))
+        if busqueda in nombre_limpio or nombre_limpio in busqueda:
+            return profesional
+    return None
+
+
+def buscar_servicio_por_nombre_estricto(nombre, servicios):
+    if not nombre or not servicios:
+        return None
+    busqueda = quitar_caracteres(nombre)
+    for servicio in servicios:
+        if quitar_caracteres(servicio.get('nombre', '')) == busqueda:
+            return servicio
+    for servicio in servicios:
+        nombre_limpio = quitar_caracteres(servicio.get('nombre', ''))
+        if busqueda in nombre_limpio or nombre_limpio in busqueda:
+            return servicio
+    return None
+
+
+def guardar_historial_ia(clave_conversacion, role, contenido):
+    if clave_conversacion not in conversaciones_activas:
+        conversaciones_activas[clave_conversacion] = {
+            'estado': 'ia_libre',
+            'timestamp': datetime.now(tz_colombia),
+            'historial': []
+        }
+    conversaciones_activas[clave_conversacion].setdefault('historial', []).append({
+        'role': role,
+        'content': contenido
+    })
+
+
+def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente):
+    if not openai or not OPENAI_API_KEY:
+        return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
+
+    prompt_negocio = construir_prompt_negocio(negocio_id)
+    messages = [
+        {
+            'role': 'system',
+            'content': (
+                'Eres un asistente inteligente para agendar citas en un negocio. ' 
+                'Solo puedes usar las herramientas disponibles. Si necesitas agendar, ' 
+                'consultar horarios, cancelar o revisar precios, llama a la herramienta adecuada. ' 
+                'No inventes horarios ni servicios. Si no tienes suficiente información, pide más detalles en español.'
+            )
+        },
+        {
+            'role': 'system',
+            'content': prompt_negocio
+        },
+        {
+            'role': 'system',
+            'content': (
+                'Cuando contestes usa un tono amable y claro. Siempre reemplaza las variables: '
+                '{nombre_cliente}, {profesional_nombre}, {servicio_nombre}, {fecha}, {hora}.'
+            )
+        }
+    ]
+
+    if historial:
+        messages.extend(historial[-10:])
+
+    messages.append({'role': 'user', 'content': mensaje})
+
+    print(f"🔧 [IA] Prompt negocio: {prompt_negocio}")
+    print(f"🔧 [IA] Mensaje usuario: {mensaje}")
+    print(f"🔧 [IA] Historial previo (últimos {len(historial[-5:])} mensajes)")
+
+    try:
+        respuesta_openai = openai.ChatCompletion.create(
+            model=OPENAI_MODEL,
+            messages=messages,
+            functions=OPENAI_TOOLS,
+            function_call='auto',
+            temperature=0.2,
+            max_tokens=600
+        )
+
+        choice = respuesta_openai['choices'][0]
+        message = choice['message']
+
+        print(f"🔧 [IA] Respuesta raw: {json.dumps(choice, ensure_ascii=False)[:2000]}")
+
+        if message.get('function_call'):
+            funcion = message['function_call']
+            nombre_funcion = funcion.get('name')
+            argumentos_texto = funcion.get('arguments', '{}')
+            try:
+                argumentos = json.loads(argumentos_texto)
+            except Exception as e:
+                print(f"❌ [IA] Error parseando argumentos de función: {e}")
+                argumentos = {}
+
+            print(f"🔧 [IA] Función solicitada: {nombre_funcion} - args: {argumentos}")
+            return ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente, nombre_cliente)
+
+        if message.get('content'):
+            print(f"🔧 [IA] Respuesta de contenido directo: {message.get('content')}")
+            return message['content']
+
+        return 'Lo siento, no pude procesar tu petición. Por favor intenta con una frase más clara o usa el menú numérico.'
+
+    except Exception as e:
+        print(f"❌ [IA] Error en OpenAI: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return '⚠️ Ocurrió un problema con el asistente inteligente. Por favor inténtalo usando el menú numérico.'
+
+
+def ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente, nombre_cliente):
+    print(f"🔧 [IA] Ejecutando función: {nombre_funcion} con argumentos: {argumentos}")
+    if nombre_funcion == 'agendar_cita':
+        return ia_agendar_cita(argumentos, negocio_id, telefono_cliente, nombre_cliente)
+    if nombre_funcion == 'ver_mis_citas':
+        return ia_ver_mis_citas(argumentos, negocio_id, telefono_cliente)
+    if nombre_funcion == 'cancelar_cita':
+        return ia_cancelar_cita(argumentos, negocio_id, telefono_cliente)
+    if nombre_funcion == 'consultar_horarios':
+        return ia_consultar_horarios(argumentos, negocio_id)
+    if nombre_funcion == 'consultar_precios':
+        return ia_consultar_precios(argumentos, negocio_id)
+    return 'La herramienta solicitada no está disponible. Por favor usa el menú numérico.'
+
+
+def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
+    profesional_nombre = arguments.get('profesional_nombre', '').strip()
+    servicio_nombre = arguments.get('servicio_nombre', '').strip()
+    fecha_raw = arguments.get('fecha', '').strip()
+    hora_raw = arguments.get('hora', '').strip()
+    cliente_nombre = arguments.get('cliente_nombre', '') or nombre_cliente or 'Cliente'
+    cliente_telefono = arguments.get('cliente_telefono', '') or telefono_cliente
+
+    print(f"🔍 [IA] ia_agendar_cita recibir: profesional={profesional_nombre}, servicio={servicio_nombre}, fecha={fecha_raw}, hora={hora_raw}, telefono={cliente_telefono}, nombre={cliente_nombre}")
+
+    if not cliente_telefono or not cliente_telefono.isdigit() or len(cliente_telefono) != 10:
+        return 'Necesito un teléfono válido de 10 dígitos para agendar la cita.'
+
+    profesionales = db.obtener_profesionales(negocio_id)
+    servicios = db.obtener_servicios(negocio_id)
+    profesional = buscar_profesional_por_nombre_estricto(profesional_nombre, profesionales)
+    servicio = buscar_servicio_por_nombre_estricto(servicio_nombre, servicios)
+
+    if not profesional:
+        opciones = ', '.join([p.get('nombre', '') for p in profesionales[:5]])
+        return f'No encontré un profesional con ese nombre. Los profesionales disponibles son: {opciones}. Por favor, dime con quién deseas agendar.'
+    if not servicio:
+        opciones = ', '.join([s.get('nombre', '') for s in servicios[:5]])
+        return f'No encontré un servicio con ese nombre. Los servicios disponibles son: {opciones}. Por favor, dime cuál deseas.'
+
+    fecha = normalizar_fecha_usuario(fecha_raw)
+    hora = normalizar_hora_usuario(hora_raw)
+
+    if not fecha:
+        return 'No pude reconocer la fecha. Por favor escribe una fecha válida como 2024-12-31, 31/12/2024 o mañana.'
+    if not hora:
+        return 'No pude reconocer la hora. Por favor escribe una hora válida como 15:00 o 3:00 PM.'
+
+    duracion = db.obtener_duracion_servicio(negocio_id, servicio.get('id'))
+    if not duracion:
+        duracion = servicio.get('duracion', 0)
+
+    print(f"🔍 [IA] Verificando disponibilidad para {profesional.get('nombre')} el {fecha} a las {hora} (duración {duracion})")
+    if not db.verificar_disponibilidad(profesional.get('id'), fecha, hora, duracion):
+        return f'Lo siento, {profesional.get("nombre")} no tiene disponibilidad en {fecha} a las {hora}. Por favor elige otra hora o un día diferente.'
+
+    cita_id = db.agregar_cita(negocio_id, profesional.get('id'), cliente_telefono, fecha, hora, servicio.get('id'), cliente_nombre)
+    if cita_id:
+        return format_ia_template(
+            '✅ ¡Perfecto {nombre_cliente}! Tu cita con {profesional_nombre} para el servicio {servicio_nombre} ha quedado agendada el {fecha} a las {hora}. Tu ID de cita es #{cita_id}.',
+            {
+                'nombre_cliente': cliente_nombre,
+                'profesional_nombre': profesional.get('nombre'),
+                'servicio_nombre': servicio.get('nombre'),
+                'fecha': fecha,
+                'hora': hora,
+                'cita_id': cita_id
+            }
+        )
+
+    return 'Lo siento, no pude agendar tu cita. Por favor intenta de nuevo con información clara o usa el menú numérico.'
+
+
+def ia_ver_mis_citas(arguments, negocio_id, telefono_cliente):
+    telefono = arguments.get('telefono', '') or telefono_cliente
+    print(f"🔍 [IA] ia_ver_mis_citas - teléfono: {telefono}")
+    if not telefono or not telefono.isdigit() or len(telefono) != 10:
+        return 'Necesito un teléfono válido de 10 dígitos para consultar tus citas.'
+    return mostrar_mis_citas(telefono, negocio_id)
+
+
+def ia_cancelar_cita(arguments, negocio_id, telefono_cliente):
+    cita_id = str(arguments.get('cita_id', '')).strip()
+    print(f"🔍 [IA] ia_cancelar_cita - cita_id: {cita_id}, telefono_cliente: {telefono_cliente}")
+    if not cita_id.isdigit():
+        return 'Necesito un ID de cita válido para cancelar la reserva.'
+    return procesar_cancelacion_directa(telefono_cliente or cita_id, cita_id, negocio_id)
+
+
+def ia_consultar_horarios(arguments, negocio_id):
+    profesional_nombre = arguments.get('profesional_nombre', '').strip()
+    fecha_raw = arguments.get('fecha', '').strip()
+    print(f"🔍 [IA] ia_consultar_horarios - profesional: {profesional_nombre}, fecha: {fecha_raw}")
+    if not profesional_nombre or not fecha_raw:
+        return 'Necesito el nombre del profesional y la fecha para consultar horarios disponibles.'
+
+    profesional = buscar_profesional_por_nombre_estricto(profesional_nombre, db.obtener_profesionales(negocio_id))
+    fecha = normalizar_fecha_usuario(fecha_raw)
+    if not fecha:
+        return 'No pude reconocer la fecha. Usa un formato como 2024-12-31, 31/12/2024 o mañana.'
+    if not profesional:
+        opciones = ', '.join([p.get('nombre', '') for p in db.obtener_profesionales(negocio_id)[:5]])
+        return f'No pude encontrar ese profesional. Los profesionales disponibles son: {opciones}. Por favor prueba con otro nombre.'
+
+    horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
+    if not horarios_dia or not horarios_dia.get('activo'):
+        return f'El negocio no está activo el {fecha} o no hay horarios disponibles ese día.'
+
+    citas = db.obtener_citas_dia(negocio_id, profesional.get('id'), fecha)
+    horarios_disponibles = []
+    try:
+        inicio = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
+        fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
+        hora_actual = inicio
+        while hora_actual < fin:
+            hora_str = hora_actual.strftime('%H:%M')
+            if not any(cita.get('hora') == hora_str for cita in citas):
+                horarios_disponibles.append(hora_str)
+            hora_actual += timedelta(minutes=30)
+    except Exception as e:
+        print(f"⚠️ [IA] Error generando horarios disponibles: {e}")
+
+    if not horarios_disponibles:
+        return f'No encontré horarios disponibles para {profesional.get("nombre")} el {fecha}.'
+
+    return (f'Horarios disponibles para {profesional.get("nombre")} el {fecha}: ' 
+            f'{", ".join(horarios_disponibles[:8])}.')
+
+
+def ia_consultar_precios(arguments, negocio_id):
+    servicio_nombre = arguments.get('servicio_nombre', '').strip()
+    print(f"🔍 [IA] ia_consultar_precios - servicio: {servicio_nombre}")
+    if not servicio_nombre:
+        return 'Necesito el nombre del servicio para consultar el precio.'
+
+    servicio = buscar_servicio_por_nombre_estricto(servicio_nombre, db.obtener_servicios(negocio_id))
+    if not servicio:
+        opciones = ', '.join([s.get('nombre', '') for s in db.obtener_servicios(negocio_id)[:5]])
+        return f'No pude encontrar ese servicio. Los servicios disponibles son: {opciones}. Por favor prueba con otro nombre.'
+
+    precio = servicio.get('precio')
+    duracion = servicio.get('duracion')
+    return format_ia_template(
+        'El servicio {servicio_nombre} tiene un precio de {precio} y una duración aproximada de {duracion} minutos.',
+        {
+            'servicio_nombre': servicio.get('nombre'),
+            'precio': precio,
+            'duracion': duracion
+        }
+    )
+
+
+def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
+    clave_conversacion = f"{numero}_{negocio_id}"
+    telefono_cliente = None
+    nombre_cliente = None
+
+    if session is not None and hasattr(session, 'get'):
+        telefono_cliente = session.get('cliente_telefono')
+        nombre_cliente = session.get('cliente_nombre')
+
+    if not telefono_cliente:
+        telefono_cliente = flask_session.get('cliente_telefono')
+    if not nombre_cliente:
+        nombre_cliente = flask_session.get('cliente_nombre')
+
+    guardar_historial_ia(clave_conversacion, 'user', mensaje)
+    historial = conversaciones_activas.get(clave_conversacion, {}).get('historial', [])
+    respuesta = procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
+    guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
+    conversaciones_activas[clave_conversacion]['estado'] = 'ia_libre'
+    return respuesta
+
+# =============================================================================
 # FUNCIÓN PRINCIPAL PARA PROCESAR MENSAJES DEL CHAT WEB - MODIFICADA
 # =============================================================================
 
@@ -355,8 +997,8 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         # Usar session_id como identificador único (similar al número de teléfono)
         numero = session_id  # Para mantener compatibilidad con funciones existentes
         
-        # Procesar mensaje usando la lógica existente
-        respuesta_texto = procesar_mensaje(user_message, numero, negocio_id)
+        # Procesar mensaje usando la lógica existente o IA híbrida
+        respuesta_texto = procesar_mensaje(user_message, numero, negocio_id, session)
         
         # Obtener el paso actual para la respuesta
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -419,7 +1061,7 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
 # LÓGICA PRINCIPAL DE MENSAJES (MODIFICADA PARA NUEVO FLUJO)
 # =============================================================================
 
-def procesar_mensaje(mensaje, numero, negocio_id):
+def procesar_mensaje(mensaje, numero, negocio_id, session=None):
     """Procesar mensajes usando el sistema de plantillas - CON NUEVO FLUJO"""
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
@@ -427,6 +1069,9 @@ def procesar_mensaje(mensaje, numero, negocio_id):
     print(f"🔧 [DEBUG] PROCESANDO MENSAJE: '{mensaje}' de {numero}")
     print(f"🔧 [DEBUG] Clave conversación: {clave_conversacion}")
     print(f"🔧 [DEBUG] Conversación activa: {clave_conversacion in conversaciones_activas}")
+
+    if es_mensaje_despedida(mensaje):
+        return finalizar_conversacion(numero, negocio_id, mensaje)
     
     # Comando especial para volver al menú principal
     if mensaje == '0':
@@ -456,8 +1101,17 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         if estado == 'menu_principal' and mensaje in ['1', '2', '3', '4']:
             print(f"🔧 [DEBUG] Opción de menú seleccionada: {mensaje}")
             return procesar_opcion_menu(numero, mensaje, negocio_id)
-        
-        return continuar_conversacion(numero, mensaje, negocio_id)
+
+        # Mantener flujo actual en pasos que esperan teléfono o nombre
+        if estado in ['solicitando_telefono_inicial', 'solicitando_nombre']:
+            return continuar_conversacion(numero, mensaje, negocio_id)
+
+        # Si el mensaje es numérico, usar el flujo tradicional
+        if es_mensaje_numerico(mensaje):
+            return continuar_conversacion(numero, mensaje, negocio_id)
+
+        print(f"🔧 [IA] Mensaje libre detectado en estado {estado}. Enviando a IA...")
+        return procesar_mensaje_con_ia(mensaje, numero, negocio_id, session)
     
     print(f"🔧 [DEBUG] No hay conversación activa - Procesando mensaje inicial")
     
@@ -471,6 +1125,11 @@ def procesar_mensaje(mensaje, numero, negocio_id):
         print(f"🔧 [DEBUG] Opción de menú seleccionada directamente: {mensaje}")
         # Primero pedir teléfono
         return saludo_inicial(numero, negocio_id)
+
+    # Si el mensaje es libre, intentar con IA antes de mostrar el menú
+    if not es_mensaje_numerico(mensaje):
+        print(f"🔧 [IA] Mensaje libre inicial detectado. Enviando a IA...")
+        return procesar_mensaje_con_ia(mensaje, numero, negocio_id, session)
     
     # Mensaje no reconocido - mostrar saludo inicial
     print(f"🔧 [DEBUG] Mensaje no reconocido - Mostrando saludo inicial")
