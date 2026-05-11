@@ -10,4 +10,4 @@ pytz==2024.1
 Pillow>=10.0.0
 pywebpush==2.1.2
 cloudinary==1.36.0
-openai==1.30.0
+openai==0.28.1
