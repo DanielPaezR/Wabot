@@ -875,36 +875,88 @@
                 return;
             }
             
-            // Verificar si ya está suscrito
-            if ('serviceWorker' in navigator) {
+            // Verificar soporte
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                toast('❌ Tu navegador no soporta notificaciones', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnNotificaciones');
+            btn.disabled = true;
+            btn.textContent = '⏳';
+            
+            try {
+                // 1. Verificar si ya está suscrito
                 const registration = await navigator.serviceWorker.ready;
                 const existingSubscription = await registration.pushManager.getSubscription();
                 
                 if (existingSubscription) {
-                    // Ya está suscrito
-                    document.getElementById('btnNotificaciones').textContent = '🔔✓';
-                    document.getElementById('btnNotificaciones').style.background = '#d1fae5';
+                    btn.textContent = '🔔✓';
+                    btn.style.background = '#d1fae5';
+                    btn.disabled = false;
                     localStorage.setItem('notificaciones_activadas', 'true');
                     toast('✅ Ya tienes notificaciones activadas');
                     return;
                 }
-            }
-            
-            // Usar el mismo método que push-simple.js del profesional
-            if (window.PushNotifications) {
-                const push = new window.PushNotifications();
-                const ok = await push.suscribirCliente(telefono, parseInt(negocioId));
                 
-                if (ok) {
-                    toast('✅ Notificaciones activadas');
-                    document.getElementById('btnNotificaciones').textContent = '🔔✓';
-                    document.getElementById('btnNotificaciones').style.background = '#d1fae5';
-                    localStorage.setItem('notificaciones_activadas', 'true');
-                } else {
-                    toast('❌ No se pudo activar. Intenta de nuevo.', 'error');
+                // 2. Pedir permiso
+                const permiso = await Notification.requestPermission();
+                if (permiso !== 'granted') {
+                    toast('❌ Debes permitir notificaciones', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔔';
+                    return;
                 }
-            } else {
-                toast('❌ No disponible en este navegador', 'error');
+                
+                // 3. Obtener clave VAPID del servidor
+                const vapidResponse = await fetch('/api/push/public-key');
+                const vapidData = await vapidResponse.json();
+                
+                if (!vapidData.success) {
+                    toast('❌ Error de configuración', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔔';
+                    return;
+                }
+                
+                // 4. Suscribirse a push
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
+                });
+                
+                console.log('✅ Suscripción creada');
+                
+                // 5. Guardar en BD
+                const response = await fetch('/api/push/subscribe-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscription: subscription,
+                        telefono: telefono,
+                        negocio_id: parseInt(negocioId)
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('📥 Respuesta:', data);
+                
+                if (data.success) {
+                    btn.textContent = '🔔✓';
+                    btn.style.background = '#d1fae5';
+                    localStorage.setItem('notificaciones_activadas', 'true');
+                    toast('✅ Notificaciones activadas');
+                } else {
+                    toast('❌ Error al guardar', 'error');
+                    btn.textContent = '🔔';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                toast('❌ Error: ' + error.message, 'error');
+                btn.textContent = '🔔';
+            } finally {
+                btn.disabled = false;
             }
         }
 
