@@ -346,7 +346,7 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
 OPENAI_TOOLS = [
     {
         "name": "agendar_cita",
-        "description": "Agenda una cita con un profesional, servicio, fecha y hora.",
+        "description":"Agenda una cita SOLO después de que el cliente haya confirmado explícitamente. Antes de llamar a esta función, usa 'confirmar_agendamiento' para mostrar el resumen y pedir confirmación.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -422,6 +422,36 @@ OPENAI_TOOLS = [
                 }
             },
             "required": ["profesional_nombre", "fecha"]
+        }
+    },
+    {
+        "name": "confirmar_agendamiento",
+        "description": "Muestra un resumen de la cita y pide confirmación antes de agendar. Usar cuando ya tienes todos los datos (profesional, servicio, fecha, hora, cliente).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "profesional_nombre": {
+                    "type": "string",
+                    "description": "Nombre del profesional seleccionado"
+                },
+                "servicio_nombre": {
+                    "type": "string",
+                    "description": "Nombre del servicio seleccionado"
+                },
+                "fecha": {
+                    "type": "string",
+                    "description": "Fecha de la cita en formato YYYY-MM-DD"
+                },
+                "hora": {
+                    "type": "string",
+                    "description": "Hora de la cita en formato HH:MM"
+                },
+                "precio": {
+                    "type": "number",
+                    "description": "Precio del servicio"
+                }
+            },
+            "required": ["profesional_nombre", "servicio_nombre", "fecha", "hora"]
         }
     },
     {
@@ -757,6 +787,9 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
             '8) ⚠️ IMPORTANTE: NUNCA muestres listas numeradas de servicios, profesionales ni horarios. '
             'El sistema ya muestra botones con esas opciones. Solo di: "Elige una opción de los botones de abajo ⬇️" '
             '9) Cuando el cliente quiera agendar, llama a la herramienta agendar_cita con los datos que tengas.'
+            '10) ⚠️ FLUJO DE AGENDAMIENTO: Cuando tengas todos los datos (profesional, servicio, fecha, hora), '
+                'NUNCA llames directamente a agendar_cita. Primero llama a confirmar_agendamiento para mostrar '
+                'el resumen y pedir confirmación. Solo si el cliente responde "sí" o "1", llama a agendar_cita.'
         )
     },
         {
@@ -858,7 +891,52 @@ def ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente
     if nombre_funcion == 'consultar_precios':
         return ia_consultar_precios(argumentos, negocio_id)
     
+    if nombre_funcion == 'confirmar_agendamiento':
+        return ia_confirmar_agendamiento(argumentos, negocio_id, telefono_cliente, nombre_cliente)
+    
     return 'La herramienta solicitada no está disponible. Por favor usa el menú numérico.'
+
+def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cliente):
+    """Muestra resumen de la cita y pide confirmación antes de agendar"""
+    profesional_nombre = arguments.get('profesional_nombre', '').strip()
+    servicio_nombre = arguments.get('servicio_nombre', '').strip()
+    fecha = arguments.get('fecha', '').strip()
+    hora = arguments.get('hora', '').strip()
+    precio = arguments.get('precio', 0)
+    
+    # Guardar datos temporalmente para cuando confirme
+    clave_conversacion = f"{telefono_cliente}_{negocio_id}"
+    if clave_conversacion in conversaciones_activas:
+        conversaciones_activas[clave_conversacion]['pending_agendamiento'] = {
+            'profesional_nombre': profesional_nombre,
+            'servicio_nombre': servicio_nombre,
+            'fecha': fecha,
+            'hora': hora,
+            'precio': precio
+        }
+        conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
+    
+    # Formatear fecha
+    try:
+        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+        fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+    except:
+        fecha_formateada = fecha
+    
+    mensaje = (
+        f"📋 *RESUMEN DE TU CITA*\n\n"
+        f"👤 Cliente: {nombre_cliente or 'Cliente'}\n"
+        f"👨‍💼 Profesional: {profesional_nombre}\n"
+        f"💼 Servicio: {servicio_nombre}\n"
+        f"💰 Precio: ${precio:,.0f}\n" if precio else ""
+        f"📅 Fecha: {fecha_formateada}\n"
+        f"⏰ Hora: {hora}\n\n"
+        f"¿Confirmas esta cita?\n"
+        f"1️⃣ - ✅ Sí, confirmar\n"
+        f"2️⃣ - ❌ No, cancelar"
+    )
+    
+    return mensaje
 
 
 def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
@@ -904,17 +982,17 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
 
     cita_id = db.agregar_cita(negocio_id, profesional.get('id'), cliente_telefono, fecha, hora, servicio.get('id'), cliente_nombre)
     if cita_id:
-        return format_ia_template(
-            '✅ ¡Perfecto {nombre_cliente}! Tu cita con {profesional_nombre} para el servicio {servicio_nombre} ha quedado agendada el {fecha} a las {hora}. Tu ID de cita es #{cita_id}.',
-            {
-                'nombre_cliente': cliente_nombre,
-                'profesional_nombre': profesional.get('nombre'),
-                'servicio_nombre': servicio.get('nombre'),
-                'fecha': fecha,
-                'hora': hora,
-                'cita_id': cita_id
-            }
+        mensaje_confirmacion = (
+            f"✅ ¡Perfecto {cliente_nombre}!\n\n"
+            f"Tu cita ha sido agendada exitosamente:\n\n"
+            f"👨‍💼 Profesional: {profesional.get('nombre')}\n"
+            f"💼 Servicio: {servicio.get('nombre')}\n"
+            f"📅 Fecha: {fecha}\n"
+            f"⏰ Hora: {hora}\n"
+            f"🎫 ID de cita: #{cita_id}\n\n"
+            f"¡Te esperamos!"
         )
+        return mensaje_confirmacion
 
     return 'Lo siento, no pude agendar tu cita. Por favor intenta de nuevo con información clara o usa el menú numérico.'
 
