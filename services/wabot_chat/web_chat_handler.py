@@ -743,19 +743,22 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
     
     messages = [
         {
-            'role': 'system',
-            'content': (
-                'Eres un asistente inteligente para agendar citas en un negocio. '
-                'REGLAS IMPORTANTES: '
-                '1) Si ya conoces el nombre del cliente, salúdalo por su nombre SIEMPRE. '
-                '2) Si ya tienes su teléfono, NO se lo pidas NUNCA. '
-                '3) NO pidas ningún dato que ya conozcas. '
-                '4) Usa las herramientas (tools) para agendar, cancelar, consultar horarios o precios. '
-                '5) NO inventes horarios, profesionales ni servicios. '
-                '6) Si el cliente solo saluda con "hola", "holiwis", etc., responde con un saludo breve y ofrece ayuda. '
-                '7) Sé amable, usa emojis y responde en español.'
-            )
-        },
+        'role': 'system',
+        'content': (
+            'Eres un asistente inteligente para agendar citas en un negocio. '
+            'REGLAS IMPORTANTES: '
+            '1) Si ya conoces el nombre del cliente, salúdalo por su nombre SIEMPRE. '
+            '2) Si ya tienes su teléfono, NO se lo pidas NUNCA. '
+            '3) NO pidas ningún dato que ya conozcas. '
+            '4) Usa las herramientas (tools) para agendar, cancelar, consultar horarios o precios. '
+            '5) NO inventes horarios, profesionales ni servicios. '
+            '6) Si el cliente solo saluda, responde con un saludo breve y ofrece ayuda. '
+            '7) Sé amable, usa emojis y responde en español. '
+            '8) ⚠️ IMPORTANTE: NUNCA muestres listas numeradas de servicios, profesionales ni horarios. '
+            'El sistema ya muestra botones con esas opciones. Solo di: "Elige una opción de los botones de abajo ⬇️" '
+            '9) Cuando el cliente quiera agendar, llama a la herramienta agendar_cita con los datos que tengas.'
+        )
+    },
         {
             'role': 'system',
             'content': prompt_negocio
@@ -823,16 +826,38 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
 
 def ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente, nombre_cliente):
     print(f"🔧 [IA] Ejecutando función: {nombre_funcion} con argumentos: {argumentos}")
+    
+    # ✅ Buscar o crear clave de conversación
+    clave_conversacion = f"{telefono_cliente}_{negocio_id}"
+    if not telefono_cliente:
+        # Si no hay teléfono, buscar por session_id
+        from flask import session
+        session_id = session.get('chat_session_id', 'unknown')
+        # Intentar encontrar la clave correcta
+        for key in conversaciones_activas:
+            if key.endswith(f"_{negocio_id}"):
+                clave_conversacion = key
+                break
+    
     if nombre_funcion == 'agendar_cita':
+        # ✅ Cambiar estado a seleccionando_fecha para mostrar botones correctos
+        if clave_conversacion in conversaciones_activas:
+            # Si la IA logró agendar, mostrar confirmación
+            pass
         return ia_agendar_cita(argumentos, negocio_id, telefono_cliente, nombre_cliente)
+    
     if nombre_funcion == 'ver_mis_citas':
         return ia_ver_mis_citas(argumentos, negocio_id, telefono_cliente)
+    
     if nombre_funcion == 'cancelar_cita':
         return ia_cancelar_cita(argumentos, negocio_id, telefono_cliente)
+    
     if nombre_funcion == 'consultar_horarios':
         return ia_consultar_horarios(argumentos, negocio_id)
+    
     if nombre_funcion == 'consultar_precios':
         return ia_consultar_precios(argumentos, negocio_id)
+    
     return 'La herramienta solicitada no está disponible. Por favor usa el menú numérico.'
 
 
@@ -991,7 +1016,47 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
     historial = conversaciones_activas.get(clave_conversacion, {}).get('historial', [])
     respuesta = procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
-    conversaciones_activas[clave_conversacion]['estado'] = 'ia_libre'
+    
+    # ✅ NUEVO: Detectar si la respuesta contiene una lista de servicios/profesionales
+    # para cambiar el estado y mostrar los botones correctos
+    if 'profesionales disponibles son:' in respuesta.lower() or \
+       'profesionales:' in respuesta.lower():
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_profesional'
+        # Obtener profesionales para los botones
+        profesionales = db.obtener_profesionales(negocio_id)
+        conversaciones_activas[clave_conversacion]['profesionales'] = profesionales
+        print(f"🔧 [IA] Detectada lista de profesionales, cambiando estado")
+        
+    elif 'servicios disponibles son:' in respuesta.lower() or \
+         'servicio' in respuesta.lower() and ('1.' in respuesta or '2.' in respuesta or 'opciones' in respuesta.lower()):
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
+        # Obtener servicios para los botones
+        servicios = db.obtener_servicios(negocio_id)
+        conversaciones_activas[clave_conversacion]['servicios'] = servicios
+        print(f"🔧 [IA] Detectada lista de servicios, cambiando estado")
+        
+    elif 'horarios disponibles' in respuesta.lower() or \
+         'horario' in respuesta.lower() and ':' in respuesta:
+        conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
+        print(f"🔧 [IA] Detectados horarios, cambiando estado")
+        
+    elif 'confirmar' in respuesta.lower() or 'confirmas' in respuesta.lower():
+        conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
+        print(f"🔧 [IA] Detectada confirmación, cambiando estado")
+        
+    elif 'cancelada' in respuesta.lower() or 'cancelado' in respuesta.lower():
+        conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        print(f"🔧 [IA] Detectada cancelación, volviendo a menú")
+        
+    elif 'agendada' in respuesta.lower() or 'cita confirmada' in respuesta.lower() or \
+         '✅' in respuesta and 'cita' in respuesta.lower():
+        conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+        print(f"🔧 [IA] Cita agendada, volviendo a menú")
+        
+    else:
+        # Si no detectamos nada específico, mantener menú principal
+        conversaciones_activas[clave_conversacion]['estado'] = 'ia_libre'
+    
     return respuesta
 
 # =============================================================================
@@ -1064,11 +1129,22 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
             opciones_extra = None  # No hay opciones para este paso
         elif paso_actual == 'solicitando_nombre':
             opciones_extra = None  # No hay opciones para este paso
-        elif paso_actual == 'seleccionando_servicio_personalizado':  # ✅ NUEVO CASO
+        elif paso_actual == 'seleccionando_servicio_personalizado':
             opciones_extra = [
                 {'value': '1', 'text': 'Seleccionar mi servicio personalizado'},
                 {'value': '2', 'text': 'Ver todos los servicios'}
             ]
+
+        elif paso_actual == 'seleccionando_profesional':
+            opciones_extra = generar_opciones_profesionales(numero, negocio_id)
+        elif paso_actual == 'seleccionando_servicio':
+            opciones_extra = generar_opciones_servicios(numero, negocio_id)
+        elif paso_actual == 'agendando_hora':
+            opciones_extra = generar_opciones_horarios(numero, negocio_id)
+        elif paso_actual == 'confirmando_cita':
+            opciones_extra = generar_opciones_confirmacion()
+        elif paso_actual == 'ia_libre':
+            opciones_extra = generar_opciones_menu_principal()
 
         if opciones_extra:
             respuesta['options'] = opciones_extra
@@ -2710,6 +2786,25 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         elif estado == 'solicitando_telefono':
             # Para confirmar cita (backup)
             return procesar_confirmacion_cita(numero, mensaje, negocio_id)
+        elif estado == 'ia_libre':
+            # Si el usuario responde con un número, procesarlo como menú
+            if mensaje in ['1', '2', '3', '4']:
+                return procesar_opcion_menu(numero, mensaje, negocio_id)
+            else:
+                # Si es texto libre, volver a enviar a IA
+                return procesar_mensaje_con_ia(mensaje, numero, negocio_id, None)
+        elif estado == 'seleccionando_profesional':
+            # Si la IA mostró profesionales, procesar selección
+            if mensaje.isdigit():
+                return procesar_seleccion_profesional(numero, mensaje, negocio_id)
+            else:
+                return procesar_mensaje_con_ia(mensaje, numero, negocio_id, None)
+        elif estado == 'seleccionando_servicio':
+            # Si la IA mostró servicios, procesar selección
+            if mensaje.isdigit():
+                return procesar_seleccion_servicio(numero, mensaje, negocio_id)
+            else:
+                return procesar_mensaje_con_ia(mensaje, numero, negocio_id, None)
         else:
             # Estado no reconocido - reiniciar
             print(f"❌ [DEBUG] Estado no reconocido: {estado}")
