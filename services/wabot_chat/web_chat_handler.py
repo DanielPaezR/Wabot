@@ -773,25 +773,27 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
     
     messages = [
         {
-        'role': 'system',
-        'content': (
-            'Eres un asistente inteligente para agendar citas en un negocio. '
-            'REGLAS IMPORTANTES: '
-            '1) Si ya conoces el nombre del cliente, salúdalo por su nombre SIEMPRE. '
-            '2) Si ya tienes su teléfono, NO se lo pidas NUNCA. '
-            '3) NO pidas ningún dato que ya conozcas. '
-            '4) Usa las herramientas (tools) para agendar, cancelar, consultar horarios o precios. '
-            '5) NO inventes horarios, profesionales ni servicios. '
-            '6) Si el cliente solo saluda, responde con un saludo breve y ofrece ayuda. '
-            '7) Sé amable, usa emojis y responde en español. '
-            '8) ⚠️ IMPORTANTE: NUNCA muestres listas numeradas de servicios, profesionales ni horarios. '
-            'El sistema ya muestra botones con esas opciones. Solo di: "Elige una opción de los botones de abajo ⬇️" '
-            '9) Cuando el cliente quiera agendar, llama a la herramienta agendar_cita con los datos que tengas.'
-            '10) ⚠️ FLUJO DE AGENDAMIENTO: Cuando tengas todos los datos (profesional, servicio, fecha, hora), '
-                'NUNCA llames directamente a agendar_cita. Primero llama a confirmar_agendamiento para mostrar '
-                'el resumen y pedir confirmación. Solo si el cliente responde "sí" o "1", llama a agendar_cita.'
-        )
-    },
+            'role': 'system',
+            'content': (
+                'Eres un asistente inteligente para agendar citas en un negocio. '
+                'REGLAS IMPORTANTES: '
+                '1) Si ya conoces el nombre del cliente, salúdalo por su nombre SIEMPRE. '
+                '2) Si ya tienes su teléfono, NO se lo pidas NUNCA. '
+                '3) NO pidas ningún dato que ya conozcas. '
+                '4) Usa las herramientas (tools) para agendar, cancelar, consultar horarios o precios. '
+                '5) NO inventes horarios, profesionales ni servicios. '
+                '6) Si el cliente solo saluda, responde con un saludo breve y ofrece ayuda. '
+                '7) Sé amable, usa emojis y responde en español. '
+                '8) ⚠️ IMPORTANTE: NUNCA muestres listas numeradas de servicios, profesionales ni horarios. '
+                'El sistema ya muestra botones con esas opciones. Solo di: "Elige una opción de los botones de abajo ⬇️" '
+                '9) Cuando el cliente quiera agendar, primero verifica que tengas TODO: profesional, servicio, fecha y hora. '
+                'Si falta algo, pregúntalo. Si lo tienes todo, llama a confirmar_agendamiento para mostrar el resumen. '
+                '10) ⚠️ FLUJO DE AGENDAMIENTO: NUNCA llames directamente a agendar_cita sin antes llamar a confirmar_agendamiento. '
+                'Solo si el cliente responde "sí", "confirmo", "1" o similar, llama a agendar_cita. '
+                '11) Cuando muestres el resumen de confirmación, sé breve. Solo muestra fecha y hora. '
+                'Los detalles de profesional, servicio y precio ya los conoce el cliente.'
+            )
+        },
         {
             'role': 'system',
             'content': prompt_negocio
@@ -906,6 +908,11 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     
     # Guardar datos temporalmente para cuando confirme
     clave_conversacion = f"{telefono_cliente}_{negocio_id}"
+    if not telefono_cliente:
+        from flask import session
+        session_id = session.get('chat_session_id', 'unknown')
+        clave_conversacion = f"{session_id}_{negocio_id}"
+    
     if clave_conversacion in conversaciones_activas:
         conversaciones_activas[clave_conversacion]['pending_agendamiento'] = {
             'profesional_nombre': profesional_nombre,
@@ -923,17 +930,11 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     except:
         fecha_formateada = fecha
     
+    # ✅ Solo emojis, sin HTML ni markdown
     mensaje = (
-        f"📋 *RESUMEN DE TU CITA*\n\n"
-        f"👤 Cliente: {nombre_cliente or 'Cliente'}\n"
-        f"👨‍💼 Profesional: {profesional_nombre}\n"
-        f"💼 Servicio: {servicio_nombre}\n"
-        f"💰 Precio: ${precio:,.0f}\n" if precio else ""
         f"📅 Fecha: {fecha_formateada}\n"
         f"⏰ Hora: {hora}\n\n"
-        f"¿Confirmas esta cita?\n"
-        f"1️⃣ - ✅ Sí, confirmar\n"
-        f"2️⃣ - ❌ No, cancelar"
+        f"¿Confirmas esta cita?"
     )
     
     return mensaje
@@ -1118,9 +1119,9 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
         conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
         print(f"🔧 [IA] Detectados horarios, cambiando estado")
         
-    elif 'confirmar' in respuesta.lower() or 'confirmas' in respuesta.lower():
+    elif 'confirmas' in respuesta.lower() or '¿confirmas' in respuesta.lower():
         conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
-        print(f"🔧 [IA] Detectada confirmación, cambiando estado")
+        print(f"🔧 [IA] Detectada solicitud de confirmación, cambiando estado")
         
     elif 'cancelada' in respuesta.lower() or 'cancelado' in respuesta.lower():
         conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
