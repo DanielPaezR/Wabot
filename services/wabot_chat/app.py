@@ -8748,6 +8748,32 @@ def calificar_servicio(cita_id):
     
     return render_template('calificar.html', cita=cita)
 
+@app.route('/api/push/subscribe-cliente', methods=['POST'])
+def subscribe_cliente_push_direct():
+    """Ruta directa para suscribir clientes (sin prefijo /push)"""
+    try:
+        data = request.json
+        subscription = data.get('subscription')
+        telefono = data.get('telefono')
+        negocio_id = data.get('negocio_id')
+        
+        if not subscription or not telefono or not negocio_id:
+            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
+        
+        from push_notifications import guardar_suscripcion_cliente
+        dispositivo_info = request.headers.get('User-Agent', '')[:500]
+        
+        success = guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_info)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Notificaciones activadas'})
+        else:
+            return jsonify({'success': False, 'error': 'Error al guardar'}), 500
+            
+    except Exception as e:
+        print(f"❌ Error en subscribe_cliente_push_direct: {e}")
+        return jsonify({'success': False, 'error': 'Error interno'}), 500
+
 # =============================================================================
 # Landing Page de Ventas para Wabot
 # =============================================================================
