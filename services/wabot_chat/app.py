@@ -2372,12 +2372,22 @@ def negocio_dashboard():
     # Procesar citas de hoy para la plantilla
     citas_procesadas = []
     for cita in citas_hoy:
-        # Formatear hora (de 'HH:MM:SS' a 'HH:MM')
         hora_str = str(cita['hora'])
-        if ':' in hora_str:
+        
+        # Normalizar hora a formato 24h HH:MM
+        if 'AM' in hora_str or 'PM' in hora_str:
+            try:
+                hora_obj = datetime.strptime(hora_str.strip(), '%I:%M %p')
+                hora_formateada = hora_obj.strftime('%H:%M')
+            except:
+                hora_formateada = hora_str[:5] if ':' in hora_str else hora_str
+        elif ':' in hora_str:
             hora_formateada = hora_str[:5]
         else:
             hora_formateada = hora_str
+        
+        # Actualizar la hora en la cita
+        cita['hora'] = hora_formateada
         
         citas_procesadas.append({
             'id': cita['id'],
