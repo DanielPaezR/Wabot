@@ -26,6 +26,25 @@ import scheduler as scheduler
 from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
 import psycopg2
+from collections import defaultdict
+
+rate_limit_cache = defaultdict(list)
+
+def check_rate_limit(ip, max_requests=20, window_seconds=60):
+    """Limitar solicitudes por IP. Máximo {max_requests} por {window_seconds} segundos."""
+    ahora = datetime.now()
+    # Limpiar ventanas viejas
+    rate_limit_cache[ip] = [
+        t for t in rate_limit_cache[ip] 
+        if ahora - t < timedelta(seconds=window_seconds)
+    ]
+    
+    if len(rate_limit_cache[ip]) >= max_requests:
+        return False
+    
+    rate_limit_cache[ip].append(ahora)
+    return True
+
 
 # Cargar variables de entorno
 load_dotenv()
@@ -353,23 +372,61 @@ def crear_promocion():
             flash('No se pudo identificar al profesional', 'error')
             return redirect(url_for('profesional_promociones'))
         
+        # Datos comunes
         titulo = request.form.get('titulo', '').strip()
-        premio = request.form.get('premio', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
         fecha_inicio = request.form.get('inicio')
         fecha_fin = request.form.get('fin')
         
+        # ✅ NUEVO: Tipo de promoción
+        tipo_promocion = request.form.get('tipo_promocion', 'concurso_fotos')
+        
+        # Datos según tipo
+        premio = request.form.get('premio', '').strip()
+        descuento_porcentaje = request.form.get('descuento_porcentaje') or request.form.get('descuento_porcentaje_horas')
+        hora_inicio = request.form.get('hora_inicio')
+        hora_fin = request.form.get('hora_fin')
+        
         print(f"📝 Datos del formulario:")
         print(f"   titulo: {titulo}")
+        print(f"   tipo_promocion: {tipo_promocion}")
         print(f"   premio: {premio}")
-        print(f"   descripcion: {descripcion[:50]}...")
+        print(f"   descuento_porcentaje: {descuento_porcentaje}")
+        print(f"   hora_inicio: {hora_inicio}")
+        print(f"   hora_fin: {hora_fin}")
+        print(f"   descripcion: {descripcion[:50] if descripcion else ''}...")
         print(f"   fecha_inicio: {fecha_inicio}")
         print(f"   fecha_fin: {fecha_fin}")
         
+        # Validaciones básicas
         if not titulo:
             print("❌ Título vacío")
             flash('El título es obligatorio', 'error')
             return redirect(url_for('profesional_promociones'))
+        
+        if not fecha_fin:
+            print("❌ Fecha de fin vacía")
+            flash('La fecha de fin es obligatoria', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        # Validar según tipo
+        if tipo_promocion in ['descuento_dia', 'descuento_horas', 'dosxuno']:
+            if not descuento_porcentaje:
+                flash('El porcentaje de descuento es obligatorio para este tipo de promoción', 'error')
+                return redirect(url_for('profesional_promociones'))
+            try:
+                descuento_porcentaje = int(descuento_porcentaje)
+                if descuento_porcentaje < 1 or descuento_porcentaje > 100:
+                    flash('El descuento debe ser entre 1% y 100%', 'error')
+                    return redirect(url_for('profesional_promociones'))
+            except ValueError:
+                flash('El descuento debe ser un número válido', 'error')
+                return redirect(url_for('profesional_promociones'))
+        
+        if tipo_promocion == 'descuento_horas':
+            if not hora_inicio or not hora_fin:
+                flash('Debes especificar hora de inicio y fin para la Hora Feliz', 'error')
+                return redirect(url_for('profesional_promociones'))
         
         # Validar fechas
         from datetime import date
@@ -383,17 +440,24 @@ def crear_promocion():
         
         print("📝 Ejecutando INSERT...")
         cursor.execute('''
-            INSERT INTO promociones (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin, activo)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+            INSERT INTO promociones 
+            (profesional_id, negocio_id, titulo, premio, descripcion, 
+             fecha_inicio, fecha_fin, tipo_promocion, 
+             descuento_porcentaje, hora_inicio, hora_fin, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
             RETURNING id
-        ''', (profesional_id, negocio_id, titulo, premio, descripcion, fecha_inicio, fecha_fin))
+        ''', (
+            profesional_id, negocio_id, titulo, premio, descripcion,
+            fecha_inicio, fecha_fin, tipo_promocion,
+            descuento_porcentaje, hora_inicio, hora_fin
+        ))
         
         print("📥 Obteniendo resultado...")
         result = cursor.fetchone()
         print(f"   result tipo: {type(result)}")
         print(f"   result contenido: {result}")
         
-        # ✅ Acceder correctamente según el tipo
+        # Acceder correctamente según el tipo
         if result:
             if isinstance(result, tuple):
                 promo_id = result[0]
@@ -414,7 +478,16 @@ def crear_promocion():
         
         if promo_id:
             print(f"🎉 Promoción creada con ID: {promo_id}")
-            flash('✅ Promoción creada exitosamente', 'success')
+            
+            # ✅ Mensaje personalizado según tipo
+            mensajes = {
+                'concurso_fotos': '📸 Concurso de fotos creado exitosamente',
+                'descuento_dia': '💰 Descuento por día creado exitosamente',
+                'dosxuno': '🎟️ Promoción 2x1 creada exitosamente',
+                'descuento_horas': '🔥 Hora Feliz creada exitosamente',
+                'cliente_frecuente': '⭐ Promoción para clientes frecuentes creada exitosamente'
+            }
+            flash(mensajes.get(tipo_promocion, '✅ Promoción creada exitosamente'), 'success')
         else:
             print("❌ No se pudo obtener el ID de la promoción")
             flash('❌ Error al crear la promoción', 'error')
@@ -955,6 +1028,13 @@ def chat_index(negocio_id):
 def chat_send():
     """Recibir mensaje del usuario en el chat web."""
     try:
+        # ✅ SEGURIDAD: Rate limiting
+        if not check_rate_limit(request.remote_addr):
+            return jsonify({
+                'message': '⚠️ Demasiadas solicitudes. Espera unos segundos.',
+                'step': 'error'
+            })
+        
         data = request.json
         user_message = data.get('message', '').strip()
         session_id = data.get('session_id')
@@ -962,6 +1042,10 @@ def chat_send():
         
         if not user_message:
             return jsonify({'error': 'Mensaje vacío'}), 400
+        
+        # ✅ SEGURIDAD: Limitar longitud de mensaje
+        if len(user_message) > 500:
+            user_message = user_message[:500]
         
         # Importar aquí para evitar dependencia circular
         from web_chat_handler import procesar_mensaje_chat
