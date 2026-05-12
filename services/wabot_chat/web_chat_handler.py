@@ -2634,7 +2634,6 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
     
     print(f"🔧 [DEBUG] procesar_confirmacion_cita - Clave: {clave_conversacion}, Mensaje: '{mensaje}'")
     
-    # Verificar que existe la conversación
     if clave_conversacion not in conversaciones_activas:
         print(f"❌ [DEBUG] No hay conversación activa para {clave_conversacion}")
         return renderizar_plantilla('error_generico', negocio_id)
@@ -2644,44 +2643,43 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
     
     print(f"🔧 [DEBUG] Estado actual: {estado_actual}")
     
-    # Si estamos solicitando teléfono (backup - ya no debería ocurrir en nuevo flujo)
-    if estado_actual == 'solicitando_telefono':
-        print(f"🔧 [DEBUG] Procesando número de teléfono: {mensaje}")
-        
-        # Validar teléfono
-        telefono = mensaje.strip()
-        
-        # Validar formato: 10 dígitos, debe empezar con 3
-        if not telefono.isdigit() or len(telefono) != 10:
-            print(f"❌ [DEBUG] Teléfono inválido: {telefono}")
-            return "❌ Número inválido. Por favor ingresa 10 dígitos (debe empezar con 3, ej: 3101234567):"
-        
-        if not telefono.startswith('3'):
-            print(f"❌ [DEBUG] Teléfono no empieza con 3: {telefono}")
-            return "❌ Número inválido. El número debe empezar con 3 (ej: 3101234567):"
-        
-        # Guardar teléfono en la conversación
-        conversacion['telefono_cliente'] = telefono
-        return procesar_confirmacion_directa(numero, negocio_id, conversacion)
-    
-    # Si no estamos solicitando teléfono, procesar opciones normales de confirmación
     if mensaje == '1':
         print(f"🔧 [DEBUG] Usuario confirmó cita con opción '1'")
-
-        # ✅ NUEVO: Sincronizar confirmación con IA
+        
+        # ✅ Sincronizar confirmación con IA
         guardar_historial_ia(clave_conversacion, 'user', 'Sí, confirmo la cita')
         print(f"🔧 [SYNC] Confirmación guardada en historial de IA")
         
-        # ✅ EN NUEVO FLUJO: Ya tenemos el teléfono desde el inicio
-        if 'telefono_cliente' not in conversacion:
-            print(f"❌ [DEBUG] No hay teléfono en conversación, solicitando...")
-            # Esto no debería ocurrir en el nuevo flujo, pero por seguridad
-            conversacion['estado'] = 'solicitando_telefono'
-            conversacion['timestamp'] = datetime.now(tz_colombia)
+        # ✅ NUEVO: Si la cita viene de IA (pending_agendamiento), sincronizar datos
+        if 'pending_agendamiento' in conversacion:
+            pending = conversacion['pending_agendamiento']
+            print(f"🔧 [SYNC] Sincronizando datos de IA: {pending}")
             
-            return "📱 **Para enviarte recordatorios de tu cita, necesitamos tu número de teléfono.**\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
+            # Convertir al formato que espera el flujo numérico
+            conversacion['hora_seleccionada'] = pending.get('hora')
+            conversacion['fecha_seleccionada'] = pending.get('fecha')
+            
+            # Buscar profesional_id y servicio_id desde los nombres
+            if pending.get('profesional_nombre'):
+                profesionales = db.obtener_profesionales(negocio_id)
+                profesional = buscar_profesional_por_nombre_estricto(pending['profesional_nombre'], profesionales)
+                if profesional:
+                    conversacion['profesional_id'] = profesional['id']
+                    conversacion['profesional_nombre'] = profesional['nombre']
+            
+            if pending.get('servicio_nombre'):
+                servicios = db.obtener_servicios(negocio_id)
+                servicio = buscar_servicio_por_nombre_estricto(pending['servicio_nombre'], servicios)
+                if servicio:
+                    conversacion['servicio_id'] = servicio['id']
+                    conversacion['servicio_nombre'] = servicio['nombre']
+                    conversacion['servicio_precio'] = servicio['precio']
+                    conversacion['servicio_duracion'] = servicio['duracion']
+            
+            # Limpiar pending
+            del conversacion['pending_agendamiento']
+            print(f"🔧 [SYNC] Datos sincronizados correctamente")
         
-        # ✅ Ya tenemos teléfono, proceder a crear la cita
         return procesar_confirmacion_directa(numero, negocio_id, conversacion)
     
     elif mensaje == '2':
