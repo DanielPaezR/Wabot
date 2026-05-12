@@ -886,50 +886,39 @@
             
             try {
                 // ✅ FORZAR registro del Service Worker
-                console.log('📝 Registrando Service Worker manualmente...');
                 const registration = await navigator.serviceWorker.register('/service-worker.js');
-                console.log('✅ SW registrado:', registration.scope);
-                
-                // Esperar a que esté listo
                 await navigator.serviceWorker.ready;
                 console.log('✅ SW listo');
                 
-                // Verificar suscripción existente
-                const existingSubscription = await registration.pushManager.getSubscription();
-                
-                if (existingSubscription) {
-                    btn.textContent = '🔔✓';
-                    btn.style.background = '#d1fae5';
-                    btn.disabled = false;
-                    localStorage.setItem('notificaciones_activadas', 'true');
-                    toast('✅ Ya tienes notificaciones activadas');
-                    return;
+                // ✅ LIMPIAR suscripción antigua (si existe)
+                let subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    console.log('🗑️ Eliminando suscripción antigua...');
+                    await subscription.unsubscribe();
+                    console.log('✅ Suscripción antigua eliminada');
                 }
                 
                 // Pedir permiso
-                const permiso = await Notification.requestPermission();
+                let permiso = Notification.permission;
+                if (permiso === 'default') {
+                    permiso = await Notification.requestPermission();
+                }
+                
                 if (permiso !== 'granted') {
-                    toast('❌ Debes permitir notificaciones', 'error');
+                    toast('❌ Debes permitir notificaciones en la configuración del sitio', 'error');
                     btn.disabled = false;
                     btn.textContent = '🔔';
                     return;
                 }
                 
-                // Obtener clave VAPID
-                const vapidResponse = await fetch('/api/push/public-key');
-                const vapidData = await vapidResponse.json();
+                // ✅ USAR LA MISMA CLAVE QUE EL PROFESIONAL
+                const publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
                 
-                if (!vapidData.success) {
-                    toast('❌ Error de configuración', 'error');
-                    btn.disabled = false;
-                    btn.textContent = '🔔';
-                    return;
-                }
-                
-                // Suscribirse
-                const subscription = await registration.pushManager.subscribe({
+                // Crear NUEVA suscripción
+                console.log('🔐 Creando nueva suscripción...');
+                subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
+                    applicationServerKey: urlBase64ToUint8Array(publicKey)
                 });
                 
                 console.log('✅ Suscripción creada');
@@ -946,6 +935,7 @@
                 });
                 
                 const data = await response.json();
+                console.log('📥 Respuesta:', data);
                 
                 if (data.success) {
                     btn.textContent = '🔔✓';
@@ -953,13 +943,13 @@
                     localStorage.setItem('notificaciones_activadas', 'true');
                     toast('✅ Notificaciones activadas');
                 } else {
-                    toast('❌ Error al guardar: ' + (data.error || 'desconocido'), 'error');
+                    toast('❌ Error: ' + (data.error || 'desconocido'), 'error');
                     btn.textContent = '🔔';
                 }
                 
             } catch (error) {
                 console.error('❌ Error:', error);
-                toast('❌ Error: ' + error.message, 'error');
+                toast('❌ ' + error.message, 'error');
                 btn.textContent = '🔔';
             } finally {
                 btn.disabled = false;
