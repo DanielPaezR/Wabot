@@ -866,12 +866,9 @@
 
         async function activarNotificacionesCliente() {
             console.log('🔔 Botón de notificaciones clickeado');
-            alert('PASO 1: Iniciando...');
             
             const telefono = localStorage.getItem('telefono_cliente');
             const negocioId = document.getElementById('negocioId').value;
-            
-            alert('PASO 2: Teléfono=' + telefono + ', Negocio=' + negocioId);
             
             if (!telefono) {
                 toast('⚠️ Primero identifícate en el chat con tu número de teléfono', 'warning');
@@ -888,14 +885,19 @@
             btn.textContent = '⏳';
             
             try {
-                alert('PASO 3: Verificando service worker...');
-                const registration = await navigator.serviceWorker.ready;
-                alert('PASO 4: SW listo, verificando suscripción existente...');
+                // ✅ FORZAR registro del Service Worker
+                console.log('📝 Registrando Service Worker manualmente...');
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                console.log('✅ SW registrado:', registration.scope);
                 
+                // Esperar a que esté listo
+                await navigator.serviceWorker.ready;
+                console.log('✅ SW listo');
+                
+                // Verificar suscripción existente
                 const existingSubscription = await registration.pushManager.getSubscription();
                 
                 if (existingSubscription) {
-                    alert('PASO 5: Ya está suscrito');
                     btn.textContent = '🔔✓';
                     btn.style.background = '#d1fae5';
                     btn.disabled = false;
@@ -904,10 +906,8 @@
                     return;
                 }
                 
-                alert('PASO 6: Pidiendo permiso...');
+                // Pedir permiso
                 const permiso = await Notification.requestPermission();
-                alert('PASO 7: Permiso=' + permiso);
-                
                 if (permiso !== 'granted') {
                     toast('❌ Debes permitir notificaciones', 'error');
                     btn.disabled = false;
@@ -915,10 +915,9 @@
                     return;
                 }
                 
-                alert('PASO 8: Obteniendo clave VAPID...');
+                // Obtener clave VAPID
                 const vapidResponse = await fetch('/api/push/public-key');
                 const vapidData = await vapidResponse.json();
-                alert('PASO 9: VAPID success=' + vapidData.success);
                 
                 if (!vapidData.success) {
                     toast('❌ Error de configuración', 'error');
@@ -927,15 +926,15 @@
                     return;
                 }
                 
-                alert('PASO 10: Suscribiendo a push...');
+                // Suscribirse
                 const subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
                 });
                 
-                alert('PASO 11: Suscripción creada, guardando...');
                 console.log('✅ Suscripción creada');
                 
+                // Guardar en BD
                 const response = await fetch('/api/push/subscribe-cliente', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -947,7 +946,6 @@
                 });
                 
                 const data = await response.json();
-                alert('PASO 12: Respuesta=' + JSON.stringify(data));
                 
                 if (data.success) {
                     btn.textContent = '🔔✓';
@@ -955,12 +953,11 @@
                     localStorage.setItem('notificaciones_activadas', 'true');
                     toast('✅ Notificaciones activadas');
                 } else {
-                    toast('❌ Error al guardar', 'error');
+                    toast('❌ Error al guardar: ' + (data.error || 'desconocido'), 'error');
                     btn.textContent = '🔔';
                 }
                 
             } catch (error) {
-                alert('ERROR: ' + error.message);
                 console.error('❌ Error:', error);
                 toast('❌ Error: ' + error.message, 'error');
                 btn.textContent = '🔔';
