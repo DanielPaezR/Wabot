@@ -1048,10 +1048,15 @@ def ia_consultar_horarios(arguments, negocio_id):
         print(f"⚠️ [IA] Error generando horarios disponibles: {e}")
 
     if not horarios_disponibles:
-        return f'No encontré horarios disponibles para {profesional.get("nombre")} el {fecha}.'
+        return f'❌ No encontré horarios disponibles para {profesional.get("nombre")} el {fecha}.'
 
-    return (f'Horarios disponibles para {profesional.get("nombre")} el {fecha}: ' 
-            f'{", ".join(horarios_disponibles[:8])}.')
+    horarios_texto = ', '.join(horarios_disponibles[:8])
+    return (
+        f"📅 Disponibilidad para {profesional.get('nombre')}\n"
+        f"🗓️ Fecha: {fecha}\n"
+        f"⏰ Horarios disponibles:\n"
+        f"{horarios_texto}"
+    )
 
 
 def ia_consultar_precios(arguments, negocio_id):
@@ -1067,13 +1072,10 @@ def ia_consultar_precios(arguments, negocio_id):
 
     precio = servicio.get('precio')
     duracion = servicio.get('duracion')
-    return format_ia_template(
-        'El servicio {servicio_nombre} tiene un precio de {precio} y una duración aproximada de {duracion} minutos.',
-        {
-            'servicio_nombre': servicio.get('nombre'),
-            'precio': precio,
-            'duracion': duracion
-        }
+    return (
+        f"💼 Servicio: {servicio.get('nombre')}\n"
+        f"💰 Precio: ${precio}\n"
+        f"⏰ Duración: {duracion} minutos"
     )
 
 
@@ -3779,28 +3781,14 @@ Recibirás recordatorios por correo electrónico.'''
     
 def limpiar_formato_whatsapp(texto):
     """
-    Limpiar formato WhatsApp (*negrita*, _cursiva_) y convertir emojis a iconos para el chat web
+    Limpiar formato WhatsApp (*negrita*, _cursiva_) pero preservar emojis reales
+    Los emojis nativos son soportados por todos los navegadores modernos
     """
     if not texto:
         return texto
     
-    # Reemplazar formato WhatsApp por HTML
+    # Solo reemplazar formato WhatsApp, NO tocar los emojis
+    # Mantener emojis reales tal como están
     texto = texto.replace('*', '').replace('_', '')
-    
-    emoji_map = {
-        '👨‍💼': '<i class="fas fa-user-tie"></i>',
-        '💼': '<i class="fas fa-briefcase"></i>',
-        '💰': '<i class="fas fa-money-bill-wave"></i>',
-        '📅': '<i class="fas fa-calendar-alt"></i>',
-        '⏰': '<i class="fas fa-clock"></i>',
-        '🎫': '<i class="fas fa-ticket-alt"></i>',
-        '✅': '<i class="fas fa-check-circle"></i>',
-        '❌': '<i class="fas fa-times-circle"></i>',
-        '💡': '<i class="fas fa-lightbulb"></i>',
-        '📋': '<i class="fas fa-clipboard-list"></i>',
-    }
-    
-    for emoji, icon in emoji_map.items():
-        texto = texto.replace(emoji, f'{icon} ')
     
     return texto
