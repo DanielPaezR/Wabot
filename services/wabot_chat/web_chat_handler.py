@@ -978,14 +978,43 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     hora = arguments.get('hora', '').strip()
     precio = arguments.get('precio', 0)
     
-    # Guardar datos temporalmente para cuando confirme
-    clave_conversacion = f"{telefono_cliente}_{negocio_id}"
-    if not telefono_cliente:
+    # ✅ BUSCAR la clave de conversación correcta (no construirla)
+    clave_conversacion = None
+    
+    # Opción 1: Buscar por teléfono
+    if telefono_cliente:
+        clave_telefono = f"{telefono_cliente}_{negocio_id}"
+        if clave_telefono in conversaciones_activas:
+            clave_conversacion = clave_telefono
+            print(f"🔧 [IA] Clave encontrada por teléfono: {clave_conversacion}")
+    
+    # Opción 2: Buscar en todas las conversaciones activas
+    if not clave_conversacion:
+        for key in conversaciones_activas:
+            if key.endswith(f"_{negocio_id}"):
+                conv = conversaciones_activas.get(key, {})
+                # Verificar que tenga datos del cliente o estado IA
+                if conv.get('cliente_nombre') == nombre_cliente or \
+                   conv.get('telefono_cliente') == telefono_cliente or \
+                   conv.get('estado') in ['ia_libre', 'confirmando_cita', 'menu_principal']:
+                    clave_conversacion = key
+                    print(f"🔧 [IA] Clave encontrada por búsqueda: {key}")
+                    break
+    
+    # Opción 3: Buscar por session_id (último recurso)
+    if not clave_conversacion:
         from flask import session
         session_id = session.get('chat_session_id', 'unknown')
-        clave_conversacion = f"{session_id}_{negocio_id}"
+        for key in conversaciones_activas:
+            if session_id in key or key.startswith(session_id):
+                clave_conversacion = key
+                print(f"🔧 [IA] Clave encontrada por session_id: {key}")
+                break
     
-    if clave_conversacion in conversaciones_activas:
+    print(f"🔧 [IA] Clave final para pending: {clave_conversacion}")
+    
+    # Guardar datos temporalmente
+    if clave_conversacion and clave_conversacion in conversaciones_activas:
         conversaciones_activas[clave_conversacion]['pending_agendamiento'] = {
             'profesional_nombre': profesional_nombre,
             'servicio_nombre': servicio_nombre,
@@ -994,6 +1023,11 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
             'precio': precio
         }
         conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
+        print(f"✅ [IA] pending_agendamiento guardado en: {clave_conversacion}")
+        print(f"✅ [IA] Datos: {conversaciones_activas[clave_conversacion]['pending_agendamiento']}")
+    else:
+        print(f"❌ [IA] NO se encontró clave de conversación válida")
+        print(f"❌ [IA] Conversaciones activas: {list(conversaciones_activas.keys())}")
     
     # Formatear fecha
     try:
@@ -1007,7 +1041,7 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     
     # ✅ Mensaje completo con toda la info
     mensaje = (
-        f"📋 *RESUMEN DE TU CITA*\n\n"
+        f"📋 RESUMEN DE TU CITA\n\n"
         f"👤 Cliente: {nombre_cliente or 'Cliente'}\n"
         f"👨‍💼 Profesional: {profesional_nombre}\n"
         f"💼 Servicio: {servicio_nombre}\n"
@@ -2649,6 +2683,9 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
         # ✅ Sincronizar confirmación con IA
         guardar_historial_ia(clave_conversacion, 'user', 'Sí, confirmo la cita')
         print(f"🔧 [SYNC] Confirmación guardada en historial de IA")
+        print(f"🔧 [SYNC-DEBUG] Claves en conversación: {list(conversacion.keys())}")
+        print(f"🔧 [SYNC-DEBUG] ¿Tiene pending_agendamiento?: {'pending_agendamiento' in conversacion}")
+            
         
         # ✅ NUEVO: Si la cita viene de IA (pending_agendamiento), sincronizar datos
         if 'pending_agendamiento' in conversacion:
