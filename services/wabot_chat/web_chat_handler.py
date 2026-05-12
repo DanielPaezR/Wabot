@@ -977,8 +977,16 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     except:
         fecha_formateada = fecha
     
-    # ✅ Solo emojis, sin HTML ni markdown
+    # Formatear precio
+    precio_str = f"${precio:,.0f}" if precio else "No especificado"
+    
+    # ✅ Mensaje completo con toda la info
     mensaje = (
+        f"📋 *RESUMEN DE TU CITA*\n\n"
+        f"👤 Cliente: {nombre_cliente or 'Cliente'}\n"
+        f"👨‍💼 Profesional: {profesional_nombre}\n"
+        f"💼 Servicio: {servicio_nombre}\n"
+        f"💰 Precio: {precio_str}\n"
         f"📅 Fecha: {fecha_formateada}\n"
         f"⏰ Hora: {hora}\n\n"
         f"¿Confirmas esta cita?"
@@ -2622,7 +2630,7 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
     # Si no estamos solicitando teléfono, procesar opciones normales de confirmación
     if mensaje == '1':
         print(f"🔧 [DEBUG] Usuario confirmó cita con opción '1'")
-        
+
         # ✅ NUEVO: Sincronizar confirmación con IA
         guardar_historial_ia(clave_conversacion, 'user', 'Sí, confirmo la cita')
         print(f"🔧 [SYNC] Confirmación guardada en historial de IA")
