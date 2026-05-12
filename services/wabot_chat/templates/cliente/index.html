@@ -842,6 +842,7 @@
     <input type="hidden" id="sessionId"    value="{{ session_id }}">
     <input type="hidden" id="negocioId"    value="{{ negocio.id }}">
     <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
+    <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
 
     <script>
         // ==================== HELPERS ====================
@@ -864,67 +865,46 @@
         // ==================== NOTIFICACIONES PUSH PARA CLIENTES ====================
 
         async function activarNotificacionesCliente() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                toast('❌ Tu navegador no soporta notificaciones', 'error');
+            console.log('🔔 Botón de notificaciones clickeado');
+            
+            const telefono = localStorage.getItem('telefono_cliente');
+            const negocioId = document.getElementById('negocioId').value;
+            
+            if (!telefono) {
+                toast('⚠️ Primero identifícate en el chat con tu número de teléfono', 'warning');
                 return;
             }
             
-            const permiso = await Notification.requestPermission();
-            if (permiso !== 'granted') {
-                toast('❌ Debes permitir notificaciones', 'error');
-                return;
-            }
-            
-            try {
+            // Verificar si ya está suscrito
+            if ('serviceWorker' in navigator) {
                 const registration = await navigator.serviceWorker.ready;
+                const existingSubscription = await registration.pushManager.getSubscription();
                 
-                // Obtener clave pública VAPID
-                const vapidResponse = await fetch('/api/push/public-key');
-                const vapidData = await vapidResponse.json();
-                
-                if (!vapidData.success) {
-                    toast('❌ Error de configuración', 'error');
-                    return;
-                }
-                
-                const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
-                });
-                
-                // Guardar suscripción
-                const telefono = localStorage.getItem('telefono_cliente');
-                const negocioId = document.getElementById('negocioId').value;
-                
-                if (!telefono) {
-                    toast('⚠️ Primero identifícate en el chat con tu número', 'warning');
-                    return;
-                }
-                
-                const response = await fetch('/api/push/subscribe-cliente', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        subscription: subscription,
-                        telefono: telefono,
-                        negocio_id: parseInt(negocioId)
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    toast('✅ Notificaciones activadas');
-                    document.getElementById('btnNotificaciones').style.background = '#d1fae5';
+                if (existingSubscription) {
+                    // Ya está suscrito
                     document.getElementById('btnNotificaciones').textContent = '🔔✓';
+                    document.getElementById('btnNotificaciones').style.background = '#d1fae5';
+                    localStorage.setItem('notificaciones_activadas', 'true');
+                    toast('✅ Ya tienes notificaciones activadas');
+                    return;
+                }
+            }
+            
+            // Usar el mismo método que push-simple.js del profesional
+            if (window.PushNotifications) {
+                const push = new window.PushNotifications();
+                const ok = await push.suscribirCliente(telefono, parseInt(negocioId));
+                
+                if (ok) {
+                    toast('✅ Notificaciones activadas');
+                    document.getElementById('btnNotificaciones').textContent = '🔔✓';
+                    document.getElementById('btnNotificaciones').style.background = '#d1fae5';
                     localStorage.setItem('notificaciones_activadas', 'true');
                 } else {
-                    toast('❌ Error al activar', 'error');
+                    toast('❌ No se pudo activar. Intenta de nuevo.', 'error');
                 }
-                
-            } catch (error) {
-                console.error('Error:', error);
-                toast('❌ Error al configurar notificaciones', 'error');
+            } else {
+                toast('❌ No disponible en este navegador', 'error');
             }
         }
 
