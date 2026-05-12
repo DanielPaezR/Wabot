@@ -3754,10 +3754,7 @@ def profesional_dashboard():
         
         negocio_id = session.get('negocio_id', 1)
         fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
-        
         profesional_id = session.get('profesional_id')
-        
-        print(f"🔍 [DEBUG] Dashboard - negocio_id={negocio_id}, fecha={fecha}, profesional_id={profesional_id}")
         
         if not profesional_id:
             usuario_id = session.get('usuario_id')
@@ -3767,11 +3764,11 @@ def profesional_dashboard():
         print(f"🔍 [DEBUG] Llamando a obtener_citas_para_profesional({negocio_id}, {profesional_id}, {fecha})")
         citas = db.obtener_citas_para_profesional(negocio_id, profesional_id, fecha)
         
-        # ✅ NUEVO: Normalizar horas antes de enviar al template
+        # ✅ NUEVO: Normalizar horas y crear diccionario por hora
+        citas_por_hora = {}
         for cita in citas:
+            # Normalizar hora
             hora_str = str(cita.get('hora', ''))
-            
-            # Normalizar hora a formato 24h HH:MM
             if 'AM' in hora_str.upper() or 'PM' in hora_str.upper():
                 try:
                     hora_obj = datetime.strptime(hora_str.strip(), '%I:%M %p')
@@ -3779,19 +3776,23 @@ def profesional_dashboard():
                 except:
                     cita['hora'] = hora_str[:5] if ':' in hora_str else hora_str
             elif ':' in hora_str:
-                cita['hora'] = hora_str[:5]  # Quitar segundos si tiene
+                cita['hora'] = hora_str[:5]
+            
+            # Agregar al diccionario (sin bloqueos)
+            if cita.get('estado') != 'bloqueado':
+                citas_por_hora[cita['hora']] = cita
         
         print(f"✅ [DEBUG] Citas encontradas: {len(citas)}")
-        for i, cita in enumerate(citas):
-            print(f"  Cita {i+1}: {cita['hora']} - {cita['cliente_nombre']} ({cita['estado']})")
+        for hora, cita in sorted(citas_por_hora.items()):
+            print(f"  {hora}: {cita['cliente_nombre']} - {cita['servicio_nombre']} ({cita['estado']})")
         
         total_citas = len(citas)
         ganancia_estimada = sum(cita.get('precio', 0) for cita in citas if cita.get('estado') != 'cancelado')
-        
         usuario_nombre = session.get('usuario_nombre', 'Profesional')
         
         return render_template('profesional/dashboard.html',
                             citas=citas,
+                            citas_por_hora=citas_por_hora,  # ✅ NUEVO: pasar diccionario
                             total_citas=total_citas,
                             ganancia_estimada=ganancia_estimada,
                             profesional_nombre=usuario_nombre,
@@ -3804,6 +3805,7 @@ def profesional_dashboard():
         traceback.print_exc()
         return render_template('profesional/dashboard.html', 
                             citas=[], 
+                            citas_por_hora={},  # ✅ NUEVO
                             total_citas=0, 
                             ganancia_estimada=0,
                             profesional_id=None,

@@ -856,13 +856,7 @@
     <!-- ==================== TIMELINE ==================== -->
     <div class="container">
 
-        {# Construimos el dict de citas por hora #}
-        {% set citas_por_hora = {} %}
-        {% for cita in citas %}
-            {% if cita.estado != 'bloqueado' %}
-                {% set _ = citas_por_hora.update({cita.hora: cita}) %}
-            {% endif %}
-        {% endfor %}
+        {# Usamos el diccionario que ya viene procesado de Python #}
 
         {# Ajusta estos valores según el horario de tu negocio #}
         {% set horas_inicio = 8 %}
