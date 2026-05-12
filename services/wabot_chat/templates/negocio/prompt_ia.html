@@ -1,0 +1,162 @@
+{% extends "base_negocio.html" %}
+
+{% block title %}Prompt IA - {{ negocio.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">
+        <i class="fas fa-robot me-2"></i>
+        Prompt de Inteligencia Artificial
+    </h1>
+    <p class="text-muted">
+        Personaliza cómo la IA responde a tus clientes en el chat.
+    </p>
+    
+    <div class="row">
+        <!-- Formulario -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-edit me-2"></i>
+                    Editar Prompt Personalizado
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label for="prompt_ia" class="form-label">
+                                <strong>Instrucciones para la IA</strong>
+                            </label>
+                            <textarea 
+                                class="form-control" 
+                                id="prompt_ia" 
+                                name="prompt_ia" 
+                                rows="8"
+                                placeholder="Escribe las instrucciones para la IA..."
+                            >{{ prompt_actual }}</textarea>
+                            <div class="form-text">
+                                Define el tono, estilo y comportamiento de la IA al atender a tus clientes.
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar Prompt
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="btnRestaurar">
+                                <i class="fas fa-undo me-1"></i> Restaurar por Defecto
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Vista previa -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-eye me-2"></i>
+                    Vista Previa del Prompt
+                </div>
+                <div class="card-body">
+                    <pre id="previewPrompt" class="bg-light p-3 rounded" style="white-space: pre-wrap;">{{ prompt_actual or 'No hay prompt personalizado. Se usará el prompt genérico.' }}</pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Variables disponibles -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-code me-2"></i>
+                    Variables Disponibles
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Usa estas variables en tu prompt y serán reemplazadas automáticamente:
+                    </p>
+                    {% for var in variables_disponibles %}
+                    <button 
+                        class="btn btn-sm btn-outline-secondary mb-1 var-btn" 
+                        data-variable="{{ var }}"
+                        title="Click para copiar">
+                        {{ var }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Info del negocio -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Datos Actuales del Negocio
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li><strong>Nombre:</strong> {{ negocio.nombre }}</li>
+                        <li><strong>Dirección:</strong> {{ negocio.direccion or 'No configurada' }}</li>
+                        <li><strong>Profesionales:</strong> {{ contexto.profesionales|length }}</li>
+                        <li><strong>Servicios:</strong> {{ contexto.servicios|length }}</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Consejos -->
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Consejos para un Buen Prompt
+                </div>
+                <div class="card-body small">
+                    <ul>
+                        <li>Define el <strong>tono</strong> (amable, profesional, casual)</li>
+                        <li>Indica si debe usar <strong>emojis</strong></li>
+                        <li>Especifica cómo <strong>confirmar citas</strong></li>
+                        <li>Menciona <strong>políticas del negocio</strong></li>
+                        <li>Usa <strong>variables</strong> para personalizar</li>
+                    </ul>
+                    
+                    <hr>
+                    <p class="fw-bold">Ejemplo:</p>
+                    <pre class="bg-light p-2 rounded small">Eres el asistente virtual de {nombre_negocio}. 
+Saluda siempre con "¡Hola {nombre_cliente}!" 
+Sé amable y ofrece los servicios: {servicios}.
+Confirma siempre fecha y hora antes de agendar.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Actualizar vista previa en tiempo real
+document.getElementById('prompt_ia').addEventListener('input', function() {
+    document.getElementById('previewPrompt').textContent = this.value || 'No hay prompt personalizado. Se usará el prompt genérico.';
+});
+
+// Botones de variables
+document.querySelectorAll('.var-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const textarea = document.getElementById('prompt_ia');
+        const variable = this.dataset.variable;
+        textarea.value += ' ' + variable;
+        textarea.focus();
+    });
+});
+
+// Restaurar por defecto
+document.getElementById('btnRestaurar').addEventListener('click', function() {
+    if (confirm('¿Restaurar el prompt por defecto?')) {
+        const defaultPrompt = `Eres {nombre_negocio}, un asistente amable. 
+Ayuda a los clientes con: {servicios}. 
+Profesionales: {profesionales}. 
+Confirma siempre los detalles.`;
+        
+        document.getElementById('prompt_ia').value = defaultPrompt;
+        document.getElementById('previewPrompt').textContent = defaultPrompt;
+    }
+});
+</script>
+{% endblock %}

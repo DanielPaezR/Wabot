@@ -34,7 +34,7 @@ function inicializarPush() {
     
     const button = document.getElementById('pushButton');
     if (!button) {
-        console.error('❌ Botón no encontrado');
+        console.log('ℹ️ Botón pushButton no encontrado (no es profesional)');
         return;
     }
     
@@ -145,4 +145,61 @@ function inicializarPush() {
     });
     
     console.log('✅ Sistema push listo');
+}
+
+// ============================================
+// FUNCIÓN PARA SUSCRIBIR CLIENTES (USADA POR index.html)
+// ============================================
+async function suscribirCliente(telefono, negocioId) {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.log('❌ Push no soportado');
+            return false;
+        }
+        
+        // Pedir permiso
+        const permiso = await Notification.requestPermission();
+        if (permiso !== 'granted') {
+            console.log('❌ Permiso denegado');
+            return false;
+        }
+        
+        // Obtener clave pública
+        const vapidResponse = await fetch('/api/push/public-key');
+        const vapidData = await vapidResponse.json();
+        
+        if (!vapidData.success) {
+            console.log('❌ Error obteniendo VAPID');
+            return false;
+        }
+        
+        // Suscribirse
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
+        });
+        
+        console.log('✅ Suscripción creada');
+        
+        // Guardar en BD como cliente
+        const response = await fetch('/api/push/subscribe-cliente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subscription: subscription,
+                telefono: telefono,
+                negocio_id: negocioId
+            })
+        });
+        
+        const data = await response.json();
+        console.log('📥 Respuesta guardado:', data);
+        
+        return data.success === true;
+        
+    } catch (error) {
+        console.error('❌ Error suscribiendo cliente:', error);
+        return false;
+    }
 }

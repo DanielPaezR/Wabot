@@ -2965,6 +2965,83 @@ def negocio_configuracion():
                          dias_semana=dias_semana,
                          config_actual=config_actual)
 
+@app.route('/negocio/prompt-ia', methods=['GET', 'POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_prompt_ia():
+    """Panel para editar el prompt personalizado de IA del negocio"""
+    negocio_id = session.get('negocio_id', 1)
+    
+    # Obtener negocio actual
+    negocio = db.obtener_negocio_por_id(negocio_id)
+    if not negocio:
+        flash('Negocio no encontrado', 'error')
+        return redirect(url_for('negocio_dashboard'))
+    
+    # Obtener prompt_ia actual
+    prompt_actual = ''
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT prompt_ia FROM negocios WHERE id = %s', (negocio_id,))
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            if isinstance(result, dict):
+                prompt_actual = result.get('prompt_ia', '')
+            elif isinstance(result, (list, tuple)):
+                prompt_actual = result[0] if result[0] else ''
+    except Exception as e:
+        print(f"⚠️ Error obteniendo prompt_ia: {e}")
+    
+    # Obtener contexto para mostrar variables disponibles
+    from web_chat_handler import obtener_contexto_de_negocio
+    contexto = obtener_contexto_de_negocio(negocio_id)
+    
+    if request.method == 'POST':
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            flash('Error de seguridad', 'error')
+            return redirect(url_for('negocio_prompt_ia'))
+        
+        nuevo_prompt = request.form.get('prompt_ia', '').strip()
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE negocios SET prompt_ia = %s WHERE id = %s
+            ''', (nuevo_prompt, negocio_id))
+            conn.commit()
+            conn.close()
+            
+            flash('✅ Prompt de IA actualizado exitosamente', 'success')
+        except Exception as e:
+            print(f"❌ Error guardando prompt_ia: {e}")
+            flash('❌ Error al guardar el prompt', 'error')
+        
+        return redirect(url_for('negocio_prompt_ia'))
+    
+    # Variables disponibles para el prompt
+    variables_disponibles = [
+        '{nombre_negocio}',
+        '{profesionales}',
+        '{servicios}',
+        '{direccion}',
+        '{telefono}',
+        '{horarios}',
+        '{nombre_cliente}',
+        '{profesional_nombre}',
+        '{servicio_nombre}',
+        '{fecha}',
+        '{hora}'
+    ]
+    
+    return render_template('negocio/prompt_ia.html',
+                         negocio=negocio,
+                         prompt_actual=prompt_actual,
+                         contexto=contexto,
+                         variables_disponibles=variables_disponibles)
+
 @app.route('/actualizar-cache/<int:negocio_id>')
 def actualizar_cache(negocio_id):
     """Forzar actualización de cache para un negocio"""
@@ -3677,31 +3754,45 @@ def profesional_dashboard():
         
         negocio_id = session.get('negocio_id', 1)
         fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
-        
         profesional_id = session.get('profesional_id')
-        
-        print(f"🔍 [DEBUG] Dashboard - negocio_id={negocio_id}, fecha={fecha}, profesional_id={profesional_id}")
         
         if not profesional_id:
             usuario_id = session.get('usuario_id')
             print(f"⚠️ [DEBUG] No hay profesional_id, buscando por usuario_id={usuario_id}")
-            # ... resto del código ...
         
         # Obtener citas del profesional
         print(f"🔍 [DEBUG] Llamando a obtener_citas_para_profesional({negocio_id}, {profesional_id}, {fecha})")
         citas = db.obtener_citas_para_profesional(negocio_id, profesional_id, fecha)
         
+        # ✅ NUEVO: Normalizar horas y crear diccionario por hora
+        citas_por_hora = {}
+        for cita in citas:
+            # Normalizar hora
+            hora_str = str(cita.get('hora', ''))
+            if 'AM' in hora_str.upper() or 'PM' in hora_str.upper():
+                try:
+                    hora_obj = datetime.strptime(hora_str.strip(), '%I:%M %p')
+                    cita['hora'] = hora_obj.strftime('%H:%M')
+                except:
+                    cita['hora'] = hora_str[:5] if ':' in hora_str else hora_str
+            elif ':' in hora_str:
+                cita['hora'] = hora_str[:5]
+            
+            # Agregar al diccionario (sin bloqueos)
+            if cita.get('estado') != 'bloqueado':
+                citas_por_hora[cita['hora']] = cita
+        
         print(f"✅ [DEBUG] Citas encontradas: {len(citas)}")
-        for i, cita in enumerate(citas):
-            print(f"  Cita {i+1}: {cita['hora']} - {cita['cliente_nombre']} ({cita['estado']})")
+        for hora, cita in sorted(citas_por_hora.items()):
+            print(f"  {hora}: {cita['cliente_nombre']} - {cita['servicio_nombre']} ({cita['estado']})")
         
         total_citas = len(citas)
         ganancia_estimada = sum(cita.get('precio', 0) for cita in citas if cita.get('estado') != 'cancelado')
-        
         usuario_nombre = session.get('usuario_nombre', 'Profesional')
         
         return render_template('profesional/dashboard.html',
                             citas=citas,
+                            citas_por_hora=citas_por_hora,  # ✅ NUEVO: pasar diccionario
                             total_citas=total_citas,
                             ganancia_estimada=ganancia_estimada,
                             profesional_nombre=usuario_nombre,
@@ -3714,6 +3805,7 @@ def profesional_dashboard():
         traceback.print_exc()
         return render_template('profesional/dashboard.html', 
                             citas=[], 
+                            citas_por_hora={},  # ✅ NUEVO
                             total_citas=0, 
                             ganancia_estimada=0,
                             profesional_id=None,
@@ -4226,9 +4318,6 @@ def completar_cita(cita_id):
                     else:
                         print(f"⚠️ [COMPLETAR_CITA] No se pudo enviar notificación a {cliente_telefono}")
                         
-            except Exception as cliente_notif_error:
-                print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
-                    
             except Exception as cliente_notif_error:
                 print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
             
@@ -8659,6 +8748,32 @@ def calificar_servicio(cita_id):
     
     return render_template('calificar.html', cita=cita)
 
+@app.route('/api/push/subscribe-cliente', methods=['POST'])
+def subscribe_cliente_push_direct():
+    """Ruta directa para suscribir clientes (sin prefijo /push)"""
+    try:
+        data = request.json
+        subscription = data.get('subscription')
+        telefono = data.get('telefono')
+        negocio_id = data.get('negocio_id')
+        
+        if not subscription or not telefono or not negocio_id:
+            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
+        
+        from push_notifications import guardar_suscripcion_cliente
+        dispositivo_info = request.headers.get('User-Agent', '')[:500]
+        
+        success = guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_info)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Notificaciones activadas'})
+        else:
+            return jsonify({'success': False, 'error': 'Error al guardar'}), 500
+            
+    except Exception as e:
+        print(f"❌ Error en subscribe_cliente_push_direct: {e}")
+        return jsonify({'success': False, 'error': 'Error interno'}), 500
+
 # =============================================================================
 # Landing Page de Ventas para Wabot
 # =============================================================================
@@ -8667,6 +8782,17 @@ def calificar_servicio(cita_id):
 def wabot_sales():
     """Landing page de ventas para Wabot"""
     return render_template('wabot_sales.html')
+
+@app.route('/firebase-messaging-sw.js')
+def serve_firebase_sw():
+    """Servir firebase messaging SW (por si acaso)"""
+    from flask import send_from_directory
+    import os
+    return send_from_directory(
+        os.path.dirname(os.path.abspath(__file__)), 
+        'service-worker.js', 
+        mimetype='application/javascript'
+    )
 
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE

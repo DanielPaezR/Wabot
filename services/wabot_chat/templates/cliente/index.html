@@ -8,1105 +8,1319 @@
     <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
     <link rel="icon" href="/static/favicon.ico">
 
-    <!-- Bootstrap + Font Awesome -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
+        *, *::before, *::after {
+            margin: 0; padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
 
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --primary-soft: #eef0fd;
+            --success: #10b981;
+            --success-soft: #d1fae5;
+            --danger: #ef4444;
+            --danger-soft: #fee2e2;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --mid: #475569;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --bg: #f1f5f9;
+            --white: #ffffff;
+            --radius-xs: 8px;
+            --radius-sm: 12px;
+            --radius: 16px;
+            --radius-lg: 20px;
+            --bar-h: 64px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-top: env(safe-area-inset-top, 0px);
+        }
+
         html, body {
             height: 100%;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
             overflow: hidden;
+            position: fixed;
+            inset: 0;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
         }
 
-        /* ========== LAYOUT MÓVIL ========== */
-        .mobile-container {
+        /* ==================== APP SHELL ==================== */
+        .app {
             display: flex;
             flex-direction: column;
             height: 100%;
             width: 100%;
-            background: #f8fafc;
-            position: relative;
         }
 
-        /* ========== HEADER CON MENÚ Y PERFIL ========== */
-        .mobile-header {
-            background: white;
-            padding: 12px 16px;
-            border-bottom: 1px solid #e2e8f0;
+        /* ==================== HEADER ==================== */
+        .header {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-shrink: 0;
             z-index: 100;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(10px);
+            padding-top: calc(10px + var(--safe-top));
         }
 
         .header-left {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            min-width: 0;
         }
 
-        .menu-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            color: #1e293b;
-            cursor: pointer;
-            padding: 8px;
+        .negocio-avatar {
+            width: 38px; height: 38px;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: var(--primary-soft);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
         }
 
-        .menu-btn:active {
-            background: #f1f5f9;
-        }
-
-        .negocio-info h1 {
-            font-size: 18px;
+        .negocio-name {
+            font-size: 1rem;
             font-weight: 700;
-            margin: 0;
-            color: #1e293b;
+            color: var(--dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .negocio-info p {
-            font-size: 11px;
-            color: #64748b;
-            margin: 2px 0 0;
+        .negocio-sub {
+            font-size: 0.7rem;
+            color: var(--text-light);
         }
 
-        .profile-btn {
-            background: none;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            padding: 4px;
+        .header-right { display: flex; gap: 6px; }
+
+        .icon-btn {
+            width: 38px; height: 38px;
             border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f1f5f9;
+            background: var(--bg);
+            border: none;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+            flex-shrink: 0;
         }
+        .icon-btn:active { background: var(--border); }
 
-        .profile-btn:active {
-            background: #e2e8f0;
-        }
-
-        /* ========== MENÚ DESPLEGABLE ========== */
-        .dropdown-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            display: none;
-        }
-
-        .dropdown-overlay.show {
-            display: block;
-        }
-
-        .dropdown-menu-custom {
-            position: fixed;
-            top: 70px;
-            left: 16px;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            width: 260px;
-            overflow: hidden;
-            z-index: 1001;
-            display: none;
-            animation: slideDown 0.2s ease;
-        }
-
-        .dropdown-menu-custom.show {
-            display: block;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .dropdown-item-custom {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 14px 20px;
-            text-decoration: none;
-            color: #1e293b;
-            font-weight: 500;
-            border-bottom: 1px solid #f1f5f9;
-            transition: background 0.2s;
-        }
-
-        .dropdown-item-custom:active {
-            background: #f1f5f9;
-        }
-
-        .dropdown-item-custom i {
-            width: 24px;
-            font-size: 18px;
-            color: #3b82f6;
-        }
-
-        .dropdown-item-custom:last-child {
-            border-bottom: none;
-        }
-
-        /* ========== CONTENIDO PRINCIPAL - FLEX con min-height 0 ========== */
-        .main-content {
+        /* ==================== CONTENIDO (paneles) ==================== */
+        .content {
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;  /* CRUCIAL para que flex funcione correctamente */
+            min-height: 0;
+            position: relative;
             overflow: hidden;
         }
 
-        .section-panel {
-            display: none;
-            flex: 1;
-            flex-direction: column;
-            min-height: 0;
-        }
-
-        .section-panel.active {
-            display: flex;
-        }
-
-        /* ========== CHAT STYLES - Input pegado al fondo ========== */
-        .chat-container {
+        .panel {
+            position: absolute;
+            inset: 0;
             display: flex;
             flex-direction: column;
-            height: 100%;
-            flex: 1;
-            min-height: 0;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(12px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
         }
 
+        .panel.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateX(0);
+        }
+
+        /* ==================== PANEL CHAT ==================== */
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
+            padding: 14px 14px 180px 14px;  /* ← padding inferior amplio para evitar tapar mensajes */
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            min-height: 0;
+            gap: 10px;
             -webkit-overflow-scrolling: touch;
         }
 
-        .message {
-            max-width: 85%;
-            padding: 10px 14px;
+        .chat-messages::-webkit-scrollbar { width: 3px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        .msg {
+            max-width: 82%;
+            padding: 9px 13px;
             border-radius: 18px;
-            font-size: 14px;
-            line-height: 1.4;
-            animation: slideUp 0.2s ease;
+            font-size: 0.875rem;
+            line-height: 1.45;
+            animation: msgIn 0.18s ease;
         }
 
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
-        .user-message {
-            background: #3b82f6;
-            color: white;
+        .msg-user {
+            background: var(--primary);
+            color: #fff;
             align-self: flex-end;
             border-bottom-right-radius: 4px;
         }
 
-        .bot-message {
-            background: white;
-            color: #1e293b;
+        .msg-bot {
+            background: var(--white);
+            color: var(--dark);
             align-self: flex-start;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
 
-        /* Input fijo en la parte inferior */
-        .chat-input-container {
-            background: white;
-            padding: 12px 16px;
-            border-top: 1px solid #e2e8f0;
-            flex-shrink: 0;
-            width: 100%;
+        .msg-sender {
+            font-size: 0.7rem;
+            font-weight: 700;
+            opacity: 0.7;
+            margin-bottom: 3px;
         }
 
-        .input-wrapper {
+        /* Chips de opciones */
+        .options-row {
             display: flex;
-            gap: 12px;
-            align-items: center;
+            flex-wrap: wrap;
+            gap: 7px;
+            padding: 4px 14px;
+            align-self: flex-start;
+            animation: msgIn 0.18s ease;
         }
 
-        .input-wrapper input {
-            flex: 1;
-            border: 1px solid #e2e8f0;
-            padding: 12px 16px;
+        .option-chip {
+            background: var(--white);
+            border: 1.5px solid var(--primary);
+            color: var(--primary);
+            padding: 6px 14px;
             border-radius: 30px;
-            background: #f8fafc;
-            font-size: 15px;
-            outline: none;
-        }
-
-        .input-wrapper input:focus {
-            border-color: #3b82f6;
-            background: white;
-        }
-
-        .input-wrapper button {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: #3b82f6;
-            border: none;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
+            transition: all 0.15s;
         }
+        .option-chip:active { background: var(--primary); color: #fff; }
 
-        .input-wrapper button:active {
-            transform: scale(0.95);
-        }
-
-        /* ========== PROFESSIONAL GRID ========== */
+        /* Grid de profesionales */
         .professionals-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
-            margin-top: 12px;
-            padding: 0 4px;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            padding: 4px 14px;
+            align-self: stretch;
+            animation: msgIn 0.18s ease;
         }
 
         .professional-card {
-            background: white;
-            border-radius: 16px;
-            padding: 12px;
+            background: var(--white);
+            border-radius: var(--radius-sm);
+            padding: 12px 8px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border);
+            transition: all 0.15s;
         }
+        .professional-card:active { transform: scale(0.97); background: var(--bg); }
 
-        .professional-card:active {
-            transform: scale(0.98);
-        }
-
-        .professional-img {
-            width: 70px;
-            height: 70px;
+        .prof-avatar {
+            width: 60px; height: 60px;
             border-radius: 50%;
             margin: 0 auto 8px;
+            background: var(--primary-soft);
+            display: flex; align-items: center; justify-content: center;
             overflow: hidden;
-            background: #f1f5f9;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 1.8rem;
         }
+        .prof-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-        .professional-img img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .default-avatar {
-            font-size: 36px;
-            color: #94a3b8;
-        }
-
-        .professional-info strong {
-            font-size: 13px;
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .specialty {
-            font-size: 10px;
-            color: #64748b;
-        }
-
-        .select-professional-btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 30px;
-            padding: 6px 10px;
-            font-size: 11px;
-            width: 100%;
-            margin-top: 8px;
-            font-weight: 500;
-        }
-
-        /* ========== PROMOCIONES ========== */
-        .promo-card {
-            background: white;
-            border-radius: 20px;
-            margin-bottom: 16px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border: 1px solid #e2e8f0;
-        }
-
-        .promo-header {
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
-            color: white;
-            padding: 10px 16px;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .promo-body {
-            padding: 16px;
-        }
-
-        .promo-title {
-            font-size: 16px;
+        .prof-name {
+            font-size: 0.78rem;
             font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+        .prof-specialty {
+            font-size: 0.68rem;
+            color: var(--text-light);
             margin-bottom: 8px;
         }
 
-        .promo-description {
-            color: #64748b;
-            font-size: 13px;
+        .btn-select-prof {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Input de chat — fijo en la parte inferior del panel */
+        .chat-input-bar {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom));
+            left: 0; right: 0;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            padding: 10px 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 200;
+            /* Solo visible cuando el chat está activo */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .panel.active ~ .chat-input-bar,
+        .chat-input-bar.visible { opacity: 1; pointer-events: all; }
+
+        .chat-input {
+            flex: 1;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            border-radius: 30px;
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            color: var(--dark);
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .chat-input:focus { border-color: var(--primary); background: var(--white); }
+
+        .send-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: none;
+            color: #fff;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .send-btn:active { background: var(--primary-dark); transform: scale(0.95); }
+
+        /* ==================== PANEL PROMOCIONES ==================== */
+        .panel-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 14px calc(14px + var(--bar-h) + var(--safe-bottom));
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .panel-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        .promo-card {
+            background: var(--white);
+            border-radius: var(--radius);
             margin-bottom: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .promo-banner {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .promo-body { padding: 14px; }
+
+        .promo-title-text {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .promo-desc {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 10px;
+            line-height: 1.4;
         }
 
         .promo-prize {
             background: #fef3c7;
+            border-radius: var(--radius-xs);
             padding: 8px 12px;
-            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .promo-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 12px;
-            font-size: 13px;
+            flex-wrap: wrap;
+            gap: 6px;
         }
 
-        .badge-eligible {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 2px 8px;
+        .promo-date { font-size: 0.72rem; color: var(--text-light); }
+
+        .badge-eligible     { background: var(--success-soft); color: #065f46; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .badge-not-eligible { background: var(--danger-soft);  color: #991b1b; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .badge-participando { background: var(--primary-soft); color: var(--primary-dark); font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+        .promo-actions { display: flex; gap: 8px; }
+
+        .btn-promo {
+            flex: 1;
+            padding: 9px;
             border-radius: 30px;
-            font-size: 11px;
-            font-weight: 600;
-            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            transition: all 0.15s;
         }
+        .btn-promo:active { transform: scale(0.97); }
+        .btn-promo-success  { background: var(--success-soft); color: #065f46; }
+        .btn-promo-danger   { background: var(--danger-soft);  color: #991b1b; }
+        .btn-promo-primary  { background: var(--primary); color: #fff; }
+        .btn-promo-warning  { background: #fef3c7; color: #92400e; }
+        .btn-promo-info     { background: var(--primary-soft); color: var(--primary-dark); }
 
-        .badge-not-eligible {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 2px 8px;
-            border-radius: 30px;
-            font-size: 11px;
-            font-weight: 600;
-            display: inline-block;
-        }
-
-        /* ========== DIRECTORIO ========== */
-        .directorio-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 24px;
-            padding: 32px 24px;
+        /* ==================== PANEL DIRECTORIO ==================== */
+        .directorio-hero {
+            background: linear-gradient(135deg, var(--primary), #764ba2);
+            border-radius: var(--radius);
+            padding: 28px 20px;
             text-align: center;
-            color: white;
-            margin: 16px;
-        }
-
-        .directorio-icon {
-            font-size: 56px;
+            color: #fff;
             margin-bottom: 16px;
         }
+        .directorio-icon { font-size: 3rem; margin-bottom: 12px; }
+        .directorio-hero h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+        .directorio-hero p  { font-size: 0.82rem; opacity: 0.9; margin-bottom: 16px; line-height: 1.5; }
 
-        .directorio-card h4 {
-            font-size: 22px;
-            margin-bottom: 12px;
-        }
-
-        .directorio-card p {
-            font-size: 13px;
-            opacity: 0.9;
-            margin-bottom: 20px;
-        }
-
-        .directorio-btn {
-            background: white;
-            color: #667eea;
+        .btn-directorio {
+            background: #fff;
+            color: var(--primary);
             border: none;
-            padding: 12px 24px;
-            border-radius: 40px;
+            border-radius: 30px;
+            padding: 10px 22px;
+            font-size: 0.85rem;
             font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            font-size: 14px;
+            gap: 6px;
         }
 
-        /* ========== MODAL MÓVIL ========== */
-        .modal-mobile {
+        /* ==================== BOTTOM BAR ==================== */
+        .bottom-bar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-radius: 20px 20px 0 0;
-            padding: 20px;
-            z-index: 2000;
-            animation: slideUp 0.3s ease;
-            max-height: 85vh;
-            overflow-y: auto;
+            bottom: 0; left: 0; right: 0;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            height: calc(var(--bar-h) + var(--safe-bottom));
+            padding-bottom: var(--safe-bottom);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
         }
 
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1999;
-        }
-
-        .action-button {
-            background: #f1f5f9;
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            background: none;
             border: none;
-            padding: 12px;
-            border-radius: 12px;
-            font-weight: 500;
-            width: 100%;
-            margin-bottom: 8px;
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            transition: background 0.15s;
+            min-width: 60px;
         }
+        .nav-item:active { background: var(--bg); }
 
-        /* ========== SAFE AREA ========== */
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-            .chat-input-container {
-                padding-bottom: calc(12px + env(safe-area-inset-bottom));
-            }
-            .modal-mobile {
-                padding-bottom: calc(20px + env(safe-area-inset-bottom));
-            }
+        .nav-icon {
+            font-size: 1.35rem;
+            line-height: 1;
+            transition: transform 0.15s;
         }
+        .nav-item.active .nav-icon { transform: scale(1.15); }
 
-        /* ========== SCROLLBAR STYLES ========== */
-        .chat-messages::-webkit-scrollbar {
-            width: 4px;
+        .nav-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: color 0.15s;
         }
-        .chat-messages::-webkit-scrollbar-track {
-            background: #f1f5f9;
+        .nav-item.active .nav-label { color: var(--primary); }
+
+        /* Botón central FAB */
+        .nav-item.nav-fab {
+            background: var(--primary);
+            border-radius: 50%;
+            width: 52px; height: 52px;
+            padding: 0;
+            margin-top: 10px;
+            box-shadow: 0 4px 14px rgba(102,126,234,0.45);
+            gap: 0;
+            min-width: unset;
         }
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
+        .nav-item.nav-fab .nav-icon { font-size: 1.5rem; }
+        .nav-item.nav-fab .nav-label { display: none; }
+        .nav-item.nav-fab:active { background: var(--primary-dark); }
+
+        /* ==================== FAB MENÚ ==================== */
+        .fab-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 590;
+            display: none;
+        }
+        .fab-backdrop.open { display: block; }
+
+        .fab-menu {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom) + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 600;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .fab-menu.open { opacity: 1; pointer-events: all; }
+
+        .fab-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 9px 18px 9px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: transform 0.2s ease, opacity 0.2s ease, background 0.15s;
+        }
+        .fab-menu.open .fab-item { opacity: 1; transform: translateY(0); }
+        .fab-menu.open .fab-item:nth-child(1) { transition-delay: 0.04s; }
+        .fab-menu.open .fab-item:nth-child(2) { transition-delay: 0.08s; }
+        .fab-menu.open .fab-item:nth-child(3) { transition-delay: 0.12s; }
+        .fab-menu.open .fab-item:nth-child(4) { transition-delay: 0.16s; }
+        .fab-item:active { background: var(--bg); }
+
+        .fab-ic {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .fab-text { font-size: 0.85rem; font-weight: 600; color: var(--dark); }
+
+        /* ==================== TOAST ==================== */
+        #toast {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom) + 12px);
+            left: 1rem; right: 1rem;
+            background: var(--dark);
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 40px;
+            text-align: center;
+            font-size: 0.85rem;
+            z-index: 2000;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.25s ease;
+            pointer-events: none;
+        }
+        #toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ==================== MODAL BOTTOM SHEET ==================== */
+        .sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1500;
+            display: none;
+        }
+        .sheet-overlay.open { display: block; }
+
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--white);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            z-index: 1600;
+            padding-bottom: var(--safe-bottom);
+            max-height: 88vh;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+        .bottom-sheet.open { transform: translateY(0); }
+
+        .sheet-handle {
+            width: 40px; height: 4px;
+            background: var(--border);
             border-radius: 4px;
+            margin: 10px auto 0;
+        }
+
+        .sheet-head {
+            padding: 1rem 1rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .sheet-title { font-size: 1rem; font-weight: 700; color: var(--dark); }
+        .sheet-close {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .sheet-body { padding: 1rem; }
+        .sheet-footer { padding: 0.75rem 1rem 1rem; display: flex; gap: 8px; }
+
+        .form-group  { margin-bottom: 0.85rem; }
+        .form-label  { font-size: 0.78rem; font-weight: 700; color: var(--mid); margin-bottom: 4px; display: block; text-transform: uppercase; letter-spacing: 0.3px; }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: var(--bg);
+            color: var(--dark);
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--white); }
+
+        .btn-sheet { flex: 1; padding: 0.7rem; border-radius: 40px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; }
+        .btn-sheet-primary   { background: var(--primary); color: #fff; }
+        .btn-sheet-secondary { background: var(--bg); color: var(--dark); }
+        .btn-sheet-warning   { background: #fef3c7; color: #92400e; }
+
+        /* Empty states */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-light);
+        }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-state h4   { color: var(--dark); font-size: 1rem; margin-bottom: 6px; }
+        .empty-state p    { font-size: 0.82rem; }
+
+        /* Scroll suave para móviles */
+        .chat-messages, .panel-scroll {
+            scroll-behavior: smooth;
+        }
+
+        /* ==================== DARK MODE ==================== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --white: #1e293b;
+                --border: #334155;
+                --dark: #f1f5f9;
+                --mid: #94a3b8;
+                --text: #cbd5e1;
+                --text-light: #64748b;
+                --primary-soft: #1e2a4a;
+                --success-soft: #0d2e22;
+                --danger-soft: #2e1515;
+            }
+            .msg-bot     { background: #243450; border-color: #334155; }
+            .option-chip { background: #1e293b; }
+            .professional-card { background: #1e293b; }
+            .form-control { background: #0f172a; color: #f1f5f9; }
+            .fab-item    { background: #1e293b; }
+            .fab-ic      { background: #0f172a; }
+            .promo-card  { background: #1e293b; border-color: #334155; }
+            .bottom-sheet { background: #1e293b; }
         }
     </style>
 </head>
 <body>
-    <div class="mobile-container">
-        <!-- Header con Menú Hamburguesa y Perfil -->
-        <div class="mobile-header">
-            <div class="header-left">
-                <button class="menu-btn" id="menuBtn">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <div class="negocio-info">
-                    <h1><i class="fas fa-comment-dots text-primary"></i> {{ negocio.nombre }}</h1>
-                    <p>Agenda tu cita en segundos</p>
-                </div>
-            </div>
-            <button class="profile-btn" onclick="verPerfilNegocio()">
-                <i class="fas fa-store"></i>
-            </button>
-        </div>
 
-        <!-- Menú Desplegable -->
-        <div class="dropdown-overlay" id="dropdownOverlay"></div>
-        <div class="dropdown-menu-custom" id="dropdownMenu">
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('chat'); return false;">
-                <i class="fas fa-comment-dots"></i>
-                <span>💬 Chat de Citas</span>
-            </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('promociones'); cargarPromociones(); return false;">
-                <i class="fas fa-gift"></i>
-                <span>🎁 Promociones</span>
-            </a>
-            <a href="#" class="dropdown-item-custom" onclick="switchSection('directorio'); return false;">
-                <i class="fas fa-store"></i>
-                <span>🏪 Directorio</span>
-            </a>
-            <a href="#" class="dropdown-item-custom" onclick="resetConversacion(); return false;">
-                <i class="fas fa-redo-alt"></i>
-                <span>🔄 Reiniciar Chat</span>
-            </a>
-        </div>
+    <!-- TOAST -->
+    <div id="toast"></div>
 
-        <!-- Contenido Principal -->
-        <div class="main-content">
-            <!-- Panel Chat -->
-            <div id="chatSection" class="section-panel active">
-                <div class="chat-container">
-                    <div class="chat-messages" id="chatMessages">
-                        <div class="message bot-message">
-                            <i class="fas fa-robot"></i> ¡Hola! Soy tu asistente virtual. ¿En qué puedo ayudarte?
-                        </div>
-                    </div>
-                    
-                    <!-- Input pegado al fondo -->
-                    <div class="chat-input-container">
-                        <div class="input-wrapper">
-                            <input type="text" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
-                            <button id="sendButton">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- FAB BACKDROP -->
+    <div class="fab-backdrop" id="fabBackdrop" onclick="closeFab()"></div>
 
-            <!-- Panel Promociones -->
-            <div id="promocionesSection" class="section-panel">
-                <div class="d-flex align-items-center gap-2 mb-3 px-2">
-                    <i class="fas fa-gift fa-2x text-warning"></i>
-                    <h3 class="m-0 fs-5 fw-bold">Promociones</h3>
-                </div>
-                <div id="promocionesList" class="px-2"></div>
-            </div>
-
-            <!-- Panel Directorio -->
-            <div id="directorioSection" class="section-panel">
-                <div class="directorio-card">
-                    <div class="directorio-icon">
-                        <i class="fas fa-store"></i>
-                    </div>
-                    <h4>Directorio de Negocios</h4>
-                    <p>Explora todos los negocios disponibles en nuestra plataforma, con fotos, servicios y más.</p>
-                    <a href="https://wabot-directorio-production.up.railway.app/directorio" 
-                       target="_blank" 
-                       class="directorio-btn">
-                        <i class="fas fa-map-marker-alt"></i> Ver Directorio
-                    </a>
-                </div>
-            </div>
-        </div>
+    <!-- FAB MENÚ -->
+    <div class="fab-menu" id="fabMenu">
+        <button class="fab-item" onclick="resetConversacion(); closeFab();">
+            <div class="fab-ic">🔄</div>
+            <span class="fab-text">Reiniciar chat</span>
+        </button>
     </div>
 
-    <input type="hidden" id="sessionId" value="{{ session_id }}">
-    <input type="hidden" id="negocioId" value="{{ negocio.id }}">
-    <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
+    <!-- SHEET OVERLAY -->
+    <div class="sheet-overlay" id="sheetOverlay" onclick="cerrarSheet()"></div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // ========== MENÚ DESPLEGABLE ==========
-        const menuBtn = document.getElementById('menuBtn');
-        const dropdownMenu = document.getElementById('dropdownMenu');
-        const dropdownOverlay = document.getElementById('dropdownOverlay');
-
-        function toggleMenu() {
-            dropdownMenu.classList.toggle('show');
-            dropdownOverlay.classList.toggle('show');
-        }
-
-        function cerrarMenu() {
-            dropdownMenu.classList.remove('show');
-            dropdownOverlay.classList.remove('show');
-        }
-
-        menuBtn.addEventListener('click', toggleMenu);
-        dropdownOverlay.addEventListener('click', cerrarMenu);
-
-        // ========== VER PERFIL DEL NEGOCIO ==========
-        function verPerfilNegocio() {
-            const negocioId = document.getElementById('negocioId').value;
-            const directorioUrl = 'https://wabot-directorio-production.up.railway.app';
-            window.open(`${directorioUrl}/negocio/${negocioId}`, '_blank');
-        }
-
-        // ========== NAVEGACIÓN MÓVIL ==========
-        function switchSection(section) {
-            cerrarMenu();
-            
-            document.querySelectorAll('.section-panel').forEach(panel => {
-                panel.classList.remove('active');
-            });
-            
-            if (section === 'chat') {
-                document.getElementById('chatSection').classList.add('active');
-            } else if (section === 'promociones') {
-                document.getElementById('promocionesSection').classList.add('active');
-                cargarPromociones();
-            } else if (section === 'directorio') {
-                document.getElementById('directorioSection').classList.add('active');
-            }
-        }
-        
-        // ========== DETECTAR Y GUARDAR TELÉFONO DEL CLIENTE ==========
-        let telefonoGuardado = false;
-        
-        function iniciarDetectorTelefono() {
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                        const mensajesUsuario = document.querySelectorAll('.user-message');
-                        const ultimoMensajeUsuario = mensajesUsuario[mensajesUsuario.length - 1];
-                        
-                        if (ultimoMensajeUsuario && !telefonoGuardado) {
-                            const texto = ultimoMensajeUsuario.textContent;
-                            console.log("🔍 Analizando mensaje del USUARIO:", texto);
-                            const telefonoMatch = texto.match(/\b(3\d{9})\b/);
-                            if (telefonoMatch) {
-                                const telefono = telefonoMatch[1];
-                                localStorage.setItem('telefono_cliente', telefono);
-                                telefonoGuardado = true;
-                                console.log("📱 Teléfono detectado y guardado:", telefono);
-                                
-                                const promocionesPanel = document.getElementById('promocionesSection');
-                                if (promocionesPanel && promocionesPanel.classList.contains('active')) {
-                                    cargarPromociones();
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-            
-            const chatMessages = document.getElementById('chatMessages');
-            if (chatMessages) {
-                observer.observe(chatMessages, { 
-                    childList: true, 
-                    subtree: true,
-                    characterData: true 
-                });
-            }
-        }
-        
-        // ========== CARGAR PROMOCIONES ==========
-        async function cargarPromociones() {
-            const negocioId = document.getElementById('negocioId').value;
-            const container = document.getElementById('promocionesList');
-            const telefonoCliente = localStorage.getItem('telefono_cliente');
-            
-            let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
-            if (telefonoCliente) {
-                url += `?telefono=${encodeURIComponent(telefonoCliente)}`;
-            }
-            
-            console.log("📡 [PROMO] URL:", url);
-            container.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>';
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                console.log("📦 [PROMO] Respuesta:", data);
-                
-                if (data.success && data.promociones && data.promociones.length > 0) {
-                    let html = '';
-                    
-                    // Para cada promoción, verificar si el cliente ya participó
-                    for (const promo of data.promociones) {
-                        let participacion = null;
-                        let elegible = data.elegible === true;
-                        
-                        // Si el cliente está identificado, verificar si ya participó
-                        if (telefonoCliente) {
-                            try {
-                                const checkRes = await fetch(`/api/concurso/mi-participacion?promocion_id=${promo.id}&telefono=${telefonoCliente}`);
-                                const checkData = await checkRes.json();
-                                if (checkData.success && checkData.participacion) {
-                                    participacion = checkData.participacion;
-                                    elegible = true;
-                                }
-                            } catch (e) {
-                                console.error("Error verificando participación:", e);
-                            }
-                        }
-                        
-                        html += `
-                            <div class="promo-card" data-promo-id="${promo.id}">
-                                <div class="promo-header">
-                                    <i class="fas fa-trophy"></i> ${promo.titulo}
-                                    <small class="ms-2">👤 ${promo.profesional_nombre}</small>
-                                </div>
-                                <div class="promo-body">
-                                    <div class="promo-title">${promo.titulo}</div>
-                                    <div class="promo-description">${promo.descripcion || 'Participa y gana increíbles premios'}</div>
-                                    ${promo.premio ? `<div class="promo-prize"><i class="fas fa-award"></i> Premio: <strong>${promo.premio}</strong></div>` : ''}
-                                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                                        <small><i class="far fa-calendar-alt"></i> Válido hasta: ${promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Fecha por definir'}</small>
-                                        ${participacion ? '<span class="badge-eligible">✓ Ya participaste</span>' : (elegible ? '<span class="badge-eligible">✓ Elegible</span>' : '<span class="badge-not-eligible">✗ No elegible aún</span>')}
-                                    </div>
-                                    ${participacion ? `
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-info w-50 fw-bold py-2" onclick="verMiParticipacion(${participacion.id})">
-                                                <i class="fas fa-eye"></i> Ver mi entrada
-                                            </button>
-                                            <button class="btn btn-danger w-50 fw-bold py-2" onclick="eliminarParticipacion(${promo.id})">
-                                                <i class="fas fa-trash-alt"></i> Eliminar
-                                            </button>
-                                        </div>
-                                    ` : (elegible ? `
-                                        <button class="btn btn-success w-100 fw-bold py-2" onclick="abrirModalParticipar(${promo.id})">
-                                            <i class="fas fa-camera"></i> Participar ahora
-                                        </button>
-                                    ` : `
-                                        <button class="btn btn-warning w-100 fw-bold py-2" onclick="irAAgendarCita()">
-                                            <i class="fas fa-calendar-check"></i> Agendar cita para participar
-                                        </button>
-                                    `)}
-                                </div>
-                            </div>
-                        `;
-                    }
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = `
-                        <div class="text-center p-4 bg-white rounded-4 shadow-sm">
-                            <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
-                            <h5>No hay promociones activas</h5>
-                            <p class="text-muted">Vuelve pronto para participar en concursos</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error("❌ [PROMO] Error:", error);
-                container.innerHTML = '<div class="text-center p-4 text-danger">Error al cargar promociones</div>';
-            }
-        }
-
-        // Nueva función: Ver mi participación
-        function verMiParticipacion(participacionId) {
-            window.open(`/vota/${participacionId}`, '_blank');
-        }
-
-        // Nueva función: Eliminar participación
-        async function eliminarParticipacion(promocionId) {
-            const telefonoCliente = localStorage.getItem('telefono_cliente');
-            if (!telefonoCliente) {
-                alert('No estás identificado');
-                return;
-            }
-            
-            if (!confirm('¿Estás seguro de eliminar tu participación? Esta acción no se puede deshacer.')) return;
-            
-            try {
-                const response = await fetch('/api/concurso/eliminar-participacion', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        promocion_id: parseInt(promocionId),
-                        telefono: telefonoCliente
-                    })
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('✅ Participación eliminada correctamente');
-                    cargarPromociones(); // Recargar la lista
-                } else {
-                    alert('❌ Error: ' + result.message);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('❌ Error de conexión');
-            }
-        }
-
-        function irAAgendarCita() {
-            const negocioId = document.getElementById('negocioId').value;
-            window.open(`/cliente/${negocioId}`, '_blank');
-        }
-        
-        // ========== PARTICIPAR ==========
-        let currentPromoId = null;
-        
-        function abrirModalParticipar(promoId) {
-            const telefonoCliente = localStorage.getItem('telefono_cliente');
-            const nombreCliente = localStorage.getItem('cliente_nombre') || '';
-            
-            if (!telefonoCliente) {
-                alert('🔐 Primero debes identificarte en el chat con tu número de teléfono');
-                irAAgendarCita();
-                return;
-            }
-            
-            currentPromoId = promoId;
-            
-            document.querySelectorAll('.modal-overlay, #modalParticipar').forEach(el => el?.remove());
-            
-            const overlay = document.createElement('div');
-            overlay.className = 'modal-overlay';
-            overlay.onclick = () => cerrarModal();
-            
-            const modal = document.createElement('div');
-            modal.id = 'modalParticipar';
-            modal.className = 'modal-mobile';
-            modal.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="m-0 fw-bold">🎁 Participar en Concurso</h5>
-                    <button type="button" class="btn-close" onclick="cerrarModal()"></button>
+    <!-- BOTTOM SHEET PARTICIPAR -->
+    <div class="bottom-sheet" id="sheetParticipar">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+            <span class="sheet-title">🎁 Participar en Concurso</span>
+            <button class="sheet-close" onclick="cerrarSheet()">×</button>
+        </div>
+        <form id="formParticipar" enctype="multipart/form-data">
+            <div class="sheet-body">
+                <input type="hidden" name="promocion_id" id="sheetPromoId">
+                <div class="form-group">
+                    <label class="form-label">Tu nombre</label>
+                    <input type="text" name="nombre" id="sheetNombre" class="form-control" placeholder="Nombre completo" required>
                 </div>
-                <form id="formParticipar" enctype="multipart/form-data">
-                    <input type="hidden" name="promocion_id" value="${promoId}">
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">👤 Tu nombre</label>
-                        <input type="text" name="nombre" class="form-control" 
-                            value="${escapeHtml(nombreCliente)}" 
-                            placeholder="Tu nombre" required>
+                <div class="form-group">
+                    <label class="form-label">Fotos (máx. 3)</label>
+                    <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
+                    <span style="font-size:0.72rem; color:var(--text-light);">Comparte tus mejores fotos del servicio</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mensaje (opcional)</label>
+                    <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
+                </div>
+            </div>
+            <div class="sheet-footer">
+                <button type="button" class="btn-sheet btn-sheet-secondary" onclick="cerrarSheet()">Cancelar</button>
+                <button type="submit" class="btn-sheet btn-sheet-primary" id="btnEnviarPart">📤 Enviar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- APP SHELL -->
+    <div class="app">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <div class="negocio-avatar">💬</div>
+                <div>
+                    <div class="negocio-name">{{ negocio.nombre }}</div>
+                    <div class="negocio-sub">Agenda tu cita en segundos</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="icon-btn" id="btnNotificaciones" onclick="activarNotificacionesCliente()" title="Activar notificaciones">🔔</button>
+                <button class="icon-btn" onclick="verPerfilNegocio()" title="Ver negocio">🏪</button>
+            </div>
+        </div>
+
+        <!-- PANELES -->
+        <div class="content">
+
+            <!-- PANEL CHAT -->
+            <div id="panelChat" class="panel active">
+                <div class="chat-messages" id="chatMessages"></div>
+            </div>
+
+            <!-- PANEL PROMOCIONES -->
+            <div id="panelPromociones" class="panel">
+                <div class="panel-scroll">
+                    <div class="panel-title">Promociones activas</div>
+                    <div id="promocionesList">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🎁</div>
+                            <h4>Cargando promociones...</h4>
+                        </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">📸 Fotos (Máx 3)</label>
-                        <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
-                        <small class="text-muted">Comparte tus mejores fotos</small>
+                </div>
+            </div>
+
+            <!-- PANEL DIRECTORIO -->
+            <div id="panelDirectorio" class="panel">
+                <div class="panel-scroll">
+                    <div class="directorio-hero">
+                        <div class="directorio-icon">🏪</div>
+                        <h3>Directorio de Negocios</h3>
+                        <p>Explora todos los negocios disponibles en nuestra plataforma, con fotos, servicios y mucho más.</p>
+                        <a href="https://wabot-directorio-production.up.railway.app/directorio"
+                           target="_blank" class="btn-directorio">
+                            📍 Ver Directorio
+                        </a>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">✏️ Mensaje</label>
-                        <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-warning w-100 fw-bold py-2">
-                        📤 Enviar participación
-                    </button>
-                </form>
-            `;
-            
-            document.body.appendChild(overlay);
-            document.body.appendChild(modal);
-            
-            document.getElementById('formParticipar').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                const nombre = e.target.nombre.value.trim();
-                if (!nombre) {
-                    alert('❌ Por favor, ingresa tu nombre');
-                    return;
-                }
-                
-                const files = e.target.fotos.files;
-                if (files.length === 0) {
-                    alert('❌ Debes subir al menos una foto');
-                    return;
-                }
-                if (files.length > 3) {
-                    alert('❌ Máximo 3 fotos');
-                    return;
-                }
-                
-                const btn = e.target.querySelector('button[type="submit"]');
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-                
-                const formData = new FormData(e.target);
-                formData.append('telefono', telefonoCliente);
-                
-                try {
-                    const response = await fetch('/api/concurso/participar', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        alert('✅ ¡Participación exitosa! 🎉');
-                        if (result.share_link && confirm('📤 ¿Compartir enlace para recibir votos?')) {
-                            navigator.clipboard.writeText(result.share_link);
-                            alert('✅ Enlace copiado al portapapeles');
-                        }
-                        cerrarModal();
-                        cargarPromociones();
-                    } else {
-                        alert('❌ Error: ' + (result.message || 'No se pudo procesar la participación'));
-                    }
-                } catch (error) {
-                    console.error(error);
-                    alert('❌ Error de conexión. Intenta nuevamente.');
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = '📤 Enviar participación';
-                }
-            });
+                </div>
+            </div>
+
+        </div><!-- /content -->
+
+    </div><!-- /app -->
+
+    <!-- INPUT DE CHAT (fijo sobre la bottom bar) -->
+    <div class="chat-input-bar" id="chatInputBar">
+        <input type="text" class="chat-input" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
+        <button class="send-btn" id="sendBtn">➤</button>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-bar">
+        <button class="nav-item active" id="navChat" onclick="irASeccion('chat')">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Chat</span>
+        </button>
+        <button class="nav-item" id="navPromos" onclick="irASeccion('promociones')">
+            <span class="nav-icon">🎁</span>
+            <span class="nav-label">Promos</span>
+        </button>
+        <!-- FAB central -->
+        <button class="nav-item nav-fab" id="fabBtn" onclick="toggleFab()">
+            <span class="nav-icon" id="fabIcon">☰</span>
+        </button>
+        <button class="nav-item" id="navDirectorio" onclick="irASeccion('directorio')">
+            <span class="nav-icon">🏪</span>
+            <span class="nav-label">Directorio</span>
+        </button>
+        <button class="nav-item" onclick="verPerfilNegocio()">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Perfil</span>
+        </button>
+    </nav>
+
+    <input type="hidden" id="sessionId"    value="{{ session_id }}">
+    <input type="hidden" id="negocioId"    value="{{ negocio.id }}">
+    <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
+    <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
+
+    <script>
+        // ==================== HELPERS ====================
+        function toast(msg, tipo) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.background = tipo === 'error'   ? '#ef4444' :
+                                  tipo === 'warning' ? '#f59e0b' : '#1e293b';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2400);
         }
 
         function escapeHtml(str) {
             if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
         }
-        
-        function cerrarModal() {
-            const modal = document.getElementById('modalParticipar');
-            const overlay = document.querySelector('.modal-overlay');
-            if (modal) modal.remove();
-            if (overlay) overlay.remove();
-            document.body.style.overflow = 'auto';
+
+        // ==================== NOTIFICACIONES PUSH PARA CLIENTES ====================
+
+        async function activarNotificacionesCliente() {
+            console.log('🔔 Botón de notificaciones clickeado');
+            
+            const telefono = localStorage.getItem('telefono_cliente');
+            const negocioId = document.getElementById('negocioId').value;
+            
+            if (!telefono) {
+                toast('⚠️ Primero identifícate en el chat con tu número de teléfono', 'warning');
+                return;
+            }
+            
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                toast('❌ Tu navegador no soporta notificaciones', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnNotificaciones');
+            btn.disabled = true;
+            btn.textContent = '⏳';
+            
+            try {
+                // ✅ FORZAR registro del Service Worker
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                await navigator.serviceWorker.ready;
+                console.log('✅ SW listo');
+                
+                // ✅ LIMPIAR suscripción antigua (si existe)
+                let subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    console.log('🗑️ Eliminando suscripción antigua...');
+                    await subscription.unsubscribe();
+                    console.log('✅ Suscripción antigua eliminada');
+                }
+                
+                // Pedir permiso
+                let permiso = Notification.permission;
+                if (permiso === 'default') {
+                    permiso = await Notification.requestPermission();
+                }
+                
+                if (permiso !== 'granted') {
+                    toast('❌ Debes permitir notificaciones en la configuración del sitio', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔔';
+                    return;
+                }
+                
+                // ✅ USAR LA MISMA CLAVE QUE EL PROFESIONAL
+                const publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
+                
+                // Crear NUEVA suscripción
+                console.log('🔐 Creando nueva suscripción...');
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey)
+                });
+                
+                console.log('✅ Suscripción creada');
+                
+                // Guardar en BD
+                const response = await fetch('/api/push/subscribe-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscription: subscription,
+                        telefono: telefono,
+                        negocio_id: parseInt(negocioId)
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('📥 Respuesta:', data);
+                
+                if (data.success) {
+                    btn.textContent = '🔔✓';
+                    btn.style.background = '#d1fae5';
+                    localStorage.setItem('notificaciones_activadas', 'true');
+                    toast('✅ Notificaciones activadas');
+                } else {
+                    toast('❌ Error: ' + (data.error || 'desconocido'), 'error');
+                    btn.textContent = '🔔';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                toast('❌ ' + error.message, 'error');
+                btn.textContent = '🔔';
+            } finally {
+                btn.disabled = false;
+            }
         }
-        
-        // ========== RESET ==========
+
+        // Helper para convertir clave VAPID
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // Verificar si ya tiene notificaciones activadas al cargar
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('notificaciones_activadas') === 'true') {
+                const btn = document.getElementById('btnNotificaciones');
+                if (btn) {
+                    btn.style.background = '#d1fae5';
+                    btn.textContent = '🔔✓';
+                }
+            }
+        });
+
+        // ==================== NAVEGACIÓN ====================
+        let seccionActiva = 'chat';
+
+        function irASeccion(s) {
+            seccionActiva = s;
+
+            // Paneles
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            const panelMap = { chat: 'panelChat', promociones: 'panelPromociones', directorio: 'panelDirectorio' };
+            document.getElementById(panelMap[s])?.classList.add('active');
+
+            // Input bar solo en chat
+            const bar = document.getElementById('chatInputBar');
+            if (s === 'chat') { bar.classList.add('visible'); }
+            else { bar.classList.remove('visible'); }
+
+            // Nav items
+            document.querySelectorAll('.nav-item:not(.nav-fab)').forEach(n => n.classList.remove('active'));
+            const navMap = { chat: 'navChat', promociones: 'navPromos', directorio: 'navDirectorio' };
+            document.getElementById(navMap[s])?.classList.add('active');
+
+            if (s === 'promociones') cargarPromociones();
+        }
+
+        // Función para hacer scroll al final del chat
+        function scrollToBottomChat() {
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // ==================== FAB ====================
+        let fabOpen = false;
+        function toggleFab() {
+            fabOpen = !fabOpen;
+            document.getElementById('fabMenu').classList.toggle('open', fabOpen);
+            document.getElementById('fabBackdrop').classList.toggle('open', fabOpen);
+            document.getElementById('fabIcon').textContent = fabOpen ? '✕' : '☰';
+        }
+        function closeFab() {
+            fabOpen = false;
+            document.getElementById('fabMenu').classList.remove('open');
+            document.getElementById('fabBackdrop').classList.remove('open');
+            document.getElementById('fabIcon').textContent = '☰';
+        }
+
+        // ==================== PERFIL NEGOCIO ====================
+        function verPerfilNegocio() {
+            const id = document.getElementById('negocioId').value;
+            window.open(`https://wabot-directorio-production.up.railway.app/negocio/${id}`, '_blank');
+        }
+
+        // ==================== RESET ====================
         function resetConversacion() {
             if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
                 localStorage.removeItem('telefono_cliente');
+                localStorage.removeItem('cliente_nombre');
                 telefonoGuardado = false;
-                fetch('/cliente/reset', { method: 'POST' })
-                    .then(() => location.reload());
+                fetch('/cliente/reset', { method: 'POST' }).then(() => location.reload());
             }
         }
-        
-        // ========== CHAT ==========
-        document.addEventListener('DOMContentLoaded', function() {
-            const chatMessages = document.getElementById('chatMessages');
-            const userInput = document.getElementById('userInput');
-            const sendButton = document.getElementById('sendButton');
-            const sessionId = document.getElementById('sessionId').value;
-            const negocioId = document.getElementById('negocioId').value;
-            const negocioNombre = document.getElementById('negocioNombre').value;
-            
-            function scrollToBottom() {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-            
-            function addUserMessage(message) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message user-message';
-                msgDiv.innerHTML = `<strong>Tú:</strong><br>${escapeHtml(message)}`;
-                chatMessages.appendChild(msgDiv);
-                scrollToBottom();
-            }
-            
-            function addBotMessage(message, options = null) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message bot-message';
-                msgDiv.innerHTML = `<strong><i class="fas fa-robot"></i> ${escapeHtml(negocioNombre)}:</strong><br>${escapeHtml(message)}`;
-                chatMessages.appendChild(msgDiv);
-                
-                if (options && options.length > 0) {
-                    const isProfessionals = options[0].type === 'professional' || options[0].image;
-                    
-                    if (isProfessionals) {
-                        const grid = document.createElement('div');
-                        grid.className = 'professionals-grid';
-                        options.forEach(opt => {
-                            const card = document.createElement('div');
-                            card.className = 'professional-card';
-                            card.innerHTML = `
-                                <div class="professional-img">
-                                    ${opt.image ? `<img src="${opt.image}" onerror="this.src=''">` : '<div class="default-avatar"><i class="fas fa-user"></i></div>'}
-                                </div>
-                                <div class="professional-info">
-                                    <strong>${escapeHtml(opt.name || opt.text)}</strong>
-                                    ${opt.specialty ? `<div class="specialty">${escapeHtml(opt.specialty)}</div>` : ''}
-                                </div>
-                                <button class="select-professional-btn" data-value="${escapeHtml(opt.value)}">Seleccionar</button>
-                            `;
-                            grid.appendChild(card);
-                        });
-                        chatMessages.appendChild(grid);
-                        
-                        grid.querySelectorAll('.select-professional-btn').forEach(btn => {
-                            btn.addEventListener('click', () => {
-                                userInput.value = btn.dataset.value;
-                                sendMessage();
-                            });
-                        });
-                    } else {
-                        const btnsContainer = document.createElement('div');
-                        btnsContainer.className = 'd-flex flex-wrap gap-2 mt-2';
-                        options.forEach(opt => {
-                            const btn = document.createElement('button');
-                            btn.className = 'btn btn-sm btn-outline-primary rounded-pill px-3 py-1';
-                            btn.textContent = opt.text || opt.name;
-                            btn.addEventListener('click', () => {
-                                userInput.value = opt.value;
-                                sendMessage();
-                            });
-                            btnsContainer.appendChild(btn);
-                        });
-                        chatMessages.appendChild(btnsContainer);
-                    }
+
+        // ==================== DETECCIÓN TELÉFONO ====================
+        let telefonoGuardado = false;
+
+        function iniciarDetectorTelefono() {
+            const observer = new MutationObserver(() => {
+                if (telefonoGuardado) return;
+                const msgs = document.querySelectorAll('.msg-user');
+                const last = msgs[msgs.length - 1];
+                if (!last) return;
+                const match = last.textContent.match(/\b(3\d{9})\b/);
+                if (match) {
+                    localStorage.setItem('telefono_cliente', match[1]);
+                    telefonoGuardado = true;
+                    if (seccionActiva === 'promociones') cargarPromociones();
                 }
-                scrollToBottom();
-            }
-            
-            async function sendMessage() {
-                const message = userInput.value.trim();
-                if (!message) return;
-                
-                addUserMessage(message);
-                userInput.value = '';
-                
-                try {
-                    const response = await fetch('/cliente/send', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message, session_id: sessionId, negocio_id: negocioId })
+            });
+            observer.observe(document.getElementById('chatMessages'), { childList: true, subtree: true });
+        }
+
+        // ==================== CHAT ====================
+        const chatMessages = document.getElementById('chatMessages');
+
+        function addUserMsg(text) {
+            const d = document.createElement('div');
+            d.className = 'msg msg-user';
+            d.innerHTML = `<div class="msg-sender">Tú</div>${escapeHtml(text)}`;
+            chatMessages.appendChild(d);
+            scrollToBottomChat();
+        }
+
+        function addBotMsg(text, options) {
+            const negNombre = document.getElementById('negocioNombre').value;
+            const d = document.createElement('div');
+            d.className = 'msg msg-bot';
+            d.innerHTML = `<div class="msg-sender">💬 ${escapeHtml(negNombre)}</div>${escapeHtml(text)}`;
+            chatMessages.appendChild(d);
+            scrollToBottomChat();
+
+            if (options && options.length) {
+                const isProfessionals = options[0].type === 'professional' || options[0].image;
+
+                if (isProfessionals) {
+                    const grid = document.createElement('div');
+                    grid.className = 'professionals-grid';
+                    options.forEach(opt => {
+                        const card = document.createElement('div');
+                        card.className = 'professional-card';
+                        card.innerHTML = `
+                            <div class="prof-avatar">
+                                ${opt.image
+                                    ? `<img src="${opt.image}" onerror="this.parentElement.textContent='👤'">`
+                                    : '👤'}
+                            </div>
+                            <div class="prof-name">${escapeHtml(opt.name || opt.text)}</div>
+                            ${opt.specialty ? `<div class="prof-specialty">${escapeHtml(opt.specialty)}</div>` : ''}
+                            <button class="btn-select-prof" data-value="${escapeHtml(opt.value)}">Seleccionar</button>
+                        `;
+                        grid.appendChild(card);
                     });
-                    const data = await response.json();
-                    if (data.error) {
-                        addBotMessage(`❌ ${data.error}`);
-                    } else {
-                        addBotMessage(data.message, data.options);
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    addBotMessage('❌ Error de conexión. Intenta de nuevo.');
+                    chatMessages.appendChild(grid);
+                    grid.querySelectorAll('.btn-select-prof').forEach(btn => {
+                        btn.addEventListener('click', () => enviarMensaje(btn.dataset.value));
+                    });
+                    scrollToBottomChat();
+                } else {
+                    const row = document.createElement('div');
+                    row.className = 'options-row';
+                    options.forEach(opt => {
+                        const chip = document.createElement('button');
+                        chip.className = 'option-chip';
+                        chip.textContent = opt.text || opt.name;
+                        chip.addEventListener('click', () => enviarMensaje(opt.value));
+                        row.appendChild(chip);
+                    });
+                    chatMessages.appendChild(row);
+                    scrollToBottomChat();
                 }
             }
-            
-            sendButton.addEventListener('click', sendMessage);
-            userInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
+        }
+
+        async function enviarMensaje(texto) {
+            const msg = texto ?? document.getElementById('userInput').value.trim();
+            if (!msg) return;
+            document.getElementById('userInput').value = '';
+            addUserMsg(msg);
+
+            const sessionId  = document.getElementById('sessionId').value;
+            const negocioId  = document.getElementById('negocioId').value;
+
+            try {
+                const res  = await fetch('/cliente/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, session_id: sessionId, negocio_id: negocioId })
+                });
+                const data = await res.json();
+                if (data.error) addBotMsg('❌ ' + data.error);
+                else addBotMsg(data.message, data.options);
+            } catch(e) {
+                addBotMsg('❌ Error de conexión. Intenta de nuevo.');
+            }
+        }
+
+        // ==================== PROMOCIONES ====================
+        async function cargarPromociones() {
+            const negocioId = document.getElementById('negocioId').value;
+            const tel = localStorage.getItem('telefono_cliente');
+            const container = document.getElementById('promocionesList');
+
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><h4>Cargando...</h4></div>`;
+
+            let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
+            if (tel) url += `?telefono=${encodeURIComponent(tel)}`;
+
+            try {
+                const res  = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success || !data.promociones?.length) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🎟️</div>
+                            <h4>Sin promociones activas</h4>
+                            <p>Vuelve pronto para ver concursos y premios</p>
+                        </div>`;
+                    return;
+                }
+
+                let html = '';
+                for (const promo of data.promociones) {
+                    let participacion = null;
+                    let elegible = data.elegible === true;
+
+                    if (tel) {
+                        try {
+                            const cr = await fetch(`/api/concurso/mi-participacion?promocion_id=${promo.id}&telefono=${tel}`);
+                            const cd = await cr.json();
+                            if (cd.success && cd.participacion) { participacion = cd.participacion; elegible = true; }
+                        } catch(e) {}
+                    }
+
+                    const fechaFin = promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Por definir';
+
+                    html += `
+                        <div class="promo-card">
+                            <div class="promo-banner">🏆 ${escapeHtml(promo.titulo)} <span style="opacity:.75;font-weight:400;font-size:.75rem;">· ${escapeHtml(promo.profesional_nombre)}</span></div>
+                            <div class="promo-body">
+                                <div class="promo-title-text">${escapeHtml(promo.titulo)}</div>
+                                <div class="promo-desc">${escapeHtml(promo.descripcion || 'Participa y gana increíbles premios')}</div>
+                                ${promo.premio ? `<div class="promo-prize">🏅 Premio: <strong>${escapeHtml(promo.premio)}</strong></div>` : ''}
+                                <div class="promo-footer">
+                                    <span class="promo-date">📅 Hasta: ${escapeHtml(fechaFin)}</span>
+                                    ${participacion
+                                        ? '<span class="badge-participando">✓ Ya participaste</span>'
+                                        : elegible
+                                            ? '<span class="badge-eligible">✓ Elegible</span>'
+                                            : '<span class="badge-not-eligible">✗ No elegible aún</span>'}
+                                </div>
+                                <div class="promo-actions">
+                                    ${participacion ? `
+                                        <button class="btn-promo btn-promo-info" onclick="verMiParticipacion(${participacion.id})">👁 Ver entrada</button>
+                                        <button class="btn-promo btn-promo-danger" onclick="eliminarParticipacion(${promo.id})">🗑 Eliminar</button>
+                                    ` : elegible ? `
+                                        <button class="btn-promo btn-promo-primary" onclick="abrirSheetParticipar(${promo.id})">📸 Participar</button>
+                                    ` : `
+                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">📅 Agendar cita</button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                container.innerHTML = html;
+            } catch(e) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error al cargar</h4><p>Intenta de nuevo más tarde</p></div>`;
+            }
+        }
+
+        function verMiParticipacion(id) { window.open(`/vota/${id}`, '_blank'); }
+
+        async function eliminarParticipacion(promocionId) {
+            const tel = localStorage.getItem('telefono_cliente');
+            if (!tel) return toast('No estás identificado', 'error');
+            if (!confirm('¿Eliminar tu participación? Esta acción no se puede deshacer.')) return;
+            try {
+                const res  = await fetch('/api/concurso/eliminar-participacion', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ promocion_id: parseInt(promocionId), telefono: tel })
+                });
+                const data = await res.json();
+                if (data.success) { toast('✅ Participación eliminada'); cargarPromociones(); }
+                else toast('❌ ' + data.message, 'error');
+            } catch(e) { toast('❌ Error de conexión', 'error'); }
+        }
+
+        function irAAgendarCita() {
+            const id = document.getElementById('negocioId').value;
+            window.open(`/cliente/${id}`, '_blank');
+        }
+
+        // ==================== SHEET PARTICIPAR ====================
+        function abrirSheetParticipar(promoId) {
+            const tel = localStorage.getItem('telefono_cliente');
+            if (!tel) {
+                toast('Primero identifícate en el chat con tu número de teléfono', 'warning');
+                irASeccion('chat');
+                return;
+            }
+            document.getElementById('sheetPromoId').value = promoId;
+            document.getElementById('sheetNombre').value  = localStorage.getItem('cliente_nombre') || '';
+            document.getElementById('sheetOverlay').classList.add('open');
+            document.getElementById('sheetParticipar').classList.add('open');
+        }
+
+        function cerrarSheet() {
+            document.getElementById('sheetOverlay').classList.remove('open');
+            document.getElementById('sheetParticipar').classList.remove('open');
+        }
+
+        document.getElementById('formParticipar').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tel   = localStorage.getItem('telefono_cliente');
+            const btn   = document.getElementById('btnEnviarPart');
+            const files = e.target.fotos.files;
+            const nombre = e.target.nombre.value.trim();
+
+            if (!nombre)        return toast('Ingresa tu nombre', 'warning');
+            if (!files.length)  return toast('Sube al menos una foto', 'warning');
+            if (files.length>3) return toast('Máximo 3 fotos', 'warning');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Enviando...';
+
+            const fd = new FormData(e.target);
+            fd.append('telefono', tel);
+
+            try {
+                const res  = await fetch('/api/concurso/participar', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    toast('🎉 ¡Participación exitosa!');
+                    cerrarSheet();
+                    if (data.share_link && confirm('📤 ¿Copiar enlace para compartir y recibir votos?')) {
+                        navigator.clipboard.writeText(data.share_link);
+                        toast('✅ Enlace copiado');
+                    }
+                    cargarPromociones();
+                } else {
+                    toast('❌ ' + (data.message || 'Error al enviar'), 'error');
+                }
+            } catch(e) {
+                toast('❌ Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📤 Enviar';
+            }
+        });
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Input visible y bindings de chat
+            const inputBar = document.getElementById('chatInputBar');
+            inputBar.classList.add('visible');
+
+            document.getElementById('sendBtn').addEventListener('click', () => enviarMensaje());
+            document.getElementById('userInput').addEventListener('keypress', e => {
+                if (e.key === 'Enter') enviarMensaje();
             });
-            
-            // Manejo del teclado - scroll automático cuando el input recibe foco
-            userInput.addEventListener('focus', function() {
-                setTimeout(() => {
-                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    scrollToBottom();
-                }, 100);
+            document.getElementById('userInput').addEventListener('focus', () => {
+                setTimeout(scrollToBottomChat, 150);
             });
-            
+
             iniciarDetectorTelefono();
-            
-            setTimeout(() => {
-                userInput.value = 'hola';
-                sendMessage();
-            }, 300);
+
+            // Saludo inicial
+            setTimeout(() => enviarMensaje('hola'), 300);
         });
     </script>
 </body>
