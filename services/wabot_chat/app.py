@@ -4320,9 +4320,6 @@ def completar_cita(cita_id):
                         
             except Exception as cliente_notif_error:
                 print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
-                    
-            except Exception as cliente_notif_error:
-                print(f"⚠️ [COMPLETAR_CITA] Error enviando notificación al cliente: {cliente_notif_error}")
             
             conn.commit()
             print(f"✅ [COMPLETAR_CITA] Commit exitoso")
