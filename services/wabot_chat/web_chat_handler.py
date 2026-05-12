@@ -1096,44 +1096,44 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
     respuesta = procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
     
-    # ✅ NUEVO: Detectar si la respuesta contiene una lista de servicios/profesionales
-    # para cambiar el estado y mostrar los botones correctos
-    if 'profesionales disponibles son:' in respuesta.lower() or \
-       'profesionales:' in respuesta.lower():
+    # ✅ NUEVO: Detectar intención en la respuesta de la IA
+    respuesta_lower = respuesta.lower()
+    
+    if 'profesional' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower):
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_profesional'
-        # Obtener profesionales para los botones
         profesionales = db.obtener_profesionales(negocio_id)
-        conversaciones_activas[clave_conversacion]['profesionales'] = profesionales
-        print(f"🔧 [IA] Detectada lista de profesionales, cambiando estado")
+        if profesionales:
+            conversaciones_activas[clave_conversacion]['profesionales'] = profesionales
+            print(f"🔧 [IA] Detectada selección de profesional, cambiando estado")
         
-    elif 'servicios disponibles son:' in respuesta.lower() or \
-         'servicio' in respuesta.lower() and ('1.' in respuesta or '2.' in respuesta or 'opciones' in respuesta.lower()):
+    elif 'servicio' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower or 'cuál' in respuesta_lower):
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
-        # Obtener servicios para los botones
         servicios = db.obtener_servicios(negocio_id)
-        conversaciones_activas[clave_conversacion]['servicios'] = servicios
-        print(f"🔧 [IA] Detectada lista de servicios, cambiando estado")
+        if servicios:
+            conversaciones_activas[clave_conversacion]['servicios'] = servicios
+            print(f"🔧 [IA] Detectada selección de servicio, cambiando estado")
         
-    elif 'horarios disponibles' in respuesta.lower() or \
-         'horario' in respuesta.lower() and ':' in respuesta:
+    elif 'hora' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'botones' in respuesta_lower):
         conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
-        print(f"🔧 [IA] Detectados horarios, cambiando estado")
+        print(f"🔧 [IA] Detectada selección de hora, cambiando estado")
         
-    elif 'confirmas' in respuesta.lower() or '¿confirmas' in respuesta.lower():
+    elif 'fecha' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'botones' in respuesta_lower):
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
+        print(f"🔧 [IA] Detectada selección de fecha, cambiando estado")
+        
+    elif 'confirmas' in respuesta_lower or '¿confirmas' in respuesta_lower:
         conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
         print(f"🔧 [IA] Detectada solicitud de confirmación, cambiando estado")
         
-    elif 'cancelada' in respuesta.lower() or 'cancelado' in respuesta.lower():
+    elif 'cancelada' in respuesta_lower or 'cancelado' in respuesta_lower:
         conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         print(f"🔧 [IA] Detectada cancelación, volviendo a menú")
         
-    elif 'agendada' in respuesta.lower() or 'cita confirmada' in respuesta.lower() or \
-         '✅' in respuesta and 'cita' in respuesta.lower():
+    elif 'agendada' in respuesta_lower or 'cita confirmada' in respuesta_lower or 'perfecto' in respuesta_lower:
         conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         print(f"🔧 [IA] Cita agendada, volviendo a menú")
         
     else:
-        # Si no detectamos nada específico, mantener menú principal
         conversaciones_activas[clave_conversacion]['estado'] = 'ia_libre'
     
     return respuesta
