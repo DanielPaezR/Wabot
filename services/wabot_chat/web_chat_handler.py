@@ -749,9 +749,47 @@ def guardar_historial_ia(clave_conversacion, role, contenido):
     })
 
 
+def sincronizar_contexto_ia(clave_conversacion):
+    """
+    Construir un resumen del estado actual de selecciones para que la IA sepa qué ya eligió el usuario
+    RETURNA: string con el contexto o None si no hay nada seleccionado
+    """
+    conv = conversaciones_activas.get(clave_conversacion, {})
+    contexto_partes = []
+    
+    if conv.get('profesional_nombre'):
+        contexto_partes.append(f"Profesional: {conv['profesional_nombre']}")
+    
+    if conv.get('servicio_nombre'):
+        contexto_partes.append(f"Servicio: {conv['servicio_nombre']}")
+    
+    if conv.get('fecha_seleccionada'):
+        contexto_partes.append(f"Fecha: {conv['fecha_seleccionada']}")
+    
+    if conv.get('hora_seleccionada'):
+        contexto_partes.append(f"Hora: {conv['hora_seleccionada']}")
+    
+    if contexto_partes:
+        return ' | '.join(contexto_partes)
+    return None
+
+
 def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente):
     if not openai or not OPENAI_API_KEY:
         return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
+
+    # ✅ NUEVO: Obtener clave de conversación para sincronizar contexto
+    clave_conversacion = None
+    if telefono_cliente:
+        clave_conversacion = f"{telefono_cliente}_{negocio_id}"
+    else:
+        # Si no hay teléfono, buscar por session_id en conversaciones_activas
+        from flask import session
+        session_id = session.get('chat_session_id', 'unknown')
+        for key in conversaciones_activas:
+            if key.endswith(f"_{negocio_id}"):
+                clave_conversacion = key
+                break
 
     prompt_negocio = construir_prompt_negocio(negocio_id)
     
@@ -806,6 +844,15 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
             'role': 'system',
             'content': datos_cliente_msg
         })
+
+    # ✅ NUEVO: Agregar contexto sincronizado (selecciones previas del usuario)
+    if clave_conversacion:
+        contexto_actual = sincronizar_contexto_ia(clave_conversacion)
+        if contexto_actual:
+            messages.append({
+                'role': 'system',
+                'content': f'CONTEXTO ACTUAL DE LA CONVERSACIÓN: {contexto_actual}. El cliente ya eligió estos datos. Si intenta cambiarlos, permite que lo haga. Si no quiere cambiar nada, continúa con lo que falta.'
+            })
 
     if historial:
         messages.extend(historial[-10:])
@@ -2576,6 +2623,10 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
     if mensaje == '1':
         print(f"🔧 [DEBUG] Usuario confirmó cita con opción '1'")
         
+        # ✅ NUEVO: Sincronizar confirmación con IA
+        guardar_historial_ia(clave_conversacion, 'user', 'Sí, confirmo la cita')
+        print(f"🔧 [SYNC] Confirmación guardada en historial de IA")
+        
         # ✅ EN NUEVO FLUJO: Ya tenemos el teléfono desde el inicio
         if 'telefono_cliente' not in conversacion:
             print(f"❌ [DEBUG] No hay teléfono en conversación, solicitando...")
@@ -2908,7 +2959,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
 # =============================================================================
 
 def procesar_seleccion_profesional(numero, mensaje, negocio_id):
-    """Procesar selección de profesional - SIN CAMBIOS"""
+    """Procesar selección de profesional - ACTUALIZADO PARA SINCRONIZAR CON IA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -2934,10 +2985,15 @@ def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['profesional_nombre'] = profesional_seleccionado['nombre']
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     
+    # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó este profesional
+    guardar_historial_ia(clave_conversacion, 'user', f'Quiero agendar con el profesional {profesional_seleccionado["nombre"]}')
+    
+    print(f"🔧 [SYNC] Profesional '{profesional_seleccionado['nombre']}' guardado en historial de IA")
+    
     return mostrar_servicios(numero, profesional_seleccionado['nombre'], negocio_id)
 
 def procesar_seleccion_servicio(numero, mensaje, negocio_id):
-    """Procesar selección de servicio - ACTUALIZADO"""
+    """Procesar selección de servicio - ACTUALIZADO PARA SINCRONIZAR CON IA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     # Manejar el comando "0" para volver al menú principal
@@ -2978,10 +3034,15 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
         del conversaciones_activas[clave_conversacion]['tiene_personalizado']
     
+    # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó este servicio
+    guardar_historial_ia(clave_conversacion, 'user', f'Quiero el servicio {servicio_seleccionado["nombre"]}')
+    
+    print(f"🔧 [SYNC] Servicio '{servicio_seleccionado['nombre']}' guardado en historial de IA")
+    
     return mostrar_fechas_disponibles(numero, negocio_id)
 
 def procesar_seleccion_fecha(numero, mensaje, negocio_id):
-    """Procesar selección de fecha - CORREGIDO"""
+    """Procesar selección de fecha - ACTUALIZADO PARA SINCRONIZAR CON IA"""
     clave_conversacion = f"{numero}_{negocio_id}"
     
     if mensaje == '0':
@@ -3009,6 +3070,11 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     # ✅ NO CAMBIAR EL ESTADO AÚN - mantener 'seleccionando_fecha'
     conversaciones_activas[clave_conversacion]['pagina_horarios'] = 0
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    
+    # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó esta fecha
+    guardar_historial_ia(clave_conversacion, 'user', f'Quiero la fecha {fecha_seleccionada}')
+    
+    print(f"🔧 [SYNC] Fecha '{fecha_seleccionada}' guardada en historial de IA")
     
     return mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada)
 
@@ -3069,6 +3135,10 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['hora_seleccionada'] = hora_seleccionada
     conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
     conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    
+    # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó esta hora
+    guardar_historial_ia(clave_conversacion, 'user', f'Quiero la hora {hora_seleccionada}')
+    print(f"🔧 [SYNC] Hora '{hora_seleccionada}' guardada en historial de IA")
     
     # Obtener nombre del cliente
     nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
