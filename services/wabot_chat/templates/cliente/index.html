@@ -861,6 +861,96 @@
             return d.innerHTML;
         }
 
+        // ==================== NOTIFICACIONES PUSH PARA CLIENTES ====================
+
+        async function activarNotificacionesCliente() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                toast('❌ Tu navegador no soporta notificaciones', 'error');
+                return;
+            }
+            
+            const permiso = await Notification.requestPermission();
+            if (permiso !== 'granted') {
+                toast('❌ Debes permitir notificaciones', 'error');
+                return;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                
+                // Obtener clave pública VAPID
+                const vapidResponse = await fetch('/api/push/public-key');
+                const vapidData = await vapidResponse.json();
+                
+                if (!vapidData.success) {
+                    toast('❌ Error de configuración', 'error');
+                    return;
+                }
+                
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
+                });
+                
+                // Guardar suscripción
+                const telefono = localStorage.getItem('telefono_cliente');
+                const negocioId = document.getElementById('negocioId').value;
+                
+                if (!telefono) {
+                    toast('⚠️ Primero identifícate en el chat con tu número', 'warning');
+                    return;
+                }
+                
+                const response = await fetch('/api/push/subscribe-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscription: subscription,
+                        telefono: telefono,
+                        negocio_id: parseInt(negocioId)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    toast('✅ Notificaciones activadas');
+                    document.getElementById('btnNotificaciones').style.background = '#d1fae5';
+                    document.getElementById('btnNotificaciones').textContent = '🔔✓';
+                    localStorage.setItem('notificaciones_activadas', 'true');
+                } else {
+                    toast('❌ Error al activar', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                toast('❌ Error al configurar notificaciones', 'error');
+            }
+        }
+
+        // Helper para convertir clave VAPID
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // Verificar si ya tiene notificaciones activadas al cargar
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('notificaciones_activadas') === 'true') {
+                const btn = document.getElementById('btnNotificaciones');
+                if (btn) {
+                    btn.style.background = '#d1fae5';
+                    btn.textContent = '🔔✓';
+                }
+            }
+        });
+
         // ==================== NAVEGACIÓN ====================
         let seccionActiva = 'chat';
 
