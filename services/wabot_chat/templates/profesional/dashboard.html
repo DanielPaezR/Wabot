@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="Mi Agenda">
     <meta name="msapplication-navbutton-color" content="#667eea">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta charset="UTF-8">  
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mi Panel - {{ session.negocio_nombre }}</title>
     <style>
@@ -20,7 +20,7 @@
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
-        
+
         :root {
             --primary: #667eea;
             --primary-dark: #5a67d8;
@@ -38,7 +38,7 @@
             --radius: 16px;
             --radius-sm: 12px;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
             background: #f1f5f9;
@@ -46,8 +46,8 @@
             line-height: 1.5;
             padding-bottom: env(safe-area-inset-bottom);
         }
-        
-        /* ==================== HEADER MODERNO ==================== */
+
+        /* ==================== HEADER ==================== */
         .header {
             background: var(--white);
             padding: 1rem;
@@ -56,7 +56,7 @@
             top: 0;
             z-index: 100;
         }
-        
+
         .header-main {
             display: flex;
             justify-content: space-between;
@@ -64,19 +64,19 @@
             gap: 1rem;
             margin-bottom: 1rem;
         }
-        
+
         .welcome h1 {
             font-size: 1.35rem;
             font-weight: 700;
             color: var(--dark);
             margin-bottom: 0.2rem;
         }
-        
+
         .welcome p {
             font-size: 0.8rem;
             color: var(--text-light);
         }
-        
+
         .notification-header-btn {
             width: 44px;
             height: 44px;
@@ -92,12 +92,12 @@
             transition: all 0.2s;
             position: relative;
         }
-        
+
         .notification-header-btn:active {
             transform: scale(0.96);
             background: #e2e8f0;
         }
-        
+
         .notification-header-badge {
             position: absolute;
             top: -5px;
@@ -113,12 +113,12 @@
             justify-content: center;
             font-weight: bold;
         }
-        
+
         .header-actions {
             display: flex;
             gap: 0.75rem;
         }
-        
+
         .action-btn {
             flex: 1;
             padding: 0.6rem 0.8rem;
@@ -135,14 +135,13 @@
             gap: 0.4rem;
             border: none;
         }
-        
-        .action-btn-info { background: #e2e8f0; color: var(--dark); }
+
+        .action-btn-info    { background: #e2e8f0; color: var(--dark); }
         .action-btn-success { background: #d1fae5; color: #065f46; }
-        .action-btn-logout { background: #fee2e2; color: #991b1b; }
-        
-        .action-btn:active { transform: scale(0.97); }
-        
-        /* ==================== PANEL DE NOTIFICACIONES ==================== */
+        .action-btn-logout  { background: #fee2e2; color: #991b1b; }
+        .action-btn:active  { transform: scale(0.97); }
+
+        /* ==================== PANEL NOTIFICACIONES ==================== */
         .notifications-panel {
             background: var(--white);
             border-radius: var(--radius-sm);
@@ -151,7 +150,7 @@
             box-shadow: var(--shadow);
             border: 1px solid #e2e8f0;
         }
-        
+
         .notifications-header {
             display: flex;
             justify-content: space-between;
@@ -160,11 +159,11 @@
             padding-bottom: 0.5rem;
             border-bottom: 1px solid #e2e8f0;
         }
-        
+
         .notifications-header h3 { font-size: 1rem; color: var(--dark); }
-        
+
         #notifications-list { max-height: 300px; overflow-y: auto; }
-        
+
         .notification-item {
             background: #f8fafc;
             border-radius: var(--radius-sm);
@@ -172,12 +171,12 @@
             margin-bottom: 0.75rem;
             border-left: 4px solid var(--primary);
         }
-        
+
         .notification-item.unread { background: #eff6ff; border-left-color: var(--info); }
-        .notification-title { font-weight: 600; margin-bottom: 0.25rem; font-size: 0.85rem; }
+        .notification-title   { font-weight: 600; margin-bottom: 0.25rem; font-size: 0.85rem; }
         .notification-message { font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.25rem; }
-        .notification-time { font-size: 0.7rem; color: #94a3b8; text-align: right; }
-        
+        .notification-time    { font-size: 0.7rem; color: #94a3b8; text-align: right; }
+
         .btn-mark-read {
             background: var(--primary);
             color: white;
@@ -188,15 +187,15 @@
             cursor: pointer;
             margin-top: 0.5rem;
         }
-        
-        /* ==================== TARJETAS DE ESTADÍSTICAS ==================== */
+
+        /* ==================== ESTADÍSTICAS ==================== */
         .stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.8rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
-        
+
         .stat-card {
             background: var(--white);
             border-radius: var(--radius-sm);
@@ -205,28 +204,28 @@
             box-shadow: var(--shadow);
             border: 1px solid #e2e8f0;
         }
-        
+
         .stat-number {
             font-size: 1.8rem;
             font-weight: 700;
             color: var(--primary);
             line-height: 1.2;
         }
-        
+
         .stat-label {
             font-size: 0.75rem;
             color: var(--text-light);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
-        /* ==================== CONTENEDOR PRINCIPAL ==================== */
+
+        /* ==================== CONTENEDOR ==================== */
         .container {
             padding: 1rem;
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         .section-title {
             display: flex;
             justify-content: space-between;
@@ -235,9 +234,16 @@
             gap: 0.8rem;
             margin-bottom: 1rem;
         }
-        
+
         .section-title h2 { font-size: 1.2rem; font-weight: 600; color: var(--dark); }
-        
+
+        .date-and-button {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
         .date-selector {
             padding: 0.6rem 0.8rem;
             border: 1px solid #e2e8f0;
@@ -245,68 +251,146 @@
             font-size: 0.85rem;
             background: var(--white);
         }
-        
-        /* ==================== LISTA DE CITAS ==================== */
-        .citas-list {
+
+        /* ==================== TIMELINE DE CITAS ==================== */
+        .timeline-wrap {
             background: var(--white);
             border-radius: var(--radius);
-            overflow: hidden;
+            border: 1px solid #e2e8f0;
             box-shadow: var(--shadow);
             margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .timeline-row {
+            display: flex;
+            min-height: 60px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .timeline-row:last-child { border-bottom: none; }
+
+        .timeline-row.has-cita { min-height: auto; }
+
+        .hour-label {
+            width: 54px;
+            flex-shrink: 0;
+            padding: 10px 8px 0 10px;
+            text-align: right;
+            font-size: 11px;
+            color: var(--text-light);
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            font-weight: 500;
+        }
+
+        .hour-line {
+            width: 1px;
+            background: #e2e8f0;
+            flex-shrink: 0;
+            position: relative;
+            margin: 0 2px;
+        }
+
+        .hour-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            position: absolute;
+            top: 10px;
+            left: -3px;
+        }
+
+        .slot-area {
+            flex: 1;
+            padding: 8px 10px 8px 10px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        /* Slot vacío */
+        .slot-empty-pill {
+            font-size: 11px;
+            color: #94a3b8;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 3px 10px;
+            margin-top: 8px;
+        }
+
+        /* Bloque de cita */
+        .cita-block {
+            flex: 1;
+            background: #fafbff;
             border: 1px solid #e2e8f0;
+            border-left: 3px solid var(--primary);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            padding: 8px 10px;
         }
-        
-        .cita-item {
-            padding: 1rem;
-            border-bottom: 1px solid #e2e8f0;
-            transition: all 0.2s;
+
+        .cita-block.estado-completado {
+            border-left-color: var(--success);
+            background: #f0fdf9;
+            opacity: 0.85;
         }
-        
-        .cita-item:last-child { border-bottom: none; }
-        
-        .cita-info h3 {
-            font-size: 1rem;
+
+        .cita-block.estado-cancelado {
+            border-left-color: var(--danger);
+            background: #fff5f5;
+            opacity: 0.7;
+        }
+
+        .cita-block-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .cita-nombre {
+            font-size: 0.9rem;
             font-weight: 600;
-            margin-bottom: 0.3rem;
+            color: var(--dark);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 6px;
             flex-wrap: wrap;
         }
-        
+
         .badge-personalizada {
             background: #f3e8ff;
             color: #9333ea;
-            font-size: 0.7rem;
-            padding: 0.2rem 0.6rem;
+            font-size: 0.65rem;
+            padding: 2px 8px;
             border-radius: 30px;
             font-weight: 500;
         }
-        
-        .cita-meta {
+
+        .timeline-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 1rem;
-            font-size: 0.8rem;
-            color: var(--text-light);
-            margin-bottom: 0.8rem;
-        }
-        
-        .cita-time { font-weight: 600; color: var(--primary); }
-        .cita-price { font-weight: 600; color: var(--success); }
-        
-        .cita-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            gap: 0.8rem;
-        }
-        
-        .btn-complete, .btn-cancelar {
-            padding: 0.5rem 1rem;
-            border-radius: 40px;
+            gap: 8px;
             font-size: 0.75rem;
+            color: var(--text-light);
+            margin-bottom: 8px;
+        }
+
+        .cita-price { color: var(--success); font-weight: 600; }
+
+        .timeline-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .btn-complete, .btn-cancelar {
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 0.72rem;
             font-weight: 500;
             border: none;
             cursor: pointer;
@@ -315,36 +399,37 @@
             align-items: center;
             gap: 0.3rem;
         }
-        
-        .btn-complete { background: #d1fae5; color: #065f46; }
-        .btn-cancelar { background: #fee2e2; color: #991b1b; }
-        
-        .btn-complete:active, .btn-cancelar:active { transform: scale(0.96); }
-        
+
+        .btn-complete        { background: #d1fae5; color: #065f46; }
+        .btn-cancelar        { background: #fee2e2; color: #991b1b; }
+        .btn-complete:active,
+        .btn-cancelar:active { transform: scale(0.96); }
+
         .btn-personalizar {
             background: #e2e8f0;
             color: var(--dark);
-            padding: 0.5rem 1rem;
+            padding: 4px 12px;
             border-radius: 40px;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 0.3rem;
         }
-        
+
         .status-badge {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.6rem;
+            font-size: 0.65rem;
+            padding: 2px 8px;
             border-radius: 30px;
             font-weight: 500;
+            white-space: nowrap;
         }
-        
+
         .status-confirmado { background: #d1fae5; color: #065f46; }
         .status-completado { background: #dbeafe; color: #1e40af; }
-        
+
         .empty-state { text-align: center; padding: 2rem; color: var(--text-light); }
-        
+
         /* ==================== ACCIONES RÁPIDAS ==================== */
         .quick-actions {
             display: grid;
@@ -352,7 +437,7 @@
             gap: 0.8rem;
             margin-bottom: 1.5rem;
         }
-        
+
         .action-card {
             background: var(--white);
             border-radius: var(--radius-sm);
@@ -363,28 +448,25 @@
             border: 1px solid #e2e8f0;
             box-shadow: var(--shadow);
         }
-        
+
         .action-card:active { transform: scale(0.97); background: #f8fafc; }
-        
-        .action-icon { font-size: 1.8rem; margin-bottom: 0.25rem; }
+
+        .action-icon  { font-size: 1.8rem; margin-bottom: 0.25rem; }
         .action-title { font-size: 0.75rem; font-weight: 600; color: var(--dark); }
-        .action-desc { font-size: 0.65rem; color: var(--text-light); }
-        
+        .action-desc  { font-size: 0.65rem; color: var(--text-light); }
+
         /* ==================== MODAL ==================== */
         .modal-overlay {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.5);
             z-index: 1000;
             align-items: center;
             justify-content: center;
             padding: 1rem;
         }
-        
+
         .modal-content {
             background: var(--white);
             border-radius: var(--radius);
@@ -393,7 +475,7 @@
             max-height: 85vh;
             overflow-y: auto;
         }
-        
+
         .modal-header {
             padding: 1rem;
             border-bottom: 1px solid #e2e8f0;
@@ -401,29 +483,33 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .modal-title { font-size: 1.1rem; font-weight: 600; }
-        .modal-close { font-size: 1.5rem; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .modal-close:active { background: #f1f5f9; }
-        
-        .modal-body { padding: 1rem; }
-        .modal-footer { padding: 1rem; border-top: 1px solid #e2e8f0; display: flex; gap: 0.8rem; justify-content: flex-end; }
-        
-        .form-group { margin-bottom: 1rem; }
-        .form-label { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; display: block; }
-        .form-control { width: 100%; padding: 0.7rem; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; }
-        
-        .btn-modal {
-            padding: 0.6rem 1.2rem;
-            border-radius: 40px;
-            font-weight: 500;
-            border: none;
+
+        .modal-close {
+            font-size: 1.5rem;
             cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
+
+        .modal-close:active { background: #f1f5f9; }
+
+        .modal-body   { padding: 1rem; }
+        .modal-footer { padding: 1rem; border-top: 1px solid #e2e8f0; display: flex; gap: 0.8rem; justify-content: flex-end; }
+
+        .form-group   { margin-bottom: 1rem; }
+        .form-label   { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; display: block; }
+        .form-control { width: 100%; padding: 0.7rem; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; }
+
+        .btn-modal         { padding: 0.6rem 1.2rem; border-radius: 40px; font-weight: 500; border: none; cursor: pointer; }
         .btn-modal-primary { background: var(--primary); color: white; }
         .btn-modal-secondary { background: #e2e8f0; color: var(--dark); }
-        
+
         .notification {
             position: fixed;
             bottom: 1rem;
@@ -438,29 +524,44 @@
             display: none;
             font-size: 0.85rem;
         }
-        
+
         /* ==================== RESPONSIVE ==================== */
         @media (min-width: 640px) {
             .quick-actions { gap: 1rem; }
-            .action-card { padding: 1rem 0.5rem; }
-            .action-icon { font-size: 2rem; }
+            .action-card   { padding: 1rem 0.5rem; }
+            .action-icon   { font-size: 2rem; }
         }
-        
+
         @media (prefers-color-scheme: dark) {
             body { background: #0f172a; }
-            .header, .stat-card, .citas-list, .action-card, .notifications-panel, .modal-content { background: #1e293b; border-color: #334155; }
-            .welcome h1, .section-title h2, .cita-info h3, .action-title { color: #f1f5f9; }
-            .welcome p, .cita-meta, .action-desc { color: #94a3b8; }
-            .action-btn-info { background: #334155; color: #cbd5e1; }
-            .btn-personalizar { background: #334155; color: #cbd5e1; }
-            .date-selector { background: #334155; color: white; border-color: #475569; }
-            .form-control { background: #334155; border-color: #475569; color: white; }
+            .header, .stat-card, .action-card,
+            .notifications-panel, .modal-content,
+            .timeline-wrap { background: #1e293b; border-color: #334155; }
+
+            .welcome h1, .section-title h2,
+            .action-title, .cita-nombre { color: #f1f5f9; }
+
+            .welcome p, .timeline-meta,
+            .action-desc, .hour-label { color: #94a3b8; }
+
+            .action-btn-info   { background: #334155; color: #cbd5e1; }
+            .btn-personalizar  { background: #334155; color: #cbd5e1; }
+            .date-selector     { background: #334155; color: white; border-color: #475569; }
+            .form-control      { background: #334155; border-color: #475569; color: white; }
+
+            .timeline-row      { border-color: #334155; }
+            .hour-line         { background: #334155; }
+            .cita-block        { background: #243044; border-color: #334155; }
+            .cita-block.estado-completado { background: #0d2e22; }
+            .cita-block.estado-cancelado  { background: #2e1515; }
+            .slot-empty-pill   { background: #1e293b; border-color: #475569; color: #64748b; }
         }
     </style>
 </head>
 <body data-profesional-id="{{ session.profesional_id }}">
+
     <div id="notification" class="notification">✅ Cita marcada como completada</div>
-    
+
     <!-- MODAL CONTRASEÑA -->
     <div id="passwordModal" class="modal-overlay">
         <div class="modal-content">
@@ -491,7 +592,7 @@
             </form>
         </div>
     </div>
-    
+
     <!-- HEADER -->
     <div class="header">
         <div class="header-main">
@@ -499,24 +600,41 @@
                 <h1>👋 Hola, {{ session.usuario_nombre }}</h1>
                 <p>{{ session.negocio_nombre }}</p>
             </div>
-            <button class="notification-header-btn" onclick="toggleNotifications()">🔔<span id="notificationBadge" class="notification-header-badge" style="display:none;">0</span></button>
+            <button class="notification-header-btn" onclick="toggleNotifications()">
+                🔔
+                <span id="notificationBadge" class="notification-header-badge" style="display:none;">0</span>
+            </button>
         </div>
+
         <div class="header-actions">
             <button class="action-btn action-btn-info" onclick="openPasswordModal()">🔑 Contraseña</button>
             <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="action-btn action-btn-success">📊 Estadísticas</a>
             <a href="{{ url_for('logout') }}" class="action-btn action-btn-logout">🚪 Salir</a>
         </div>
+
         <div id="notificationsPanel" class="notifications-panel" style="display:none;">
-            <div class="notifications-header"><h3>🔔 Notificaciones</h3><button class="action-btn action-btn-info" onclick="loadNotifications()" style="padding:4px 8px;">🔄</button></div>
+            <div class="notifications-header">
+                <h3>🔔 Notificaciones</h3>
+                <button class="action-btn action-btn-info" onclick="loadNotifications()" style="padding:4px 8px;">🔄</button>
+            </div>
             <div id="notificationsList">Cargando...</div>
         </div>
+
         <div class="stats">
-            <div class="stat-card"><div class="stat-number">{{ total_citas }}</div><div class="stat-label">Citas Hoy</div></div>
-            <div class="stat-card"><div class="stat-number">${{ ganancia_estimada }}</div><div class="stat-label">Ganancia Est.</div></div>
+            <div class="stat-card">
+                <div class="stat-number">{{ total_citas }}</div>
+                <div class="stat-label">Citas Hoy</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">${{ ganancia_estimada }}</div>
+                <div class="stat-label">Ganancia Est.</div>
+            </div>
         </div>
     </div>
-    
+
+    <!-- CONTENIDO PRINCIPAL -->
     <div class="container">
+
         <div class="section-title">
             <h2>📅 Mis Citas de Hoy</h2>
             <div class="date-and-button">
@@ -524,192 +642,338 @@
                 <button id="pushButton" class="action-btn action-btn-info" style="background:#f3e8ff; color:#9333ea;">🔔 Activar Notificaciones</button>
             </div>
         </div>
-        
-        <div class="citas-list">
-            {% if citas %}
-                {% for cita in citas %}
-                    {% if cita.estado != 'bloqueado' %}
-                        <div class="cita-item">
-                            <div class="cita-info">
-                                <h3>{{ cita.cliente_nombre }}{% if cita.personalizada %}<span class="badge-personalizada">⭐ Personalizada</span>{% endif %}</h3>
-                                <div class="cita-meta"><span class="cita-time">⏰ {{ cita.hora }}</span><span class="cita-service">💼 {{ cita.servicio_nombre }}</span><span class="cita-price">💰 ${{ cita.precio }}</span></div>
-                            </div>
-                            <div class="cita-actions">
-                                {% if cita.estado == 'cancelado' %}<span style="color: var(--danger);">❌ Cancelada</span>
-                                {% elif cita.estado == 'completado' %}<span style="color: var(--success);">✅ Completado</span>
-                                {% else %}
-                                    <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn-complete completar-btn" data-cita-id="{{ cita.id }}" onclick="return manejarCompletarCita(event, this);">✅ Completar</button>
-                                    </form>
-                                    <form method="POST" action="{{ url_for('profesional_cancelar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="btn-cancelar cancelar-btn" data-cita-id="{{ cita.id }}" data-cliente="{{ cita.cliente_nombre }}" onclick="return manejarCancelarCita(event, this);">❌ Cancelar</button>
-                                    </form>
-                                {% endif %}
-                                <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" class="btn-personalizar">⚙️ Personalizar</a>
-                                <span class="status-badge status-{{ cita.estado }}">{{ cita.estado }}</span>
-                            </div>
+
+        <!-- ==================== TIMELINE ==================== -->
+        {# Construimos un dict {hora: cita} para lookup eficiente #}
+        {% set citas_por_hora = {} %}
+        {% for cita in citas %}
+            {% if cita.estado != 'bloqueado' %}
+                {% set _ = citas_por_hora.update({cita.hora: cita}) %}
+            {% endif %}
+        {% endfor %}
+
+        {# Rango de horario de atención — ajusta horas_inicio y horas_fin según tu negocio #}
+        {% set horas_inicio = 8 %}
+        {% set horas_fin = 18 %}
+
+        <div class="timeline-wrap">
+            {% set tiene_algo = namespace(value=false) %}
+
+            {% for hora_num in range(horas_inicio, horas_fin) %}
+                {% for minutos in ['00', '30'] %}
+                    {% set slot = '%02d:%s' % (hora_num, minutos) %}
+                    {% set cita = citas_por_hora.get(slot) %}
+                    {% if cita %}{% set tiene_algo.value = true %}{% endif %}
+
+                    <div class="timeline-row {% if cita %}has-cita{% endif %}">
+
+                        <div class="hour-label">{{ slot }}</div>
+                        <div class="hour-line"><div class="hour-dot"></div></div>
+
+                        <div class="slot-area">
+                            {% if cita %}
+                                <div class="cita-block estado-{{ cita.estado }}">
+
+                                    <div class="cita-block-top">
+                                        <div class="cita-nombre">
+                                            {{ cita.cliente_nombre }}
+                                            {% if cita.personalizada %}
+                                                <span class="badge-personalizada">⭐ Personalizada</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if cita.estado == 'cancelado' %}
+                                            <span class="status-badge" style="background:#fee2e2;color:#991b1b;">❌ Cancelada</span>
+                                        {% elif cita.estado == 'completado' %}
+                                            <span class="status-badge" style="background:#d1fae5;color:#065f46;">✅ Completado</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="timeline-meta">
+                                        <span>💼 {{ cita.servicio_nombre }}</span>
+                                        <span class="cita-price">💰 ${{ cita.precio }}</span>
+                                    </div>
+
+                                    {% if cita.estado != 'cancelado' and cita.estado != 'completado' %}
+                                    <div class="timeline-actions">
+                                        <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn-complete completar-btn"
+                                                    data-cita-id="{{ cita.id }}"
+                                                    onclick="return manejarCompletarCita(event, this);">✅ Completar</button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('profesional_cancelar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn-cancelar cancelar-btn"
+                                                    data-cita-id="{{ cita.id }}"
+                                                    data-cliente="{{ cita.cliente_nombre }}"
+                                                    onclick="return manejarCancelarCita(event, this);">❌ Cancelar</button>
+                                        </form>
+                                        <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}" class="btn-personalizar">⚙️ Personalizar</a>
+                                    </div>
+                                    {% endif %}
+
+                                </div>
+                            {% else %}
+                                <span class="slot-empty-pill">Disponible</span>
+                            {% endif %}
                         </div>
-                    {% endif %}
+
+                    </div>
                 {% endfor %}
-            {% else %}
-                <div class="empty-state"><h3>🎉 No hay citas para hoy</h3><p>Disfruta de tu día</p></div>
+            {% endfor %}
+
+            {% if not citas %}
+                <div class="empty-state">
+                    <h3>🎉 No hay citas para hoy</h3>
+                    <p>Disfruta de tu día</p>
+                </div>
             {% endif %}
         </div>
-        
+
         <!-- ACCIONES RÁPIDAS -->
         <div class="quick-actions">
-            <a href="{{ url_for('profesional_todas_citas') }}" class="action-card"><div class="action-icon">📋</div><div class="action-title">Todas</div><div class="action-desc">Mis citas</div></a>
-            <a href="/profesional/estadisticas?profesional_id={{ profesional_id }}" class="action-card"><div class="action-icon">📊</div><div class="action-title">Estadísticas</div><div class="action-desc">Métricas</div></a>
-            <a href="/profesional/agendar" class="action-card"><div class="action-icon">➕</div><div class="action-title">Agendar</div><div class="action-desc">Nueva cita</div></a>
-            <a href="/profesional/bloqueos" class="action-card"><div class="action-icon">🚫</div><div class="action-title">Horarios</div><div class="action-desc">Bloquear</div></a>
-            <a href="/profesional/perfil" class="action-card"><div class="action-icon">👤</div><div class="action-title">Mi Perfil</div><div class="action-desc">Editar</div></a>
-            <a href="/profesional/promociones" class="action-card"><div class="action-icon">🏆</div><div class="action-title">Promociones</div><div class="action-desc">Concursos</div></a>
+            <a href="{{ url_for('profesional_todas_citas') }}" class="action-card">
+                <div class="action-icon">📋</div>
+                <div class="action-title">Todas</div>
+                <div class="action-desc">Mis citas</div>
+            </a>
+            <a href="/profesional/estadisticas?profesional_id={{ profesional_id }}" class="action-card">
+                <div class="action-icon">📊</div>
+                <div class="action-title">Estadísticas</div>
+                <div class="action-desc">Métricas</div>
+            </a>
+            <a href="/profesional/agendar" class="action-card">
+                <div class="action-icon">➕</div>
+                <div class="action-title">Agendar</div>
+                <div class="action-desc">Nueva cita</div>
+            </a>
+            <a href="/profesional/bloqueos" class="action-card">
+                <div class="action-icon">🚫</div>
+                <div class="action-title">Horarios</div>
+                <div class="action-desc">Bloquear</div>
+            </a>
+            <a href="/profesional/perfil" class="action-card">
+                <div class="action-icon">👤</div>
+                <div class="action-title">Mi Perfil</div>
+                <div class="action-desc">Editar</div>
+            </a>
+            <a href="/profesional/promociones" class="action-card">
+                <div class="action-icon">🏆</div>
+                <div class="action-title">Promociones</div>
+                <div class="action-desc">Concursos</div>
+            </a>
         </div>
-    </div>
-    
+
+    </div><!-- /container -->
+
     <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
     <script>
-        // ==================== NOTIFICACIONES ====================
+        // ==================== NOTIFICACIÓN TOAST ====================
         function mostrarNotificacion(mensaje, tipo='success') {
             const n = document.getElementById('notification');
-            if(!n) return;
+            if (!n) return;
             n.textContent = mensaje;
-            n.style.background = tipo==='error' ? 'var(--danger)' : (tipo==='warning' ? 'var(--warning)' : 'var(--success)');
+            n.style.background = tipo === 'error'   ? 'var(--danger)'  :
+                                  tipo === 'warning' ? 'var(--warning)' : 'var(--success)';
             n.style.display = 'block';
-            setTimeout(()=>{ n.style.display = 'none'; }, 2000);
+            setTimeout(() => { n.style.display = 'none'; }, 2000);
         }
-        
+
         // ==================== COMPLETAR CITA ====================
         async function manejarCompletarCita(event, btn) {
             event.preventDefault();
-            const form = btn.closest('form');
+            const form   = btn.closest('form');
             const citaId = btn.dataset.citaId;
-            const csrf = form.querySelector('input[name="csrf_token"]').value;
-            const fecha = document.querySelector('.date-selector').value;
+            const csrf   = form.querySelector('input[name="csrf_token"]').value;
+            const fecha  = document.querySelector('.date-selector').value;
             const profId = document.body.dataset.profesionalId;
+
             btn.disabled = true;
             btn.innerHTML = '⏳...';
+
             try {
                 const fd = new FormData();
                 fd.append('csrf_token', csrf);
-                const res = await fetch(form.action + `?fecha=${fecha}&profesional_id=${profId}`, { method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
+                const res  = await fetch(form.action + `?fecha=${fecha}&profesional_id=${profId}`, {
+                    method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
                 const data = await res.json();
-                if(data.success) {
-                    const item = btn.closest('.cita-item');
-                    item.style.transition='all 0.2s'; item.style.opacity='0'; item.style.transform='translateX(20px)';
-                    setTimeout(()=>{ item.remove(); actualizarContadores(); verificarListaVacia(); mostrarNotificacion('✅ Cita completada'); }, 200);
+                if (data.success) {
+                    const row = btn.closest('.timeline-row');
+                    row.style.transition = 'all 0.2s';
+                    row.style.opacity    = '0';
+                    row.style.transform  = 'translateX(20px)';
+                    setTimeout(() => {
+                        const slotArea = row.querySelector('.slot-area');
+                        slotArea.innerHTML = '<span class="slot-empty-pill">Disponible</span>';
+                        row.classList.remove('has-cita');
+                        row.style.opacity   = '1';
+                        row.style.transform = '';
+                        actualizarContadores();
+                        mostrarNotificacion('✅ Cita completada');
+                    }, 200);
                 } else throw new Error(data.message);
-            } catch(e) { mostrarNotificacion('❌ Error', 'error'); btn.disabled=false; btn.innerHTML='✅ Completar'; }
+            } catch(e) {
+                mostrarNotificacion('❌ Error', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '✅ Completar';
+            }
             return false;
         }
-        
+
         // ==================== CANCELAR CITA ====================
         async function manejarCancelarCita(event, btn) {
             event.preventDefault();
             const cliente = btn.dataset.cliente;
-            if(!confirm(`⚠️ ¿Cancelar cita de ${cliente}?`)) return false;
-            const form = btn.closest('form');
-            const csrf = form.querySelector('input[name="csrf_token"]').value;
-            const fecha = document.querySelector('.date-selector').value;
+            if (!confirm(`⚠️ ¿Cancelar cita de ${cliente}?`)) return false;
+
+            const form   = btn.closest('form');
+            const csrf   = form.querySelector('input[name="csrf_token"]').value;
+            const fecha  = document.querySelector('.date-selector').value;
             const profId = document.body.dataset.profesionalId;
+
             btn.disabled = true;
             btn.innerHTML = '⏳...';
+
             try {
-                const fd = new FormData(); fd.append('csrf_token', csrf);
-                const res = await fetch(form.action + `?fecha=${fecha}&profesional_id=${profId}`, { method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
+                const fd = new FormData();
+                fd.append('csrf_token', csrf);
+                const res  = await fetch(form.action + `?fecha=${fecha}&profesional_id=${profId}`, {
+                    method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
                 const data = await res.json();
-                if(data.success) {
-                    const item = btn.closest('.cita-item');
-                    item.style.transition='all 0.2s'; item.style.opacity='0'; item.style.transform='translateX(20px)';
-                    setTimeout(()=>{ item.remove(); actualizarContadores(); verificarListaVacia(); mostrarNotificacion(`❌ Cita de ${cliente} cancelada`, 'warning'); }, 200);
+                if (data.success) {
+                    const row = btn.closest('.timeline-row');
+                    row.style.transition = 'all 0.2s';
+                    row.style.opacity    = '0';
+                    row.style.transform  = 'translateX(20px)';
+                    setTimeout(() => {
+                        const slotArea = row.querySelector('.slot-area');
+                        slotArea.innerHTML = '<span class="slot-empty-pill">Disponible</span>';
+                        row.classList.remove('has-cita');
+                        row.style.opacity   = '1';
+                        row.style.transform = '';
+                        actualizarContadores();
+                        mostrarNotificacion(`❌ Cita de ${cliente} cancelada`, 'warning');
+                    }, 200);
                 } else throw new Error(data.message);
-            } catch(e) { mostrarNotificacion('❌ Error', 'error'); btn.disabled=false; btn.innerHTML='❌ Cancelar'; }
+            } catch(e) {
+                mostrarNotificacion('❌ Error', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '❌ Cancelar';
+            }
             return false;
         }
-        
+
         function actualizarContadores() {
-            let total = document.querySelectorAll('.cita-item').length;
-            let stat = document.querySelector('.stat-number');
-            if(stat) stat.textContent = total;
+            const total = document.querySelectorAll('.cita-block').length;
+            const stat  = document.querySelector('.stat-number');
+            if (stat) stat.textContent = total;
         }
-        
-        function verificarListaVacia() {
-            if(document.querySelectorAll('.cita-item').length===0) {
-                document.querySelector('.citas-list').innerHTML = '<div class="empty-state"><h3>🎉 No hay citas para hoy</h3><p>Disfruta de tu día</p></div>';
-            }
-        }
-        
+
         // ==================== NOTIFICACIONES PUSH ====================
         let notificationsOpen = false;
+
         function toggleNotifications() {
             const panel = document.getElementById('notificationsPanel');
             notificationsOpen = !notificationsOpen;
             panel.style.display = notificationsOpen ? 'block' : 'none';
-            if(notificationsOpen) loadNotifications();
+            if (notificationsOpen) loadNotifications();
         }
+
         async function loadNotifications() {
             const container = document.getElementById('notificationsList');
             container.innerHTML = '<div>Cargando...</div>';
             try {
-                const res = await fetch('/api/profesional/notificaciones');
+                const res  = await fetch('/api/profesional/notificaciones');
                 const data = await res.json();
-                if(data.success) {
-                    if(!data.notificaciones.length) { container.innerHTML = '<div class="empty-notifications">📭 No hay notificaciones</div>'; return; }
+                if (data.success) {
+                    if (!data.notificaciones.length) {
+                        container.innerHTML = '<div class="empty-notifications">📭 No hay notificaciones</div>';
+                        return;
+                    }
                     let html = '';
                     data.notificaciones.forEach(n => {
-                        html += `<div class="notification-item unread"><div class="notification-title">${n.titulo}</div><div class="notification-message">${n.mensaje}</div><div class="notification-time">${n.fecha_creacion}</div><button class="btn-mark-read" onclick="markAsRead(${n.id})">✓ Leer</button></div>`;
+                        html += `<div class="notification-item unread">
+                            <div class="notification-title">${n.titulo}</div>
+                            <div class="notification-message">${n.mensaje}</div>
+                            <div class="notification-time">${n.fecha_creacion}</div>
+                            <button class="btn-mark-read" onclick="markAsRead(${n.id})">✓ Leer</button>
+                        </div>`;
                     });
                     container.innerHTML = html;
                     const badge = document.getElementById('notificationBadge');
-                    if(data.total_no_leidas>0) { badge.textContent = data.total_no_leidas; badge.style.display = 'flex'; }
-                    else badge.style.display = 'none';
+                    if (data.total_no_leidas > 0) {
+                        badge.textContent   = data.total_no_leidas;
+                        badge.style.display = 'flex';
+                    } else {
+                        badge.style.display = 'none';
+                    }
                 }
-            } catch(e) { container.innerHTML = '<div>Error al cargar</div>'; }
+            } catch(e) {
+                container.innerHTML = '<div>Error al cargar</div>';
+            }
         }
+
         async function markAsRead(id) {
-            await fetch(`/api/profesional/notificaciones/${id}/leer`, { method:'POST' });
+            await fetch(`/api/profesional/notificaciones/${id}/leer`, { method: 'POST' });
             loadNotifications();
         }
-        
+
         // ==================== MODAL CONTRASEÑA ====================
-        function openPasswordModal() { document.getElementById('passwordModal').style.display = 'flex'; document.body.style.overflow = 'hidden'; }
-        function closePasswordModal() { document.getElementById('passwordModal').style.display = 'none'; document.body.style.overflow = 'auto'; }
+        function openPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
         async function submitPasswordChange(e) {
             e.preventDefault();
-            const cur = document.getElementById('current_password').value;
-            const neu = document.getElementById('new_password').value;
-            const con = document.getElementById('confirm_password').value;
+            const cur  = document.getElementById('current_password').value;
+            const neu  = document.getElementById('new_password').value;
+            const con  = document.getElementById('confirm_password').value;
             const csrf = document.getElementById('csrf_token').value;
-            if(neu !== con) return alert('Las contraseñas no coinciden');
-            if(neu.length<6) return alert('Mínimo 6 caracteres');
-            const res = await fetch('/profesional/cambiar-password', {
-                method:'POST',
-                headers:{'Content-Type':'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({current_password:cur, new_password:neu, csrf_token:csrf})
+
+            if (neu !== con)     return alert('Las contraseñas no coinciden');
+            if (neu.length < 6)  return alert('Mínimo 6 caracteres');
+
+            const res  = await fetch('/profesional/cambiar-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ current_password: cur, new_password: neu, csrf_token: csrf })
             });
             const data = await res.json();
-            if(data.success) { alert('✅ Contraseña actualizada'); closePasswordModal(); }
+            if (data.success) { alert('✅ Contraseña actualizada'); closePasswordModal(); }
             else alert('❌ Error: ' + data.message);
         }
-        
-        function cambiarFecha(fecha) { window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}'; }
-        
+
+        // ==================== CAMBIO DE FECHA ====================
+        function cambiarFecha(fecha) {
+            window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha + '&profesional_id={{ profesional_id }}';
+        }
+
+        // ==================== PUSH NOTIFICATIONS ====================
         document.getElementById('pushButton')?.addEventListener('click', async () => {
             const profId = document.body.dataset.profesionalId;
-            if(window.PushNotifications) {
+            if (window.PushNotifications) {
                 const push = new window.PushNotifications();
-                const ok = await push.inicializar(profId);
-                if(ok) { alert('✅ Activado'); document.getElementById('pushButton').disabled = true; }
+                const ok   = await push.inicializar(profId);
+                if (ok) { alert('✅ Activado'); document.getElementById('pushButton').disabled = true; }
                 else alert('❌ Falló');
             } else alert('❌ No disponible');
         });
-        
+
+        // ==================== INIT ====================
         document.addEventListener('DOMContentLoaded', () => {
             loadNotifications();
             setInterval(loadNotifications, 30000);
-            document.getElementById('passwordModal').addEventListener('click', (e) => { if(e.target === document.getElementById('passwordModal')) closePasswordModal(); });
+            document.getElementById('passwordModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('passwordModal')) closePasswordModal();
+            });
         });
     </script>
 </body>
