@@ -868,6 +868,13 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
                 'role': 'system',
                 'content': f'CONTEXTO ACTUAL DE LA CONVERSACIÓN: {contexto_actual}. El cliente ya eligió estos datos. Si intenta cambiarlos, permite que lo haga. Si no quiere cambiar nada, continúa con lo que falta.'
             })
+    
+    # ✅ NUEVO: Informar a la IA la fecha actual
+    hoy = datetime.now(tz_colombia)
+    messages.append({
+        'role': 'system',
+        'content': f'FECHA ACTUAL: Hoy es {hoy.strftime("%d/%m/%Y")} (año {hoy.year}). Usa SIEMPRE el año {hoy.year} para las fechas.'
+    })
 
     if historial:
         messages.extend(historial[-10:])
@@ -1040,6 +1047,18 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
 
     fecha = normalizar_fecha_usuario(fecha_raw)
     hora = normalizar_hora_usuario(hora_raw)
+
+    if fecha:
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+            hoy = datetime.now(tz_colombia).date()
+            # Si el año es anterior al actual, usar año actual
+            if fecha_obj.year < hoy.year:
+                fecha_obj = fecha_obj.replace(year=hoy.year)
+                fecha = fecha_obj.strftime('%Y-%m-%d')
+                print(f"🔧 [IA] Fecha corregida: {fecha_raw} → {fecha}")
+        except:
+            pass
 
     if not fecha:
         return 'No pude reconocer la fecha. Por favor escribe una fecha válida como 2024-12-31, 31/12/2024 o mañana.'
@@ -2703,6 +2722,17 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         servicio_precio = conversacion['servicio_precio']
         telefono = conversacion['telefono_cliente']
         
+        # ✅ CORREGIR AÑO: Si la fecha es del pasado, usar año actual
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+            hoy = datetime.now(tz_colombia).date()
+            if fecha_obj.year < hoy.year:
+                fecha_obj = fecha_obj.replace(year=hoy.year)
+                fecha = fecha_obj.strftime('%Y-%m-%d')
+                print(f"🔧 [DEBUG] Fecha corregida a año actual: {fecha}")
+        except:
+            pass
+        
         # Obtener duración del servicio
         duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
         print(f"📅 Duración servicio: {duracion} minutos")
@@ -2757,28 +2787,14 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         if cita_id and cita_id > 0:
             print(f"✅ [DEBUG] Cita creada exitosamente. ID: {cita_id}")
             
-            # ============================================
-            # ENVIAR NOTIFICACIONES PUSH
-            # ============================================
-            
+            # Formatear fecha para mostrar
             fecha_formateada = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
             
-            # Preparar datos de la cita para las notificaciones
-            cita_completa = {
-                'id': cita_id,
-                'profesional_id': profesional_id,
-                'cliente_telefono': telefono,
-                'negocio_id': negocio_id,
-                'cliente_nombre': nombre_cliente,
-                'fecha': fecha_formateada,
-                'hora': hora,
-                'servicio_nombre': servicio_nombre,
-                'profesional_nombre': profesional_nombre
-            }
-            
-            # 1. Enviar notificación al PROFESIONAL
+            # ============================================
+            # 1. ENVIAR NOTIFICACIÓN PUSH AL PROFESIONAL
+            # ============================================
             try:
-                mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora}"
+                mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora} - {servicio_nombre}"
                 print(f"🚀 [PUSH-ENVIO] Enviando notificación push al profesional...")
                 print(f"   👨‍💼 Profesional ID: {profesional_id}")
                 print(f"   📝 Mensaje: {mensaje_push}")
@@ -2794,7 +2810,9 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             except Exception as e:
                 print(f"❌ [PUSH-ERROR] Error enviando push al profesional: {e}")
             
-            # 2. Enviar notificación al CLIENTE (si tiene notificaciones activadas)
+            # ============================================
+            # 2. ENVIAR NOTIFICACIÓN PUSH AL CLIENTE
+            # ============================================
             try:
                 from push_notifications import enviar_notificacion_cliente
                 
