@@ -149,7 +149,7 @@
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 14px 14px calc(14px + var(--bar-h) + var(--safe-bottom));
+            padding: 14px 14px 180px 14px;  /* ← padding inferior amplio para evitar tapar mensajes */
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -671,6 +671,11 @@
         .empty-state h4   { color: var(--dark); font-size: 1rem; margin-bottom: 6px; }
         .empty-state p    { font-size: 0.82rem; }
 
+        /* Scroll suave para móviles */
+        .chat-messages, .panel-scroll {
+            scroll-behavior: smooth;
+        }
+
         /* ==================== DARK MODE ==================== */
         @media (prefers-color-scheme: dark) {
             :root {
@@ -879,6 +884,17 @@
             if (s === 'promociones') cargarPromociones();
         }
 
+        // Función para hacer scroll al final del chat
+        function scrollToBottomChat() {
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
         // ==================== FAB ====================
         let fabOpen = false;
         function toggleFab() {
@@ -932,16 +948,12 @@
         // ==================== CHAT ====================
         const chatMessages = document.getElementById('chatMessages');
 
-        function scrollBottom() {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
         function addUserMsg(text) {
             const d = document.createElement('div');
             d.className = 'msg msg-user';
             d.innerHTML = `<div class="msg-sender">Tú</div>${escapeHtml(text)}`;
             chatMessages.appendChild(d);
-            scrollBottom();
+            scrollToBottomChat();
         }
 
         function addBotMsg(text, options) {
@@ -950,6 +962,7 @@
             d.className = 'msg msg-bot';
             d.innerHTML = `<div class="msg-sender">💬 ${escapeHtml(negNombre)}</div>${escapeHtml(text)}`;
             chatMessages.appendChild(d);
+            scrollToBottomChat();
 
             if (options && options.length) {
                 const isProfessionals = options[0].type === 'professional' || options[0].image;
@@ -976,6 +989,7 @@
                     grid.querySelectorAll('.btn-select-prof').forEach(btn => {
                         btn.addEventListener('click', () => enviarMensaje(btn.dataset.value));
                     });
+                    scrollToBottomChat();
                 } else {
                     const row = document.createElement('div');
                     row.className = 'options-row';
@@ -987,9 +1001,9 @@
                         row.appendChild(chip);
                     });
                     chatMessages.appendChild(row);
+                    scrollToBottomChat();
                 }
             }
-            scrollBottom();
         }
 
         async function enviarMensaje(texto) {
@@ -1181,7 +1195,7 @@
                 if (e.key === 'Enter') enviarMensaje();
             });
             document.getElementById('userInput').addEventListener('focus', () => {
-                setTimeout(scrollBottom, 150);
+                setTimeout(scrollToBottomChat, 150);
             });
 
             iniciarDetectorTelefono();
