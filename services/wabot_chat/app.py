@@ -5723,6 +5723,193 @@ def profesional_api_bloqueos_recurrentes():
         print(f"❌ Error obteniendo bloqueos recurrentes: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/profesional/api/estadisticas-avanzadas')
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_api_estadisticas_avanzadas():
+    """API para obtener estadísticas avanzadas del profesional"""
+    try:
+        profesional_id = request.args.get('profesional_id', session.get('profesional_id'))
+        mes = request.args.get('mes', datetime.now(tz_colombia).month, type=int)
+        año = request.args.get('año', datetime.now(tz_colombia).year, type=int)
+        
+        if not profesional_id:
+            return jsonify({'success': False, 'error': 'Profesional no encontrado'})
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        mes_str = f"{mes:02d}"
+        fecha_pattern = f"{año}-{mes_str}-%"
+        
+        # 1. Días más ocupados del mes
+        cursor.execute('''
+            SELECT fecha, COUNT(*) as total, 
+                   SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as canceladas
+            FROM citas
+            WHERE profesional_id = %s 
+            AND fecha LIKE %s
+            AND estado != 'cancelado'
+            GROUP BY fecha
+            ORDER BY total DESC
+            LIMIT 10
+        ''', (profesional_id, fecha_pattern))
+        dias_ocupados = cursor.fetchall()
+        
+        # 2. Días más flojos
+        cursor.execute('''
+            SELECT fecha, COUNT(*) as total
+            FROM citas
+            WHERE profesional_id = %s 
+            AND fecha LIKE %s
+            AND estado != 'cancelado'
+            GROUP BY fecha
+            ORDER BY total ASC
+            LIMIT 10
+        ''', (profesional_id, fecha_pattern))
+        dias_flojos = cursor.fetchall()
+        
+        # 3. Horas pico
+        cursor.execute('''
+            SELECT hora, COUNT(*) as total
+            FROM citas
+            WHERE profesional_id = %s 
+            AND fecha LIKE %s
+            AND estado != 'cancelado'
+            GROUP BY hora
+            ORDER BY total DESC
+            LIMIT 5
+        ''', (profesional_id, fecha_pattern))
+        horas_pico = cursor.fetchall()
+        
+        # 4. Ingresos por servicio
+        cursor.execute('''
+            SELECT s.nombre, COUNT(*) as cantidad, SUM(s.precio) as ingresos
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.profesional_id = %s 
+            AND c.fecha LIKE %s
+            AND c.estado IN ('confirmado', 'completado')
+            GROUP BY s.id, s.nombre
+            ORDER BY ingresos DESC
+        ''', (profesional_id, fecha_pattern))
+        ingresos_servicio = cursor.fetchall()
+        
+        # 5. Clientes frecuentes
+        cursor.execute('''
+            SELECT cliente_nombre, cliente_telefono, COUNT(*) as visitas,
+                   MAX(fecha) as ultima_visita
+            FROM citas
+            WHERE profesional_id = %s 
+            AND estado IN ('confirmado', 'completado')
+            GROUP BY cliente_nombre, cliente_telefono
+            ORDER BY visitas DESC
+            LIMIT 10
+        ''', (profesional_id,))
+        clientes_frecuentes = cursor.fetchall()
+        
+        # 6. Promedio móvil para predicción (últimas 4 semanas)
+        from datetime import timedelta
+        hoy = datetime.now(tz_colombia).date()
+        semanas_data = []
+        
+        for i in range(4, 0, -1):
+            inicio_semana = hoy - timedelta(weeks=i, days=hoy.weekday())
+            fin_semana = inicio_semana + timedelta(days=6)
+            
+            cursor.execute('''
+                SELECT COUNT(*) as total, COALESCE(SUM(s.precio), 0) as ingresos
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = %s
+                AND c.fecha BETWEEN %s AND %s
+                AND c.estado IN ('confirmado', 'completado')
+            ''', (profesional_id, inicio_semana.strftime('%Y-%m-%d'), fin_semana.strftime('%Y-%m-%d')))
+            
+            semana = cursor.fetchone()
+            semanas_data.append({
+                'semana': f"{inicio_semana.strftime('%d/%m')} - {fin_semana.strftime('%d/%m')}",
+                'total': semana['total'] or 0,
+                'ingresos': float(semana['ingresos'] or 0)
+            })
+        
+        # Calcular predicción (promedio de últimas 4 semanas)
+        promedio_citas = sum(s['total'] for s in semanas_data) / max(len(semanas_data), 1)
+        promedio_ingresos = sum(s['ingresos'] for s in semanas_data) / max(len(semanas_data), 1)
+        
+        # 7. Tasa de cancelación por día de la semana
+        cursor.execute('''
+            SELECT 
+                EXTRACT(DOW FROM fecha::date) as dia_semana,
+                COUNT(*) as total,
+                SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as canceladas
+            FROM citas
+            WHERE profesional_id = %s
+            AND fecha LIKE %s
+            GROUP BY dia_semana
+            ORDER BY dia_semana
+        ''', (profesional_id, fecha_pattern))
+        cancelaciones_dia = cursor.fetchall()
+        
+        conn.close()
+        
+        # Formatear respuestas
+        dias_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        
+        return jsonify({
+            'success': True,
+            'dias_ocupados': [dict(d) for d in dias_ocupados],
+            'dias_flojos': [dict(d) for d in dias_flojos],
+            'horas_pico': [dict(h) for h in horas_pico],
+            'ingresos_servicio': [dict(s) for s in ingresos_servicio],
+            'clientes_frecuentes': [dict(c) for c in clientes_frecuentes],
+            'semanas': semanas_data,
+            'prediccion': {
+                'citas_estimadas': round(promedio_citas),
+                'ingresos_estimados': round(promedio_ingresos, 2),
+                'tendencia': 'estable' if abs(semanas_data[-1]['total'] - promedio_citas) < 3 else ('subiendo' if semanas_data[-1]['total'] > promedio_citas else 'bajando')
+            },
+            'cancelaciones_dia': [dict(c) for c in cancelaciones_dia],
+            'sugerencias': generar_sugerencias(semanas_data, dias_flojos, horas_pico)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error en estadísticas avanzadas: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def generar_sugerencias(semanas, dias_flojos, horas_pico):
+    """Generar sugerencias basadas en los datos"""
+    sugerencias = []
+    
+    # Si la tendencia es bajando
+    if len(semanas) >= 2 and semanas[-1]['total'] < semanas[-2]['total']:
+        sugerencias.append({
+            'tipo': 'warning',
+            'icono': '📉',
+            'mensaje': 'Las citas están bajando. Considera crear una promoción de descuento para atraer clientes.'
+        })
+    
+    # Si hay horas pico muy concentradas
+    if horas_pico and len(horas_pico) > 0:
+        sugerencias.append({
+            'tipo': 'info',
+            'icono': '⏰',
+            'mensaje': f"Tus horas más ocupadas son {horas_pico[0]['hora']}. Ofrece 'Hora Feliz' en horarios menos demandados."
+        })
+    
+    # Si hay días muy flojos
+    if dias_flojos and len(dias_flojos) > 0:
+        dia_flojo = dias_flojos[0]['fecha']
+        sugerencias.append({
+            'tipo': 'tip',
+            'icono': '💡',
+            'mensaje': f"Los días como {dia_flojo} tienen poca actividad. Crea un 2x1 o descuento para esos días."
+        })
+    
+    return sugerencias
+
 # =============================================================================
 # FILTROS PERSONALIZADOS PARA JINJA2
 # =============================================================================
