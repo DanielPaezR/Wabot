@@ -2372,22 +2372,12 @@ def negocio_dashboard():
     # Procesar citas de hoy para la plantilla
     citas_procesadas = []
     for cita in citas_hoy:
+        # Formatear hora (de 'HH:MM:SS' a 'HH:MM')
         hora_str = str(cita['hora'])
-        
-        # Normalizar hora a formato 24h HH:MM
-        if 'AM' in hora_str or 'PM' in hora_str:
-            try:
-                hora_obj = datetime.strptime(hora_str.strip(), '%I:%M %p')
-                hora_formateada = hora_obj.strftime('%H:%M')
-            except:
-                hora_formateada = hora_str[:5] if ':' in hora_str else hora_str
-        elif ':' in hora_str:
+        if ':' in hora_str:
             hora_formateada = hora_str[:5]
         else:
             hora_formateada = hora_str
-        
-        # Actualizar la hora en la cita
-        cita['hora'] = hora_formateada
         
         citas_procesadas.append({
             'id': cita['id'],
@@ -3772,11 +3762,24 @@ def profesional_dashboard():
         if not profesional_id:
             usuario_id = session.get('usuario_id')
             print(f"⚠️ [DEBUG] No hay profesional_id, buscando por usuario_id={usuario_id}")
-            # ... resto del código ...
         
         # Obtener citas del profesional
         print(f"🔍 [DEBUG] Llamando a obtener_citas_para_profesional({negocio_id}, {profesional_id}, {fecha})")
         citas = db.obtener_citas_para_profesional(negocio_id, profesional_id, fecha)
+        
+        # ✅ NUEVO: Normalizar horas antes de enviar al template
+        for cita in citas:
+            hora_str = str(cita.get('hora', ''))
+            
+            # Normalizar hora a formato 24h HH:MM
+            if 'AM' in hora_str.upper() or 'PM' in hora_str.upper():
+                try:
+                    hora_obj = datetime.strptime(hora_str.strip(), '%I:%M %p')
+                    cita['hora'] = hora_obj.strftime('%H:%M')
+                except:
+                    cita['hora'] = hora_str[:5] if ':' in hora_str else hora_str
+            elif ':' in hora_str:
+                cita['hora'] = hora_str[:5]  # Quitar segundos si tiene
         
         print(f"✅ [DEBUG] Citas encontradas: {len(citas)}")
         for i, cita in enumerate(citas):
