@@ -866,16 +866,18 @@
 
         async function activarNotificacionesCliente() {
             console.log('🔔 Botón de notificaciones clickeado');
+            alert('PASO 1: Iniciando...');
             
             const telefono = localStorage.getItem('telefono_cliente');
             const negocioId = document.getElementById('negocioId').value;
+            
+            alert('PASO 2: Teléfono=' + telefono + ', Negocio=' + negocioId);
             
             if (!telefono) {
                 toast('⚠️ Primero identifícate en el chat con tu número de teléfono', 'warning');
                 return;
             }
             
-            // Verificar soporte
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
                 toast('❌ Tu navegador no soporta notificaciones', 'error');
                 return;
@@ -886,11 +888,14 @@
             btn.textContent = '⏳';
             
             try {
-                // 1. Verificar si ya está suscrito
+                alert('PASO 3: Verificando service worker...');
                 const registration = await navigator.serviceWorker.ready;
+                alert('PASO 4: SW listo, verificando suscripción existente...');
+                
                 const existingSubscription = await registration.pushManager.getSubscription();
                 
                 if (existingSubscription) {
+                    alert('PASO 5: Ya está suscrito');
                     btn.textContent = '🔔✓';
                     btn.style.background = '#d1fae5';
                     btn.disabled = false;
@@ -899,8 +904,10 @@
                     return;
                 }
                 
-                // 2. Pedir permiso
+                alert('PASO 6: Pidiendo permiso...');
                 const permiso = await Notification.requestPermission();
+                alert('PASO 7: Permiso=' + permiso);
+                
                 if (permiso !== 'granted') {
                     toast('❌ Debes permitir notificaciones', 'error');
                     btn.disabled = false;
@@ -908,9 +915,10 @@
                     return;
                 }
                 
-                // 3. Obtener clave VAPID del servidor
+                alert('PASO 8: Obteniendo clave VAPID...');
                 const vapidResponse = await fetch('/api/push/public-key');
                 const vapidData = await vapidResponse.json();
+                alert('PASO 9: VAPID success=' + vapidData.success);
                 
                 if (!vapidData.success) {
                     toast('❌ Error de configuración', 'error');
@@ -919,15 +927,15 @@
                     return;
                 }
                 
-                // 4. Suscribirse a push
+                alert('PASO 10: Suscribiendo a push...');
                 const subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
                 });
                 
+                alert('PASO 11: Suscripción creada, guardando...');
                 console.log('✅ Suscripción creada');
                 
-                // 5. Guardar en BD
                 const response = await fetch('/api/push/subscribe-cliente', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -939,7 +947,7 @@
                 });
                 
                 const data = await response.json();
-                console.log('📥 Respuesta:', data);
+                alert('PASO 12: Respuesta=' + JSON.stringify(data));
                 
                 if (data.success) {
                     btn.textContent = '🔔✓';
@@ -952,6 +960,7 @@
                 }
                 
             } catch (error) {
+                alert('ERROR: ' + error.message);
                 console.error('❌ Error:', error);
                 toast('❌ Error: ' + error.message, 'error');
                 btn.textContent = '🔔';
