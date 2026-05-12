@@ -639,8 +639,20 @@
             margin-top: 10px;
             box-shadow: 0 4px 12px rgba(102,126,234,0.4);
             gap: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .nav-item.nav-center .nav-icon { font-size: 1.6rem; }
+        
+        .nav-item.nav-center .nav-icon { 
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            width: 100%;
+            height: 100%;
+        }
         .nav-item.nav-center .nav-label { display: none; }
         .nav-item.nav-center:active { background: var(--primary-dark); }
 
@@ -970,7 +982,7 @@
         </a>
         <!-- Botón central: menú flotante -->
         <button class="nav-item nav-center" onclick="toggleFab()" id="fabBtn" aria-label="Menú">
-            <span class="nav-icon" id="fabBtnIcon">＋</span>
+            <span class="nav-icon" id="fabBtnIcon" style="font-weight:700;">+</span>
         </button>
         <a href="/profesional/agendar" class="nav-item">
             <span class="nav-icon">➕</span>

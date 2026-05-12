@@ -26,6 +26,25 @@ import scheduler as scheduler
 from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
 import psycopg2
+from collections import defaultdict
+
+rate_limit_cache = defaultdict(list)
+
+def check_rate_limit(ip, max_requests=20, window_seconds=60):
+    """Limitar solicitudes por IP. Máximo {max_requests} por {window_seconds} segundos."""
+    ahora = datetime.now()
+    # Limpiar ventanas viejas
+    rate_limit_cache[ip] = [
+        t for t in rate_limit_cache[ip] 
+        if ahora - t < timedelta(seconds=window_seconds)
+    ]
+    
+    if len(rate_limit_cache[ip]) >= max_requests:
+        return False
+    
+    rate_limit_cache[ip].append(ahora)
+    return True
+
 
 # Cargar variables de entorno
 load_dotenv()
@@ -955,6 +974,13 @@ def chat_index(negocio_id):
 def chat_send():
     """Recibir mensaje del usuario en el chat web."""
     try:
+        # ✅ SEGURIDAD: Rate limiting
+        if not check_rate_limit(request.remote_addr):
+            return jsonify({
+                'message': '⚠️ Demasiadas solicitudes. Espera unos segundos.',
+                'step': 'error'
+            })
+        
         data = request.json
         user_message = data.get('message', '').strip()
         session_id = data.get('session_id')
@@ -962,6 +988,10 @@ def chat_send():
         
         if not user_message:
             return jsonify({'error': 'Mensaje vacío'}), 400
+        
+        # ✅ SEGURIDAD: Limitar longitud de mensaje
+        if len(user_message) > 500:
+            user_message = user_message[:500]
         
         # Importar aquí para evitar dependencia circular
         from web_chat_handler import procesar_mensaje_chat
