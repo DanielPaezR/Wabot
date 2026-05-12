@@ -1098,24 +1098,16 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
     respuesta = procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
     
-    # ✅ NUEVO: Detectar intención en la respuesta de la IA
     respuesta_lower = respuesta.lower()
     
-    if 'profesional' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower):
-        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_profesional'
-        profesionales = db.obtener_profesionales(negocio_id)
-        if profesionales:
-            conversaciones_activas[clave_conversacion]['profesionales'] = profesionales
-            print(f"🔧 [IA] Detectada selección de profesional, cambiando estado")
+    # ⚠️ ORDEN IMPORTANTE: Detectar primero lo más específico
+    
+    if 'confirmas' in respuesta_lower or '¿confirmas' in respuesta_lower:
+        conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
+        print(f"🔧 [IA] Detectada solicitud de confirmación, cambiando estado")
         
-    elif 'servicio' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower or 'cuál' in respuesta_lower):
-        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
-        servicios = db.obtener_servicios(negocio_id)
-        if servicios:
-            conversaciones_activas[clave_conversacion]['servicios'] = servicios
-            print(f"🔧 [IA] Detectada selección de servicio, cambiando estado")
-        
-    elif 'hora' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'botones' in respuesta_lower):
+    elif 'hora' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'botones' in respuesta_lower or 'gustaría' in respuesta_lower):
+        # ✅ PRIMERO: Detectar hora (antes que servicio)
         conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
         print(f"🔧 [IA] Detectada selección de hora, cambiando estado")
         
@@ -1123,9 +1115,20 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
         print(f"🔧 [IA] Detectada selección de fecha, cambiando estado")
         
-    elif 'confirmas' in respuesta_lower or '¿confirmas' in respuesta_lower:
-        conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
-        print(f"🔧 [IA] Detectada solicitud de confirmación, cambiando estado")
+    elif 'profesional' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower):
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_profesional'
+        profesionales = db.obtener_profesionales(negocio_id)
+        if profesionales:
+            conversaciones_activas[clave_conversacion]['profesionales'] = profesionales
+            print(f"🔧 [IA] Detectada selección de profesional, cambiando estado")
+        
+    elif 'servicio' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower or 'cuál' in respuesta_lower):
+        # ✅ DESPUÉS: Detectar servicio (si no es hora)
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
+        servicios = db.obtener_servicios(negocio_id)
+        if servicios:
+            conversaciones_activas[clave_conversacion]['servicios'] = servicios
+            print(f"🔧 [IA] Detectada selección de servicio, cambiando estado")
         
     elif 'cancelada' in respuesta_lower or 'cancelado' in respuesta_lower:
         conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
