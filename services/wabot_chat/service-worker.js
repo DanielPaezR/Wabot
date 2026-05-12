@@ -77,21 +77,30 @@ self.addEventListener('push', function(event) {
 });
 
 // 🔥 NUEVO: CUANDO SE HACE CLICK EN LA NOTIFICACIÓN
+// 🔥 NUEVO: CUANDO SE HACE CLICK EN LA NOTIFICACIÓN
 self.addEventListener('notificationclick', function(event) {
     console.log('🔔 Notificación clickeada:', event.notification.data);
     
     event.notification.close();
     
-    const urlToOpen = event.notification.data.url || '/profesional';
+    const urlToOpen = event.notification.data?.url || '/profesional';
+    const citaId = event.notification.data?.citaId;
     
-    if (event.action === 'ver' && event.notification.data.citaId) {
-        // Abrir la cita específica
-        clients.openWindow(`/profesional?cita=${event.notification.data.citaId}`);
-    } else if (event.action === 'cerrar') {
-        // Solo cerrar
-        console.log('Notificación cerrada');
-    } else {
-        // Click en el cuerpo de la notificación
-        clients.openWindow(urlToOpen);
-    }
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
+            .then(function(clientList) {
+                // Si hay una ventana abierta, enfocarla
+                for (let client of clientList) {
+                    if (client.url.includes(urlToOpen) && 'focus' in client) {
+                        return client.focus();
+                    }
+                }
+                // Si no, abrir nueva ventana
+                if (clients.openWindow) {
+                    return clients.openWindow(
+                        citaId ? `/profesional?cita=${citaId}` : urlToOpen
+                    );
+                }
+            })
+    );
 });
