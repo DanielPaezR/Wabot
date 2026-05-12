@@ -1,30 +1,46 @@
+/* eslint-disable */
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Estadísticas - {{ profesional_nombre }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --dark: #2c3e50;
+            --text: #333;
+            --text-light: #7f8c8d;
+            --border: #e0e0e0;
+            --bg: #f5f6fa;
+            --white: #ffffff;
+            --radius: 10px;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding-bottom: 80px;
         }
         
         .header {
-            background: white;
+            background: var(--white);
             padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 0.8rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         @media (min-width: 768px) {
@@ -36,343 +52,260 @@
             }
         }
         
-        .header h1 {
-            color: #2c3e50;
-            font-size: 1.5rem;
-        }
+        .header h1 { color: var(--dark); font-size: 1.3rem; }
         
         .user-info {
             display: flex;
             align-items: center;
             gap: 1rem;
-            color: #666;
+            color: var(--text-light);
             flex-wrap: wrap;
             justify-content: flex-end;
+            font-size: 0.9rem;
         }
         
         .nav-buttons {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             justify-content: center;
         }
 
         @media (min-width: 768px) {
-            .nav-buttons {
-                justify-content: flex-start;
-            }
+            .nav-buttons { justify-content: flex-start; }
         }
 
         .nav-btn {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 8px;
+            padding: 8px 14px;
+            border-radius: 20px;
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-            background: white;
-            color: #3498db;
-            border: 2px solid #3498db;
+            gap: 6px;
+            background: var(--white);
+            color: var(--primary);
+            border: 2px solid var(--primary);
             flex: 1;
-            min-width: 140px;
+            min-width: 130px;
             justify-content: center;
-            text-align: center;
         }
 
         @media (min-width: 480px) {
-            .nav-btn {
-                flex: none;
-            }
+            .nav-btn { flex: none; }
         }
 
-        .nav-btn:hover {
-            background: #3498db;
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        .nav-btn.active {
-            background: #3498db;
-            color: white;
-        }
+        .nav-btn:hover { background: var(--primary); color: white; }
+        .nav-btn.active { background: var(--primary); color: white; }
 
         .btn-logout {
-            background: #e74c3c;
+            background: var(--danger);
             color: white;
-            border: 2px solid #e74c3c;
+            border-color: var(--danger);
+            font-size: 0.8rem;
+            padding: 6px 12px;
         }
-
-        .btn-logout:hover {
-            background: #c0392b;
-        }
+        .btn-logout:hover { background: #c0392b; }
         
         .container {
-            max-width: 1200px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 1rem;
         }
         
         .profesional-info {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+            background: var(--white);
+            padding: 1.2rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
             text-align: center;
         }
         
-        .profesional-nombre {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-        }
+        .profesional-nombre { font-size: 1.3rem; font-weight: 700; color: var(--dark); }
+        .profesional-especialidad { color: var(--text-light); font-size: 0.9rem; }
         
-        .profesional-especialidad {
-            color: #7f8c8d;
-            font-size: 1rem;
-        }
-        
-        /* Filtros */
         .filters-container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
+            background: var(--white);
+            padding: 1.2rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
         }
+        
+        .filters-container h3 { margin-bottom: 1rem; font-size: 0.95rem; }
         
         .filters-row {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-
-        @media (min-width: 768px) {
-            .filters-row {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            }
-        }
-        
-        .form-group {
-            flex: 1;
-            min-width: 250px;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
         }
         
         .form-group label {
             display: block;
-            margin-bottom: 0.5rem;
+            margin-bottom: 4px;
             font-weight: 600;
-            color: #2c3e50;
+            font-size: 0.8rem;
+            color: var(--dark);
         }
         
         .form-control {
             width: 100%;
             padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #3498db;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: var(--bg);
         }
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
         }
         
         .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: var(--white);
+            padding: 1rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             text-align: center;
-            border-left: 4px solid #3498db;
+            border-left: 4px solid var(--primary);
         }
+        .stat-card.success { border-left-color: var(--success); }
+        .stat-card.warning { border-left-color: var(--warning); }
+        .stat-card.danger { border-left-color: var(--danger); }
         
-        .stat-card.success {
-            border-left-color: #27ae60;
-        }
-        
-        .stat-card.warning {
-            border-left-color: #f39c12;
-        }
-        
-        .stat-card.danger {
-            border-left-color: #e74c3c;
-        }
-        
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-        }
-        
-        .stat-label {
-            color: #7f8c8d;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+        .stat-number { font-size: 1.5rem; font-weight: 700; color: var(--dark); }
+        .stat-label { color: var(--text-light); font-size: 0.7rem; text-transform: uppercase; }
         
         .charts-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 1.5rem;
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
 
         @media (min-width: 768px) {
-            .charts-grid {
-                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-                gap: 2rem;
-            }
+            .charts-grid { grid-template-columns: 1fr 1fr; }
         }
         
         .chart-container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            min-height: 300px;
-            display: flex;
-            flex-direction: column;
+            background: var(--white);
+            padding: 1rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
         }
         
-        .chart-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-        
-        .chart-wrapper {
-            flex: 1;
-            position: relative;
-        }
+        .chart-title { font-size: 0.95rem; font-weight: 600; color: var(--dark); margin-bottom: 0.8rem; text-align: center; }
         
         .btn-primary {
-            background: #3498db;
+            background: var(--primary);
             color: white;
-            padding: 10px 20px;
+            padding: 10px 18px;
             border: none;
-            border-radius: 5px;
+            border-radius: 20px;
             cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            text-decoration: none;
-            transition: background 0.3s;
+            font-weight: 600;
+            font-size: 0.85rem;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        
+        .no-data { text-align: center; padding: 1.5rem; color: var(--text-light); font-size: 0.85rem; }
+        
+        .sugerencia-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 0.8rem;
+            margin-bottom: 0.6rem;
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow);
+            font-size: 0.85rem;
+        }
+        
+        .lista-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 0.85rem;
+        }
+        
+        .prediccion-numero {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0.5rem 0;
         }
 
-        .btn-primary:hover {
-            background: #2980b9;
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 2rem;
-            color: #7f8c8d;
-            font-style: italic;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 0.8rem;
-            }
-            
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .stat-number { font-size: 1.2rem; }
+            .prediccion-numero { font-size: 2rem; }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📊 Estadísticas - {{ profesional_nombre }}</h1>
+        <h1>📊 {{ profesional_nombre }}</h1>
         <div class="user-info">
             <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <a href="{{ url_for('logout') }}" class="nav-btn btn-logout">🚪 Cerrar Sesión</a>
+            <a href="{{ url_for('logout') }}" class="nav-btn btn-logout">🚪 Salir</a>
         </div>
     </div>
 
     <div class="container">
-        <!-- Navegación -->
         <div class="nav-buttons">
             <a href="{{ url_for('profesional_dashboard') }}" class="nav-btn">📋 Dashboard</a>
-            <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-btn active">📊 Mis Estadísticas</a>
+            <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-btn active">📊 Estadísticas</a>
         </div>
 
-        <!-- Información del profesional -->
         <div class="profesional-info">
             <div class="profesional-nombre">👨‍💼 {{ profesional_nombre }}</div>
             <div class="profesional-especialidad">🎯 {{ profesional_especialidad }}</div>
         </div>
 
-        <!-- Filtros de período -->
         <div class="filters-container">
             <h3>📅 Seleccionar Período</h3>
-            <form method="GET" action="{{ url_for('profesional_estadisticas') }}" class="filters-row">
+            <form method="GET" action="{{ url_for('profesional_estadisticas') }}" id="filterForm">
                 <input type="hidden" name="profesional_id" value="{{ profesional_id }}">
-                
-                <div class="form-group">
-                    <label for="mes">Mes:</label>
-                    <select id="mes" name="mes" class="form-control" onchange="this.form.submit()">
-                        {% for i in range(1, 13) %}
-                        <option value="{{ i }}" {% if i == estadisticas.mes %}selected{% endif %}>
-                            {{ ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][i-1] }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                <div class="filters-row">
+                    <div class="form-group">
+                        <label>Mes</label>
+                        <select name="mes" class="form-control" onchange="this.form.submit()">
+                            {% for i in range(1, 13) %}
+                            <option value="{{ i }}" {% if i == estadisticas.mes %}selected{% endif %}>
+                                {{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][i-1] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Año</label>
+                        <select name="año" class="form-control" onchange="this.form.submit()">
+                            {% for year in range(2024, 2028) %}
+                            <option value="{{ year }}" {% if year == estadisticas.año %}selected{% endif %}>{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label for="año">Año:</label>
-                    <select id="año" name="año" class="form-control" onchange="this.form.submit()">
-                        {% for year in range(2023, 2027) %}
-                        <option value="{{ year }}" {% if year == estadisticas.año %}selected{% endif %}>{{ year }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="form-group" style="align-self: flex-end;">
-                    <button type="submit" class="btn-primary">🔄 Actualizar</button>
-                </div>
+                <button type="submit" class="btn-primary">🔄 Actualizar</button>
             </form>
         </div>
 
-        <!-- Información del período -->
         <div class="profesional-info">
-            <h3>📊 Estadísticas de {{ ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][estadisticas.mes-1] }} {{ estadisticas.año }}</h3>
+            <h3>📊 {{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][estadisticas.mes-1] }} {{ estadisticas.año }}</h3>
             {% if estadisticas.total_citas == 0 %}
-            <p style="color: #e74c3c;">⚠️ No hay citas registradas para este período</p>
+            <p style="color: var(--danger);">⚠️ No hay citas registradas para este período</p>
             {% endif %}
         </div>
 
-        <!-- Estadísticas rápidas -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number">📅 {{ estadisticas.total_citas }}</div>
@@ -392,56 +325,77 @@
             </div>
             <div class="stat-card success">
                 <div class="stat-number">💰 ${{ "{:,.0f}".format(estadisticas.ingresos_totales|int) }}</div>
-                <div class="stat-label">Ingresos Totales</div>
+                <div class="stat-label">Ingresos</div>
             </div>
             <div class="stat-card {% if estadisticas.tasa_exito >= 80 %}success{% elif estadisticas.tasa_exito >= 60 %}warning{% else %}danger{% endif %}">
                 <div class="stat-number">📊 {{ estadisticas.tasa_exito }}%</div>
-                <div class="stat-label">Tasa de Éxito</div>
+                <div class="stat-label">Tasa Éxito</div>
             </div>
         </div>
 
-        <!-- Gráficos -->
         <div class="charts-grid">
-            <!-- Gráfico de estados de citas -->
             <div class="chart-container">
                 <div class="chart-title">📅 Distribución de Citas</div>
-                <div class="chart-wrapper">
-                    <canvas id="chartEstados"></canvas>
-                </div>
+                <canvas id="chartEstados" height="200"></canvas>
             </div>
-            
-            <!-- Gráfico de servicios populares -->
             <div class="chart-container">
                 <div class="chart-title">💼 Servicios Más Solicitados</div>
-                <div class="chart-wrapper">
-                    <canvas id="chartServicios"></canvas>
-                </div>
+                <canvas id="chartServicios" height="200"></canvas>
             </div>
         </div>
 
-        <!-- Lista de servicios populares (como respaldo) -->
+        <!-- ==================== SECCIONES AVANZADAS ==================== -->
+
+        <div id="sugerenciasSection" style="display: none; margin-top: 1.5rem;">
+            <h3 style="margin-bottom: 0.8rem;">💡 Sugerencias Inteligentes</h3>
+            <div id="sugerenciasList"></div>
+        </div>
+
+        <div class="charts-grid" style="margin-top: 1rem;">
+            <div class="chart-container">
+                <div class="chart-title">📅 Días Más Ocupados</div>
+                <div id="diasOcupadosList" class="no-data">Cargando...</div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">📉 Días con Menos Movimiento</div>
+                <div id="diasFlujosList" class="no-data">Cargando...</div>
+            </div>
+        </div>
+
+        <div class="charts-grid" style="margin-top: 1rem;">
+            <div class="chart-container" style="text-align:center;">
+                <div class="chart-title">🔮 Predicción Próxima Semana</div>
+                <div class="prediccion-numero" id="prediccionCitas">--</div>
+                <div style="color:var(--text-light);font-size:0.85rem;">Citas estimadas</div>
+                <div style="margin-top:0.8rem;color:var(--success);font-weight:600;" id="prediccionIngresos"></div>
+                <div style="margin-top:0.5rem;font-size:0.85rem;" id="prediccionTendencia"></div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">👥 Clientes Más Frecuentes</div>
+                <div id="clientesFrecuentesList" class="no-data">Cargando...</div>
+            </div>
+        </div>
+
         {% if estadisticas.servicios_populares %}
-        <div class="chart-container" style="margin-top: 1.5rem;">
+        <div class="chart-container" style="margin-top:1rem;">
             <div class="chart-title">📋 Top Servicios del Mes</div>
-            <table style="width: 100%; border-collapse: collapse;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
                 <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Servicio</th>
-                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Citas</th>
-                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">% del Total</th>
+                    <tr style="background:#f8f9fa;">
+                        <th style="padding:10px;text-align:left;">Servicio</th>
+                        <th style="padding:10px;text-align:right;">Citas</th>
+                        <th style="padding:10px;text-align:right;">%</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for servicio in estadisticas.servicios_populares %}
-                    <tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 12px;">{{ servicio.nombre }}</td>
-                        <td style="padding: 12px; text-align: right; font-weight: bold;">{{ servicio.cantidad }}</td>
-                        <td style="padding: 12px; text-align: right; color: #666;">
+                    <tr style="border-bottom:1px solid #eee;">
+                        <td style="padding:10px;">{{ servicio.nombre }}</td>
+                        <td style="padding:10px;text-align:right;font-weight:600;">{{ servicio.cantidad }}</td>
+                        <td style="padding:10px;text-align:right;color:var(--text-light);">
                             {% if estadisticas.total_citas > 0 %}
                             {{ ((servicio.cantidad / estadisticas.total_citas) * 100)|round(1) }}%
-                            {% else %}
-                            0%
-                            {% endif %}
+                            {% else %}0%{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -451,97 +405,234 @@
         {% endif %}
     </div>
 
-<script>
-    // Crear gráficos al cargar la página
-    document.addEventListener('DOMContentLoaded', function() {
-        crearGraficos();
-    });
-
-    function crearGraficos() {
-        // Destruir gráficos existentes
-        if (window.chartEstadosInstance) {
-            window.chartEstadosInstance.destroy();
-        }
-        if (window.chartServiciosInstance) {
-            window.chartServiciosInstance.destroy();
-        }
-
-        // Datos de estadísticas desde el backend
-        // NOTA: El siguiente código será procesado por Jinja2 para generar JSON válido
-        const datosEstadisticas = JSON.parse('{{ estadisticas|tojson|safe }}');
+    <script>
+        // ============================================================
+        // PASAR DATOS DE JINJA2 A JAVASCRIPT DE FORMA SEGURA
+        // ============================================================
         
-        console.log("📊 Datos para gráficos:", datosEstadisticas);
-
-        // 1. Gráfico de distribución de citas
-        const ctxEstados = document.getElementById('chartEstados');
-        if (ctxEstados && datosEstadisticas.total_citas > 0) {
-            window.chartEstadosInstance = new Chart(ctxEstados, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Confirmadas', 'Completadas', 'Canceladas'],
-                    datasets: [{
-                        data: [
-                            datosEstadisticas.confirmadas,
-                            datosEstadisticas.completadas,
-                            datosEstadisticas.canceladas
-                        ],
-                        backgroundColor: ['#28a745', '#17a2b8', '#dc3545'],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
-        } else if (ctxEstados) {
-            ctxEstados.innerHTML = '<div class="no-data">No hay datos para mostrar</div>';
+        // Estas variables se llenan desde el servidor (Flask/Jinja2)
+        // El IDE puede marcar error porque no reconoce la sintaxis, pero funciona en el servidor
+        var estadisticas = {{ estadisticas|tojson|safe }};
+        var profesionalId = {{ profesional_id|tojson|safe }};
+        var profesionalNombre = {{ profesional_nombre|tojson|safe }};
+        
+        // Variables globales para los gráficos
+        var chartEstadosInstance = null;
+        var chartServiciosInstance = null;
+        
+        // ============================================================
+        // FUNCIÓN PARA ESCAPAR HTML
+        // ============================================================
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
-
-        // 2. Gráfico de servicios populares
-        const ctxServicios = document.getElementById('chartServicios');
-        if (ctxServicios && datosEstadisticas.servicios_populares && datosEstadisticas.servicios_populares.length > 0) {
-            const servicios = datosEstadisticas.servicios_populares;
-            const nombres = servicios.map(s => s.nombre);
-            const cantidades = servicios.map(s => s.cantidad);
+        
+        // ============================================================
+        // CREAR GRÁFICOS BÁSICOS
+        // ============================================================
+        function crearGraficosBasicos() {
+            // Destruir gráficos existentes
+            if (chartEstadosInstance) {
+                chartEstadosInstance.destroy();
+                chartEstadosInstance = null;
+            }
+            if (chartServiciosInstance) {
+                chartServiciosInstance.destroy();
+                chartServiciosInstance = null;
+            }
             
-            window.chartServiciosInstance = new Chart(ctxServicios, {
-                type: 'bar',
-                data: {
-                    labels: nombres,
-                    datasets: [{
-                        label: 'Número de Citas',
-                        data: cantidades,
-                        backgroundColor: '#3498db',
-                        borderColor: '#2980b9',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
+            // Gráfico de distribución de estados
+            var ctxEstados = document.getElementById('chartEstados');
+            if (ctxEstados && estadisticas.total_citas > 0) {
+                chartEstadosInstance = new Chart(ctxEstados, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Confirmadas', 'Completadas', 'Canceladas'],
+                        datasets: [{
+                            data: [
+                                estadisticas.confirmadas || 0,
+                                estadisticas.completadas || 0,
+                                estadisticas.canceladas || 0
+                            ],
+                            backgroundColor: ['#27ae60', '#3498db', '#e74c3c']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { position: 'bottom' }
                         }
                     }
+                });
+            } else if (ctxEstados) {
+                ctxEstados.style.display = 'none';
+                ctxEstados.parentElement.innerHTML += '<div class="no-data">No hay datos para mostrar</div>';
+            }
+            
+            // Gráfico de servicios populares
+            var ctxServicios = document.getElementById('chartServicios');
+            if (ctxServicios && estadisticas.servicios_populares && estadisticas.servicios_populares.length > 0) {
+                var nombres = [];
+                var cantidades = [];
+                for (var i = 0; i < estadisticas.servicios_populares.length; i++) {
+                    nombres.push(estadisticas.servicios_populares[i].nombre || 'Sin nombre');
+                    cantidades.push(estadisticas.servicios_populares[i].cantidad || 0);
                 }
-            });
-        } else if (ctxServicios) {
-            ctxServicios.innerHTML = '<div class="no-data">No hay datos de servicios para mostrar</div>';
+                
+                chartServiciosInstance = new Chart(ctxServicios, {
+                    type: 'bar',
+                    data: {
+                        labels: nombres,
+                        datasets: [{
+                            label: 'Citas',
+                            data: cantidades,
+                            backgroundColor: '#3498db',
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1, precision: 0 }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'top' }
+                        }
+                    }
+                });
+            } else if (ctxServicios) {
+                ctxServicios.style.display = 'none';
+                ctxServicios.parentElement.innerHTML += '<div class="no-data">No hay servicios registrados</div>';
+            }
         }
-    }
-
-    // Función para formatear números con separadores de miles
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    }
-</script>
+        
+        // ============================================================
+        // CARGAR ESTADÍSTICAS AVANZADAS DESDE API
+        // ============================================================
+        async function cargarEstadisticasAvanzadas() {
+            // Obtener mes y año actuales desde los selects
+            var mesSelect = document.querySelector('select[name="mes"]');
+            var añoSelect = document.querySelector('select[name="año"]');
+            
+            var mes = mesSelect ? parseInt(mesSelect.value) : (estadisticas.mes || new Date().getMonth() + 1);
+            var año = añoSelect ? parseInt(añoSelect.value) : (estadisticas.año || new Date().getFullYear());
+            
+            try {
+                var url = '/profesional/api/estadisticas-avanzadas?profesional_id=' + profesionalId + '&mes=' + mes + '&año=' + año;
+                var response = await fetch(url);
+                var data = await response.json();
+                
+                if (!data.success) {
+                    console.warn('Error en API:', data);
+                    return;
+                }
+                
+                // Sugerencias inteligentes
+                if (data.sugerencias && data.sugerencias.length > 0) {
+                    var sugerenciasSection = document.getElementById('sugerenciasSection');
+                    var sugerenciasList = document.getElementById('sugerenciasList');
+                    if (sugerenciasSection) sugerenciasSection.style.display = 'block';
+                    if (sugerenciasList) {
+                        var sugerenciasHtml = '';
+                        for (var s = 0; s < data.sugerencias.length; s++) {
+                            var borderColor = data.sugerencias[s].tipo === 'warning' ? '#f39c12' : '#3498db';
+                            sugerenciasHtml += '<div class="sugerencia-card" style="border-left-color:' + borderColor + ';"><strong>' + (data.sugerencias[s].icono || '💡') + ' ' + escapeHtml(data.sugerencias[s].mensaje) + '</strong></div>';
+                        }
+                        sugerenciasList.innerHTML = sugerenciasHtml;
+                    }
+                }
+                
+                // Días más ocupados
+                var diasOcupados = document.getElementById('diasOcupadosList');
+                if (diasOcupados) {
+                    if (data.dias_ocupados && data.dias_ocupados.length > 0) {
+                        var ocupadosHtml = '';
+                        for (var d = 0; d < data.dias_ocupados.length; d++) {
+                            ocupadosHtml += '<div class="lista-item"><span>📅 ' + escapeHtml(data.dias_ocupados[d].fecha) + '</span><strong>' + (data.dias_ocupados[d].total || 0) + ' citas</strong></div>';
+                        }
+                        diasOcupados.innerHTML = ocupadosHtml;
+                    } else {
+                        diasOcupados.innerHTML = '<div class="no-data">Sin datos disponibles</div>';
+                    }
+                }
+                
+                // Días con menos movimiento
+                var diasFlujos = document.getElementById('diasFlujosList');
+                if (diasFlujos) {
+                    if (data.dias_flojos && data.dias_flojos.length > 0) {
+                        var flojosHtml = '';
+                        for (var f = 0; f < data.dias_flojos.length; f++) {
+                            flojosHtml += '<div class="lista-item"><span>📅 ' + escapeHtml(data.dias_flojos[f].fecha) + '</span><strong style="color:#e74c3c;">' + (data.dias_flojos[f].total || 0) + ' citas</strong></div>';
+                        }
+                        diasFlujos.innerHTML = flojosHtml;
+                    } else {
+                        diasFlujos.innerHTML = '<div class="no-data">Sin datos disponibles</div>';
+                    }
+                }
+                
+                // Predicción
+                if (data.prediccion) {
+                    var prediccionCitas = document.getElementById('prediccionCitas');
+                    var prediccionIngresos = document.getElementById('prediccionIngresos');
+                    var prediccionTendencia = document.getElementById('prediccionTendencia');
+                    
+                    if (prediccionCitas) prediccionCitas.textContent = data.prediccion.citas_estimadas || '0';
+                    if (prediccionIngresos) {
+                        var ingresos = data.prediccion.ingresos_estimados || 0;
+                        prediccionIngresos.textContent = '💰 ~$' + Number(ingresos).toLocaleString() + ' ingresos est.';
+                    }
+                    
+                    if (prediccionTendencia) {
+                        var tendenciaTexto = '';
+                        if (data.prediccion.tendencia === 'subiendo') {
+                            tendenciaTexto = '📈 Tendencia: Subiendo 🚀';
+                        } else if (data.prediccion.tendencia === 'bajando') {
+                            tendenciaTexto = '📉 Tendencia: Bajando ⚠️';
+                        } else {
+                            tendenciaTexto = '📊 Tendencia: Estable ✅';
+                        }
+                        prediccionTendencia.textContent = tendenciaTexto;
+                    }
+                }
+                
+                // Clientes más frecuentes
+                var clientesList = document.getElementById('clientesFrecuentesList');
+                if (clientesList) {
+                    var medallas = ['🥇', '🥈', '🥉'];
+                    if (data.clientes_frecuentes && data.clientes_frecuentes.length > 0) {
+                        var clientesHtml = '';
+                        for (var c = 0; c < data.clientes_frecuentes.length; c++) {
+                            var medalla = medallas[c] || '👤';
+                            var nombre = data.clientes_frecuentes[c].cliente_nombre || 'Cliente';
+                            var visitas = data.clientes_frecuentes[c].visitas || 0;
+                            clientesHtml += '<div class="lista-item"><span>' + medalla + ' ' + escapeHtml(nombre) + '</span><strong>' + visitas + ' visitas</strong></div>';
+                        }
+                        clientesList.innerHTML = clientesHtml;
+                    } else {
+                        clientesList.innerHTML = '<div class="no-data">No hay clientes frecuentes</div>';
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error cargando estadísticas avanzadas:', error);
+            }
+        }
+        
+        // ============================================================
+        // INICIALIZAR TODO CUANDO EL DOM ESTÉ LISTO
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            crearGraficosBasicos();
+            cargarEstadisticasAvanzadas();
+        });
+    </script>
 </body>
 </html>
