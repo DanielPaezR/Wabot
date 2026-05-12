@@ -426,25 +426,25 @@ OPENAI_TOOLS = [
     },
     {
         "name": "confirmar_agendamiento",
-        "description": "Muestra un resumen de la cita y pide confirmación antes de agendar. Usar cuando ya tienes todos los datos (profesional, servicio, fecha, hora, cliente).",
+        "description": "MUESTRA EL RESUMEN DE LA CITA Y PIDE CONFIRMACIÓN. Usar EXACTAMENTE cuando tengas: profesional_nombre, servicio_nombre, fecha y hora. NO escribas texto manual, llama a esta función.",
         "parameters": {
             "type": "object",
             "properties": {
                 "profesional_nombre": {
                     "type": "string",
-                    "description": "Nombre del profesional seleccionado"
+                    "description": "Nombre del profesional"
                 },
                 "servicio_nombre": {
                     "type": "string",
-                    "description": "Nombre del servicio seleccionado"
+                    "description": "Nombre del servicio"
                 },
                 "fecha": {
                     "type": "string",
-                    "description": "Fecha de la cita en formato YYYY-MM-DD"
+                    "description": "Fecha en formato YYYY-MM-DD"
                 },
                 "hora": {
                     "type": "string",
-                    "description": "Hora de la cita en formato HH:MM"
+                    "description": "Hora en formato HH:MM"
                 },
                 "precio": {
                     "type": "number",
@@ -466,6 +466,20 @@ OPENAI_TOOLS = [
                 }
             },
             "required": ["servicio_nombre"]
+        }
+    },
+    {
+        "name": "responder_cliente",
+        "description": "Responde al cliente cuando NO tienes todos los datos para agendar. Usa esta función para conversaciones casuales, saludos o cuando te falte información.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "mensaje": {
+                    "type": "string",
+                    "description": "El mensaje que quieres enviar al cliente"
+                }
+            },
+            "required": ["mensaje"]
         }
     }
 ]
@@ -824,12 +838,13 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
                 '7) Sé amable, usa emojis y responde en español. '
                 '8) ⚠️ IMPORTANTE: NUNCA muestres listas numeradas de servicios, profesionales ni horarios. '
                 'El sistema ya muestra botones con esas opciones. Solo di: "Elige una opción de los botones de abajo ⬇️" '
-                '9) Cuando el cliente quiera agendar, primero verifica que tengas TODO: profesional, servicio, fecha y hora. '
-                'Si falta algo, pregúntalo. Si lo tienes todo, llama a confirmar_agendamiento para mostrar el resumen. '
-                '10) ⚠️ FLUJO DE AGENDAMIENTO: NUNCA llames directamente a agendar_cita sin antes llamar a confirmar_agendamiento. '
-                'Solo si el cliente responde "sí", "confirmo", "1" o similar, llama a agendar_cita. '
-                '11) Cuando muestres el resumen de confirmación, sé breve. Solo muestra fecha y hora. '
-                'Los detalles de profesional, servicio y precio ya los conoce el cliente.'
+                '9) ⚠️ CUANDO TENGAS TODOS LOS DATOS (profesional, servicio, fecha y hora), '
+                'DEBES llamar INMEDIATAMENTE a la función confirmar_agendamiento. '
+                'NO escribas texto resumiendo los datos. SOLO llama a la función. '
+                '10) ⚠️ PROHIBIDO: NUNCA escribas listas de verificación ni resúmenes manuales. '
+                'Para eso existe la función confirmar_agendamiento. LLÁMALA DIRECTAMENTE. '
+                '11) ⚠️ Si el cliente dice "sí", "confirmo", "1", "dale", "ok", "perfecto", '
+                'llama DIRECTAMENTE a agendar_cita sin pedir más confirmaciones. '
             )
         },
         {
@@ -943,6 +958,9 @@ def ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente
     if nombre_funcion == 'confirmar_agendamiento':
         return ia_confirmar_agendamiento(argumentos, negocio_id, telefono_cliente, nombre_cliente)
     
+    if nombre_funcion == 'responder_cliente':
+        return arguments.get('mensaje', '¿En qué puedo ayudarte?')
+
     return 'La herramienta solicitada no está disponible. Por favor usa el menú numérico.'
 
 def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cliente):
