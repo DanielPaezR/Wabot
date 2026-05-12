@@ -83,18 +83,38 @@ def guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_
     cursor = conn.cursor()
     
     try:
+        subscription_json = json.dumps(subscription) if isinstance(subscription, dict) else subscription
+        
+        # ✅ Primero verificar si ya existe
         cursor.execute('''
-            INSERT INTO suscripciones_push_clientes 
-            (negocio_id, cliente_telefono, subscription_json, dispositivo_info, activa)
-            VALUES (%s, %s, %s, %s, TRUE)
-            ON CONFLICT (cliente_telefono, subscription_json) 
-            DO UPDATE SET activa = TRUE
-        ''', (negocio_id, telefono, json.dumps(subscription), dispositivo_info))
+            SELECT id FROM suscripciones_push_clientes
+            WHERE cliente_telefono = %s AND negocio_id = %s
+        ''', (telefono, negocio_id))
+        
+        existe = cursor.fetchone()
+        
+        if existe:
+            # ✅ Actualizar existente
+            cursor.execute('''
+                UPDATE suscripciones_push_clientes
+                SET subscription_json = %s, dispositivo_info = %s, activa = TRUE
+                WHERE cliente_telefono = %s AND negocio_id = %s
+            ''', (subscription_json, dispositivo_info, telefono, negocio_id))
+            print(f"✅ Suscripción de cliente actualizada para {telefono}")
+        else:
+            # ✅ Insertar nuevo
+            cursor.execute('''
+                INSERT INTO suscripciones_push_clientes 
+                (negocio_id, cliente_telefono, subscription_json, dispositivo_info, activa)
+                VALUES (%s, %s, %s, %s, TRUE)
+            ''', (negocio_id, telefono, subscription_json, dispositivo_info))
+            print(f"✅ Nueva suscripción de cliente creada para {telefono}")
         
         conn.commit()
         return True
     except Exception as e:
         print(f"❌ Error guardando suscripción de cliente: {e}")
+        conn.rollback()
         return False
     finally:
         conn.close()
