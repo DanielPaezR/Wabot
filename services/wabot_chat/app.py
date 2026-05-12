@@ -8757,17 +8757,6 @@ def wabot_sales():
     """Landing page de ventas para Wabot"""
     return render_template('wabot_sales.html')
 
-@app.route('/service-worker.js')
-def serve_service_worker():
-    """Servir service worker desde la raíz"""
-    from flask import send_from_directory
-    import os
-    return send_from_directory(
-        os.path.dirname(os.path.abspath(__file__)), 
-        'service-worker.js', 
-        mimetype='application/javascript'
-    )
-
 @app.route('/firebase-messaging-sw.js')
 def serve_firebase_sw():
     """Servir firebase messaging SW (por si acaso)"""
