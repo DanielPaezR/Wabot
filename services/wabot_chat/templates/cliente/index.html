@@ -704,6 +704,14 @@
     <!-- FAB BACKDROP -->
     <div class="fab-backdrop" id="fabBackdrop" onclick="closeFab()"></div>
 
+    <!-- FAB MENÚ -->
+    <div class="fab-menu" id="fabMenu">
+        <button class="fab-item" onclick="resetConversacion(); closeFab();">
+            <div class="fab-ic">🔄</div>
+            <span class="fab-text">Reiniciar chat</span>
+        </button>
+    </div>
+
     <!-- SHEET OVERLAY -->
     <div class="sheet-overlay" id="sheetOverlay" onclick="cerrarSheet()"></div>
 
@@ -819,9 +827,9 @@
             <span class="nav-icon">🏪</span>
             <span class="nav-label">Directorio</span>
         </button>
-        <button class="fab-item" onclick="resetConversacion(); closeFab();">
-            <div class="fab-ic">🔄</div>
-            <span class="fab-text">Reiniciar chat</span>
+        <button class="nav-item" onclick="verPerfilNegocio()">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Perfil</span>
         </button>
     </nav>
 
