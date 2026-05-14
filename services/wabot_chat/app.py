@@ -27,6 +27,8 @@ from werkzeug.utils import secure_filename
 from database import agregar_cita, normalizar_hora
 import psycopg2
 from collections import defaultdict
+import cloudinary
+import cloudinary.uploader
 
 rate_limit_cache = defaultdict(list)
 
@@ -49,6 +51,12 @@ def check_rate_limit(ip, max_requests=20, window_seconds=60):
 # Cargar variables de entorno
 load_dotenv()
 
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+)
+
 tz_colombia = pytz.timezone('America/Bogota')
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
@@ -58,6 +66,14 @@ if not _secret_key:
 app.secret_key = _secret_key
 app.register_blueprint(push_bp, url_prefix='/push')
 app.register_blueprint(web_chat_bp, url_prefix='/cliente')
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=()'
+    return response
 
 @app.before_request
 def make_session_permanent():
@@ -70,8 +86,10 @@ UPLOAD_FOLDER = 'static/uploads/profesionales'
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename:
+        return False
+    filename = secure_filename(filename)
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
@@ -555,10 +573,9 @@ def verificar_elegibilidad(negocio_id):
 def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
     try:
-        import cloudinary.uploader
         import psycopg2
         from datetime import datetime
-        
+
         telefono = request.form.get('telefono')
         nombre = request.form.get('nombre', 'Cliente')
         promocion_id = request.form.get('promocion_id')
@@ -1282,9 +1299,13 @@ def eliminar_profesional(profesional_id, negocio_id):
 def login():
     """Login para todos los usuarios - VERSIÓN CORREGIDA"""
     if request.method == 'POST':
+        ip = request.remote_addr
+        if not check_rate_limit(ip, max_requests=5, window_seconds=60):
+            flash('Demasiados intentos. Espera 1 minuto.', 'error')
+            return redirect(url_for('login'))
         email = request.form.get('email')
         password = request.form.get('password')
-        
+
         usuario = db.verificar_usuario(email, password)
         
         if usuario:
@@ -7454,8 +7475,10 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename:
+        return False
+    filename = secure_filename(filename)
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def actualizar_foto_perfil_profesional(profesional_id, file):
     """Función para actualizar foto de perfil usando el nuevo sistema"""
@@ -7563,9 +7586,6 @@ def subir_imagen_profesional():
 @login_required
 def subir_foto_profesional():
     try:
-        import cloudinary
-        import cloudinary.uploader
-        
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
@@ -7574,13 +7594,6 @@ def subir_foto_profesional():
             return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
         
         file = request.files['foto']
-        
-        # Configurar Cloudinary
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         # Subir a Cloudinary
         upload_result = cloudinary.uploader.upload(
@@ -8310,8 +8323,6 @@ def negocio_editor_visual():
 def negocio_editor_subir_foto():
     """Subir foto usando Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
         from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
@@ -8323,13 +8334,6 @@ def negocio_editor_subir_foto():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
-        
-        # Configurar Cloudinary
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         # Subir a Cloudinary
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -8611,9 +8615,6 @@ def profesional_mis_trabajos():
 def profesional_subir_trabajo():
     """Subir foto de trabajo a Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
-        
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
@@ -8624,13 +8625,6 @@ def profesional_subir_trabajo():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'message': 'Archivo vacío'}), 400
-        
-        # Configurar Cloudinary
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         # Subir a Cloudinary
         upload_result = cloudinary.uploader.upload(
@@ -8693,8 +8687,6 @@ def profesional_eliminar_trabajo(trabajo_id):
 def negocio_subir_foto_servicio():
     """Subir foto de servicio a Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
         from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
@@ -8705,12 +8697,6 @@ def negocio_subir_foto_servicio():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
-        
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         upload_result = cloudinary.uploader.upload(
@@ -8893,8 +8879,6 @@ def negocio_productos_eliminar(producto_id):
 def negocio_productos_subir_foto():
     """Subir foto de producto a Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
         from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
@@ -8905,12 +8889,6 @@ def negocio_productos_subir_foto():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
-        
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         upload_result = cloudinary.uploader.upload(

@@ -24,11 +24,12 @@ except ImportError:
     openai = None
     print("⚠️ [IA] openai no está instalado. El agente IA no estará disponible.")
 
-OPENAI_MODEL = os.getenv('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo-0613')
+OPENAI_MODEL = os.getenv('OPENAI_CHAT_MODEL', 'gpt-4o-mini')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+_openai_client = None
 
 if openai and OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+    _openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 elif openai:
     print('⚠️ [IA] OPENAI_API_KEY no configurada. El agente IA no estará disponible.')
 
@@ -516,6 +517,9 @@ OPENAI_TOOLS = [
     }
 ]
 
+# Formato requerido por OpenAI SDK >= 1.0
+_OPENAI_TOOLS_V1 = [{"type": "function", "function": t} for t in OPENAI_TOOLS]
+
 
 def es_mensaje_numerico(mensaje):
     return bool(re.fullmatch(r'\d+', mensaje.strip()))
@@ -871,7 +875,7 @@ def sanitizar_mensaje(mensaje):
 
 
 def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente):
-    if not openai or not OPENAI_API_KEY:
+    if not _openai_client:
         return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
 
     # ✅ SEGURIDAD CAPA 1: Sanitizar entrada
@@ -1007,24 +1011,24 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
     print(f"🔧 [IA] Historial previo (últimos {len(historial[-5:])} mensajes)")
 
     try:
-        respuesta_openai = openai.ChatCompletion.create(
+        respuesta_openai = _openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
-            functions=OPENAI_TOOLS,
-            function_call='auto',
+            tools=_OPENAI_TOOLS_V1,
+            tool_choice='auto',
             temperature=0.2,
             max_tokens=600
         )
 
-        choice = respuesta_openai['choices'][0]
-        message = choice['message']
+        choice = respuesta_openai.choices[0]
+        message = choice.message
 
-        print(f"🔧 [IA] Respuesta raw: {json.dumps(choice, ensure_ascii=False)[:2000]}")
+        print(f"🔧 [IA] finish_reason: {choice.finish_reason}")
 
-        if message.get('function_call'):
-            funcion = message['function_call']
-            nombre_funcion = funcion.get('name')
-            argumentos_texto = funcion.get('arguments', '{}')
+        if choice.finish_reason == 'tool_calls' and message.tool_calls:
+            tool_call = message.tool_calls[0]
+            nombre_funcion = tool_call.function.name
+            argumentos_texto = tool_call.function.arguments
             try:
                 argumentos = json.loads(argumentos_texto)
             except Exception as e:
@@ -1034,9 +1038,9 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
             print(f"🔧 [IA] Función solicitada: {nombre_funcion} - args: {argumentos}")
             return ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente, nombre_cliente)
 
-        if message.get('content'):
-            print(f"🔧 [IA] Respuesta de contenido directo: {message.get('content')}")
-            return message['content']
+        if message.content:
+            print(f"🔧 [IA] Respuesta de contenido directo: {message.content}")
+            return message.content
 
         return 'Lo siento, no pude procesar tu petición. Por favor intenta con una frase más clara o usa el menú numérico.'
 
