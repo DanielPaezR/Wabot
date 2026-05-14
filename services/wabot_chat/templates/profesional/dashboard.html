@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Mi Agenda">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Mi Agenda">
+    <meta name="msapplication-navbutton-color" content="#667eea">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mi Panel - {{ session.negocio_nombre }}</title>
+    <style>
+        /* ==================== RESET Y VARIABLES ==================== */
+        *, *::before, *::after {
+            margin: 0; padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --primary-soft: #eef0fd;
+            --success: #10b981;
+            --success-soft: #d1fae5;
+            --danger: #ef4444;
+            --danger-soft: #fee2e2;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --mid: #475569;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --bg: #f1f5f9;
+            --white: #ffffff;
+            --radius-xs: 8px;
+            --radius-sm: 12px;
+            --radius: 16px;
+            --radius-lg: 20px;
+            /* Bottom bar height para padding */
+            --bar-h: 68px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        html { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100%;
+            /* Espacio para bottom bar */
+            padding-bottom: calc(var(--bar-h) + var(--safe-bottom) + 1rem);
+        }
+
+        /* ==================== TOAST ==================== */
+        #toast {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom) + 12px);
+            left: 1rem; right: 1rem;
+            background: var(--dark);
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 40px;
+            text-align: center;
+            font-size: 0.85rem;
+            z-index: 2000;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.25s ease;
+            pointer-events: none;
+        }
+        #toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ==================== HEADER COMPACTO ==================== */
+        .header {
+            background: var(--white);
+            padding: 0.85rem 1rem 0;
+            box-shadow: 0 1px 0 var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.85rem;
+        }
+
+        .welcome-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .welcome-biz {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .header-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .icon-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            font-size: 1.15rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.15s;
+        }
+        .icon-btn:active { background: var(--border); }
+
+        .notif-badge {
+            position: absolute;
+            top: -2px; right: -2px;
+            background: var(--danger);
+            color: #fff;
+            border-radius: 50%;
+            width: 18px; height: 18px;
+            font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700;
+            border: 2px solid var(--white);
+        }
+
+        /* ==================== STATS PILLS ==================== */
+        .stats-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 0.85rem;
+        }
+
+        .stat-pill {
+            flex: 1;
+            background: var(--primary-soft);
+            border-radius: 40px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-pill-num {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-pill-label {
+            font-size: 0.7rem;
+            color: var(--mid);
+            line-height: 1.2;
+        }
+
+        /* ==================== DATE TABS ==================== */
+        .date-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 0;
+        }
+
+        .date-input-wrap {
+            flex: 1;
+            position: relative;
+        }
+
+        .date-input-wrap input[type="date"] {
+            width: 100%;
+            padding: 7px 10px 7px 32px;
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            font-size: 0.85rem;
+            background: var(--bg);
+            color: var(--dark);
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .date-input-wrap::before {
+            content: "📅";
+            position: absolute;
+            left: 10px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.85rem;
+            pointer-events: none;
+        }
+
+        /* Tab selector de horas */
+        .hour-tabs {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding-bottom: 0;
+        }
+        .hour-tabs::-webkit-scrollbar { display: none; }
+
+        .hour-tab {
+            flex-shrink: 0;
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .hour-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .hour-tab.has-cita {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .hour-tab.has-cita.active { color: #fff; }
+
+        /* ==================== PANEL NOTIFICACIONES ==================== */
+        .notif-panel {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease;
+        }
+        .notif-panel.open { max-height: 320px; overflow-y: auto; }
+
+        .notif-panel-inner { padding: 0.75rem 1rem; }
+
+        .notif-panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .notif-item {
+            background: #eff6ff;
+            border-left: 3px solid var(--primary);
+            border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        .notif-item-title   { font-weight: 600; color: var(--dark); }
+        .notif-item-msg     { color: var(--text-light); margin: 2px 0; }
+        .notif-item-time    { font-size: 0.7rem; color: #94a3b8; }
+        .notif-item-read    {
+            background: var(--primary); color: #fff;
+            border: none; border-radius: 20px;
+            padding: 2px 10px; font-size: 0.7rem;
+            cursor: pointer; margin-top: 4px;
+        }
+
+        /* ==================== CONTENEDOR ==================== */
+        .container {
+            padding: 1rem;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        /* ==================== TIMELINE ==================== */
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .timeline-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timeline-legend {
+            display: flex;
+            gap: 10px;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            align-items: center;
+        }
+        .legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* Contenedor principal del timeline */
+        .timeline-wrap {
+            background: var(--white);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .timeline-row {
+            display: flex;
+            min-height: 48px;
+            border-bottom: 1px solid #f8fafc;
+            transition: background 0.15s;
+        }
+        .timeline-row:last-child { border-bottom: none; }
+        .timeline-row.is-half {
+            min-height: 36px;
+            border-bottom: 1px dashed #f1f5f9;
+        }
+        .timeline-row.is-half:last-child { border-bottom: none; }
+
+        .tl-time {
+            width: 46px;
+            flex-shrink: 0;
+            padding: 8px 6px 0 10px;
+            font-size: 11px;
+            color: var(--text-light);
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+            line-height: 1;
+            text-align: right;
+        }
+        .tl-time.half { opacity: 0.45; font-size: 10px; padding-top: 6px; }
+
+        .tl-line {
+            width: 1px;
+            background: var(--border);
+            flex-shrink: 0;
+            position: relative;
+            margin: 0 2px;
+        }
+        .tl-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            position: absolute;
+            top: 8px; left: -2.5px;
+        }
+        .tl-dot.half { top: 6px; width: 4px; height: 4px; left: -1.5px; background: #e2e8f0; }
+
+        .tl-slot {
+            flex: 1;
+            padding: 6px 8px 6px 10px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        /* Slot vacío */
+        .slot-free {
+            font-size: 11px;
+            color: #94a3b8;
+            align-self: center;
+            padding: 2px 8px;
+            border: 1px dashed #e2e8f0;
+            border-radius: 20px;
+            background: #fafbfc;
+        }
+
+        /* Bloque de cita */
+        .cita-block {
+            flex: 1;
+            border-left: 3px solid var(--primary);
+            background: var(--primary-soft);
+            border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+            padding: 7px 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+        }
+        .cita-block:active { opacity: 0.85; }
+
+        .cita-block.completado {
+            border-left-color: var(--success);
+            background: var(--success-soft);
+            opacity: 0.8;
+        }
+        .cita-block.cancelado {
+            border-left-color: #cbd5e1;
+            background: #f8fafc;
+            opacity: 0.65;
+        }
+
+        .cita-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .cita-nombre {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--dark);
+            line-height: 1.2;
+        }
+
+        .cita-servicio {
+            font-size: 0.72rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+
+        .cita-precio {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--success);
+            white-space: nowrap;
+        }
+
+        .badge-personalizada {
+            display: inline-block;
+            background: #f3e8ff;
+            color: #9333ea;
+            font-size: 0.6rem;
+            padding: 1px 6px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+
+        .cita-estado-tag {
+            font-size: 0.65rem;
+            padding: 2px 7px;
+            border-radius: 20px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .tag-completado { background: var(--success-soft); color: #065f46; }
+        .tag-cancelado  { background: var(--danger-soft);  color: #991b1b; }
+
+        /* Botones de acción dentro del bloque expandido */
+        .cita-acciones {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(102,126,234,0.15);
+        }
+        .cita-block.completado .cita-acciones,
+        .cita-block.cancelado  .cita-acciones { border-top-color: var(--border); }
+
+        .btn-cita {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+        }
+        .btn-cita:active { transform: scale(0.95); }
+        .btn-cita-ok     { background: var(--success-soft); color: #065f46; }
+        .btn-cita-cancel { background: var(--danger-soft);  color: #991b1b; }
+        .btn-cita-edit   { background: #f1f5f9; color: var(--dark); }
+
+        /* Estado colapsado: acciones ocultas */
+        .cita-acciones { display: none; }
+        .cita-block.expanded .cita-acciones { display: flex; }
+
+        /* Indicador expand */
+        .expand-arrow {
+            font-size: 0.75rem;
+            color: var(--primary);
+            transition: transform 0.2s;
+            opacity: 0.6;
+        }
+        .cita-block.expanded .expand-arrow { transform: rotate(180deg); }
+
+        .empty-state {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: var(--text-light);
+        }
+        .empty-state h3 { font-size: 1rem; margin-bottom: 0.25rem; color: var(--dark); }
+
+        /* ==================== MODAL CONTRASEÑA ==================== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1500;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0;
+        }
+        .modal-overlay.flex { display: flex; }
+
+        .modal-sheet {
+            background: var(--white);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            width: 100%;
+            max-width: 540px;
+            padding-bottom: var(--safe-bottom);
+            animation: slideUp 0.25s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .modal-handle {
+            width: 40px; height: 4px;
+            background: var(--border);
+            border-radius: 4px;
+            margin: 10px auto 0;
+        }
+
+        .modal-head {
+            padding: 1rem 1rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-head-title { font-size: 1rem; font-weight: 700; color: var(--dark); }
+        .modal-close-btn {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .modal-body { padding: 1rem; }
+
+        .form-group  { margin-bottom: 0.9rem; }
+        .form-label  { font-size: 0.8rem; font-weight: 600; color: var(--mid); margin-bottom: 4px; display: block; }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: var(--bg);
+            color: var(--dark);
+            transition: border-color 0.15s;
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--white); }
+
+        .modal-footer {
+            padding: 0.75rem 1rem 1rem;
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sheet {
+            flex: 1;
+            padding: 0.7rem;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-sheet-primary   { background: var(--primary); color: #fff; }
+        .btn-sheet-secondary { background: var(--bg); color: var(--dark); }
+
+        /* ==================== BOTTOM NAV BAR ==================== */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            padding: 8px 0 calc(8px + var(--safe-bottom));
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            text-decoration: none;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            background: none;
+            border: none;
+            min-width: 52px;
+            transition: background 0.15s;
+        }
+        .nav-item:active { background: var(--bg); }
+
+        .nav-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+
+        .nav-label {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* Botón central destacado */
+        .nav-item.nav-center {
+            background: var(--primary);
+            border-radius: 50%;
+            width: 52px; height: 52px;
+            padding: 0;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+            gap: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .nav-item.nav-center .nav-icon { 
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            width: 100%;
+            height: 100%;
+        }
+        .nav-item.nav-center .nav-label { display: none; }
+        .nav-item.nav-center:active { background: var(--primary-dark); }
+
+        /* ==================== MENÚ FLOTANTE (FAB) ==================== */
+        .fab-menu {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom) + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 600;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .fab-menu.open { opacity: 1; pointer-events: all; }
+
+        .fab-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 8px 16px 8px 12px;
+            text-decoration: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            transform: translateY(10px);
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            opacity: 0;
+        }
+        .fab-menu.open .fab-item {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .fab-menu.open .fab-item:nth-child(1) { transition-delay: 0.05s; }
+        .fab-menu.open .fab-item:nth-child(2) { transition-delay: 0.1s; }
+        .fab-menu.open .fab-item:nth-child(3) { transition-delay: 0.15s; }
+        .fab-menu.open .fab-item:nth-child(4) { transition-delay: 0.2s; }
+        .fab-menu.open .fab-item:nth-child(5) { transition-delay: 0.25s; }
+        .fab-menu.open .fab-item:nth-child(6) { transition-delay: 0.3s; }
+
+        .fab-item:active { background: var(--bg); }
+
+        .fab-icon {
+            font-size: 1.2rem;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .fab-text { font-size: 0.85rem; font-weight: 600; color: var(--dark); }
+        .fab-sub  { font-size: 0.7rem; color: var(--text-light); }
+
+        .fab-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.25);
+            z-index: 590;
+            display: none;
+        }
+        .fab-backdrop.open { display: block; }
+
+        /* ==================== DARK MODE ==================== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --white: #1e293b;
+                --border: #334155;
+                --dark: #f1f5f9;
+                --mid: #94a3b8;
+                --text: #cbd5e1;
+                --text-light: #64748b;
+                --primary-soft: #1e2a4a;
+                --success-soft: #0d2e22;
+                --danger-soft: #2e1515;
+            }
+            .slot-free      { background: #1e293b; border-color: #334155; }
+            .cita-block     { background: #243450; }
+            .cita-block.completado { background: #0d2e22; }
+            .cita-block.cancelado  { background: #2a2a30; }
+            .bottom-bar     { background: #1e293b; }
+            .form-control   { background: #0f172a; color: #f1f5f9; }
+            .fab-item       { background: #1e293b; }
+            .fab-icon       { background: #0f172a; }
+            .notif-item     { background: #1a2540; }
+        }
+    </style>
+</head>
+
+<body data-profesional-id="{{ session.profesional_id }}">
+
+    <!-- TOAST -->
+    <div id="toast"></div>
+
+    <!-- BACKDROP FAB -->
+    <div class="fab-backdrop" id="fabBackdrop" onclick="closeFab()"></div>
+
+    <!-- MENÚ FLOTANTE (opciones del profesional) -->
+    <div class="fab-menu" id="fabMenu">
+        <a href="{{ url_for('profesional_todas_citas') }}" class="fab-item">
+            <div class="fab-icon">📋</div>
+            <div><div class="fab-text">Todas mis citas</div></div>
+        </a>
+        <a href="/profesional/agendar" class="fab-item">
+            <div class="fab-icon">➕</div>
+            <div><div class="fab-text">Nueva cita</div></div>
+        </a>
+        <a href="/profesional/perfil" class="fab-item">
+            <div class="fab-icon">👤</div>
+            <div><div class="fab-text">Mi perfil</div></div>
+        </a>
+        <a href="/profesional/promociones" class="fab-item">
+            <div class="fab-icon">🏆</div>
+            <div><div class="fab-text">Promociones</div></div>
+        </a>
+        <button class="fab-item" onclick="openPasswordModal(); closeFab();" style="width:100%; cursor:pointer; background:none; border:1px solid var(--border);">
+            <div class="fab-icon">🔑</div>
+            <div><div class="fab-text">Cambiar contraseña</div></div>
+        </button>
+    </div>
+
+    <!-- MODAL CONTRASEÑA (bottom sheet) -->
+    <div id="passwordModal" class="modal-overlay">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <div class="modal-head">
+                <span class="modal-head-title">🔐 Cambiar Contraseña</span>
+                <button class="modal-close-btn" onclick="closePasswordModal()">×</button>
+            </div>
+            <form id="passwordForm" onsubmit="submitPasswordChange(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label class="form-label">Contraseña actual</label>
+                        <input type="password" class="form-control" id="current_password" required placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nueva contraseña</label>
+                        <input type="password" class="form-control" id="new_password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirmar contraseña</label>
+                        <input type="password" class="form-control" id="confirm_password" required placeholder="Repetir contraseña">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-sheet btn-sheet-secondary" onclick="closePasswordModal()">Cancelar</button>
+                    <button type="submit" class="btn-sheet btn-sheet-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== HEADER ==================== -->
+    <div class="header">
+        <div class="header-top">
+            <div>
+                <div class="welcome-name">👋 {{ session.usuario_nombre }}</div>
+                <div class="welcome-biz">{{ session.negocio_nombre }}</div>
+            </div>
+            <div class="header-right">
+                <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}"
+                   style="text-decoration:none;">
+                    <button class="icon-btn" title="Estadísticas">📊</button>
+                </a>
+                <button class="icon-btn" onclick="toggleNotif()" title="Notificaciones">
+                    🔔
+                    <span id="notifBadge" class="notif-badge" style="display:none;">0</span>
+                </button>
+                <a href="{{ url_for('logout') }}" style="text-decoration:none;">
+                    <button class="icon-btn" title="Salir">🚪</button>
+                </a>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-pill">
+                <div class="stat-pill-num">{{ total_citas }}</div>
+                <div class="stat-pill-label">Citas<br>hoy</div>
+            </div>
+            <div class="stat-pill" style="background:#d1fae5;">
+                <div class="stat-pill-num" style="color:var(--success);">${{ ganancia_estimada }}</div>
+                <div class="stat-pill-label" style="color:#065f46;">Ganancia<br>estimada</div>
+            </div>
+        </div>
+
+        <div class="date-bar" style="padding-bottom: 0.85rem; gap: 8px;">
+            <div class="date-input-wrap">
+                <input type="date" value="{{ fecha }}" onchange="cambiarFecha(this.value)">
+            </div>
+            <button id="pushButton" class="icon-btn" title="Activar notificaciones"
+                    style="background:#f3e8ff; color:#9333ea; flex-shrink:0; font-size:1rem;">🔔</button>
+        </div>
+    </div>
+
+    <!-- PANEL NOTIFICACIONES -->
+    <div class="notif-panel" id="notifPanel">
+        <div class="notif-panel-inner">
+            <div class="notif-panel-head">
+                Notificaciones
+                <button onclick="loadNotifications()" style="background:none;border:none;font-size:0.8rem;color:var(--primary);cursor:pointer;">🔄 Actualizar</button>
+            </div>
+            <div id="notifList">Cargando...</div>
+        </div>
+    </div>
+
+    <!-- ==================== TIMELINE ==================== -->
+    <div class="container">
+
+        {# Usamos el diccionario que ya viene procesado de Python #}
+
+        {# Ajusta estos valores según el horario de tu negocio #}
+        {% set horas_inicio = 8 %}
+        {% set horas_fin = 18 %}
+
+        <div class="timeline-header">
+            <span class="timeline-title">Agenda del día</span>
+            <div class="timeline-legend">
+                <span><span class="legend-dot" style="background:var(--primary);"></span> Pendiente</span>
+                <span><span class="legend-dot" style="background:var(--success);"></span> Completada</span>
+                <span><span class="legend-dot" style="background:#cbd5e1;"></span> Cancelada</span>
+            </div>
+        </div>
+
+        <div class="timeline-wrap">
+            {% if citas %}
+                {% for hora_num in range(horas_inicio, horas_fin) %}
+                    {% for minutos in ['00', '30'] %}
+                        {% set slot = '%02d:%s' % (hora_num, minutos) %}
+                        {% set cita = citas_por_hora.get(slot) %}
+                        {% set es_media = (minutos == '30') %}
+
+                        <div class="timeline-row {% if es_media %}is-half{% endif %}" id="row-{{ slot|replace(':','-') }}">
+
+                            <div class="tl-time {% if es_media %}half{% endif %}">{{ slot }}</div>
+                            <div class="tl-line">
+                                <div class="tl-dot {% if es_media %}half{% endif %}"></div>
+                            </div>
+
+                            <div class="tl-slot">
+                                {% if cita %}
+                                    <div class="cita-block {{ cita.estado }}"
+                                         id="cita-{{ cita.id }}"
+                                         onclick="toggleCita(this)">
+                                        <div class="cita-top-row">
+                                            <div>
+                                                <div class="cita-nombre">
+                                                    {{ cita.cliente_nombre }}
+                                                    {% if cita.personalizada %}
+                                                        <span class="badge-personalizada">⭐</span>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="cita-servicio">{{ cita.servicio_nombre }}</div>
+                                            </div>
+                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                <span class="cita-precio">${{ cita.precio }}</span>
+                                                {% if cita.estado == 'cancelado' %}
+                                                    <span class="cita-estado-tag tag-cancelado">Cancelada</span>
+                                                {% elif cita.estado == 'completado' %}
+                                                    <span class="cita-estado-tag tag-completado">Completada</span>
+                                                {% else %}
+                                                    <span class="expand-arrow">▾</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        {% if cita.estado != 'cancelado' and cita.estado != 'completado' %}
+                                        <div class="cita-acciones">
+                                            <form method="POST" action="{{ url_for('completar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn-cita btn-cita-ok completar-btn"
+                                                        data-cita-id="{{ cita.id }}"
+                                                        onclick="return manejarCompletarCita(event, this);">
+                                                    ✅ Completar
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('profesional_cancelar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn-cita btn-cita-cancel cancelar-btn"
+                                                        data-cita-id="{{ cita.id }}"
+                                                        data-cliente="{{ cita.cliente_nombre }}"
+                                                        onclick="return manejarCancelarCita(event, this);">
+                                                    ❌ Cancelar
+                                                </button>
+                                            </form>
+                                            <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}"
+                                               class="btn-cita btn-cita-edit"
+                                               onclick="event.stopPropagation()">
+                                                ⚙️ Personalizar
+                                            </a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="slot-free">libre</span>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    {% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>🎉 Sin citas hoy</h3>
+                    <p>Disfruta tu día libre</p>
+                </div>
+            {% endif %}
+        </div>
+
+    </div><!-- /container -->
+
+    <!-- ==================== BOTTOM BAR ==================== -->
+    <nav class="bottom-bar">
+        <a href="/profesional/bloqueos" class="nav-item">
+            <span class="nav-icon">🚫</span>
+            <span class="nav-label">Bloquear horario</span>
+        </a>
+        <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-item">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Stats</span>
+        </a>
+        <!-- Botón central: menú flotante -->
+        <button class="nav-item nav-center" onclick="toggleFab()" id="fabBtn" aria-label="Menú">
+            <span class="nav-icon" id="fabBtnIcon" style="font-weight:700;">+</span>
+        </button>
+        <a href="/profesional/agendar" class="nav-item">
+            <span class="nav-icon">➕</span>
+            <span class="nav-label">Agendar</span>
+        </a>
+        <a href="/profesional/perfil" class="nav-item">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Perfil</span>
+        </a>
+    </nav>
+
+    <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
+    <script>
+        // ==================== TOAST ====================
+        function mostrarNotificacion(msg, tipo) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.background = tipo === 'error'   ? '#ef4444' :
+                                  tipo === 'warning' ? '#f59e0b' : '#10b981';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        // ==================== TOGGLE CITA (expandir) ====================
+        function toggleCita(block) {
+            if (block.classList.contains('completado') || block.classList.contains('cancelado')) return;
+            block.classList.toggle('expanded');
+        }
+
+        // ==================== COMPLETAR CITA ====================
+        async function manejarCompletarCita(event, btn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const form   = btn.closest('form');
+            const csrf   = form.querySelector('input[name="csrf_token"]').value;
+            const fecha  = document.querySelector('input[type="date"]').value;
+            const profId = document.body.dataset.profesionalId;
+            btn.disabled = true; btn.innerHTML = '⏳';
+            try {
+                const fd = new FormData(); fd.append('csrf_token', csrf);
+                const res  = await fetch(form.action + `?fecha=${fecha}&profesional_id=${profId}`,
+                    { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await res.json();
+                if (data.success) {
+                    const block = btn.closest('.cita-block');
+                    block.classList.remove('expanded');
+                    block.classList.add('completado');
+                    block.querySelector('.cita-acciones').style.display = 'none';
+                    const topRow = block.querySelector('.cita-top-row > div:last-child');
+                    topRow.innerHTML = '<span class="cita-estado-tag tag-completado">Completada</span>';
+                    actualizarContadores();
+                    mostrarNotificacion('✅ Cita completada');
+                } else throw new Error(data.message);
+            } catch(e) {
+                mostrarNotificacion('❌ Error al completar', 'error');
+                btn.disabled = false; btn.innerHTML = '✅ Completar';
+            }
+            return false;
+        }
+
+        // ==================== CANCELAR CITA ====================
+        async function manejarCancelarCita(event, btn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const cliente = btn.dataset.cliente;
+            if (!confirm(`⚠️ ¿Cancelar cita de ${cliente}?`)) return false;
+            const form   = btn.closest('form');
+            const csrf   = form.querySelector('input[name="csrf_token"]').value;
+            const fecha  = document.querySelector('input[type="date"]').value;
+            const profId = document.body.dataset.profesionalId;
+            btn.disabled = true; btn.innerHTML = '⏳';
+            try {
+                const fd = new FormData(); fd.append('csrf_token', csrf);
+                const res  = await fetch(form.action + `?fecha=${fecha}&profesional_id=${profId}`,
+                    { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const data = await res.json();
+                if (data.success) {
+                    const block = btn.closest('.cita-block');
+                    block.classList.remove('expanded');
+                    block.classList.add('cancelado');
+                    block.querySelector('.cita-acciones').style.display = 'none';
+                    const topRow = block.querySelector('.cita-top-row > div:last-child');
+                    topRow.innerHTML = '<span class="cita-estado-tag tag-cancelado">Cancelada</span>';
+                    actualizarContadores();
+                    mostrarNotificacion(`❌ Cita de ${cliente} cancelada`, 'warning');
+                } else throw new Error(data.message);
+            } catch(e) {
+                mostrarNotificacion('❌ Error al cancelar', 'error');
+                btn.disabled = false; btn.innerHTML = '❌ Cancelar';
+            }
+            return false;
+        }
+
+        function actualizarContadores() {
+            const pendientes = document.querySelectorAll(
+                '.cita-block:not(.completado):not(.cancelado)').length;
+            const statNum = document.querySelector('.stat-pill-num');
+            if (statNum) statNum.textContent = pendientes;
+        }
+
+        // ==================== FAB MENÚ ====================
+        let fabOpen = false;
+        function toggleFab() {
+            fabOpen = !fabOpen;
+            document.getElementById('fabMenu').classList.toggle('open', fabOpen);
+            document.getElementById('fabBackdrop').classList.toggle('open', fabOpen);
+            document.getElementById('fabBtnIcon').textContent = fabOpen ? '×' : '＋';
+        }
+        function closeFab() {
+            fabOpen = false;
+            document.getElementById('fabMenu').classList.remove('open');
+            document.getElementById('fabBackdrop').classList.remove('open');
+            document.getElementById('fabBtnIcon').textContent = '＋';
+        }
+
+        // ==================== NOTIFICACIONES ====================
+        let notifOpen = false;
+        function toggleNotif() {
+            notifOpen = !notifOpen;
+            document.getElementById('notifPanel').classList.toggle('open', notifOpen);
+            if (notifOpen) loadNotifications();
+        }
+
+        async function loadNotifications() {
+            const list = document.getElementById('notifList');
+            list.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0;">Cargando...</div>';
+            try {
+                const res  = await fetch('/api/profesional/notificaciones');
+                const data = await res.json();
+                if (data.success) {
+                    if (!data.notificaciones.length) {
+                        list.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0;">📭 Sin notificaciones</div>';
+                        return;
+                    }
+                    list.innerHTML = data.notificaciones.map(n => `
+                        <div class="notif-item">
+                            <div class="notif-item-title">${n.titulo}</div>
+                            <div class="notif-item-msg">${n.mensaje}</div>
+                            <div class="notif-item-time">${n.fecha_creacion}</div>
+                            <button class="notif-item-read" onclick="markAsRead(${n.id})">✓ Leer</button>
+                        </div>`).join('');
+                    const badge = document.getElementById('notifBadge');
+                    if (data.total_no_leidas > 0) {
+                        badge.textContent   = data.total_no_leidas;
+                        badge.style.display = 'flex';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch(e) {
+                list.innerHTML = '<div style="font-size:0.8rem;color:#ef4444;">Error al cargar</div>';
+            }
+        }
+
+        async function markAsRead(id) {
+            await fetch(`/api/profesional/notificaciones/${id}/leer`, { method: 'POST' });
+            loadNotifications();
+        }
+
+        // ==================== MODAL CONTRASEÑA ====================
+        function openPasswordModal() {
+            document.getElementById('passwordModal').classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        async function submitPasswordChange(e) {
+            e.preventDefault();
+            const cur  = document.getElementById('current_password').value;
+            const neu  = document.getElementById('new_password').value;
+            const con  = document.getElementById('confirm_password').value;
+            const csrf = document.getElementById('csrf_token').value;
+            if (neu !== con)    return alert('Las contraseñas no coinciden');
+            if (neu.length < 6) return alert('Mínimo 6 caracteres');
+            const res  = await fetch('/profesional/cambiar-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ current_password: cur, new_password: neu, csrf_token: csrf })
+            });
+            const data = await res.json();
+            if (data.success) {
+                mostrarNotificacion('✅ Contraseña actualizada');
+                closePasswordModal();
+            } else {
+                alert('❌ Error: ' + data.message);
+            }
+        }
+
+        // ==================== CAMBIO DE FECHA ====================
+        function cambiarFecha(fecha) {
+            window.location.href = '{{ url_for("profesional_dashboard") }}?fecha=' + fecha +
+                '&profesional_id={{ profesional_id }}';
+        }
+
+        // ==================== PUSH ====================
+        document.getElementById('pushButton')?.addEventListener('click', async () => {
+            const profId = document.body.dataset.profesionalId;
+            if (window.PushNotifications) {
+                const push = new window.PushNotifications();
+                const ok   = await push.inicializar(profId);
+                if (ok) { mostrarNotificacion('✅ Notificaciones activadas'); document.getElementById('pushButton').disabled = true; }
+                else mostrarNotificacion('❌ No se pudo activar', 'error');
+            } else {
+                mostrarNotificacion('❌ No disponible en este navegador', 'error');
+            }
+        });
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadNotifications();
+            setInterval(loadNotifications, 30000);
+
+            // Cerrar modal al tocar backdrop
+            document.getElementById('passwordModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('passwordModal')) closePasswordModal();
+            });
+        });
+    </script>
+</body>
+</html>

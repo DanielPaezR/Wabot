@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>WaBot - {{ negocio.nombre }}</title>
+
+    <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
+    <link rel="icon" href="/static/favicon.ico">
+
+    <style>
+        *, *::before, *::after {
+            margin: 0; padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --primary-soft: #eef0fd;
+            --success: #10b981;
+            --success-soft: #d1fae5;
+            --danger: #ef4444;
+            --danger-soft: #fee2e2;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --mid: #475569;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --bg: #f1f5f9;
+            --white: #ffffff;
+            --radius-xs: 8px;
+            --radius-sm: 12px;
+            --radius: 16px;
+            --radius-lg: 20px;
+            --bar-h: 64px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-top: env(safe-area-inset-top, 0px);
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            inset: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        /* ==================== APP SHELL ==================== */
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* ==================== HEADER ==================== */
+        .header {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            z-index: 100;
+            padding-top: calc(10px + var(--safe-top));
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .negocio-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: var(--primary-soft);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .negocio-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .negocio-sub {
+            font-size: 0.7rem;
+            color: var(--text-light);
+        }
+
+        .header-right { display: flex; gap: 6px; }
+
+        .icon-btn {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .icon-btn:active { background: var(--border); }
+
+        /* ==================== CONTENIDO (paneles) ==================== */
+        .content {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(12px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .panel.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateX(0);
+        }
+
+        /* ==================== PANEL CHAT ==================== */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 14px 180px 14px;  /* ← padding inferior amplio para evitar tapar mensajes */
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .chat-messages::-webkit-scrollbar { width: 3px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        .msg {
+            max-width: 82%;
+            padding: 9px 13px;
+            border-radius: 18px;
+            font-size: 0.875rem;
+            line-height: 1.45;
+            animation: msgIn 0.18s ease;
+        }
+
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-user {
+            background: var(--primary);
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg-bot {
+            background: var(--white);
+            color: var(--dark);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .msg-sender {
+            font-size: 0.7rem;
+            font-weight: 700;
+            opacity: 0.7;
+            margin-bottom: 3px;
+        }
+
+        /* Chips de opciones */
+        .options-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            padding: 4px 14px;
+            align-self: flex-start;
+            animation: msgIn 0.18s ease;
+        }
+
+        .option-chip {
+            background: var(--white);
+            border: 1.5px solid var(--primary);
+            color: var(--primary);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .option-chip:active { background: var(--primary); color: #fff; }
+
+        /* Grid de profesionales */
+        .professionals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            padding: 4px 14px;
+            align-self: stretch;
+            animation: msgIn 0.18s ease;
+        }
+
+        .professional-card {
+            background: var(--white);
+            border-radius: var(--radius-sm);
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: all 0.15s;
+        }
+        .professional-card:active { transform: scale(0.97); background: var(--bg); }
+
+        .prof-avatar {
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 8px;
+            background: var(--primary-soft);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            font-size: 1.8rem;
+        }
+        .prof-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        .prof-name {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+        .prof-specialty {
+            font-size: 0.68rem;
+            color: var(--text-light);
+            margin-bottom: 8px;
+        }
+
+        .btn-select-prof {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Input de chat — fijo en la parte inferior del panel */
+        .chat-input-bar {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom));
+            left: 0; right: 0;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            padding: 10px 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 200;
+            /* Solo visible cuando el chat está activo */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .panel.active ~ .chat-input-bar,
+        .chat-input-bar.visible { opacity: 1; pointer-events: all; }
+
+        .chat-input {
+            flex: 1;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            border-radius: 30px;
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            color: var(--dark);
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .chat-input:focus { border-color: var(--primary); background: var(--white); }
+
+        .send-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: none;
+            color: #fff;
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .send-btn:active { background: var(--primary-dark); transform: scale(0.95); }
+
+        /* ==================== PANEL PROMOCIONES ==================== */
+        .panel-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 14px calc(14px + var(--bar-h) + var(--safe-bottom));
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .panel-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        .promo-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .promo-banner {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .promo-body { padding: 14px; }
+
+        .promo-title-text {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .promo-desc {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .promo-prize {
+            background: #fef3c7;
+            border-radius: var(--radius-xs);
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .promo-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .promo-date { font-size: 0.72rem; color: var(--text-light); }
+
+        .badge-eligible     { background: var(--success-soft); color: #065f46; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .badge-not-eligible { background: var(--danger-soft);  color: #991b1b; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .badge-participando { background: var(--primary-soft); color: var(--primary-dark); font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+        .promo-actions { display: flex; gap: 8px; }
+
+        .btn-promo {
+            flex: 1;
+            padding: 9px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            transition: all 0.15s;
+        }
+        .btn-promo:active { transform: scale(0.97); }
+        .btn-promo-success  { background: var(--success-soft); color: #065f46; }
+        .btn-promo-danger   { background: var(--danger-soft);  color: #991b1b; }
+        .btn-promo-primary  { background: var(--primary); color: #fff; }
+        .btn-promo-warning  { background: #fef3c7; color: #92400e; }
+        .btn-promo-info     { background: var(--primary-soft); color: var(--primary-dark); }
+
+        /* ==================== PANEL DIRECTORIO ==================== */
+        .directorio-hero {
+            background: linear-gradient(135deg, var(--primary), #764ba2);
+            border-radius: var(--radius);
+            padding: 28px 20px;
+            text-align: center;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+        .directorio-icon { font-size: 3rem; margin-bottom: 12px; }
+        .directorio-hero h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+        .directorio-hero p  { font-size: 0.82rem; opacity: 0.9; margin-bottom: 16px; line-height: 1.5; }
+
+        .btn-directorio {
+            background: #fff;
+            color: var(--primary);
+            border: none;
+            border-radius: 30px;
+            padding: 10px 22px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ==================== BOTTOM BAR ==================== */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+            height: calc(var(--bar-h) + var(--safe-bottom));
+            padding-bottom: var(--safe-bottom);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            transition: background 0.15s;
+            min-width: 60px;
+        }
+        .nav-item:active { background: var(--bg); }
+
+        .nav-icon {
+            font-size: 1.35rem;
+            line-height: 1;
+            transition: transform 0.15s;
+        }
+        .nav-item.active .nav-icon { transform: scale(1.15); }
+
+        .nav-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: color 0.15s;
+        }
+        .nav-item.active .nav-label { color: var(--primary); }
+
+        /* Botón central FAB */
+        .nav-item.nav-fab {
+            background: var(--primary);
+            border-radius: 50%;
+            width: 52px; height: 52px;
+            padding: 0;
+            margin-top: 10px;
+            box-shadow: 0 4px 14px rgba(102,126,234,0.45);
+            gap: 0;
+            min-width: unset;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-item.nav-fab .nav-icon { 
+            font-size: 1.5rem;
+            /* ✅ Centrado perfecto */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            width: 100%;
+            height: 100%;
+        }
+        .nav-item.nav-fab .nav-label { 
+            display: none; 
+        }
+        .nav-item.nav-fab:active { 
+            background: var(--primary-dark); 
+        }
+
+        /* ==================== FAB MENÚ ==================== */
+        .fab-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 590;
+            display: none;
+        }
+        .fab-backdrop.open { display: block; }
+
+        .fab-menu {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom) + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            z-index: 600;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .fab-menu.open { opacity: 1; pointer-events: all; }
+
+        .fab-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 9px 18px 9px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: transform 0.2s ease, opacity 0.2s ease, background 0.15s;
+        }
+        .fab-menu.open .fab-item { opacity: 1; transform: translateY(0); }
+        .fab-menu.open .fab-item:nth-child(1) { transition-delay: 0.04s; }
+        .fab-menu.open .fab-item:nth-child(2) { transition-delay: 0.08s; }
+        .fab-menu.open .fab-item:nth-child(3) { transition-delay: 0.12s; }
+        .fab-menu.open .fab-item:nth-child(4) { transition-delay: 0.16s; }
+        .fab-item:active { background: var(--bg); }
+
+        .fab-ic {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .fab-text { font-size: 0.85rem; font-weight: 600; color: var(--dark); }
+
+        /* ==================== TOAST ==================== */
+        #toast {
+            position: fixed;
+            bottom: calc(var(--bar-h) + var(--safe-bottom) + 12px);
+            left: 1rem; right: 1rem;
+            background: var(--dark);
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 40px;
+            text-align: center;
+            font-size: 0.85rem;
+            z-index: 2000;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.25s ease;
+            pointer-events: none;
+        }
+        #toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ==================== MODAL BOTTOM SHEET ==================== */
+        .sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1500;
+            display: none;
+        }
+        .sheet-overlay.open { display: block; }
+
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--white);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            z-index: 1600;
+            padding-bottom: var(--safe-bottom);
+            max-height: 88vh;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+        .bottom-sheet.open { transform: translateY(0); }
+
+        .sheet-handle {
+            width: 40px; height: 4px;
+            background: var(--border);
+            border-radius: 4px;
+            margin: 10px auto 0;
+        }
+
+        .sheet-head {
+            padding: 1rem 1rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .sheet-title { font-size: 1rem; font-weight: 700; color: var(--dark); }
+        .sheet-close {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .sheet-body { padding: 1rem; }
+        .sheet-footer { padding: 0.75rem 1rem 1rem; display: flex; gap: 8px; }
+
+        .form-group  { margin-bottom: 0.85rem; }
+        .form-label  { font-size: 0.78rem; font-weight: 700; color: var(--mid); margin-bottom: 4px; display: block; text-transform: uppercase; letter-spacing: 0.3px; }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: var(--bg);
+            color: var(--dark);
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--white); }
+
+        .btn-sheet { flex: 1; padding: 0.7rem; border-radius: 40px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; }
+        .btn-sheet-primary   { background: var(--primary); color: #fff; }
+        .btn-sheet-secondary { background: var(--bg); color: var(--dark); }
+        .btn-sheet-warning   { background: #fef3c7; color: #92400e; }
+
+        /* Empty states */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-light);
+        }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-state h4   { color: var(--dark); font-size: 1rem; margin-bottom: 6px; }
+        .empty-state p    { font-size: 0.82rem; }
+
+        /* Scroll suave para móviles */
+        .chat-messages, .panel-scroll {
+            scroll-behavior: smooth;
+        }
+
+        /* ==================== DARK MODE ==================== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --white: #1e293b;
+                --border: #334155;
+                --dark: #f1f5f9;
+                --mid: #94a3b8;
+                --text: #cbd5e1;
+                --text-light: #64748b;
+                --primary-soft: #1e2a4a;
+                --success-soft: #0d2e22;
+                --danger-soft: #2e1515;
+            }
+            .msg-bot     { background: #243450; border-color: #334155; }
+            .option-chip { background: #1e293b; }
+            .professional-card { background: #1e293b; }
+            .form-control { background: #0f172a; color: #f1f5f9; }
+            .fab-item    { background: #1e293b; }
+            .fab-ic      { background: #0f172a; }
+            .promo-card  { background: #1e293b; border-color: #334155; }
+            .bottom-sheet { background: #1e293b; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOAST -->
+    <div id="toast"></div>
+
+    <!-- FAB BACKDROP -->
+    <div class="fab-backdrop" id="fabBackdrop" onclick="closeFab()"></div>
+
+    <!-- FAB MENÚ -->
+    <div class="fab-menu" id="fabMenu">
+        <button class="fab-item" onclick="resetConversacion(); closeFab();">
+            <div class="fab-ic">🔄</div>
+            <span class="fab-text">Reiniciar chat</span>
+        </button>
+    </div>
+
+    <!-- SHEET OVERLAY -->
+    <div class="sheet-overlay" id="sheetOverlay" onclick="cerrarSheet()"></div>
+
+    <!-- BOTTOM SHEET PARTICIPAR -->
+    <div class="bottom-sheet" id="sheetParticipar">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+            <span class="sheet-title">🎁 Participar en Concurso</span>
+            <button class="sheet-close" onclick="cerrarSheet()">×</button>
+        </div>
+        <form id="formParticipar" enctype="multipart/form-data">
+            <div class="sheet-body">
+                <input type="hidden" name="promocion_id" id="sheetPromoId">
+                <div class="form-group">
+                    <label class="form-label">Tu nombre</label>
+                    <input type="text" name="nombre" id="sheetNombre" class="form-control" placeholder="Nombre completo" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fotos (máx. 3)</label>
+                    <input type="file" name="fotos" class="form-control" multiple accept="image/*" required>
+                    <span style="font-size:0.72rem; color:var(--text-light);">Comparte tus mejores fotos del servicio</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mensaje (opcional)</label>
+                    <textarea name="nota" class="form-control" rows="2" placeholder="Cuéntanos tu experiencia..."></textarea>
+                </div>
+            </div>
+            <div class="sheet-footer">
+                <button type="button" class="btn-sheet btn-sheet-secondary" onclick="cerrarSheet()">Cancelar</button>
+                <button type="submit" class="btn-sheet btn-sheet-primary" id="btnEnviarPart">📤 Enviar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- APP SHELL -->
+    <div class="app">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <div class="negocio-avatar">💬</div>
+                <div>
+                    <div class="negocio-name">{{ negocio.nombre }}</div>
+                    <div class="negocio-sub">Agenda tu cita en segundos</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="icon-btn" id="btnNotificaciones" onclick="activarNotificacionesCliente()" title="Activar notificaciones">🔔</button>
+                <button class="icon-btn" onclick="verPerfilNegocio()" title="Ver negocio">🏪</button>
+            </div>
+        </div>
+
+        <!-- PANELES -->
+        <div class="content">
+
+            <!-- PANEL CHAT -->
+            <div id="panelChat" class="panel active">
+                <div class="chat-messages" id="chatMessages"></div>
+            </div>
+
+            <!-- PANEL PROMOCIONES -->
+            <div id="panelPromociones" class="panel">
+                <div class="panel-scroll">
+                    <div class="panel-title">Promociones activas</div>
+                    <div id="promocionesList">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🎁</div>
+                            <h4>Cargando promociones...</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DIRECTORIO -->
+            <div id="panelDirectorio" class="panel">
+                <div class="panel-scroll">
+                    <div class="directorio-hero">
+                        <div class="directorio-icon">🏪</div>
+                        <h3>Directorio de Negocios</h3>
+                        <p>Explora todos los negocios disponibles en nuestra plataforma, con fotos, servicios y mucho más.</p>
+                        <a href="https://wabot-directorio-production.up.railway.app/directorio"
+                           target="_blank" class="btn-directorio">
+                            📍 Ver Directorio
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /content -->
+
+    </div><!-- /app -->
+
+    <!-- INPUT DE CHAT (fijo sobre la bottom bar) -->
+    <div class="chat-input-bar" id="chatInputBar">
+        <input type="text" class="chat-input" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
+        <button class="send-btn" id="sendBtn">➤</button>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-bar">
+        <button class="nav-item active" id="navChat" onclick="irASeccion('chat')">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">Chat</span>
+        </button>
+        <button class="nav-item" id="navPromos" onclick="irASeccion('promociones')">
+            <span class="nav-icon">🎁</span>
+            <span class="nav-label">Promos</span>
+        </button>
+        <!-- FAB central -->
+        <button class="nav-item nav-fab" id="fabBtn" onclick="toggleFab()">
+            <span class="nav-icon" id="fabIcon">☰</span>
+        </button>
+        <button class="nav-item" id="navDirectorio" onclick="irASeccion('directorio')">
+            <span class="nav-icon">🏪</span>
+            <span class="nav-label">Directorio</span>
+        </button>
+        <button class="nav-item" onclick="verPerfilNegocio()">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Perfil</span>
+        </button>
+    </nav>
+
+    <input type="hidden" id="sessionId"    value="{{ session_id }}">
+    <input type="hidden" id="negocioId"    value="{{ negocio.id }}">
+    <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
+    <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
+
+    <script>
+        // ==================== HELPERS ====================
+        function toast(msg, tipo) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.background = tipo === 'error'   ? '#ef4444' :
+                                  tipo === 'warning' ? '#f59e0b' : '#1e293b';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2400);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // ==================== NOTIFICACIONES PUSH PARA CLIENTES ====================
+
+        async function activarNotificacionesCliente() {
+            console.log('🔔 Botón de notificaciones clickeado');
+            
+            const telefono = localStorage.getItem('telefono_cliente');
+            const negocioId = document.getElementById('negocioId').value;
+            
+            if (!telefono) {
+                toast('⚠️ Primero identifícate en el chat con tu número de teléfono', 'warning');
+                return;
+            }
+            
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                toast('❌ Tu navegador no soporta notificaciones', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('btnNotificaciones');
+            btn.disabled = true;
+            btn.textContent = '⏳';
+            
+            try {
+                // ✅ FORZAR registro del Service Worker
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                await navigator.serviceWorker.ready;
+                console.log('✅ SW listo');
+                
+                // ✅ LIMPIAR suscripción antigua (si existe)
+                let subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    console.log('🗑️ Eliminando suscripción antigua...');
+                    await subscription.unsubscribe();
+                    console.log('✅ Suscripción antigua eliminada');
+                }
+                
+                // Pedir permiso
+                let permiso = Notification.permission;
+                if (permiso === 'default') {
+                    permiso = await Notification.requestPermission();
+                }
+                
+                if (permiso !== 'granted') {
+                    toast('❌ Debes permitir notificaciones en la configuración del sitio', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔔';
+                    return;
+                }
+                
+                // ✅ USAR LA MISMA CLAVE QUE EL PROFESIONAL
+                const publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
+                
+                // Crear NUEVA suscripción
+                console.log('🔐 Creando nueva suscripción...');
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey)
+                });
+                
+                console.log('✅ Suscripción creada');
+                
+                // Guardar en BD
+                const response = await fetch('/api/push/subscribe-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscription: subscription,
+                        telefono: telefono,
+                        negocio_id: parseInt(negocioId)
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('📥 Respuesta:', data);
+                
+                if (data.success) {
+                    btn.textContent = '🔔✓';
+                    btn.style.background = '#d1fae5';
+                    localStorage.setItem('notificaciones_activadas', 'true');
+                    toast('✅ Notificaciones activadas');
+                } else {
+                    toast('❌ Error: ' + (data.error || 'desconocido'), 'error');
+                    btn.textContent = '🔔';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                toast('❌ ' + error.message, 'error');
+                btn.textContent = '🔔';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Helper para convertir clave VAPID
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // Verificar si ya tiene notificaciones activadas al cargar
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('notificaciones_activadas') === 'true') {
+                const btn = document.getElementById('btnNotificaciones');
+                if (btn) {
+                    btn.style.background = '#d1fae5';
+                    btn.textContent = '🔔✓';
+                }
+            }
+        });
+
+        // ==================== NAVEGACIÓN ====================
+        let seccionActiva = 'chat';
+
+        function irASeccion(s) {
+            seccionActiva = s;
+
+            // Paneles
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            const panelMap = { chat: 'panelChat', promociones: 'panelPromociones', directorio: 'panelDirectorio' };
+            document.getElementById(panelMap[s])?.classList.add('active');
+
+            // Input bar solo en chat
+            const bar = document.getElementById('chatInputBar');
+            if (s === 'chat') { bar.classList.add('visible'); }
+            else { bar.classList.remove('visible'); }
+
+            // Nav items
+            document.querySelectorAll('.nav-item:not(.nav-fab)').forEach(n => n.classList.remove('active'));
+            const navMap = { chat: 'navChat', promociones: 'navPromos', directorio: 'navDirectorio' };
+            document.getElementById(navMap[s])?.classList.add('active');
+
+            if (s === 'promociones') cargarPromociones();
+        }
+
+        // Función para hacer scroll al final del chat
+        function scrollToBottomChat() {
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // ==================== FAB ====================
+        let fabOpen = false;
+        function toggleFab() {
+            fabOpen = !fabOpen;
+            document.getElementById('fabMenu').classList.toggle('open', fabOpen);
+            document.getElementById('fabBackdrop').classList.toggle('open', fabOpen);
+            document.getElementById('fabIcon').textContent = fabOpen ? '✕' : '☰';
+        }
+        function closeFab() {
+            fabOpen = false;
+            document.getElementById('fabMenu').classList.remove('open');
+            document.getElementById('fabBackdrop').classList.remove('open');
+            document.getElementById('fabIcon').textContent = '☰';
+        }
+
+        // ==================== PERFIL NEGOCIO ====================
+        function verPerfilNegocio() {
+            const id = document.getElementById('negocioId').value;
+            window.open(`https://wabot-directorio-production.up.railway.app/negocio/${id}`, '_blank');
+        }
+
+        // ==================== RESET ====================
+        function resetConversacion() {
+            if (confirm('¿Reiniciar conversación? Se perderá el progreso actual.')) {
+                localStorage.removeItem('telefono_cliente');
+                localStorage.removeItem('cliente_nombre');
+                telefonoGuardado = false;
+                fetch('/cliente/reset', { method: 'POST' }).then(() => location.reload());
+            }
+        }
+
+        // ==================== DETECCIÓN TELÉFONO ====================
+        let telefonoGuardado = false;
+
+        function iniciarDetectorTelefono() {
+            const observer = new MutationObserver(() => {
+                if (telefonoGuardado) return;
+                const msgs = document.querySelectorAll('.msg-user');
+                const last = msgs[msgs.length - 1];
+                if (!last) return;
+                const match = last.textContent.match(/\b(3\d{9})\b/);
+                if (match) {
+                    localStorage.setItem('telefono_cliente', match[1]);
+                    telefonoGuardado = true;
+                    if (seccionActiva === 'promociones') cargarPromociones();
+                }
+            });
+            observer.observe(document.getElementById('chatMessages'), { childList: true, subtree: true });
+        }
+
+        // ==================== CHAT ====================
+        const chatMessages = document.getElementById('chatMessages');
+
+        function addUserMsg(text) {
+            const d = document.createElement('div');
+            d.className = 'msg msg-user';
+            d.innerHTML = `<div class="msg-sender">Tú</div>${escapeHtml(text)}`;
+            chatMessages.appendChild(d);
+            scrollToBottomChat();
+        }
+
+        function addBotMsg(text, options) {
+            const negNombre = document.getElementById('negocioNombre').value;
+            const d = document.createElement('div');
+            d.className = 'msg msg-bot';
+            d.innerHTML = `<div class="msg-sender">💬 ${escapeHtml(negNombre)}</div>${escapeHtml(text)}`;
+            chatMessages.appendChild(d);
+            scrollToBottomChat();
+
+            if (options && options.length) {
+                const isProfessionals = options[0].type === 'professional' || options[0].image;
+
+                if (isProfessionals) {
+                    const grid = document.createElement('div');
+                    grid.className = 'professionals-grid';
+                    options.forEach(opt => {
+                        const card = document.createElement('div');
+                        card.className = 'professional-card';
+                        card.innerHTML = `
+                            <div class="prof-avatar">
+                                ${opt.image
+                                    ? `<img src="${opt.image}" onerror="this.parentElement.textContent='👤'">`
+                                    : '👤'}
+                            </div>
+                            <div class="prof-name">${escapeHtml(opt.name || opt.text)}</div>
+                            ${opt.specialty ? `<div class="prof-specialty">${escapeHtml(opt.specialty)}</div>` : ''}
+                            <button class="btn-select-prof" data-value="${escapeHtml(opt.value)}">Seleccionar</button>
+                        `;
+                        grid.appendChild(card);
+                    });
+                    chatMessages.appendChild(grid);
+                    grid.querySelectorAll('.btn-select-prof').forEach(btn => {
+                        btn.addEventListener('click', () => enviarMensaje(btn.dataset.value));
+                    });
+                    scrollToBottomChat();
+                } else {
+                    const row = document.createElement('div');
+                    row.className = 'options-row';
+                    options.forEach(opt => {
+                        const chip = document.createElement('button');
+                        chip.className = 'option-chip';
+                        chip.textContent = opt.text || opt.name;
+                        chip.addEventListener('click', () => enviarMensaje(opt.value));
+                        row.appendChild(chip);
+                    });
+                    chatMessages.appendChild(row);
+                    scrollToBottomChat();
+                }
+            }
+        }
+
+        async function enviarMensaje(texto) {
+            const msg = texto ?? document.getElementById('userInput').value.trim();
+            if (!msg) return;
+            document.getElementById('userInput').value = '';
+            addUserMsg(msg);
+
+            const sessionId  = document.getElementById('sessionId').value;
+            const negocioId  = document.getElementById('negocioId').value;
+
+            try {
+                const res  = await fetch('/cliente/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, session_id: sessionId, negocio_id: negocioId })
+                });
+                const data = await res.json();
+                if (data.error) addBotMsg('❌ ' + data.error);
+                else addBotMsg(data.message, data.options);
+            } catch(e) {
+                addBotMsg('❌ Error de conexión. Intenta de nuevo.');
+            }
+        }
+
+        // ==================== PROMOCIONES ====================
+        async function cargarPromociones() {
+            const negocioId = document.getElementById('negocioId').value;
+            const tel = localStorage.getItem('telefono_cliente');
+            const container = document.getElementById('promocionesList');
+
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><h4>Cargando...</h4></div>`;
+
+            let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
+            if (tel) url += `?telefono=${encodeURIComponent(tel)}`;
+
+            try {
+                const res  = await fetch(url);
+                const data = await res.json();
+
+                if (!data.success || !data.promociones?.length) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🎟️</div>
+                            <h4>Sin promociones activas</h4>
+                            <p>Vuelve pronto para ver concursos y premios</p>
+                        </div>`;
+                    return;
+                }
+
+                let html = '';
+                for (const promo of data.promociones) {
+                    let participacion = null;
+                    let elegible = data.elegible === true;
+
+                    if (tel) {
+                        try {
+                            const cr = await fetch(`/api/concurso/mi-participacion?promocion_id=${promo.id}&telefono=${tel}`);
+                            const cd = await cr.json();
+                            if (cd.success && cd.participacion) { participacion = cd.participacion; elegible = true; }
+                        } catch(e) {}
+                    }
+
+                    const fechaFin = promo.fecha_fin ? promo.fecha_fin.split('T')[0] : 'Por definir';
+
+                    html += `
+                        <div class="promo-card">
+                            <div class="promo-banner">🏆 ${escapeHtml(promo.titulo)} <span style="opacity:.75;font-weight:400;font-size:.75rem;">· ${escapeHtml(promo.profesional_nombre)}</span></div>
+                            <div class="promo-body">
+                                <div class="promo-title-text">${escapeHtml(promo.titulo)}</div>
+                                <div class="promo-desc">${escapeHtml(promo.descripcion || 'Participa y gana increíbles premios')}</div>
+                                ${promo.premio ? `<div class="promo-prize">🏅 Premio: <strong>${escapeHtml(promo.premio)}</strong></div>` : ''}
+                                <div class="promo-footer">
+                                    <span class="promo-date">📅 Hasta: ${escapeHtml(fechaFin)}</span>
+                                    ${participacion
+                                        ? '<span class="badge-participando">✓ Ya participaste</span>'
+                                        : elegible
+                                            ? '<span class="badge-eligible">✓ Elegible</span>'
+                                            : '<span class="badge-not-eligible">✗ No elegible aún</span>'}
+                                </div>
+                                <div class="promo-actions">
+                                    ${participacion ? `
+                                        <button class="btn-promo btn-promo-info" onclick="verMiParticipacion(${participacion.id})">👁 Ver entrada</button>
+                                        <button class="btn-promo btn-promo-danger" onclick="eliminarParticipacion(${promo.id})">🗑 Eliminar</button>
+                                    ` : elegible ? `
+                                        <button class="btn-promo btn-promo-primary" onclick="abrirSheetParticipar(${promo.id})">📸 Participar</button>
+                                    ` : `
+                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">📅 Agendar cita</button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                container.innerHTML = html;
+            } catch(e) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error al cargar</h4><p>Intenta de nuevo más tarde</p></div>`;
+            }
+        }
+
+        function verMiParticipacion(id) { window.open(`/vota/${id}`, '_blank'); }
+
+        async function eliminarParticipacion(promocionId) {
+            const tel = localStorage.getItem('telefono_cliente');
+            if (!tel) return toast('No estás identificado', 'error');
+            if (!confirm('¿Eliminar tu participación? Esta acción no se puede deshacer.')) return;
+            try {
+                const res  = await fetch('/api/concurso/eliminar-participacion', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ promocion_id: parseInt(promocionId), telefono: tel })
+                });
+                const data = await res.json();
+                if (data.success) { toast('✅ Participación eliminada'); cargarPromociones(); }
+                else toast('❌ ' + data.message, 'error');
+            } catch(e) { toast('❌ Error de conexión', 'error'); }
+        }
+
+        function irAAgendarCita() {
+            const id = document.getElementById('negocioId').value;
+            window.open(`/cliente/${id}`, '_blank');
+        }
+
+        // ==================== SHEET PARTICIPAR ====================
+        function abrirSheetParticipar(promoId) {
+            const tel = localStorage.getItem('telefono_cliente');
+            if (!tel) {
+                toast('Primero identifícate en el chat con tu número de teléfono', 'warning');
+                irASeccion('chat');
+                return;
+            }
+            document.getElementById('sheetPromoId').value = promoId;
+            document.getElementById('sheetNombre').value  = localStorage.getItem('cliente_nombre') || '';
+            document.getElementById('sheetOverlay').classList.add('open');
+            document.getElementById('sheetParticipar').classList.add('open');
+        }
+
+        function cerrarSheet() {
+            document.getElementById('sheetOverlay').classList.remove('open');
+            document.getElementById('sheetParticipar').classList.remove('open');
+        }
+
+        document.getElementById('formParticipar').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tel   = localStorage.getItem('telefono_cliente');
+            const btn   = document.getElementById('btnEnviarPart');
+            const files = e.target.fotos.files;
+            const nombre = e.target.nombre.value.trim();
+
+            if (!nombre)        return toast('Ingresa tu nombre', 'warning');
+            if (!files.length)  return toast('Sube al menos una foto', 'warning');
+            if (files.length>3) return toast('Máximo 3 fotos', 'warning');
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Enviando...';
+
+            const fd = new FormData(e.target);
+            fd.append('telefono', tel);
+
+            try {
+                const res  = await fetch('/api/concurso/participar', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    toast('🎉 ¡Participación exitosa!');
+                    cerrarSheet();
+                    if (data.share_link && confirm('📤 ¿Copiar enlace para compartir y recibir votos?')) {
+                        navigator.clipboard.writeText(data.share_link);
+                        toast('✅ Enlace copiado');
+                    }
+                    cargarPromociones();
+                } else {
+                    toast('❌ ' + (data.message || 'Error al enviar'), 'error');
+                }
+            } catch(e) {
+                toast('❌ Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📤 Enviar';
+            }
+        });
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Input visible y bindings de chat
+            const inputBar = document.getElementById('chatInputBar');
+            inputBar.classList.add('visible');
+
+            document.getElementById('sendBtn').addEventListener('click', () => enviarMensaje());
+            document.getElementById('userInput').addEventListener('keypress', e => {
+                if (e.key === 'Enter') enviarMensaje();
+            });
+            document.getElementById('userInput').addEventListener('focus', () => {
+                setTimeout(scrollToBottomChat, 150);
+            });
+
+            iniciarDetectorTelefono();
+
+            // Saludo inicial
+            setTimeout(() => enviarMensaje('hola'), 300);
+        });
+    </script>
+</body>
+</html>

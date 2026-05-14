@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Horarios Bloqueados - Panel Profesional</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ==================== RESET Y BASE ==================== */
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #4cc9f0;
+            --danger: #f72585;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --gray: #6c757d;
+            --border: #e0e0e0;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        body {
+            background-color: var(--light);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 0;
+            margin: 0;
+            color: var(--dark);
+            font-size: 14px;
+            line-height: 1.4;
+            min-height: 100vh;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* ==================== HEADER MÓVIL ==================== */
+        .mobile-header {
+            background: white;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding-top: calc(15px + env(safe-area-inset-top));
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        
+        .page-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .page-title i {
+            color: var(--primary);
+            font-size: 1.3rem;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        /* ==================== BOTONES MÓVIL OPTIMIZADOS ==================== */
+        .btn-mobile {
+            min-height: 44px;
+            min-width: 44px;
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .btn-mobile:active {
+            transform: scale(0.97);
+        }
+        
+        .btn-mobile:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .btn-mobile-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-mobile-primary:hover,
+        .btn-mobile-primary:active {
+            background: var(--primary-dark);
+            color: white;
+        }
+        
+        .btn-mobile-secondary {
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-mobile-success {
+            background: var(--secondary);
+            color: white;
+        }
+        
+        .btn-mobile-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-mobile-warning {
+            background: var(--warning);
+            color: white;
+        }
+        
+        .btn-mobile-sm {
+            min-height: 36px;
+            min-width: 36px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        
+        .btn-mobile-icon {
+            min-width: 44px;
+            padding: 10px;
+        }
+        
+        /* ==================== CONTENIDO PRINCIPAL ==================== */
+        .main-content {
+            padding: 15px;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* ==================== CARD MÓVIL ==================== */
+        .mobile-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-bottom: 15px;
+            overflow: hidden;
+            border: none;
+        }
+        
+        .card-header-mobile {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 15px;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .card-body-mobile {
+            padding: 15px;
+        }
+        
+        /* ==================== FILTROS MÓVIL ==================== */
+        .filter-section {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: var(--shadow);
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        
+        @media (min-width: 576px) {
+            .filter-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .form-group-mobile {
+            margin-bottom: 12px;
+        }
+        
+        .form-label-mobile {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-control-mobile {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            min-height: 44px;
+            -webkit-appearance: none;
+        }
+        
+        .form-control-mobile:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        }
+        
+        /* ==================== TABLA RESPONSIVE ==================== */
+        .table-responsive-mobile {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .table-mobile {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .table-mobile th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--dark);
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        
+        .table-mobile td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        
+        .table-mobile tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .table-mobile tr:hover {
+            background-color: rgba(67, 97, 238, 0.02);
+        }
+        
+        /* ==================== ESTADO VACÍO ==================== */
+        .empty-state-mobile {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--gray);
+        }
+        
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.3;
+            color: var(--primary);
+        }
+        
+        .empty-text {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        
+        .empty-subtext {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+        
+        /* ==================== MODAL MÓVIL ==================== */
+        .modal-mobile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        @media (min-width: 768px) {
+            .modal-mobile-overlay {
+                align-items: center;
+                padding: 20px;
+            }
+        }
+        
+        .modal-mobile-content {
+            background: white;
+            border-radius: 16px 16px 0 0;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlideUp 0.3s ease-out;
+            margin-top: auto;
+        }
+        
+        @media (min-width: 768px) {
+            .modal-mobile-content {
+                max-width: 500px;
+                border-radius: 16px;
+                animation: modalFadeIn 0.3s ease;
+                margin-top: 0;
+            }
+        }
+        
+        @keyframes modalSlideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-mobile-header {
+            padding: 20px 20px 10px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+        
+        .modal-mobile-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-mobile-body {
+            padding: 20px;
+            max-height: calc(90vh - 140px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .modal-mobile-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            background: white;
+            display: flex;
+            gap: 10px;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+        
+        /* ==================== TOAST MÓVIL ==================== */
+        .toast-mobile {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: var(--dark);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            z-index: 10000;
+            display: none;
+            animation: toastSlideUp 0.3s ease-out;
+            transform: translateY(0);
+        }
+        
+        .toast-mobile.show {
+            display: block;
+        }
+        
+        .toast-success {
+            background: var(--success);
+        }
+        
+        .toast-error {
+            background: var(--danger);
+        }
+        
+        .toast-info {
+            background: var(--primary);
+        }
+        
+        .toast-warning {
+            background: var(--warning);
+        }
+        
+        @keyframes toastSlideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* ==================== ALERTAS ==================== */
+        .alert-mobile {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 12px 0;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            border: 1px solid transparent;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+        }
+        
+        /* ==================== UTILIDADES ==================== */
+        .text-truncate-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .badge-mobile {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* ==================== MEDIA QUERIES ==================== */
+        @media (max-width: 576px) {
+            .mobile-header {
+                padding: 12px;
+            }
+            
+            .main-content {
+                padding: 12px;
+            }
+            
+            .page-title {
+                font-size: 1.1rem;
+            }
+            
+            .btn-mobile {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .header-content {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .header-actions {
+                justify-content: stretch;
+            }
+            
+            .btn-mobile {
+                flex: 1;
+            }
+            
+            .modal-mobile-body {
+                padding: 15px;
+            }
+            
+            .modal-mobile-footer {
+                flex-direction: column;
+            }
+            
+            .modal-mobile-footer .btn-mobile {
+                width: 100%;
+            }
+        }
+        
+        @media (min-width: 768px) {
+            body {
+                font-size: 16px;
+            }
+            
+            .main-content {
+                max-width: 900px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            
+            .page-title {
+                font-size: 1.4rem;
+            }
+        }
+        
+        /* ==================== DARK MODE ==================== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --light: #1a1a1a;
+                --dark: #ffffff;
+                --gray: #cccccc;
+                --border: #444444;
+            }
+            
+            body {
+                background-color: #121212;
+            }
+            
+            .mobile-card,
+            .filter-section {
+                background: #2d2d2d;
+            }
+            
+            .form-control-mobile {
+                background: #3d3d3d;
+                border-color: #555;
+                color: white;
+            }
+            
+            .table-mobile th {
+                background: #3d3d3d;
+                color: white;
+            }
+            
+            .table-mobile td {
+                border-color: #444;
+            }
+            
+            .alert-success {
+                background: #155724;
+                color: #d4edda;
+                border-color: #0c3616;
+            }
+            
+            .alert-danger {
+                background: #721c24;
+                color: #f8d7da;
+                border-color: #54141b;
+            }
+            
+            .modal-mobile-content {
+                background: #2d2d2d;
+            }
+            
+            .modal-mobile-header {
+                background: #2d2d2d;
+                border-color: #444;
+            }
+        }
+        
+        /* ==================== ORIENTACIÓN HORIZONTAL ==================== */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .modal-mobile-content {
+                max-height: 95vh;
+            }
+            
+            .modal-mobile-body {
+                max-height: calc(95vh - 140px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast para notificaciones -->
+    <div id="toast" class="toast-mobile" role="alert" aria-live="assertive" aria-atomic="true">
+        <div id="toastContent"></div>
+    </div>
+
+    <!-- Modal para bloquear horario (puntual) -->
+    <div id="modalBloquear" class="modal-mobile-overlay">
+        <div class="modal-mobile-content">
+            <div class="modal-mobile-header">
+                <h3 class="modal-mobile-title">
+                    <i class="fas fa-ban"></i> Bloquear Horario
+                </h3>
+            </div>
+            
+            <form id="formBloquear">
+                <div class="modal-mobile-body">
+                    <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="form-group-mobile">
+                        <label for="fechaBloqueo" class="form-label-mobile">
+                            <i class="fas fa-calendar me-1"></i> Fecha
+                        </label>
+                        <input type="date" class="form-control-mobile" id="fechaBloqueo" name="fecha" 
+                               value="{{ fecha_seleccionada }}" required>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="horaBloqueo" class="form-label-mobile">
+                            <i class="fas fa-clock me-1"></i> Hora
+                        </label>
+                        <select class="form-control-mobile" id="horaBloqueo" name="hora" required>
+                            <option value="">Seleccionar hora...</option>
+                        </select>
+                        <small style="display: block; margin-top: 4px; color: var(--gray); font-size: 0.8rem;">
+                            Se muestran todos los horarios posibles
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="duracionBloqueo" class="form-label-mobile">
+                            <i class="fas fa-hourglass-half me-1"></i> Duración
+                        </label>
+                        <select class="form-control-mobile" id="duracionBloqueo" name="duracion">
+                            <option value="30">30 minutos</option>
+                            <option value="60" selected>1 hora</option>
+                            <option value="90">1.5 horas</option>
+                            <option value="120">2 horas</option>
+                            <option value="180">3 horas</option>
+                            <option value="480">Día completo (8 horas)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="motivoBloqueo" class="form-label-mobile">
+                            <i class="fas fa-comment me-1"></i> Motivo (opcional)
+                        </label>
+                        <input type="text" class="form-control-mobile" id="motivoBloqueo" name="motivo" 
+                               placeholder="Ej: Reunión, Descanso, Diligencia...">
+                    </div>
+                    
+                    <div class="alert-mobile alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Nota:</strong> Los horarios con citas confirmadas también se pueden bloquear.
+                        Esto cancelará automáticamente la cita existente.
+                    </div>
+                </div>
+                
+                <div class="modal-mobile-footer">
+                    <button type="button" class="btn-mobile btn-mobile-secondary" onclick="closeModal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-mobile btn-mobile-primary" id="btnBloquear">
+                        <i class="fas fa-save me-1"></i> Bloquear
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para bloqueo semanal recurrente (NUEVO) -->
+    <div id="modalBloqueoSemanal" class="modal-mobile-overlay">
+        <div class="modal-mobile-content">
+            <div class="modal-mobile-header">
+                <h3 class="modal-mobile-title">
+                    <i class="fas fa-calendar-week"></i> Bloqueo Semanal
+                </h3>
+            </div>
+            
+            <form id="formBloqueoSemanal">
+                <div class="modal-mobile-body">
+                    <input type="hidden" id="csrf_token_semanal" value="{{ csrf_token() }}">
+                    
+                    <div class="alert-mobile alert-warning">
+                        <i class="fas fa-clock-rotate-left me-2"></i>
+                        <strong>¿Qué es esto?</strong><br>
+                        Este bloqueo se repetirá TODOS los días de la semana seleccionados.
+                        Ideal para días de descanso fijos (ej: todos los martes no trabajo).
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label class="form-label-mobile">
+                            <i class="fas fa-calendar-alt me-1"></i> Días de la semana
+                        </label>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 5px;">
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="1"> Lunes
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="2"> Martes
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="3"> Miércoles
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="4"> Jueves
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="5"> Viernes
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="6"> Sábado
+                                </label>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--light); border-radius: 6px;">
+                                    <input type="checkbox" name="dias_semana" value="0"> Domingo
+                                </label>
+                            </div>
+                        </div>
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Selecciona uno o más días que quieras bloquear cada semana
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="horaInicioSemanal" class="form-label-mobile">
+                            <i class="fas fa-clock me-1"></i> Hora de inicio
+                        </label>
+                        <select class="form-control-mobile" id="horaInicioSemanal" name="hora_inicio" required>
+                            <option value="">Seleccionar hora...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="horaFinSemanal" class="form-label-mobile">
+                            <i class="fas fa-clock me-1"></i> Hora de fin
+                        </label>
+                        <select class="form-control-mobile" id="horaFinSemanal" name="hora_fin" required>
+                            <option value="">Seleccionar hora...</option>
+                        </select>
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Bloqueará todo el día si seleccionas inicio y fin completos
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="motivoSemanal" class="form-label-mobile">
+                            <i class="fas fa-comment me-1"></i> Motivo (opcional)
+                        </label>
+                        <input type="text" class="form-control-mobile" id="motivoSemanal" name="motivo" 
+                               placeholder="Ej: Día de descanso, Estudio, etc.">
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="fechaInicioSemanal" class="form-label-mobile">
+                            <i class="fas fa-calendar-alt me-1"></i> Aplicar desde (opcional)
+                        </label>
+                        <input type="date" class="form-control-mobile" id="fechaInicioSemanal" name="fecha_inicio">
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Si se deja vacío, aplica desde hoy
+                        </small>
+                    </div>
+                    
+                    <div class="form-group-mobile">
+                        <label for="fechaFinSemanal" class="form-label-mobile">
+                            <i class="fas fa-calendar-alt me-1"></i> Aplicar hasta (opcional)
+                        </label>
+                        <input type="date" class="form-control-mobile" id="fechaFinSemanal" name="fecha_fin">
+                        <small style="display: block; margin-top: 4px; color: var(--gray);">
+                            Si se deja vacío, aplica indefinidamente
+                        </small>
+                    </div>
+                    
+                    <div class="alert-mobile alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Importante:</strong> Este bloqueo se aplicará automáticamente
+                        a todas las fechas futuras que coincidan con los días seleccionados.
+                    </div>
+                </div>
+                
+                <div class="modal-mobile-footer">
+                    <button type="button" class="btn-mobile btn-mobile-secondary" onclick="closeModalSemanal()">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-mobile btn-mobile-primary" id="btnBloquearSemanal">
+                        <i class="fas fa-save me-1"></i> Guardar bloqueo semanal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header móvil -->
+    <header class="mobile-header">
+        <div class="header-content">
+            <a href="{{ url_for('profesional_dashboard') }}" class="btn-mobile btn-mobile-secondary btn-mobile-icon">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            
+            <h1 class="page-title">
+                <i class="fas fa-calendar-times"></i>
+                Horarios Bloqueados
+            </h1>
+            
+            <div class="header-actions">
+                <button class="btn-mobile btn-mobile-warning" onclick="openModalSemanal()" title="Bloqueo semanal recurrente">
+                    <i class="fas fa-calendar-week"></i>
+                    <span class="d-none d-sm-inline">Semanal</span>
+                </button>
+                <button class="btn-mobile btn-mobile-success" onclick="openModal()">
+                    <i class="fas fa-plus"></i>
+                    <span class="d-none d-sm-inline">Nuevo</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
+        <!-- Filtro de fecha -->
+        <div class="filter-section">
+            <form method="GET" id="filterForm">
+                <div class="filter-grid">
+                    <div>
+                        <label for="fecha" class="form-label-mobile">
+                            <i class="fas fa-filter me-1"></i> Ver fecha:
+                        </label>
+                        <input type="date" class="form-control-mobile" id="fecha" name="fecha" 
+                               value="{{ fecha_seleccionada }}" required>
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button type="submit" class="btn-mobile btn-mobile-primary" style="width: 100%;">
+                            <i class="fas fa-search me-1"></i> Mostrar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Pestañas de navegación (NUEVO) -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; background: white; border-radius: 10px; padding: 10px; box-shadow: var(--shadow);">
+            <button id="tabPuntuales" class="btn-mobile btn-mobile-primary" style="flex: 1;" onclick="cambiarTabs('puntuales')">
+                <i class="fas fa-clock"></i> Puntuales
+            </button>
+            <button id="tabRecurrentes" class="btn-mobile btn-mobile-secondary" style="flex: 1;" onclick="cambiarTabs('recurrentes')">
+                <i class="fas fa-calendar-week"></i> Recurrentes
+            </button>
+        </div>
+
+        <!-- Sección de bloqueos puntuales -->
+        <div id="seccionPuntuales">
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert-mobile alert-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }}">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'error' else 'info-circle' }} me-2"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Tarjeta de contenido - Bloqueos puntuales -->
+            <div class="mobile-card">
+                <div class="card-header-mobile">
+                    <i class="fas fa-clock me-2"></i> Bloqueos Puntuales
+                </div>
+                
+                <div class="card-body-mobile">
+                    {% if bloqueos_puntuales %}
+                        <div class="table-responsive-mobile">
+                            <table class="table-mobile">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Hora</th>
+                                        <th>Duración</th>
+                                        <th>Motivo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bloqueo in bloqueos_puntuales %}
+                                    <tr>
+                                        <td>{{ bloqueo.fecha }}</td>
+                                        <td>
+                                            <strong>{{ bloqueo.hora[:5] if bloqueo.hora|length > 5 else bloqueo.hora }}</strong>
+                                        </td>
+                                        <td>{{ bloqueo.duracion }} min</td>
+                                        <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo especificado' }}">
+                                            {{ bloqueo.motivo or "Sin motivo" }}
+                                        </td>
+                                        <td>
+                                            <form method="POST" 
+                                                  action="{{ url_for('profesional_desbloquear_horario', bloqueo_id=bloqueo.id) }}"
+                                                  onsubmit="return confirmDesbloqueo(this, false);"
+                                                  class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <input type="hidden" name="tipo" value="puntual">
+                                                <button type="submit" class="btn-mobile btn-mobile-danger btn-mobile-sm">
+                                                    <i class="fas fa-unlock me-1"></i>
+                                                    <span class="d-none d-md-inline">Desbloquear</span>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Resumen -->
+                        <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500;">
+                                    <i class="fas fa-clock me-1"></i> Total puntuales:
+                                </span>
+                                <span style="font-weight: 600; color: var(--primary);">
+                                    {{ bloqueos_puntuales|length }} horario(s)
+                                </span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state-mobile">
+                            <i class="fas fa-clock empty-icon"></i>
+                            <p class="empty-text">No hay bloqueos puntuales</p>
+                            <p class="empty-subtext">Para esta fecha seleccionada</p>
+                            <button class="btn-mobile btn-mobile-success mt-3" onclick="openModal()">
+                                <i class="fas fa-plus me-1"></i> Crear bloqueo puntual
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de bloqueos recurrentes -->
+        <div id="seccionRecurrentes" style="display: none;">
+            <div class="mobile-card">
+                <div class="card-header-mobile" style="background: linear-gradient(135deg, var(--warning), #e67e22);">
+                    <i class="fas fa-calendar-week me-2"></i> Bloqueos Recurrentes (Semanales)
+                </div>
+                
+                <div class="card-body-mobile">
+                    {% if bloqueos_recurrentes %}  <!-- ← AQUÍ DEBE SER bloqueos_recurrentes -->
+                        <div class="table-responsive-mobile">
+                            <table class="table-mobile">
+                                <thead>
+                                    <tr>
+                                        <th>Días</th>
+                                        <th>Horario</th>
+                                        <th>Motivo</th>
+                                        <th>Vigencia</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for bloqueo in bloqueos_recurrentes %}  <!-- ← Y AQUÍ TAMBIÉN -->
+                                    <tr>
+                                        <td>{{ bloqueo.dias_legibles or 'No especificado' }}</td>
+                                        <td>{{ bloqueo.hora_inicio }} - {{ bloqueo.hora_fin }}</td>
+                                        <td class="text-truncate-2" title="{{ bloqueo.motivo or 'Sin motivo' }}">
+                                            {{ bloqueo.motivo or "Sin motivo" }}
+                                        </td>
+                                        <td>
+                                            {% if bloqueo.fecha_inicio %}
+                                                Desde {{ bloqueo.fecha_inicio }}
+                                            {% endif %}
+                                            {% if bloqueo.fecha_fin %}
+                                                <br>Hasta {{ bloqueo.fecha_fin }}
+                                            {% endif %}
+                                            {% if not bloqueo.fecha_inicio and not bloqueo.fecha_fin %}
+                                                Indefinido
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <form method="POST" 
+                                                action="{{ url_for('profesional_eliminar_bloqueo_recurrente', bloqueo_id=bloqueo.id) }}"
+                                                onsubmit="return confirmDesbloqueo(this, true);"
+                                                class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn-mobile btn-mobile-danger btn-mobile-sm">
+                                                    <i class="fas fa-trash me-1"></i>
+                                                    <span class="d-none d-md-inline">Eliminar</span>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Resumen -->
+                        <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 500;">
+                                    <i class="fas fa-calendar-week me-1"></i> Total recurrentes:
+                                </span>
+                                <span style="font-weight: 600; color: var(--warning);">
+                                    {{ bloqueos_recurrentes|length }} bloqueo(s)
+                                </span>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state-mobile">
+                            <i class="fas fa-calendar-week empty-icon"></i>
+                            <p class="empty-text">No hay bloqueos recurrentes</p>
+                            <p class="empty-subtext">Configura días de descanso semanales</p>
+                            <button class="btn-mobile btn-mobile-warning mt-3" onclick="openModalSemanal()">
+                                <i class="fas fa-plus me-1"></i> Crear bloqueo semanal
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Variables globales
+        let horariosOcupados = {};
+        let horariosLaborales = [];
+        
+        // Configuración inicial
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prevenir zoom en inputs
+            document.addEventListener('focusin', function(e) {
+                if (e.target.matches('input, select, textarea')) {
+                    setTimeout(() => {
+                        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                }
+            });
+            
+            // Cargar horarios si el modal está abierto por defecto
+            if (window.location.hash === '#bloquear') {
+                openModal();
+            }
+            if (window.location.hash === '#semanal') {
+                openModalSemanal();
+            }
+            
+            // Configurar la fecha mínima como hoy
+            const hoy = new Date().toISOString().split('T')[0];
+            const fechaInput = document.getElementById('fechaBloqueo');
+            const fechaFilter = document.getElementById('fecha');
+            const fechaInicioSemanal = document.getElementById('fechaInicioSemanal');
+            const fechaFinSemanal = document.getElementById('fechaFinSemanal');
+            
+            if (fechaInput) {
+                fechaInput.min = hoy;
+            }
+            if (fechaFilter) {
+                fechaFilter.min = hoy;
+            }
+            if (fechaInicioSemanal) {
+                fechaInicioSemanal.min = hoy;
+            }
+            if (fechaFinSemanal) {
+                fechaFinSemanal.min = hoy;
+            }
+            
+            // Cargar horarios para el modal semanal
+            cargarHorariosLaborales();
+            
+            // Verificar si hay parámetro de pestaña en URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab === 'recurrentes') {
+                cambiarTabs('recurrentes');
+            }
+        });
+        
+        // Función para cambiar entre pestañas
+        function cambiarTabs(tab) {
+        const seccionPuntuales = document.getElementById('seccionPuntuales');
+        const seccionRecurrentes = document.getElementById('seccionRecurrentes');
+        const tabPuntuales = document.getElementById('tabPuntuales');
+        const tabRecurrentes = document.getElementById('tabRecurrentes');
+        
+        if (tab === 'puntuales') {
+            seccionPuntuales.style.display = 'block';
+            seccionRecurrentes.style.display = 'none';
+            tabPuntuales.className = 'btn-mobile btn-mobile-primary';
+            tabRecurrentes.className = 'btn-mobile btn-mobile-secondary';
+        } else {
+            seccionPuntuales.style.display = 'none';
+            seccionRecurrentes.style.display = 'block';
+            tabPuntuales.className = 'btn-mobile btn-mobile-secondary';
+            tabRecurrentes.className = 'btn-mobile btn-mobile-primary';
+        }
+        
+        // Actualizar URL sin recargar
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tab);
+        window.history.pushState({}, '', url);
+    }
+        
+        // Funciones del modal puntual
+        function openModal() {
+            const modal = document.getElementById('modalBloquear');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Cargar todas las citas del profesional usando la ruta existente
+            const fechaInput = document.getElementById('fechaBloqueo');
+            if (fechaInput.value) {
+                cargarTodasLasCitas(fechaInput.value);
+            } else {
+                fechaInput.value = document.getElementById('fecha').value || new Date().toISOString().split('T')[0];
+                cargarTodasLasCitas(fechaInput.value);
+            }
+            
+            // Enfoque seguro
+            setTimeout(() => {
+                fechaInput.focus({ preventScroll: true });
+            }, 100);
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('modalBloquear');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            // Cerrar teclado
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+        }
+        
+        // Funciones del modal semanal (NUEVO)
+        function openModalSemanal() {
+            const modal = document.getElementById('modalBloqueoSemanal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Limpiar selecciones
+            document.querySelectorAll('input[name="dias_semana"]').forEach(cb => cb.checked = false);
+            document.getElementById('motivoSemanal').value = '';
+            
+            // Fechas por defecto
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('fechaInicioSemanal').value = hoy;
+            document.getElementById('fechaFinSemanal').value = '';
+            
+            // Cargar horarios disponibles
+            cargarHorariosLaborales();
+            
+            setTimeout(() => {
+                document.getElementById('horaInicioSemanal').focus({ preventScroll: true });
+            }, 100);
+        }
+        
+        function closeModalSemanal() {
+            const modal = document.getElementById('modalBloqueoSemanal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
+        }
+        
+        // Cerrar modales al hacer clic fuera
+        document.getElementById('modalBloquear').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        document.getElementById('modalBloqueoSemanal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModalSemanal();
+            }
+        });
+        
+        // Cerrar con Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (document.getElementById('modalBloquear').style.display === 'flex') {
+                    closeModal();
+                }
+                if (document.getElementById('modalBloqueoSemanal').style.display === 'flex') {
+                    closeModalSemanal();
+                }
+            }
+        });
+        
+        // Cargar horarios laborales para el modal semanal
+        async function cargarHorariosLaborales() {
+            try {
+                const response = await fetch('/api/horarios/configuracion?fecha=' + new Date().toISOString().split('T')[0]);
+                const config = await response.json();
+                
+                if (!config.activo) {
+                    return;
+                }
+                
+                const horarios = [];
+                const horaInicio = parseInt(config.hora_inicio.split(':')[0]);
+                const minutoInicio = parseInt(config.hora_inicio.split(':')[1]);
+                const horaFin = parseInt(config.hora_fin.split(':')[0]);
+                const minutoFin = parseInt(config.hora_fin.split(':')[1]);
+                
+                const inicioMinutos = horaInicio * 60 + minutoInicio;
+                const finMinutos = horaFin * 60 + minutoFin;
+                
+                for (let minutos = inicioMinutos; minutos <= finMinutos; minutos += 30) {
+                    const hora = Math.floor(minutos / 60);
+                    const minuto = minutos % 60;
+                    const horaStr = hora.toString().padStart(2, '0');
+                    const minutoStr = minuto.toString().padStart(2, '0');
+                    
+                    // Verificar si cae en horario de almuerzo
+                    const esAlmuerzo = config.almuerzo_inicio && config.almuerzo_fin && 
+                                    minutos >= convertirHoraAMinutos(config.almuerzo_inicio) &&
+                                    minutos < convertirHoraAMinutos(config.almuerzo_fin);
+                    
+                    if (!esAlmuerzo) {
+                        horarios.push(`${horaStr}:${minutoStr}`);
+                    }
+                }
+                
+                horariosLaborales = horarios;
+                cargarSelectHorarios(horarios);
+                
+            } catch (error) {
+                console.error('Error cargando horarios:', error);
+                // Horario por defecto
+                const horariosDefecto = [];
+                for (let hora = 9; hora < 18; hora++) {
+                    for (let minuto = 0; minuto < 60; minuto += 30) {
+                        const horaStr = hora.toString().padStart(2, '0');
+                        const minutoStr = minuto.toString().padStart(2, '0');
+                        horariosDefecto.push(`${horaStr}:${minutoStr}`);
+                    }
+                }
+                horariosLaborales = horariosDefecto;
+                cargarSelectHorarios(horariosDefecto);
+            }
+        }
+        
+        function cargarSelectHorarios(horarios) {
+            const selectInicio = document.getElementById('horaInicioSemanal');
+            const selectFin = document.getElementById('horaFinSemanal');
+            
+            if (!selectInicio || !selectFin) return;
+            
+            selectInicio.innerHTML = '<option value="">Seleccionar hora inicio...</option>';
+            selectFin.innerHTML = '<option value="">Seleccionar hora fin...</option>';
+            
+            horarios.forEach(hora => {
+                const optionInicio = document.createElement('option');
+                optionInicio.value = hora;
+                optionInicio.textContent = hora;
+                selectInicio.appendChild(optionInicio);
+                
+                const optionFin = document.createElement('option');
+                optionFin.value = hora;
+                optionFin.textContent = hora;
+                selectFin.appendChild(optionFin);
+            });
+            
+            // Opción para día completo
+            const optionCompletoInicio = document.createElement('option');
+            optionCompletoInicio.value = horarios[0];
+            optionCompletoInicio.textContent = `${horarios[0]} (inicio del día)`;
+            selectInicio.appendChild(optionCompletoInicio);
+            
+            const optionCompletoFin = document.createElement('option');
+            optionCompletoFin.value = horarios[horarios.length - 1];
+            optionCompletoFin.textContent = `${horarios[horarios.length - 1]} (fin del día)`;
+            selectFin.appendChild(optionCompletoFin);
+        }
+        
+        function convertirHoraAMinutos(horaStr) {
+            if (!horaStr) return 0;
+            const [hora, minuto] = horaStr.split(':').map(Number);
+            return hora * 60 + minuto;
+        }
+        
+        // Función para cargar TODAS las citas usando la ruta existente /api/citas
+        async function cargarTodasLasCitas(fecha) {
+            const horaSelect = document.getElementById('horaBloqueo');
+            if (!horaSelect || !fecha) return;
+            
+            // Mostrar loading
+            horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+            horaSelect.disabled = true;
+            
+            try {
+                // Usar la ruta existente que ya tienes
+                const response = await fetch(`/api/citas?fecha=${fecha}`);
+                const todasLasCitas = await response.json();
+                
+                // Resetear variable global
+                horariosOcupados = {};
+                
+                // Mapear todas las citas por hora
+                if (todasLasCitas && Array.isArray(todasLasCitas)) {
+                    todasLasCitas.forEach(cita => {
+                        // Verificar que la cita no esté cancelada (pero incluir bloqueadas)
+                        if (cita.estado && cita.estado.toLowerCase() !== 'cancelada') {
+                            horariosOcupados[cita.hora] = {
+                                estado: cita.estado.toLowerCase(),
+                                cliente_nombre: cita.cliente_nombre || 'Sin nombre',
+                                servicio_nombre: cita.servicio || 'Sin servicio',
+                                profesional_nombre: cita.profesional_nombre || ''
+                            };
+                        }
+                    });
+                }
+                
+                // También obtener horarios disponibles para saber cuáles están libres
+                let horariosDisponibles = [];
+                try {
+                    const responseDisponibles = await fetch(`{{ url_for('profesional_api_horarios_disponibles') }}?fecha=${fecha}`);
+                    const disponiblesData = await responseDisponibles.json();
+                    if (disponiblesData.success && disponiblesData.horarios) {
+                        horariosDisponibles = disponiblesData.horarios;
+                    }
+                } catch (error) {
+                    console.log('No se pudieron cargar horarios disponibles:', error);
+                }
+                
+                // Generar horarios de 9:00 a 18:00 (ajusta según tu horario laboral)
+                const horariosCompletos = await obtenerHorariosConfigurados(fecha);
+                
+                if (horariosCompletos.length === 0) {
+                    horaSelect.innerHTML = '<option value="">Día no laboral</option>';
+                    horaSelect.disabled = true;
+                    return;
+                }
+                
+                horaSelect.innerHTML = '<option value="">Seleccionar horario...</option>';
+                
+                horariosCompletos.forEach(hora => {
+                    const option = document.createElement('option');
+                    option.value = hora;
+                    
+                    // Determinar el estado del horario
+                    let texto = hora;
+                    let tooltip = '';
+                    let disabled = false;
+                    let esCitaConfirmada = false;
+                    
+                    if (horariosOcupados[hora]) {
+                        const cita = horariosOcupados[hora];
+                        
+                        if (cita.estado === 'bloqueado') {
+                            texto += ' (BLOQUEADO)';
+                            tooltip = `Horario bloqueado`;
+                            disabled = true;
+                        } else if (cita.estado === 'confirmado' || cita.estado === 'confirmada') {
+                            texto += ' (CITA CONFIRMADA)';
+                            tooltip = `Cliente: ${cita.cliente_nombre}`;
+                            tooltip += `\nServicio: ${cita.servicio_nombre}`;
+                            esCitaConfirmada = true;
+                            // NO deshabilitar - permitir bloquear sobre citas confirmadas
+                        } else if (cita.estado === 'completado' || cita.estado === 'completada') {
+                            texto += ' (CITA COMPLETADA)';
+                            tooltip = 'Cita ya completada';
+                            disabled = true;
+                        }
+                    } else {
+                        // Verificar si está disponible
+                        const disponible = horariosDisponibles.find(h => h.hora === hora);
+                        if (disponible && !disponible.bloqueado) {
+                            texto += ' (DISPONIBLE)';
+                        } else {
+                            texto += ' (NO DISPONIBLE)';
+                            tooltip = 'Fuera del horario laboral o ya bloqueado';
+                            disabled = true;
+                        }
+                    }
+                    
+                    // Marcar la opción como cita confirmada para validación posterior
+                    if (esCitaConfirmada) {
+                        option.dataset.citaConfirmada = 'true';
+                    }
+                    
+                    option.textContent = texto;
+                    option.disabled = disabled;
+                    
+                    if (tooltip) {
+                        option.title = tooltip;
+                    }
+                    
+                    horaSelect.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('Error cargando citas:', error);
+                horaSelect.innerHTML = '<option value="">Error cargando los horarios</option>';
+            } finally {
+                horaSelect.disabled = false;
+            }
+        }
+        
+        // Generar horarios laborales configurados
+        async function obtenerHorariosConfigurados(fecha) {
+            try {
+                // Obtener configuración de horarios del negocio
+                const response = await fetch(`/api/horarios/configuracion?fecha=${fecha}`);
+                const config = await response.json();
+                
+                if (!config.activo) {
+                    return []; // Día no activo
+                }
+                
+                const horarios = [];
+                const horaInicio = parseInt(config.hora_inicio.split(':')[0]);
+                const minutoInicio = parseInt(config.hora_inicio.split(':')[1]);
+                const horaFin = parseInt(config.hora_fin.split(':')[0]);
+                const minutoFin = parseInt(config.hora_fin.split(':')[1]);
+                
+                // Convertir todo a minutos desde medianoche
+                const inicioMinutos = horaInicio * 60 + minutoInicio;
+                const finMinutos = horaFin * 60 + minutoFin;
+                
+                // Intervalo de 30 minutos
+                for (let minutos = inicioMinutos; minutos < finMinutos; minutos += 30) {
+                    const hora = Math.floor(minutos / 60);
+                    const minuto = minutos % 60;
+                    const horaStr = hora.toString().padStart(2, '0');
+                    const minutoStr = minuto.toString().padStart(2, '0');
+                    
+                    // Verificar si cae en horario de almuerzo
+                    const esAlmuerzo = config.almuerzo_inicio && config.almuerzo_fin && 
+                                    minutos >= convertirHoraAMinutos(config.almuerzo_inicio) &&
+                                    minutos < convertirHoraAMinutos(config.almuerzo_fin);
+                    
+                    if (!esAlmuerzo) {
+                        horarios.push(`${horaStr}:${minutoStr}`);
+                    }
+                }
+                
+                return horarios;
+                
+            } catch (error) {
+                console.error('Error obteniendo configuración:', error);
+                // Si hay error, usar horario por defecto
+                return generarHorariosPorDefecto();
+            }
+        }
+
+        function generarHorariosPorDefecto() {
+            const horarios = [];
+            const horaInicio = 9; // 9:00 AM
+            const horaFin = 18;   // 6:00 PM
+            
+            for (let hora = horaInicio; hora < horaFin; hora++) {
+                for (let minuto = 0; minuto < 60; minuto += 30) {
+                    const horaStr = hora.toString().padStart(2, '0');
+                    const minutoStr = minuto.toString().padStart(2, '0');
+                    horarios.push(`${horaStr}:${minutoStr}`);
+                }
+            }
+            return horarios;
+        }
+        
+        // Event listeners para el modal puntual
+        document.getElementById('fechaBloqueo').addEventListener('change', function() {
+            cargarTodasLasCitas(this.value);
+        });
+        
+        // Validación para hora fin mayor que hora inicio en modal semanal
+        document.getElementById('horaInicioSemanal').addEventListener('change', function() {
+            const horaFin = document.getElementById('horaFinSemanal');
+            if (horaFin.value && this.value > horaFin.value) {
+                horaFin.value = '';
+            }
+        });
+        
+        // Manejar envío del formulario puntual
+        document.getElementById('formBloquear').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btnBloquear = document.getElementById('btnBloquear');
+            const btnOriginal = btnBloquear.innerHTML;
+            
+            // Validaciones
+            const fecha = document.getElementById('fechaBloqueo').value;
+            const horaSelect = document.getElementById('horaBloqueo');
+            const hora = horaSelect.value;
+            
+            if (!fecha || !hora) {
+                showToast('error', 'Error', 'Por favor, completa todos los campos requeridos');
+                return;
+            }
+            
+            // Verificar si es una cita confirmada
+            const optionSeleccionada = horaSelect.options[horaSelect.selectedIndex];
+            const esCitaConfirmada = optionSeleccionada.dataset.citaConfirmada === 'true' || 
+                                     optionSeleccionada.text.includes('CITA CONFIRMADA');
+            
+            // Confirmación especial para horarios con citas confirmadas
+            if (esCitaConfirmada) {
+                const cita = horariosOcupados[hora];
+                const confirmacion = confirm(
+                    `⚠️ ATENCIÓN: Este horario tiene una cita CONFIRMADA.\n\n` +
+                    `Cliente: ${cita.cliente_nombre}\n` +
+                    `Servicio: ${cita.servicio_nombre}\n\n` +
+                    `¿Estás seguro de que quieres bloquear este horario?\n\n` +
+                    `Esto CANCELARÁ la cita existente por lo que debes notificar al cliente.`
+                );
+                
+                if (!confirmacion) {
+                    return;
+                }
+            }
+            
+            // Mostrar loading
+            btnBloquear.innerHTML = '<span class="spinner"></span> Procesando...';
+            btnBloquear.disabled = true;
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('csrf_token', document.getElementById('csrf_token').value);
+            formData.append('fecha', fecha);
+            formData.append('hora', hora);
+            formData.append('duracion', document.getElementById('duracionBloqueo').value);
+            formData.append('motivo', document.getElementById('motivoBloqueo').value || '');
+            // Agregar bandera para saber si estamos sobreescribiendo una cita
+            formData.append('sobreescribir_cita', esCitaConfirmada ? 'true' : 'false');
+            
+            try {
+                const response = await fetch('{{ url_for("profesional_bloquear_horario") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('success', '¡Éxito!', data.message || 'Horario bloqueado correctamente');
+                    
+                    // Cerrar modal
+                    setTimeout(() => {
+                        closeModal();
+                        
+                        // Recargar la página después de 1.5 segundos
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }, 1500);
+                } else {
+                    showToast('error', 'Error', data.error || 'No se pudo bloquear el horario');
+                    btnBloquear.innerHTML = btnOriginal;
+                    btnBloquear.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error de conexión', 'Por favor, intenta nuevamente');
+                btnBloquear.innerHTML = btnOriginal;
+                btnBloquear.disabled = false;
+            }
+        });
+        
+        // Manejar envío del formulario semanal (NUEVO)
+        document.getElementById('formBloqueoSemanal').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btnBloquear = document.getElementById('btnBloquearSemanal');
+            const btnOriginal = btnBloquear.innerHTML;
+            
+            // Validar días seleccionados
+            const diasSeleccionados = [];
+            document.querySelectorAll('input[name="dias_semana"]:checked').forEach(cb => {
+                diasSeleccionados.push(cb.value);
+            });
+            
+            if (diasSeleccionados.length === 0) {
+                showToast('error', 'Error', 'Debes seleccionar al menos un día de la semana');
+                return;
+            }
+            
+            // Validar horas
+            const horaInicio = document.getElementById('horaInicioSemanal').value;
+            const horaFin = document.getElementById('horaFinSemanal').value;
+            
+            if (!horaInicio || !horaFin) {
+                showToast('error', 'Error', 'Debes seleccionar hora de inicio y fin');
+                return;
+            }
+            
+            if (horaInicio >= horaFin) {
+                showToast('error', 'Error', 'La hora de inicio debe ser menor a la hora de fin');
+                return;
+            }
+            
+            // Confirmación
+            const confirmacion = confirm(
+                `¿Estás seguro de crear este bloqueo SEMANAL?\n\n` +
+                `Días: ${diasSeleccionados.length} día(s) por semana\n` +
+                `Horario: ${horaInicio} - ${horaFin}\n\n` +
+                `Esto se aplicará a TODAS las semanas futuras.`
+            );
+            
+            if (!confirmacion) {
+                return;
+            }
+            
+            // Mostrar loading
+            btnBloquear.innerHTML = '<span class="spinner"></span> Creando...';
+            btnBloquear.disabled = true;
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('csrf_token', document.getElementById('csrf_token_semanal').value);
+            formData.append('dias_semana', JSON.stringify(diasSeleccionados));
+            formData.append('hora_inicio', horaInicio);
+            formData.append('hora_fin', horaFin);
+            formData.append('motivo', document.getElementById('motivoSemanal').value || '');
+            formData.append('fecha_inicio', document.getElementById('fechaInicioSemanal').value || '');
+            formData.append('fecha_fin', document.getElementById('fechaFinSemanal').value || '');
+            
+            try {
+                const response = await fetch('{{ url_for("profesional_crear_bloqueo_recurrente") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast('success', '¡Éxito!', data.message || 'Bloqueo semanal creado correctamente');
+                    
+                    // Cerrar modal
+                    setTimeout(() => {
+                        closeModalSemanal();
+                        
+                        // Cambiar a pestaña de recurrentes y recargar
+                        setTimeout(() => {
+                            cambiarTabs('recurrentes');
+                            window.location.reload();
+                        }, 1500);
+                    }, 1500);
+                } else {
+                    showToast('error', 'Error', data.error || 'No se pudo crear el bloqueo semanal');
+                    btnBloquear.innerHTML = btnOriginal;
+                    btnBloquear.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error de conexión', 'Por favor, intenta nuevamente');
+                btnBloquear.innerHTML = btnOriginal;
+                btnBloquear.disabled = false;
+            }
+        });
+        
+        // Función para mostrar toast
+        function showToast(type, title, message) {
+            const toast = document.getElementById('toast');
+            const toastContent = document.getElementById('toastContent');
+            
+            // Configurar contenido
+            toastContent.innerHTML = `
+                <strong>${title}</strong><br>
+                ${message}
+            `;
+            
+            // Configurar clase
+            toast.className = `toast-mobile toast-${type} show`;
+            
+            // Ocultar después de 4 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.className = 'toast-mobile';
+                }, 300);
+            }, 4000);
+        }
+        
+        // Confirmación para desbloquear
+        function confirmDesbloqueo(form, esRecurrente = false) {
+            const mensaje = esRecurrente 
+                ? '¿Estás seguro de eliminar este bloqueo RECURRENTE?\nEsto afectará a TODAS las semanas futuras.'
+                : '¿Estás seguro de que deseas desbloquear este horario?\nLos clientes podrán agendar citas en este horario nuevamente.';
+            
+            if (confirm(mensaje)) {
+                // Mostrar loading en el botón
+                const btn = form.querySelector('button');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<span class="spinner"></span>';
+                btn.disabled = true;
+                
+                // Enviar formulario después de breve delay
+                setTimeout(() => {
+                    form.submit();
+                }, 300);
+                
+                return true;
+            }
+            return false;
+        }
+        
+        // Manejar cambio de fecha en el filtro
+        document.getElementById('fecha').addEventListener('change', function() {
+            // Actualizar fecha en el modal si está abierto
+            const modalFecha = document.getElementById('fechaBloqueo');
+            if (modalFecha) {
+                modalFecha.value = this.value;
+            }
+        });
+        
+        // Prevenir envío doble del formulario
+        document.getElementById('filterForm').addEventListener('submit', function(e) {
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cargando...';
+        });
+        
+        // Mejorar experiencia táctil
+        document.addEventListener('touchstart', function() {}, { passive: true });
+        
+        // Prevenir zoom en doble toque
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+    // Manejar pestaña activa desde URL
+    document.addEventListener('DOMContentLoaded', function() {
+        // Obtener el parámetro 'tab' de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        
+        if (tab === 'recurrentes') {
+            cambiarTabs('recurrentes');
+        } else {
+            cambiarTabs('puntuales');
+        }
+    });
+    </script>
+</body>
+</html>

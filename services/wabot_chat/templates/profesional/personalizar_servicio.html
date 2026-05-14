@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalizar Servicio - {{ session.negocio_nombre }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem 2rem;
+            }
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 1.3rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: #3498db;
+            color: white;
+            padding: 1.5rem;
+        }
+        
+        .card-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .form-check {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .form-check:hover {
+            background: #f9f9f9;
+            border-color: #3498db;
+        }
+        
+        .form-check-input {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        
+        .form-check-label {
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background: #219653;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .form-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+        
+        .servicio-info {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #3498db;
+        }
+        
+        .servicio-info p {
+            margin: 0.3rem 0;
+            color: #555;
+        }
+        
+        .cliente-info {
+            background: #e8f4fc;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #3498db;
+        }
+        
+        .servicios-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        /* Mensajes flash */
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Personalizar Servicio</h1>
+        <div class="user-info">
+            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Mensajes Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                        <span>
+                            {% if category == 'success' %}✅
+                            {% elif category == 'error' %}❌
+                            {% elif category == 'warning' %}⚠️
+                            {% else %}ℹ️{% endif %}
+                        </span>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Personalizar servicio para cliente</h2>
+            </div>
+            
+            <div class="card-body">
+                {% if cita %}
+                <div class="cliente-info">
+                    <h3 style="margin-bottom: 0.5rem; color: #333;">📋 Información de la cita</h3>
+                    <p><strong>Cliente:</strong> {{ cita.cliente_nombre }}</p>
+                    <p><strong>Teléfono:</strong> {{ cita.telefono or cita.cliente_telefono }}</p>
+                    <p><strong>Servicio actual:</strong> {{ cita.servicio_nombre }}</p>
+                    <p><strong>Precio actual:</strong> ${{ "{:,.0f}".format(cita.precio|int) }}</p>
+                    <p><strong>Duración actual:</strong> {{ cita.duracion }} minutos</p>
+                    <p><strong>Estado:</strong> {{ cita.estado|title }}</p>
+                </div>
+                {% endif %}
+                
+                <!-- FORMULARIO CORREGIDO -->
+                <form method="POST" action="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <!-- Configuración Básica -->
+                    <div class="form-group">
+                        <h3 style="margin-bottom: 1rem; color: #333;">📝 Configuración del Servicio Personalizado</h3>
+                        <div class="row">
+                            <div>
+                                <label for="nombre_personalizado">Nombre del servicio personalizado *</label>
+                                <input type="text" id="nombre_personalizado" name="nombre_personalizado" 
+                                       value="{{ personalizacion.nombre_personalizado if personalizacion else 'Personalizado para ' + cita.cliente_nombre }}" 
+                                       required>
+                                <small style="color: #666;">Este nombre aparecerá como "Personalizado para ti" en el chat del cliente</small>
+                            </div>
+                            
+                            <div>
+                                <label for="duracion">Duración (minutos) *</label>
+                                <input type="number" id="duracion" name="duracion" 
+                                       value="{{ personalizacion.duracion_personalizada if personalizacion else cita.duracion }}" 
+                                       min="5" step="5" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div>
+                                <label for="precio">Precio ($) *</label>
+                                <input type="number" id="precio" name="precio" 
+                                       value="{{ personalizacion.precio_personalizado if personalizacion else cita.precio }}" 
+                                       min="0" step="1000" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="descripcion">Descripción del servicio personalizado</label>
+                            <textarea id="descripcion" name="descripcion" rows="3">{{ personalizacion.descripcion if personalizacion else 'Servicio personalizado según tus necesidades' }}</textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="form-footer">
+                        <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">
+                            ↩️ Cancelar y volver al Dashboard
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            💾 Guardar Personalización
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Validación básica
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const nombre = document.getElementById('nombre_personalizado').value.trim();
+            const duracion = document.getElementById('duracion').value;
+            const precio = document.getElementById('precio').value;
+            
+            if (!nombre || nombre.length < 5) {
+                e.preventDefault();
+                alert('⚠️ El nombre del servicio personalizado debe tener al menos 5 caracteres.');
+                return;
+            }
+            
+            if (!duracion || duracion < 5) {
+                e.preventDefault();
+                alert('⚠️ La duración debe ser de al menos 5 minutos.');
+                return;
+            }
+            
+            if (!precio || precio < 0) {
+                e.preventDefault();
+                alert('⚠️ El precio debe ser un valor positivo.');
+                return;
+            }
+            
+            // Mostrar confirmación
+            if (!confirm('¿Estás seguro de que deseas guardar esta personalización?\n\nEl cliente podrá ver este servicio como "Personalizado para ti" en su chat.')) {
+                e.preventDefault();
+            }
+        });
+        
+        // Mejorar UX de checkboxes
+        document.querySelectorAll('.form-check-input').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const card = this.closest('.form-check');
+                if (this.checked) {
+                    card.style.background = '#e8f4fc';
+                    card.style.borderColor = '#3498db';
+                } else {
+                    card.style.background = '';
+                    card.style.borderColor = '#eee';
+                }
+            });
+        });
+        
+        // Código JavaScript seguro (sin Jinja2 que cause errores en VS Code)
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Página de personalización cargada');
+            
+            // Verificar si hay elementos marcados como incluidos
+            const checkboxesIncluidos = document.querySelectorAll('input[name="incluidos_por_defecto[]"]:checked');
+            if (checkboxesIncluidos.length > 0) {
+                console.log(`Hay ${checkboxesIncluidos.length} servicios incluidos por defecto`);
+            }
+            
+            // Verificar si hay servicios adicionales seleccionados
+            const checkboxesServicios = document.querySelectorAll('input[name="servicios_adicionales[]"]:checked');
+            if (checkboxesServicios.length > 0) {
+                console.log(`Hay ${checkboxesServicios.length} servicios adicionales seleccionados`);
+            }
+        });
+    </script>
+</body>
+</html>

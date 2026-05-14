@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productos - {{ session.negocio_nombre }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .header h1 {
+            color: #333;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-logout {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .nav-buttons {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .product-image {
+            height: 180px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .product-image-placeholder {
+            font-size: 48px;
+            color: #cbd5e1;
+        }
+        
+        .product-info {
+            padding: 1rem;
+        }
+        
+        .product-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        
+        .product-price {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #27ae60;
+            margin-bottom: 0.5rem;
+        }
+        
+        .product-description {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+        
+        .product-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .product-actions .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 12px;
+            color: #666;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            color: #cbd5e1;
+            margin-bottom: 1rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .badge-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-shopping-bag"></i> Productos</h1>
+        <div class="user-info">
+            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="nav-buttons">
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="{{ url_for('negocio_servicios') }}" class="btn btn-secondary">
+                <i class="fas fa-cut"></i> Servicios
+            </a>
+            <a href="{{ url_for('negocio_productos_nuevo') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nuevo Producto
+            </a>
+            <a href="{{ url_for('negocio_editor_visual') }}" class="btn btn-secondary">
+                <i class="fas fa-edit"></i> Editar Perfil
+            </a>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% if productos %}
+        <div class="products-grid">
+            {% for prod in productos %}
+            <div class="product-card">
+                <div class="product-image">
+                    {% if prod.imagen_url %}
+                        <img src="{{ prod.imagen_url }}" alt="{{ prod.nombre }}">
+                    {% else %}
+                        <div class="product-image-placeholder">
+                            <i class="fas fa-box"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="product-info">
+                    <div class="product-name">{{ prod.nombre }}</div>
+                    <div class="product-price">${{ "{:,.0f}".format(prod.precio).replace(',', '.') }}</div>
+                    {% if prod.descripcion %}
+                    <div class="product-description">{{ prod.descripcion[:100] }}{% if prod.descripcion|length > 100 %}...{% endif %}</div>
+                    {% endif %}
+                    <div class="product-actions">
+                        <a href="{{ url_for('negocio_productos_editar', producto_id=prod.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Editar
+                        </a>
+                        <form method="POST" action="{{ url_for('negocio_productos_eliminar', producto_id=prod.id) }}" style="display: inline; flex: 1;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar este producto?')">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </form>
+                    </div>
+                    <div class="badge {% if prod.disponible %}badge-active{% else %}badge-inactive{% endif %}">
+                        {% if prod.disponible %}Disponible{% else %}No disponible{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-shopping-bag"></i>
+            <h3>No hay productos registrados</h3>
+            <p>Agrega productos para mostrar en tu perfil público</p>
+            <a href="{{ url_for('negocio_productos_nuevo') }}" class="btn btn-primary" style="margin-top: 1rem;">
+                <i class="fas fa-plus"></i> Agregar Producto
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

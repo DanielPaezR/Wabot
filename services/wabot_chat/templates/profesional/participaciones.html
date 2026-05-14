@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participaciones - {{ promocion.titulo }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .header { background: white; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .participacion-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .foto-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .foto-grid img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; cursor: pointer; }
+        .likes-badge { background: #c53030; color: white; padding: 5px 15px; border-radius: 20px; font-weight: 600; }
+        .ganador { border: 3px solid #ffd700; background: #fffbeb; }
+        .ganador-badge { background: #ffd700; color: #333; padding: 5px 15px; border-radius: 20px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0"><i class="fas fa-users text-primary"></i> Participaciones</h4>
+                <small class="text-muted">{{ promocion.titulo }} - Premio: {{ promocion.premio }}</small>
+            </div>
+            <a href="/profesional/promociones" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+    
+    <div class="container">
+        {% if participaciones %}
+            {% for p in participaciones %}
+            <div class="participacion-card {% if loop.first %}ganador{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-1">
+                            {% if loop.first %}
+                            <span class="ganador-badge"><i class="fas fa-crown"></i> Líder</span>
+                            {% endif %}
+                            {{ p.cliente_nombre }}
+                        </h5>
+                        <div class="text-muted small">Participó el {{ p.fecha_creacion.strftime('%Y-%m-%d %H:%M') if p.fecha_creacion else 'recientemente' }}</div>
+                    </div>
+                    <div class="likes-badge">
+                        <i class="fas fa-heart"></i> {{ p.likes }}
+                    </div>
+                </div>
+                
+                {% if p.foto_url %}
+                <div class="foto-grid">
+                    {% for foto in p.foto_url.split(',') %}
+                    <img src="{{ foto }}" onclick="window.open('{{ foto }}', '_blank')" alt="Foto de {{ p.cliente_nombre }}">
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if p.nota %}
+                <div class="mt-2 p-2 bg-light rounded">
+                    <i class="fas fa-comment text-muted"></i> {{ p.nota }}
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <a href="/vota/{{ p.id }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-external-link-alt"></i> Ver enlace público
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-users fa-3x mb-3"></i>
+                <p>Aún no hay participaciones en este concurso.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

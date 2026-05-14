@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendar Cita - Sistema de Citas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+        }
+        
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            padding: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0.5rem;
+            }
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+        
+        .form-group { 
+            margin-bottom: 1.5rem; 
+        }
+        
+        label { 
+            display: block; 
+            margin-bottom: 0.5rem; 
+            font-weight: 600; 
+            color: #2c3e50;
+        }
+        
+        input, select { 
+            width: 100%; 
+            padding: 0.75rem; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        /* ✅ CORRECCIÓN: Botones responsive */
+        .buttons-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn { 
+            background: #3498db; 
+            color: white; 
+            padding: 0.75rem 1.5rem; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1rem; 
+            text-decoration: none;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            flex: 1;
+            min-width: 140px;
+            text-align: center;
+        }
+
+        @media (max-width: 480px) {
+            .buttons-container {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                padding: 1rem;
+            }
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn-success { 
+            background: #27ae60; 
+        }
+
+        .btn-success:hover {
+            background: #219653;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .horarios-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); 
+            gap: 0.5rem; 
+            margin-top: 1rem; 
+        }
+
+        @media (max-width: 480px) {
+            .horarios-grid {
+                grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+                gap: 0.3rem;
+            }
+        }
+        
+        .hora-btn { 
+            padding: 0.75rem 0.5rem; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 8px; 
+            background: white; 
+            cursor: pointer; 
+            text-align: center; 
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .hora-btn:hover {
+            border-color: #3498db;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .hora-btn.selected { 
+            background: #3498db; 
+            color: white; 
+            border-color: #3498db;
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+        }
+        
+        .flash { 
+            padding: 1rem; 
+            margin-bottom: 1.5rem; 
+            border-radius: 8px; 
+            border-left: 4px solid;
+        }
+        
+        .flash.success { 
+            background: #d4edda; 
+            color: #155724; 
+            border-color: #c3e6cb; 
+        }
+        
+        .flash.error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border-color: #f5c6cb; 
+        }
+        
+        .text-muted { 
+            color: #7f8c8d; 
+            font-style: italic;
+        }
+        
+        .text-danger { 
+            color: #e74c3c; 
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 1rem;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        /* Prevenir zoom en inputs en iOS */
+        @media (max-width: 768px) {
+            input, select, textarea {
+                font-size: 16px;
+            }
+        }
+
+        .form-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .form-card {
+                padding: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .form-card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-card">
+            <h1>📅 Agendar Cita Directa</h1>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('profesional_crear_cita') }}" id="agendarForm" data-profesional-id="{{ profesional_id or session.get('profesional_id', 1) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="cliente_nombre">👤 Nombre del Cliente:</label>
+                    <input type="text" id="cliente_nombre" name="cliente_nombre" required 
+                           placeholder="Ingresa el nombre completo del cliente">
+                </div>
+                
+                <div class="form-group">
+                    <label for="cliente_telefono">📞 Teléfono:</label>
+                    <input type="tel" id="cliente_telefono" name="cliente_telefono" required 
+                           placeholder="Ej: 3101234567">
+                </div>
+                
+                <div class="form-group">
+                    <label for="servicio_id">💼 Servicio:</label>
+                    <select id="servicio_id" name="servicio_id" required>
+                        <option value="">Seleccionar servicio</option>
+                        {% for servicio in servicios %}
+                            <option value="{{ servicio.id }}">
+                                {{ servicio.nombre }} - ${{ "{:,.0f}".format(servicio.precio) }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="fecha">📅 Fecha:</label>
+                    <input type="date" id="fecha" name="fecha" min="{{ fecha_hoy }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>⏰ Horarios Disponibles:</label>
+                    <div id="horarios-container">
+                        <p class="text-muted">Selecciona una fecha y servicio para ver los horarios disponibles</p>
+                    </div>
+                    <input type="hidden" id="hora" name="hora" required>
+                </div>
+                
+                <!-- ✅ CORRECCIÓN: Botones responsive -->
+                <div class="buttons-container">
+                    <button type="submit" class="btn btn-success">✅ Agendar Cita</button>
+                    <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">↩️ Volver al Panel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ==================== FUNCIÓN PARA CONVERTIR A 12 HORAS ====================
+        function convertirAFormato12Horas(hora24) {
+            if (!hora24) return hora24;
+            
+            try {
+                // Si ya está en formato 12h, devolverlo igual
+                if (hora24.includes('AM') || hora24.includes('PM')) {
+                    return hora24;
+                }
+                
+                const partes = hora24.split(':');
+                if (partes.length < 2) return hora24;
+                
+                let hora = parseInt(partes[0]);
+                const minutos = partes[1];
+                
+                const ampm = hora >= 12 ? 'PM' : 'AM';
+                
+                hora = hora % 12;
+                hora = hora ? hora : 12; // La hora 0 se convierte en 12
+                
+                // Formatear con dos dígitos para la hora
+                const horaStr = hora.toString();
+                
+                return `${horaStr}:${minutos} ${ampm}`;
+            } catch (e) {
+                console.error('Error convirtiendo hora:', e);
+                return hora24;
+            }
+        }
+
+        // ==================== FUNCIÓN PARA OBTENER PROFESIONAL ID ====================
+        function getProfesionalId() {
+            var form = document.getElementById('agendarForm');
+            return form.getAttribute('data-profesional-id') || 1;
+        }
+        
+        // ==================== FUNCIÓN PARA CARGAR HORARIOS ====================
+        function cargarHorarios() {
+            var fecha = document.getElementById('fecha').value;
+            var servicio = document.getElementById('servicio_id').value;
+            var container = document.getElementById('horarios-container');
+            var horaInput = document.getElementById('hora');
+            var profesionalId = getProfesionalId();
+            
+            if (!fecha || !servicio) {
+                container.innerHTML = '<p class="text-muted">Selecciona fecha y servicio para ver horarios</p>';
+                if (horaInput) horaInput.value = '';
+                return;
+            }
+            
+            container.innerHTML = '<div class="loading">🔄 Cargando horarios disponibles...</div>';
+            if (horaInput) horaInput.value = '';
+            
+            var xhr = new XMLHttpRequest();
+            var url = '/api/horarios_disponibles?profesional_id=' + profesionalId + '&fecha=' + fecha + '&servicio_id=' + servicio;
+            
+            console.log('🔍 Solicitando horarios:', url);
+            
+            xhr.open('GET', url, true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        console.log('🔍 Respuesta recibida:', data);
+                        
+                        if (data.horarios && data.horarios.length > 0) {
+                            var html = '<div class="horarios-grid">';
+                            for (var i = 0; i < data.horarios.length; i++) {
+                                var horaOriginal = data.horarios[i];
+                                // ✅ CONVERTIR A FORMATO 12 HORAS
+                                var hora12 = convertirAFormato12Horas(horaOriginal);
+                                html += '<div class="hora-btn" data-hora="' + horaOriginal + '">' + hora12 + '</div>';
+                            }
+                            html += '</div>';
+                            container.innerHTML = html;
+                            
+                            // Agregar eventos a los botones después de crearlos
+                            var botones = document.getElementsByClassName('hora-btn');
+                            for (var j = 0; j < botones.length; j++) {
+                                botones[j].addEventListener('click', function() {
+                                    // Quitar selección de todos
+                                    for (var k = 0; k < botones.length; k++) {
+                                        botones[k].classList.remove('selected');
+                                    }
+                                    // Seleccionar este
+                                    this.classList.add('selected');
+                                    // Guardar la hora ORIGINAL en el input oculto (formato 24h para el backend)
+                                    document.getElementById('hora').value = this.getAttribute('data-hora');
+                                    
+                                    // Feedback visual
+                                    this.style.transform = 'scale(1.05)';
+                                    setTimeout(() => {
+                                        this.style.transform = 'scale(1)';
+                                    }, 150);
+                                });
+                            }
+                            
+                            // Mostrar cuántos horarios se encontraron
+                            console.log(`✅ ${data.horarios.length} horarios disponibles`);
+                        } else {
+                            container.innerHTML = '<p class="text-danger">❌ No hay horarios disponibles para esta fecha</p>';
+                        }
+                    } catch (e) {
+                        console.error('❌ Error parseando JSON:', e);
+                        container.innerHTML = '<p class="text-danger">❌ Error procesando los horarios</p>';
+                    }
+                } else {
+                    console.error('❌ Error HTTP:', xhr.status);
+                    try {
+                        var errorData = JSON.parse(xhr.responseText);
+                        container.innerHTML = '<p class="text-danger">❌ ' + (errorData.error || 'Error cargando horarios') + '</p>';
+                    } catch (e) {
+                        container.innerHTML = '<p class="text-danger">❌ Error cargando horarios. Intenta nuevamente.</p>';
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.error('❌ Error de conexión');
+                container.innerHTML = '<p class="text-danger">❌ Error de conexión. Verifica tu internet.</p>';
+            };
+            
+            xhr.send();
+        }
+
+        // ==================== INICIALIZACIÓN ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Establecer fecha mínima como hoy
+            const today = new Date().toISOString().split('T')[0];
+            const fechaInput = document.getElementById('fecha');
+            if (!fechaInput.value) {
+                fechaInput.value = today;
+            }
+            fechaInput.min = today;
+            
+            // Asignar eventos
+            document.getElementById('fecha').addEventListener('change', cargarHorarios);
+            document.getElementById('servicio_id').addEventListener('change', cargarHorarios);
+            
+            // Si ya hay fecha y servicio seleccionados (por ejemplo, después de un error), cargar horarios
+            if (fechaInput.value && document.getElementById('servicio_id').value) {
+                cargarHorarios();
+            }
+            
+            // Validar formulario antes de enviar
+            document.getElementById('agendarForm').addEventListener('submit', function(e) {
+                const horaSeleccionada = document.getElementById('hora').value;
+                if (!horaSeleccionada) {
+                    e.preventDefault();
+                    alert('⚠️ Por favor selecciona un horario disponible');
+                    return false;
+                }
+                
+                // Validar teléfono (10 dígitos, empieza con 3)
+                const telefono = document.getElementById('cliente_telefono').value.trim();
+                if (!/^3\d{9}$/.test(telefono)) {
+                    e.preventDefault();
+                    alert('⚠️ El teléfono debe tener 10 dígitos y empezar con 3');
+                    return false;
+                }
+            });
+            
+            // Formatear teléfono mientras se escribe
+            document.getElementById('cliente_telefono').addEventListener('input', function(e) {
+                this.value = this.value.replace(/\D/g, ''); // Solo números
+            });
+        });
+    </script>
+</body>
+</html>

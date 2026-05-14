@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mis Promociones - WaBot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --bg: #f1f5f9;
+            --white: #ffffff;
+            --radius: 16px;
+            --radius-sm: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+
+        .container { max-width: 600px; margin: 0 auto; }
+
+        .header {
+            background: var(--white);
+            padding: 16px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .header h2 { font-size: 1.1rem; color: var(--dark); }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; font-size: 0.75rem; padding: 6px 12px; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-sm { padding: 6px 14px; font-size: 0.75rem; }
+
+        /* Tarjeta de promoción */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            padding: 14px 16px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .card-header.concurso { background: #fef3c7; color: #92400e; }
+        .card-header.descuento { background: #d1fae5; color: #065f46; }
+        .card-header.dosxuno { background: #dbeafe; color: #1e40af; }
+        .card-header.expirado { background: #fee2e2; color: #991b1b; }
+
+        .card-body { padding: 16px; }
+
+        .card-body p { margin-bottom: 8px; font-size: 0.85rem; }
+        .card-body .text-light { color: var(--text-light); font-size: 0.8rem; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .badge-concurso { background: #fef3c7; color: #92400e; }
+        .badge-descuento { background: #d1fae5; color: #065f46; }
+        .badge-dosxuno { background: #dbeafe; color: #1e40af; }
+        .badge-expirado { background: #fee2e2; color: #991b1b; }
+
+        .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+        .empty-state { text-align: center; padding: 40px; color: var(--text-light); }
+
+        /* Tipo selector */
+        .tipo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tipo-option {
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--white);
+        }
+        .tipo-option:active { transform: scale(0.97); }
+        .tipo-option.selected { border-color: var(--primary); background: #eef0fd; }
+        .tipo-option .tipo-icon { font-size: 1.8rem; margin-bottom: 4px; }
+        .tipo-option .tipo-name { font-size: 0.8rem; font-weight: 600; color: var(--dark); }
+        .tipo-option .tipo-desc { font-size: 0.65rem; color: var(--text-light); }
+
+        /* Form */
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.8rem; color: var(--text); }
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            font-size: 0.9rem;
+            background: var(--bg);
+            color: var(--dark);
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--white); }
+        textarea.form-control { border-radius: var(--radius-sm); resize: vertical; }
+
+        .form-row { display: flex; gap: 10px; }
+        .form-row .form-group { flex: 1; }
+
+        .hidden { display: none; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .modal.open { display: flex; }
+
+        .modal-sheet {
+            background: var(--white);
+            border-radius: 24px 24px 0 0;
+            width: 100%;
+            max-width: 540px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding-bottom: env(safe-area-inset-bottom);
+            animation: slideUp 0.25s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-handle {
+            width: 40px; height: 4px;
+            background: var(--border);
+            border-radius: 4px;
+            margin: 10px auto 0;
+        }
+
+        .modal-head {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--white);
+            z-index: 1;
+        }
+
+        .modal-head h4 { font-size: 1rem; color: var(--dark); }
+
+        .modal-close {
+            background: var(--bg);
+            border: none;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .modal-body { padding: 16px; }
+
+        .modal-footer {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            position: sticky;
+            bottom: 0;
+            background: var(--white);
+        }
+
+        .modal-footer .btn { flex: 1; justify-content: center; }
+
+        /* Servicios checkboxes */
+        .servicios-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .servicio-chip {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: var(--white);
+        }
+        .servicio-chip.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 12px; }
+            .tipo-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🎁 Mis Promociones</h2>
+            <button class="btn btn-primary" onclick="abrirModalCrear()">
+                ✨ Crear Promoción
+            </button>
+        </div>
+
+        <div id="promocionesList">
+            {% if promociones %}
+                {% for promo in promociones %}
+                {% set expirada = promo.fecha_fin and promo.fecha_fin < today %}
+                {% set tipo = promo.tipo_promocion or 'concurso_fotos' %}
+                
+                <div class="card">
+                    <div class="card-header {% if expirada %}expirado{% else %}{{ tipo.replace('_', '') }}{% endif %}">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            {% if tipo == 'concurso_fotos' %}📸
+                            {% elif tipo == 'descuento_dia' %}💰
+                            {% elif tipo == 'dosxuno' %}🎟️
+                            {% elif tipo == 'descuento_horas' %}🔥
+                            {% elif tipo == 'cliente_frecuente' %}⭐
+                            {% else %}🎁{% endif %}
+                            
+                            <strong>{{ promo.titulo }}</strong>
+                            
+                            <span class="badge {% if expirada %}badge-expirado{% else %}badge-{{ tipo.replace('_', '') }}{% endif %}">
+                                {% if expirada %}Expirado{% else %}Activo{% endif %}
+                            </span>
+                            
+                            {% if promo.participaciones and promo.participaciones > 0 %}
+                            <span class="badge" style="background:#e0e7ff;color:#3730a3;">
+                                📸 {{ promo.participaciones }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <form method="POST" action="{{ url_for('eliminar_promocion', promo_id=promo.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar esta promoción?')">
+                                🗑 Eliminar
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="card-body">
+                        {% if promo.descripcion %}
+                        <p>📝 {{ promo.descripcion }}</p>
+                        {% endif %}
+                        
+                        {% if tipo == 'concurso_fotos' and promo.premio %}
+                        <p>🏅 <strong>Premio:</strong> {{ promo.premio }}</p>
+                        {% endif %}
+                        
+                        {% if tipo == 'descuento_dia' and promo.descuento_porcentaje %}
+                        <p>💰 <strong>{{ promo.descuento_porcentaje }}% de descuento</strong></p>
+                        {% endif %}
+                        
+                        {% if tipo == 'dosxuno' %}
+                        <p>🎟️ <strong>2x1 en servicios seleccionados</strong></p>
+                        {% endif %}
+                        
+                        {% if tipo == 'descuento_horas' and promo.descuento_porcentaje %}
+                        <p>🔥 <strong>{{ promo.descuento_porcentaje }}% de descuento</strong></p>
+                        {% if promo.hora_inicio and promo.hora_fin %}
+                        <p class="text-light">⏰ {{ promo.hora_inicio }} - {{ promo.hora_fin }}</p>
+                        {% endif %}
+                        {% endif %}
+                        
+                        <p class="text-light">
+                            📅 {{ promo.fecha_inicio.strftime('%d/%m/%Y') if promo.fecha_inicio else 'Hoy' }} 
+                            → {{ promo.fecha_fin.strftime('%d/%m/%Y') if promo.fecha_fin else 'Indefinido' }}
+                        </p>
+                        
+                        {% if expirada %}
+                        <p class="text-light" style="color:var(--danger);">⏰ Esta promoción ya expiró</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div style="font-size:3rem;margin-bottom:12px;">🎁</div>
+                    <p style="font-weight:600;">No tienes promociones creadas</p>
+                    <p style="font-size:0.85rem;">Crea descuentos, concursos y más</p>
+                    <button class="btn btn-primary" style="margin-top:16px;" onclick="abrirModalCrear()">
+                        ✨ Crear primera promoción
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal Crear Promoción -->
+    <div id="modalCrear" class="modal">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <form method="POST" action="{{ url_for('crear_promocion') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="tipo_promocion" id="tipoPromocion" value="concurso_fotos">
+                
+                <div class="modal-head">
+                    <h4>✨ Nueva Promoción</h4>
+                    <button type="button" class="modal-close" onclick="cerrarModalCrear()">×</button>
+                </div>
+                
+                <div class="modal-body">
+                    <!-- Selector de tipo -->
+                    <label style="font-weight:600;font-size:0.8rem;margin-bottom:8px;display:block;">
+                        ¿Qué tipo de promoción quieres crear?
+                    </label>
+                    <div class="tipo-grid" id="tipoGrid">
+                        <div class="tipo-option selected" data-tipo="concurso_fotos" onclick="seleccionarTipo(this)">
+                            <div class="tipo-icon">📸</div>
+                            <div class="tipo-name">Concurso de fotos</div>
+                            <div class="tipo-desc">Clientes suben fotos y compiten por likes</div>
+                        </div>
+                        <div class="tipo-option" data-tipo="descuento_dia" onclick="seleccionarTipo(this)">
+                            <div class="tipo-icon">💰</div>
+                            <div class="tipo-name">Descuento por día</div>
+                            <div class="tipo-desc">% de descuento en una fecha específica</div>
+                        </div>
+                        <div class="tipo-option" data-tipo="dosxuno" onclick="seleccionarTipo(this)">
+                            <div class="tipo-icon">🎟️</div>
+                            <div class="tipo-name">2x1</div>
+                            <div class="tipo-desc">Dos servicios por el precio de uno</div>
+                        </div>
+                        <div class="tipo-option" data-tipo="descuento_horas" onclick="seleccionarTipo(this)">
+                            <div class="tipo-icon">🔥</div>
+                            <div class="tipo-name">Hora feliz</div>
+                            <div class="tipo-desc">Descuento en horarios específicos</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Campos comunes -->
+                    <div class="form-group">
+                        <label>Título *</label>
+                        <input type="text" name="titulo" class="form-control" placeholder="Ej: ¡Viernes de descuentos!" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" class="form-control" rows="2" placeholder="Describe tu promoción..."></textarea>
+                    </div>
+                    
+                    <!-- Campos para concurso de fotos -->
+                    <div id="camposConcurso">
+                        <div class="form-group">
+                            <label>Premio</label>
+                            <input type="text" name="premio" class="form-control" placeholder="Ej: 1 Corte Premium Gratis">
+                        </div>
+                    </div>
+                    
+                    <!-- Campos para descuentos -->
+                    <div id="camposDescuento" class="hidden">
+                        <div class="form-group">
+                            <label>Porcentaje de descuento *</label>
+                            <input type="number" name="descuento_porcentaje" class="form-control" placeholder="Ej: 20" min="1" max="100">
+                        </div>
+                    </div>
+                    
+                    <!-- Campos para hora feliz -->
+                    <div id="camposHoras" class="hidden">
+                        <div class="form-group">
+                            <label>Porcentaje de descuento *</label>
+                            <input type="number" name="descuento_porcentaje_horas" class="form-control" placeholder="Ej: 30" min="1" max="100">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Hora inicio</label>
+                                <input type="time" name="hora_inicio" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Hora fin</label>
+                                <input type="time" name="hora_fin" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fechas -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Fecha inicio</label>
+                            <input type="date" name="inicio" class="form-control" value="{{ today }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha fin *</label>
+                            <input type="date" name="fin" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="cerrarModalCrear()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">✨ Crear Promoción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalCrear() {
+            document.getElementById('modalCrear').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function cerrarModalCrear() {
+            document.getElementById('modalCrear').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+        
+        function seleccionarTipo(el) {
+            // Quitar selected de todos
+            document.querySelectorAll('.tipo-option').forEach(o => o.classList.remove('selected'));
+            // Agregar al clickeado
+            el.classList.add('selected');
+            
+            const tipo = el.dataset.tipo;
+            document.getElementById('tipoPromocion').value = tipo;
+            
+            // Mostrar/ocultar campos según tipo
+            document.getElementById('camposConcurso').classList.toggle('hidden', tipo !== 'concurso_fotos');
+            document.getElementById('camposDescuento').classList.toggle('hidden', tipo !== 'descuento_dia' && tipo !== 'dosxuno');
+            document.getElementById('camposHoras').classList.toggle('hidden', tipo !== 'descuento_horas');
+        }
+        
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalCrear').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModalCrear();
+        });
+    </script>
+</body>
+</html>

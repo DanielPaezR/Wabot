@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Wabot - El bot que agenda citas por ti | Automatiza tu negocio</title>
+<meta name="description" content="Wabot responde automáticamente WhatsApp, agenda citas sin que hagas nada y muestra tu negocio en un mapa interactivo. Empieza gratis.">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:'Inter',sans-serif;
+  background:#020617;
+  color:#e2e8f0;
+  line-height:1.6;
+}
+
+/* NAV */
+.header{
+  position:fixed;
+  top:0;
+  width:100%;
+  background:rgba(2,6,23,.7);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.05);
+  z-index:1000;
+}
+
+.header-content{
+  max-width:1200px;
+  margin:auto;
+  padding:1rem 2rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.logo{
+  font-weight:800;
+  font-size:1.4rem;
+}
+.logo span{color:#8b5cf6}
+
+.cta-btn{
+  background:linear-gradient(135deg,#25D366,#1da851);
+  padding:.6rem 1.4rem;
+  border-radius:999px;
+  color:#fff;
+  text-decoration:none;
+  font-weight:600;
+  box-shadow:0 8px 20px rgba(37,211,102,.3);
+}
+
+/* HERO */
+.hero{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:6rem 2rem 3rem;
+  background:radial-gradient(circle at 20% 20%,#1e293b,#020617);
+}
+
+.hero h1{
+  font-size:3rem;
+  max-width:900px;
+  margin-bottom:1rem;
+  font-weight:800;
+}
+
+.hero p{
+  color:#94a3b8;
+  max-width:600px;
+  margin:0 auto 2rem;
+}
+
+.hero-buttons{
+  display:flex;
+  gap:1rem;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+
+.btn-primary{
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  padding:1rem 2.2rem;
+  border-radius:999px;
+  color:white;
+  text-decoration:none;
+  font-weight:600;
+  box-shadow:0 10px 30px rgba(99,102,241,.4);
+  transition:.3s;
+}
+
+.btn-primary:hover{
+  transform:translateY(-4px);
+}
+
+/* SECTION */
+.section{
+  max-width:1200px;
+  margin:auto;
+  padding:5rem 2rem;
+}
+
+.section-title{
+  text-align:center;
+  font-size:2.2rem;
+  margin-bottom:1rem;
+}
+
+.section-subtitle{
+  text-align:center;
+  color:#94a3b8;
+  margin-bottom:3rem;
+}
+
+/* FEATURES */
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:2rem;
+}
+
+.feature-card{
+  background:linear-gradient(145deg,#020617,#0f172a);
+  padding:2rem;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,.05);
+  transition:.3s;
+}
+
+.feature-card:hover{
+  transform:translateY(-6px);
+  border-color:#8b5cf6;
+}
+
+.feature-icon{
+  font-size:2rem;
+  margin-bottom:1rem;
+}
+
+/* DEMO LINKS */
+.demo-links{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:2rem;
+}
+
+.demo-card{
+  background:#020617;
+  border:1px solid rgba(255,255,255,.05);
+  padding:2rem;
+  border-radius:20px;
+  text-align:center;
+}
+
+.demo-card a{
+  display:inline-block;
+  margin-top:1rem;
+  text-decoration:none;
+}
+
+/* PRICING - 3 cards */
+.pricing-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:2rem;
+  margin-top:2rem;
+}
+
+.pricing-card{
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  padding:2rem;
+  border-radius:25px;
+  text-align:center;
+  transition:.3s;
+}
+
+.pricing-card:hover{
+  transform:translateY(-8px);
+  box-shadow:0 20px 40px rgba(99,102,241,.3);
+}
+
+.pricing-card h3{
+  font-size:1.5rem;
+  margin-bottom:.5rem;
+}
+
+.pricing-currency{
+  font-size:.9rem;
+  opacity:.8;
+}
+
+.pricing-price{
+  font-size:2.5rem;
+  font-weight:800;
+  margin:1rem 0;
+}
+
+.pricing-price small{
+  font-size:1rem;
+  font-weight:400;
+}
+
+.pricing-btn{
+  background:white;
+  color:#6366f1;
+  padding:.8rem 2rem;
+  border-radius:999px;
+  text-decoration:none;
+  font-weight:700;
+  display:inline-block;
+  margin-top:1rem;
+  transition:.2s;
+}
+
+.pricing-btn:hover{
+  transform:scale(1.05);
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
+}
+
+/* STEPS */
+.steps{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:2rem;
+}
+
+.step{
+  background:#020617;
+  padding:2rem;
+  border-radius:20px;
+  text-align:center;
+  border:1px solid rgba(255,255,255,.05);
+}
+
+.step-number{
+  width:50px;
+  height:50px;
+  background:#8b5cf6;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:auto;
+  margin-bottom:1rem;
+  font-weight:bold;
+}
+
+/* FOOTER */
+.footer{
+  text-align:center;
+  padding:2rem;
+  color:#64748b;
+}
+
+@media(max-width:768px){
+.hero h1{font-size:2.2rem}
+.pricing-grid{grid-template-columns:1fr}
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <div class="header-content">
+    <div class="logo">Wa<span>Bot</span></div>
+    <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" class="cta-btn" target="_blank">
+      <i class="fab fa-whatsapp"></i> Contáctame
+    </a>
+  </div>
+</div>
+
+<section class="hero">
+  <div>
+    <h1>El bot que responde Mensajes y agenda citas automáticamente</h1>
+    <p>Nunca más pierdas un cliente por no responder a tiempo. Wabot atiende 24/7, agenda citas y muestra tu negocio en nuestro mapa interactivo.</p>
+  </div>
+</section>
+
+<section class="section">
+  <h2 class="section-title">Prueba real del sistema</h2>
+  <p class="section-subtitle">Mira exactamente cómo se ve tu negocio y la experiencia del cliente</p>
+
+  <div class="demo-links">
+    <div class="demo-card">
+      <h3>Vista del negocio</h3>
+      <p>Panel donde gestionas citas, servicios y clientes</p>
+      <a href="https://wabot-directorio-production.up.railway.app/negocio/1" class="btn-primary">Ver Negocio Ejemplo</a>
+    </div>
+
+    <div class="demo-card">
+      <h3>Vista del cliente</h3>
+      <p>Así es como tus clientes reservan citas fácilmente</p>
+      <a href="https://wabot-production-d544.up.railway.app/cliente/1" class="btn-primary">Así lo ve tu Cliente</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <h2 class="section-title">Lo que incluye Wabot</h2>
+
+  <div class="features-grid">
+    <div class="feature-card"><div class="feature-icon">🤖</div><h3>Bot 24/7</h3><p>Responde mensajes automáticamente</p></div>
+    <div class="feature-card"><div class="feature-icon">📅</div><h3>Agenda automática</h3><p>Sin intervención humana</p></div>
+    <div class="feature-card"><div class="feature-icon">📊</div><h3>Dashboard</h3><p>Control total del negocio</p></div>
+    <div class="feature-card"><div class="feature-icon">⭐</div><h3>Reseñas</h3><p>Genera confianza</p></div>
+    <div class="feature-card"><div class="feature-icon">🎁</div><h3>Promociones virales</h3><p>Publica promociones donde tus clientes participan y ganan premios según la cantidad de likes dentro de la app.</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2 class="section-title">¿Cómo funciona?</h2>
+
+  <div class="steps">
+    <div class="step"><div class="step-number">1</div><p>Configuras tu negocio</p></div>
+    <div class="step"><div class="step-number">2</div><p>Conectas WhatsApp</p></div>
+    <div class="step"><div class="step-number">3</div><p>Recibes clientes automáticamente</p></div>
+  </div>
+</section>
+
+<!-- SECCIÓN DE PRECIOS CON 3 CARD (COP, AWG, USD) - PRECIOS REALISTAS -->
+<section class="section">
+  <h2 class="section-title">Planes mensuales</h2>
+  <p class="section-subtitle">Elige la moneda que prefieras. Todos los planes incluyen las mismas funcionalidades.</p>
+
+  <div class="pricing-grid">
+    <!-- Card 1: Pesos Colombianos -->
+    <div class="pricing-card">
+      <h3>🇨🇴 WABot COP</h3>
+      <div class="pricing-price">
+        $15.000 <small>COP</small>
+      </div>
+      <p>por profesional / mes</p>
+      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
+        ⚡ + $30.000 COP<br>configuración única
+      </div>
+      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20COP" class="pricing-btn" target="_blank">
+        Contratar en COP
+      </a>
+    </div>
+
+    <!-- Card 2: Florines Arubanos (AWG) - 8 AWG (~15.000 COP) -->
+    <div class="pricing-card">
+      <h3>🇦🇼 WABot AWG</h3>
+      <div class="pricing-price">
+        30 <small>AWG</small>
+      </div>
+      <p>pa profesional / luna</p>
+      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
+        ⚡ + 40 AWG<br>configuración único
+      </div>
+      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20AWG" class="pricing-btn" target="_blank">
+        Contratar en AWG
+      </a>
+    </div>
+
+    <!-- Card 3: Dólares Americanos - 4 USD (~15.000 COP) -->
+    <div class="pricing-card">
+      <h3>🇺🇸 WABot USD</h3>
+      <div class="pricing-price">
+        $15 <small>USD</small>
+      </div>
+      <p>per professional / month</p>
+      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
+        ⚡ + $20 USD<br>one-time setup
+      </div>
+      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20USD" class="pricing-btn" target="_blank">
+        Hire in USD
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="text-align:center">
+  <h2 class="section-title">¿Listo para empezar?</h2>
+  <p class="section-subtitle">Agenda una demo gratis en minutos</p>
+
+  <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20una%20demo%20de%20Wabot" class="cta-btn" target="_blank">
+    <i class="fab fa-whatsapp"></i> Quiero mi demo gratis
+  </a>
+</section>
+
+<div class="footer">
+  <p>© 2025 Wabot</p>
+</div>
+
+</body>
+</html>
