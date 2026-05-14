@@ -5253,31 +5253,9 @@ def subscribe_push():
         print(f"❌ Error en subscribe_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
-@app.route('/api/push/test', methods=['POST'])
-@login_required
-def test_push():
-    """Probar notificaciones push"""
-    profesional_id = session.get('profesional_id')
-    
-    # Llamar a la función auxiliar que ya creaste
-    if enviar_notificacion_push_profesional(
-        profesional_id=profesional_id,  
-        titulo="🔔 Test Push",
-        mensaje="¡Las notificaciones push funcionan correctamente!",
-        cita_id=None
-    ):
-        return jsonify({'success': True, 'message': 'Notificación de prueba enviada'})
-    else:
-        return jsonify({'success': False, 'message': 'No hay suscripciones activas'})
-
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
-@app.route('/test_personalizar')
-def test_personalizar():
-    """Ruta de prueba para verificar que la personalización funciona"""
-    return "✅ Ruta de personalización funciona correctamente"
-
 @app.route('/api/debug/recreate-push-table', methods=['GET', 'POST'])
 def recreate_push_table():
     """Recrear tabla de suscripciones push correctamente"""
@@ -5951,31 +5929,6 @@ def from_json_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
-@app.route('/profesional/test-bloqueos')
-@login_required
-def test_bloqueos():
-    """Ruta de prueba para ver los bloqueos recurrentes en formato JSON"""
-    try:
-        profesional_id = session.get('profesional_id')
-        negocio_id = session.get('negocio_id')
-        
-        from database import obtener_bloqueos_recurrentes
-        
-        bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
-        
-        # Ahora todos los objetos time y date ya son strings
-        return jsonify({
-            'success': True,
-            'total': len(bloqueos),
-            'bloqueos': bloqueos
-        })
-        
-    except Exception as e:
-        print(f"❌ Error en test_bloqueos: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/profesional/api/horarios-disponibles')
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_api_horarios_disponibles():
@@ -6236,189 +6189,6 @@ def verify_key_tool():
     </body>
     </html>
     '''
-@app.route('/test-push-debug/<int:profesional_id>')
-def test_push_debug(profesional_id):
-    """Prueba de push con DEBUG DETALLADO - CORREGIDO"""
-    try:
-        import os
-        import json
-        import time
-        from database import get_db_connection
-        
-        print(f"🔍 [DEBUG-PUSH-TEST] Iniciando test para profesional {profesional_id}")
-        
-        # 1. Obtener y verificar VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
-        
-        print(f"🔑 [DEBUG] VAPID_PRIVATE_KEY: {'PRESENTE' if VAPID_PRIVATE_KEY else 'AUSENTE'}")
-        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {'PRESENTE' if VAPID_PUBLIC_KEY else 'AUSENTE'}")
-        print(f"🔑 [DEBUG] VAPID_SUBJECT: {VAPID_SUBJECT}")
-        
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({
-                'success': False, 
-                'error': 'VAPID_PRIVATE_KEY no configurada',
-                'debug': 'Configurar en Railway: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT'
-            }), 500
-        
-        # 2. Obtener suscripción - CORREGIDO para manejar diccionarios
-        print(f"📋 [DEBUG] Obteniendo suscripción de la BD...")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT subscription_json 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-            ORDER BY id DESC LIMIT 1
-        ''', (profesional_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        print(f"📊 [DEBUG] Result type: {type(result)}")
-        print(f"📊 [DEBUG] Result: {result}")
-        
-        if not result:
-            return jsonify({
-                'success': False, 
-                'error': 'No hay suscripciones activas',
-                'profesional_id': profesional_id
-            }), 404
-        
-        # 3. EXTRAER el subscription_json correctamente
-        subscription_json = None
-        
-        # Si es tupla (cursor normal)
-        if isinstance(result, tuple):
-            subscription_json = result[0]
-        # Si es diccionario (RealDictCursor)
-        elif isinstance(result, dict):
-            subscription_json = result.get('subscription_json')
-        # Si es lista u otro tipo
-        elif hasattr(result, '__getitem__'):
-            try:
-                subscription_json = result[0]
-            except (KeyError, IndexError):
-                subscription_json = result.get('subscription_json') if hasattr(result, 'get') else None
-        
-        print(f"✅ [DEBUG] subscription_json extraído, type: {type(subscription_json)}")
-        
-        if not subscription_json:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo extraer subscription_json',
-                'result_structure': str(result)[:200]
-            }), 500
-        
-        # 4. Parsear JSON
-        try:
-            subscription = json.loads(subscription_json)
-            print(f"✅ [DEBUG] JSON parseado correctamente")
-        except json.JSONDecodeError as e:
-            print(f"❌ [DEBUG] Error parseando JSON: {e}")
-            print(f"📄 [DEBUG] JSON crudo: {subscription_json[:200]}")
-            return jsonify({
-                'success': False,
-                'error': f'JSON inválido: {str(e)}',
-                'json_preview': subscription_json[:200]
-            }), 500
-        
-        # 5. Verificar estructura
-        endpoint = subscription.get('endpoint', '')
-        keys = subscription.get('keys', {})
-        
-        print(f"📍 [DEBUG] Endpoint: {endpoint[:60]}...")
-        print(f"🔑 [DEBUG] Keys: {list(keys.keys()) if keys else 'NO KEYS'}")
-        
-        if not endpoint:
-            return jsonify({
-                'success': False,
-                'error': 'Suscripción no tiene endpoint',
-                'subscription_keys': list(subscription.keys())
-            }), 500
-        
-        # 6. Enviar push
-        print(f"⏰ [DEBUG] Configurando tiempos...")
-        current_time = int(time.time())
-        expiration_time = current_time + (12 * 60 * 60)  # 12 horas
-        
-        print(f"🚀 [DEBUG] Intentando enviar push...")
-        
-        try:
-            import pywebpush
-            
-            response = pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': '🔥 TEST PUSH DEBUG',
-                    'body': f'Prueba de debug: {time.ctime()}',
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": expiration_time
-                },
-                ttl=86400,
-                timeout=15
-            )
-            
-            print(f"🎉 [DEBUG] ¡PUSH ENVIADO EXITOSAMENTE!")
-            
-            return jsonify({
-                'success': True,
-                'message': '¡Push enviado exitosamente!',
-                'timestamp': current_time,
-                'endpoint_preview': endpoint[:50] + '...'
-            })
-            
-        except Exception as push_error:
-            error_type = type(push_error).__name__
-            error_msg = str(push_error)
-            
-            print(f"❌ [DEBUG] Error en webpush: {error_type}")
-            print(f"💡 [DEBUG] Mensaje: {error_msg[:200]}")
-            
-            # Análisis de error específico
-            diagnosis = "Error desconocido en pywebpush"
-            
-            if "vapid" in error_msg.lower():
-                diagnosis = "Problema con credenciales VAPID"
-                if "exp" in error_msg.lower():
-                    diagnosis = "Tiempo de expiración (exp) inválido"
-            elif "InvalidAuthorization" in error_msg:
-                diagnosis = "Token de autorización VAPID inválido"
-            elif "key" in error_msg.lower():
-                diagnosis = "Problema con la clave VAPID (formato incorrecto)"
-            elif "connection" in error_msg.lower():
-                diagnosis = "Error de conexión con Google FCM"
-            
-            return jsonify({
-                'success': False,
-                'error': error_msg,
-                'error_type': error_type,
-                'diagnosis': diagnosis,
-                'next_steps': [
-                    'Verificar formato de VAPID_PRIVATE_KEY (debe ser base64 url-safe)',
-                    'Verificar que VAPID_SUBJECT sea un email válido',
-                    'Probar con exp más corto (ej: 1 hora)'
-                ]
-            }), 500
-            
-    except Exception as e:
-        print(f"💥 [DEBUG] Error inesperado: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        return jsonify({
-            'success': False,
-            'error': f'Error inesperado: {type(e).__name__}',
-            'error_details': str(e)
-        }), 500
-    
 @app.route('/reset-subscriptions/<int:profesional_id>')
 def reset_subscriptions(profesional_id):
     """Eliminar suscripciones antiguas y preparar para nuevas - CORREGIDO"""
@@ -6459,7 +6229,7 @@ def reset_subscriptions(profesional_id):
                 '1. El profesional debe abrir la app web: https://wabot-production.up.railway.app',
                 '2. Cerrar y volver a abrir el navegador',
                 '3. Permitir notificaciones cuando el navegador pregunte',
-                '4. Probar con /test-push-debug/1'
+                '4. Probar con /push/debug-extremo'
             ]
         })
         
@@ -6524,7 +6294,7 @@ def vapid_info():
                 'steps': [
                     '1. Ejecutar: /reset-subscriptions/1',
                     '2. Pedir al profesional que abra la app y permita notificaciones DE NUEVO',
-                    '3. Probar: /test-push-debug/1'
+                    '3. Probar: /push/debug-extremo'
                 ]
             },
             {
@@ -6537,9 +6307,9 @@ def vapid_info():
                 ]
             }
         ],
-        'test_links': {
+        'related_links': {
             'reset_subscriptions': '/reset-subscriptions/1',
-            'test_push': '/test-push-debug/1',
+            'push_debug': '/push/debug-extremo',
             'check_dependencies': '/check-dependencies'
         }
     })
@@ -6678,7 +6448,7 @@ def debug_vapid_complete():
             '4. Railway hará deploy automático',
             '5. El profesional debe CERRAR NAVEGADOR y volver a abrir',
             '6. Permitir notificaciones DE NUEVO',
-            '7. Probar con /test-push-final/1'
+            '7. Confirmar la suscripción en el navegador y volver a cargar la página'
         ]
     })
  
@@ -6730,7 +6500,7 @@ def push_setup_completo():
             'siguientes_pasos': [
                 '1. Profesional abre la app y permite notificaciones',
                 '2. Verificar que se crea suscripción en BD',
-                '3. Probar con /push/test-manual',
+                '3. Verificar el flujo de notificaciones desde el frontend',
                 '4. Agenda cita desde chat web'
             ] if VAPID_PRIVATE_KEY else [
                 '1. Configurar VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY y VAPID_SUBJECT en Railway',
@@ -6745,52 +6515,6 @@ def push_setup_completo():
             'error_type': type(e).__name__
         }), 500
     
-@app.route('/push/test-ultimo')
-def test_ultimo():
-    """TEST MÁS SIMPLE POSIBLE"""
-    try:
-        import os
-        import json
-        import time
-        
-        # 1. Obtener suscripción
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({'error': 'No hay suscripciones'})
-        
-        # Extraer
-        if isinstance(result, dict):
-            sub_json = result.get('subscription_json')
-        else:
-            sub_json = result[0]
-        
-        subscription = json.loads(sub_json)
-        
-        # 2. Enviar
-        from pywebpush import webpush
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '🎉 ¡FINALMENTE!',
-                'body': f'Test exitoso {time.ctime()}',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
-            vapid_claims={
-                "sub": os.getenv('VAPID_SUBJECT', ''),
-                "exp": int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡FUNCIONA!'})
-        
     except Exception as e:
         error_msg = str(e)
         
@@ -6888,66 +6612,6 @@ def clear_service_worker():
     '''
 
 # Crea esta ruta NUEVA para prueba limpia
-@app.route('/push/test-simple')
-def test_push_simple():
-    """Prueba SUPER SIMPLE de push"""
-    import os
-    import json
-    import time
-    
-    # 1. Obtener primera suscripción
-    from database import get_db_connection
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
-    result = cursor.fetchone()
-    conn.close()
-    
-    if not result:
-        return jsonify({'error': 'No hay suscripciones'})
-    
-    # Extraer JSON (manejar ambos tipos)
-    if isinstance(result, dict):
-        sub_json = result.get('subscription_json')
-    else:
-        sub_json = result[0] if result else None
-    
-    if not sub_json:
-        return jsonify({'error': 'JSON vacío'})
-    
-    # 2. Parsear suscripción
-    try:
-        subscription = json.loads(sub_json)
-    except:
-        return jsonify({'error': 'JSON inválido', 'json': sub_json[:100]})
-    
-    # 3. Enviar push SIMPLE
-    try:
-        from pywebpush import webpush
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '✅ TEST SIMPLE',
-                'body': 'Funciona!',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
-            vapid_claims={
-                'sub': os.getenv('VAPID_SUBJECT', ''),
-                'exp': int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡PUSH ENVIADO!'})
-        
-    except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'error_type': type(e).__name__,
-            'subscription_keys': list(subscription.keys()) if subscription else [],
-            'endpoint': subscription.get('endpoint', '')[:50] + '...' if subscription else None
-        })
 
 @app.route('/push/debug-extremo')
 def debug_extremo():
@@ -7032,84 +6696,7 @@ def debug_extremo():
         ]
     })
 
-# ============================================
-# RUTAS DE PRUEBA PUSH EN app.py
-# ============================================
 
-@app.route('/push/test-ultra-simple')
-def test_ultra_simple():
-    """TEST ULTRA SIMPLE - Sin imports complicados"""
-    try:
-        import os
-        import json
-        import time
-        
-        print("🔧 TEST ULTRA SIMPLE INICIADO")
-        
-        # 1. Claves
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({'error': 'VAPID_PRIVATE_KEY no configurada'})
-        
-        # 2. Obtener suscripción MÁS RECIENTE
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({'error': 'No hay suscripciones'})
-        
-        # Extraer
-        sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
-        
-        if not sub_json:
-            return jsonify({'error': 'JSON vacío'})
-        
-        # 3. Parsear
-        subscription = json.loads(sub_json)
-        endpoint = subscription.get('endpoint', '')
-        print(f"📫 Endpoint: {endpoint[:60]}...")
-        
-        # 4. Enviar con pywebpush
-        from pywebpush import webpush
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '🔥 ULTRA SIMPLE',
-                'body': f'Hora: {time.ctime()}',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={
-                "sub": os.getenv('VAPID_SUBJECT', ''),
-                "exp": int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡FUNCIONÓ!'})
-        
-    except Exception as e:
-        error_msg = str(e)
-        print(f"❌ ERROR: {error_msg}")
-        
-        # Información extra si es WebPushException
-        if hasattr(e, 'response'):
-            error_info = {
-                'status_code': e.response.status_code if hasattr(e, 'response') else None,
-                'response_text': e.response.text[:300] if hasattr(e, 'response') and e.response.text else None
-            }
-        else:
-            error_info = {}
-        
-        return jsonify({
-            'error': error_msg,
-            'error_type': type(e).__name__,
-            'error_info': error_info
-        })
 
 @app.route('/push/ver-suscripcion')
 def ver_suscripcion():
@@ -8163,36 +7750,6 @@ def ejecutar_sql():
             'success': False,
             'message': f'Error del sistema: {str(e)}'
         }), 500
-
-@app.route('/api/imagenes/test')
-@login_required
-def test_imagenes_sistema():
-    """Verificar si existe la tabla de imágenes - VERSIÓN SIMPLE"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'imagenes_profesionales'
-            )
-        """)
-        tabla_existe = cur.fetchone()[0]
-        cur.close()
-        
-        return jsonify({
-            'success': True,
-            'table_exists': bool(tabla_existe)
-        })
-        
-    except Exception as e:
-        # En caso de error, tabla no existe
-        return jsonify({
-            'success': True,
-            'table_exists': False
-        })
 
 @app.route('/admin/crear-tabla-push-clientes')
 @role_required(['superadmin'])

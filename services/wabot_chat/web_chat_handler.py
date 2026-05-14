@@ -1830,14 +1830,37 @@ def generar_opciones_servicios(numero, negocio_id):
         # ✅ TEXTO COMPLETO PARA LOS BOTONES
         texto_boton = f"{servicio['nombre']} - {texto_precio} ({servicio['duracion']} min)"
         
-        opciones.append({
+        opcion = {
             'value': str(i),
             'text': texto_boton,
-            # Metadata útil para el frontend
+            'name': servicio.get('nombre', texto_boton),
+            'type': 'service',
+            'duration': servicio.get('duracion'),
+            'price_text': texto_precio,
             'tipo_precio': tipo_precio,
             'precio_min': precio_base,
             'precio_max': precio_maximo
-        })
+        }
+
+        # Agregar imagen de servicio si existe
+        foto_url = servicio.get('foto_url')
+        if foto_url:
+            if foto_url.startswith('http://') or foto_url.startswith('https://'):
+                opcion['image'] = foto_url
+            else:
+                if foto_url.startswith('static/'):
+                    foto_url = '/' + foto_url
+                elif foto_url.startswith('/static/'):
+                    pass
+                elif not foto_url.startswith('/'):
+                    foto_url = '/' + foto_url
+
+                if foto_url.startswith('/uploads/'):
+                    foto_url = '/static' + foto_url
+
+                opcion['image'] = foto_url
+
+        opciones.append(opcion)
     
     return opciones
 

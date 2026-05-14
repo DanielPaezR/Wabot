@@ -1100,14 +1100,18 @@
             scrollToBottomChat();
 
             if (options && options.length) {
-                const isProfessionals = options[0].type === 'professional' || options[0].image;
+                const isCards = options[0].type === 'professional' || options[0].type === 'service' || options[0].image;
 
-                if (isProfessionals) {
+                if (isCards) {
                     const grid = document.createElement('div');
                     grid.className = 'professionals-grid';
                     options.forEach(opt => {
                         const card = document.createElement('div');
                         card.className = 'professional-card';
+                        const details = opt.type === 'service'
+                            ? `<div class="prof-specialty">${escapeHtml(opt.price_text || '')}${opt.duration ? ` · ${escapeHtml(String(opt.duration))} min` : ''}</div>`
+                            : opt.specialty ? `<div class="prof-specialty">${escapeHtml(opt.specialty)}</div>` : '';
+
                         card.innerHTML = `
                             <div class="prof-avatar">
                                 ${opt.image
@@ -1115,7 +1119,7 @@
                                     : '👤'}
                             </div>
                             <div class="prof-name">${escapeHtml(opt.name || opt.text)}</div>
-                            ${opt.specialty ? `<div class="prof-specialty">${escapeHtml(opt.specialty)}</div>` : ''}
+                            ${details}
                             <button class="btn-select-prof" data-value="${escapeHtml(opt.value)}">Seleccionar</button>
                         `;
                         grid.appendChild(card);
