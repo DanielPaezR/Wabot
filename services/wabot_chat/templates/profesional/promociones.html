@@ -301,6 +301,12 @@
                             <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar esta promoción?')">
                                 🗑 Eliminar
                             </button>
+                            <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
+                                class="btn btn-sm btn-outline" 
+                                target="_blank"
+                                style="margin-top:8px;">
+                                📤 Ver Flyer
+                            </a>
                         </form>
                     </div>
                     

@@ -1108,7 +1108,7 @@ def ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente
         return ia_info_profesional(argumentos, negocio_id)
     
     if nombre_funcion == 'responder_cliente':
-        return arguments.get('mensaje', '¿En qué puedo ayudarte?')
+        return argumentos.get('mensaje', '¿En qué puedo ayudarte?')
 
     return 'La herramienta solicitada no está disponible. Por favor usa el menú numérico.'
 
@@ -1362,6 +1362,15 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
         nombre_cliente = flask_session.get('cliente_nombre')
 
     guardar_historial_ia(clave_conversacion, 'user', mensaje)
+    conversacion = conversaciones_activas.setdefault(clave_conversacion, {
+        'estado': 'ia_libre',
+        'timestamp': datetime.now(tz_colombia),
+        'historial': []
+    })
+    if telefono_cliente:
+        conversacion['telefono_cliente'] = telefono_cliente
+    if nombre_cliente:
+        conversacion['cliente_nombre'] = nombre_cliente
     historial = conversaciones_activas.get(clave_conversacion, {}).get('historial', [])
     respuesta = procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
@@ -2968,8 +2977,21 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             print(f"🔧 [SYNC] Sincronizando datos de IA: {pending}")
             
             # Convertir al formato que espera el flujo numérico
-            conversacion['hora_seleccionada'] = pending.get('hora')
-            conversacion['fecha_seleccionada'] = pending.get('fecha')
+            fecha_normalizada = normalizar_fecha_usuario(pending.get('fecha'))
+            hora_normalizada = normalizar_hora_usuario(pending.get('hora'))
+            if not fecha_normalizada or not hora_normalizada:
+                print(f"❌ [SYNC] Fecha u hora inválida desde IA: fecha={pending.get('fecha')}, hora={pending.get('hora')}")
+                return "❌ No pude validar la fecha u hora de la cita. Por favor indícame nuevamente la fecha y hora."
+
+            conversacion['fecha_seleccionada'] = fecha_normalizada
+            conversacion['hora_seleccionada'] = hora_normalizada
+            if flask_session.get('cliente_telefono'):
+                conversacion.setdefault('telefono_cliente', flask_session.get('cliente_telefono'))
+            if flask_session.get('cliente_nombre'):
+                conversacion.setdefault('cliente_nombre', flask_session.get('cliente_nombre'))
+            if not conversacion.get('telefono_cliente'):
+                print("❌ [SYNC] La confirmación IA no tiene teléfono del cliente")
+                return "❌ Para confirmar la cita necesito primero tu teléfono de 10 dígitos."
             
             # Buscar profesional_id y servicio_id desde los nombres
             if pending.get('profesional_nombre'):
@@ -2987,6 +3009,10 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                     conversacion['servicio_nombre'] = servicio['nombre']
                     conversacion['servicio_precio'] = servicio['precio']
                     conversacion['servicio_duracion'] = servicio['duracion']
+            
+            if 'profesional_id' not in conversacion or 'servicio_id' not in conversacion:
+                print(f"❌ [SYNC] No se pudo resolver profesional o servicio desde IA: {pending}")
+                return "❌ No pude validar el profesional o servicio de la cita. Por favor elige nuevamente desde los botones."
             
             # Limpiar pending
             del conversacion['pending_agendamiento']

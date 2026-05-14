@@ -7832,6 +7832,74 @@ def serve_firebase_sw():
         mimetype='application/javascript'
     )
 
+@app.route('/profesional/generar-flyer/<int:promocion_id>')
+@login_required
+def generar_flyer_promocion(promocion_id):
+    """Generar flyer para una promoción"""
+    try:
+        from flyer_generator import generar_flyer_promocion, generar_flyer_concurso
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT p.*, n.nombre as negocio_nombre, prof.nombre as profesional_nombre
+            FROM promociones p
+            JOIN negocios n ON p.negocio_id = n.id
+            JOIN profesionales prof ON p.profesional_id = prof.id
+            WHERE p.id = %s
+        ''', (promocion_id,))
+        
+        promo = cursor.fetchone()
+        conn.close()
+        
+        if not promo:
+            flash('Promoción no encontrada', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        # Generar QR URL (apunta al chat del negocio)
+        qr_url = f"https://wabot-deployment.up.railway.app/cliente/{promo['negocio_id']}"
+        
+        # Fecha formateada
+        fecha_fin = str(promo['fecha_fin'])[:10] if promo.get('fecha_fin') else 'Indefinido'
+        
+        # Generar flyer según tipo
+        if promo.get('tipo_promocion') == 'concurso_fotos':
+            flyer_path = generar_flyer_concurso(
+                negocio_nombre=promo['negocio_nombre'],
+                titulo_promo=promo['titulo'],
+                premio=promo.get('premio', ''),
+                fecha_fin=fecha_fin,
+                qr_url=qr_url,
+                profesional_nombre=promo.get('profesional_nombre', '')
+            )
+        else:
+            flyer_path = generar_flyer_promocion(
+                negocio_nombre=promo['negocio_nombre'],
+                titulo_promo=promo['titulo'],
+                descripcion=promo.get('descripcion', ''),
+                descuento=promo.get('descuento_porcentaje', 0),
+                fecha_fin=fecha_fin,
+                qr_url=qr_url,
+                profesional_nombre=promo.get('profesional_nombre', '')
+            )
+        
+        if flyer_path:
+            # Devolver la imagen
+            return send_from_directory(
+                os.path.dirname(os.path.abspath(__file__)), 
+                flyer_path, 
+                mimetype='image/png'
+            )
+        else:
+            flash('Error al generar el flyer', 'error')
+            return redirect(url_for('profesional_promociones'))
+            
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        flash('Error al generar el flyer', 'error')
+        return redirect(url_for('profesional_promociones'))
+    
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================

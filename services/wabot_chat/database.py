@@ -226,12 +226,25 @@ def _crear_tablas(cursor):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             tipo_precio VARCHAR(20) DEFAULT 'fijo',
             precio_maximo DECIMAL(10,2),
+            foto_url TEXT,
+            moneda VARCHAR(10) DEFAULT 'COP',
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
     if postgres:
         servicios_sql = servicios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
     execute_sql(cursor, servicios_sql)
+
+    if postgres:
+        execute_sql(cursor, 'ALTER TABLE servicios ADD COLUMN IF NOT EXISTS foto_url TEXT')
+        execute_sql(cursor, "ALTER TABLE servicios ADD COLUMN IF NOT EXISTS moneda VARCHAR(10) DEFAULT 'COP'")
+    else:
+        cursor.execute("PRAGMA table_info(servicios)")
+        columnas_servicios = {row[1] for row in cursor.fetchall()}
+        if 'foto_url' not in columnas_servicios:
+            cursor.execute('ALTER TABLE servicios ADD COLUMN foto_url TEXT')
+        if 'moneda' not in columnas_servicios:
+            cursor.execute("ALTER TABLE servicios ADD COLUMN moneda VARCHAR(10) DEFAULT 'COP'")
     
     # Tabla citas
     citas_sql = '''
@@ -1350,7 +1363,7 @@ def obtener_servicios(negocio_id):
     if is_postgresql():
         sql = '''
             SELECT id, nombre, duracion, precio, descripcion, activo, created_at,
-                   tipo_precio, precio_maximo
+                   tipo_precio, precio_maximo, foto_url
             FROM servicios 
             WHERE negocio_id = %s AND activo = TRUE
             ORDER BY nombre
@@ -1359,7 +1372,7 @@ def obtener_servicios(negocio_id):
     else:
         sql = '''
             SELECT id, nombre, duracion, precio, descripcion, activo, created_at,
-                   tipo_precio, precio_maximo
+                   tipo_precio, precio_maximo, foto_url
             FROM servicios 
             WHERE negocio_id = ? AND activo = TRUE
             ORDER BY nombre
@@ -1377,6 +1390,8 @@ def obtener_servicios(negocio_id):
                 servicio['tipo_precio'] = 'fijo'
             if 'precio_maximo' not in servicio:
                 servicio['precio_maximo'] = None
+            if 'foto_url' not in servicio:
+                servicio['foto_url'] = None
             servicios_procesados.append(servicio)
         else:
             # Si es tupla, convertir a diccionario
@@ -1389,7 +1404,8 @@ def obtener_servicios(negocio_id):
                 'activo': servicio[5] if len(servicio) > 5 else True,
                 'created_at': servicio[6] if len(servicio) > 6 else None,
                 'tipo_precio': servicio[7] if len(servicio) > 7 else 'fijo',
-                'precio_maximo': servicio[8] if len(servicio) > 8 else None
+                'precio_maximo': servicio[8] if len(servicio) > 8 else None,
+                'foto_url': servicio[9] if len(servicio) > 9 else None
             })
     
     return servicios_procesados
@@ -1840,6 +1856,28 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
             ORDER BY c.hora
         '''
         params = (negocio_id, profesional_id, fecha)
+    
+    if negocio_id is None:
+        if is_postgresql():
+            sql = '''
+                SELECT c.hora, s.duracion, c.estado
+                FROM citas c 
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = %s 
+                AND c.fecha::DATE = %s::DATE 
+                AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')
+                ORDER BY c.hora
+            '''
+        else:
+            sql = '''
+                SELECT c.hora, s.duracion, c.estado
+                FROM citas c 
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = ? AND c.fecha = ? 
+                AND c.estado IN ('confirmado', 'completado', 'bloqueado')
+                ORDER BY c.hora
+            '''
+        params = (profesional_id, fecha)
     
     cursor = conn.cursor()
     cursor.execute(sql, params)
