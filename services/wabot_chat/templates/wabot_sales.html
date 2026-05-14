@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>Wabot | IA que analiza tu negocio y agenda citas sola</title>
 <meta name="description" content="Wabot usa inteligencia artificial para analizar los datos de tu negocio, predecir días flojos, automatizar promociones y agendar citas 24/7. Sin mover un dedo.">
 
@@ -18,17 +18,77 @@ body{
   color:#e2e8f0;
   line-height:1.6;
   overflow-x:hidden;
+  scroll-behavior:smooth;
 }
 
 /* GLOW EFECTO */
 .glow{
   position:absolute;
-  width:600px;
-  height:600px;
+  width:300px;
+  height:300px;
   background:radial-gradient(circle,rgba(99,102,241,.15),transparent 70%);
   border-radius:50%;
   pointer-events:none;
   z-index:0;
+}
+
+/* ==================== MENÚ HAMBURGUESA ==================== */
+.hamburger{
+  display:none;
+  background:none;
+  border:none;
+  color:white;
+  font-size:1.8rem;
+  cursor:pointer;
+  padding:0.5rem;
+}
+
+.mobile-menu{
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  background:rgba(2,6,23,.98);
+  backdrop-filter:blur(12px);
+  z-index:1001;
+  padding:5rem 2rem 2rem;
+  flex-direction:column;
+  gap:1rem;
+  border-bottom:1px solid rgba(255,255,255,.1);
+  transform:translateY(-100%);
+  transition:transform 0.3s ease;
+}
+
+.mobile-menu.open{
+  transform:translateY(0);
+}
+
+.mobile-menu a{
+  color:#e2e8f0;
+  text-decoration:none;
+  font-size:1.1rem;
+  font-weight:600;
+  padding:0.8rem 0;
+  border-bottom:1px solid rgba(255,255,255,.1);
+  display:flex;
+  align-items:center;
+  gap:0.8rem;
+}
+
+.mobile-menu a:active{
+  color:#8b5cf6;
+}
+
+.close-menu{
+  position:absolute;
+  top:1rem;
+  right:1rem;
+  background:none;
+  border:none;
+  color:white;
+  font-size:1.5rem;
+  cursor:pointer;
 }
 
 /* NAV */
@@ -36,7 +96,7 @@ body{
   position:fixed;
   top:0;
   width:100%;
-  background:rgba(2,6,23,.8);
+  background:rgba(2,6,23,.95);
   backdrop-filter:blur(12px);
   border-bottom:1px solid rgba(255,255,255,.05);
   z-index:1000;
@@ -45,27 +105,44 @@ body{
 .header-content{
   max-width:1200px;
   margin:auto;
-  padding:1rem 2rem;
+  padding:0.8rem 1.2rem;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
 
-.logo{font-weight:800;font-size:1.4rem}
+.logo{font-weight:800;font-size:1.2rem}
 .logo span{color:#8b5cf6}
 
 .cta-btn{
   background:linear-gradient(135deg,#25D366,#1da851);
-  padding:.6rem 1.4rem;
+  padding:0.5rem 1rem;
   border-radius:999px;
   color:#fff;
   text-decoration:none;
   font-weight:600;
-  font-size:.9rem;
-  box-shadow:0 8px 20px rgba(37,211,102,.3);
+  font-size:0.8rem;
+  box-shadow:0 4px 12px rgba(37,211,102,.3);
   transition:.3s;
 }
 .cta-btn:hover{transform:translateY(-2px)}
+
+/* Enlaces de navegación desktop */
+.nav-links{
+  display:flex;
+  gap:1.5rem;
+  align-items:center;
+}
+
+.nav-links a{
+  color:#94a3b8;
+  text-decoration:none;
+  font-weight:500;
+  font-size:0.85rem;
+  transition:color 0.2s;
+}
+
+.nav-links a:hover{color:#8b5cf6}
 
 /* HERO */
 .hero{
@@ -74,8 +151,9 @@ body{
   align-items:center;
   justify-content:center;
   text-align:center;
-  padding:8rem 2rem 4rem;
-  min-height:90vh;
+  padding:6rem 1.2rem 3rem;
+  min-height:auto;
+  margin-top:0;
 }
 
 .hero-content{position:relative;z-index:1}
@@ -84,84 +162,106 @@ body{
   display:inline-block;
   background:rgba(139,92,246,.15);
   color:#a78bfa;
-  padding:.4rem 1.2rem;
+  padding:0.3rem 1rem;
   border-radius:999px;
-  font-size:.8rem;
+  font-size:0.7rem;
   font-weight:600;
-  margin-bottom:1.5rem;
+  margin-bottom:1rem;
   border:1px solid rgba(139,92,246,.3);
 }
 
 .hero h1{
-  font-size:clamp(2rem,5vw,3.5rem);
-  max-width:800px;
-  margin-bottom:1.5rem;
-  font-weight:900;
-  line-height:1.2;
+  font-size:clamp(1.6rem,6vw,2.2rem);
+  max-width:100%;
+  margin-bottom:1rem;
+  font-weight:800;
+  line-height:1.3;
 }
 .hero h1 span{background:linear-gradient(135deg,#6366f1,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 
 .hero p{
   color:#94a3b8;
-  max-width:550px;
-  margin:0 auto 2.5rem;
-  font-size:1.1rem;
+  max-width:100%;
+  margin:0 auto 1.5rem;
+  font-size:0.9rem;
+  padding:0 0.5rem;
 }
 
 .hero-buttons{
   display:flex;
-  gap:1rem;
+  gap:0.8rem;
   justify-content:center;
   flex-wrap:wrap;
+  flex-direction:column;
+  align-items:center;
+}
+
+.hero-buttons .btn-primary,
+.hero-buttons .btn-outline{
+  width:100%;
+  max-width:260px;
+  text-align:center;
 }
 
 .btn-primary{
   background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  padding:1rem 2.5rem;
+  padding:0.8rem 1.5rem;
   border-radius:999px;
   color:white;
   text-decoration:none;
   font-weight:700;
-  font-size:1rem;
+  font-size:0.9rem;
   box-shadow:0 10px 30px rgba(99,102,241,.4);
   transition:.3s;
+  display:inline-block;
 }
-.btn-primary:hover{transform:translateY(-4px);box-shadow:0 15px 40px rgba(99,102,241,.6)}
+.btn-primary:active{transform:scale(0.98)}
 
 .btn-outline{
-  padding:1rem 2.5rem;
+  padding:0.8rem 1.5rem;
   border-radius:999px;
   color:white;
   text-decoration:none;
   font-weight:600;
   border:2px solid rgba(255,255,255,.2);
   transition:.3s;
+  display:inline-block;
 }
-.btn-outline:hover{border-color:#8b5cf6;background:rgba(139,92,246,.1)}
+.btn-outline:active{transform:scale(0.98)}
 
 /* SECTION */
-.section{max-width:1200px;margin:auto;padding:5rem 2rem}
+.section{
+  max-width:100%;
+  margin:auto;
+  padding:3rem 1.2rem;
+}
 
 .section-title{
   text-align:center;
-  font-size:clamp(1.8rem,4vw,2.5rem);
-  margin-bottom:1rem;
+  font-size:clamp(1.5rem,5vw,1.8rem);
+  margin-bottom:0.8rem;
   font-weight:800;
 }
-.section-subtitle{text-align:center;color:#94a3b8;margin-bottom:3rem;font-size:1.05rem}
+.section-subtitle{
+  text-align:center;
+  color:#94a3b8;
+  margin-bottom:2rem;
+  font-size:0.9rem;
+  padding:0 0.5rem;
+}
 
 /* VALUE PROP - 3 CARDS */
 .value-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-  gap:2rem;
-  margin-top:2rem;
+  grid-template-columns:1fr;
+  gap:1.2rem;
+  margin-top:1rem;
 }
 
 .value-card{
   background:linear-gradient(145deg,#0f172a,#1e293b);
-  padding:2.5rem 2rem;
-  border-radius:24px;
+  padding:1.8rem 1.2rem;
+  border-radius:20px;
   border:1px solid rgba(255,255,255,.05);
   text-align:center;
   transition:.3s;
@@ -178,60 +278,66 @@ body{
   opacity:0;
   transition:.3s;
 }
-.value-card:hover::before{opacity:1}
-.value-card:hover{transform:translateY(-8px);border-color:rgba(139,92,246,.3)}
+.value-card:active::before{opacity:1}
+.value-card:active{transform:scale(0.98)}
 
-.value-icon{font-size:3rem;margin-bottom:1rem}
+.value-icon{font-size:2.2rem;margin-bottom:0.8rem}
 
-.value-card h3{font-size:1.3rem;margin-bottom:.8rem;font-weight:700}
+.value-card h3{font-size:1.2rem;margin-bottom:0.5rem;font-weight:700}
 
-.value-card p{color:#94a3b8;font-size:.9rem;line-height:1.6}
+.value-card p{color:#94a3b8;font-size:0.85rem;line-height:1.5}
 
 /* DEMO SECTION */
 .demo-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
-  gap:2rem;
+  grid-template-columns:1fr;
+  gap:1.2rem;
 }
 
 .demo-card{
   background:linear-gradient(145deg,#0f172a,#1e293b);
   border:1px solid rgba(255,255,255,.05);
-  padding:2.5rem 2rem;
-  border-radius:24px;
+  padding:1.8rem 1.2rem;
+  border-radius:20px;
   text-align:center;
   transition:.3s;
 }
-.demo-card:hover{border-color:rgba(139,92,246,.3)}
+.demo-card:active{transform:scale(0.98)}
 
-.demo-card .demo-icon{font-size:2.5rem;margin-bottom:1rem}
-.demo-card h3{margin-bottom:.5rem}
-.demo-card p{color:#94a3b8;margin-bottom:1.5rem;font-size:.9rem}
+.demo-card .demo-icon{font-size:2rem;margin-bottom:0.8rem}
+.demo-card h3{font-size:1.1rem;margin-bottom:0.5rem}
+.demo-card p{color:#94a3b8;margin-bottom:1rem;font-size:0.85rem}
 
 /* STATS */
 .stats-row{
   display:flex;
   justify-content:center;
-  gap:3rem;
+  gap:1.5rem;
   flex-wrap:wrap;
-  margin-top:2rem;
+  margin-top:1.5rem;
 }
 
 .stat-item{text-align:center}
-.stat-number{font-size:2.5rem;font-weight:900;background:linear-gradient(135deg,#6366f1,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.stat-label{color:#94a3b8;font-size:.85rem}
+.stat-number{
+  font-size:1.8rem;
+  font-weight:900;
+  background:linear-gradient(135deg,#6366f1,#a78bfa);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.stat-label{color:#94a3b8;font-size:0.7rem}
 
 /* PRICING */
 .pricing-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-  gap:2rem;
+  grid-template-columns:1fr;
+  gap:1.2rem;
 }
 
 .pricing-card{
   background:linear-gradient(145deg,#0f172a,#1e293b);
-  padding:2.5rem 2rem;
-  border-radius:24px;
+  padding:1.8rem 1.2rem;
+  border-radius:20px;
   text-align:center;
   border:1px solid rgba(255,255,255,.05);
   transition:.3s;
@@ -241,7 +347,7 @@ body{
   border-color:#8b5cf6;
   background:linear-gradient(145deg,#1e1b4b,#0f172a);
 }
-.pricing-card:hover{transform:translateY(-8px)}
+.pricing-card:active{transform:scale(0.98)}
 
 .pricing-badge{
   position:absolute;
@@ -249,64 +355,135 @@ body{
   left:50%;
   transform:translateX(-50%);
   background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  padding:.3rem 1.5rem;
+  padding:0.2rem 1rem;
   border-radius:999px;
-  font-size:.75rem;
+  font-size:0.65rem;
   font-weight:700;
+  white-space:nowrap;
 }
 
-.pricing-card h3{font-size:1.2rem;margin-bottom:.5rem}
-.pricing-currency{font-size:.8rem;opacity:.7}
-.pricing-price{font-size:2.8rem;font-weight:900;margin:.8rem 0}
-.pricing-price small{font-size:.9rem;font-weight:400;opacity:.7}
-.pricing-features{list-style:none;margin:1.5rem 0;text-align:left}
-.pricing-features li{padding:.4rem 0;font-size:.85rem;color:#94a3b8}
+.pricing-card h3{font-size:1rem;margin-bottom:0.3rem}
+.pricing-currency{font-size:0.7rem;opacity:.7}
+.pricing-price{font-size:2rem;font-weight:900;margin:0.5rem 0}
+.pricing-price small{font-size:0.7rem;font-weight:400;opacity:.7}
+.pricing-features{list-style:none;margin:1rem 0;text-align:left}
+.pricing-features li{padding:0.3rem 0;font-size:0.8rem;color:#94a3b8}
 .pricing-features li::before{content:'✓ ';color:#25D366;font-weight:bold}
 
 .pricing-btn{
   display:inline-block;
   width:100%;
-  padding:.8rem;
+  padding:0.7rem;
   border-radius:999px;
   text-decoration:none;
   font-weight:700;
+  font-size:0.85rem;
   transition:.2s;
   background:white;
   color:#6366f1;
+  cursor:pointer;
 }
-.pricing-btn:hover{transform:scale(1.03)}
+.pricing-btn:active{transform:scale(0.98)}
 .pricing-btn.featured{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white}
 
 /* CTA FINAL */
 .cta-section{
   text-align:center;
-  padding:5rem 2rem;
+  padding:3rem 1.2rem;
   background:radial-gradient(circle at 50% 50%,rgba(99,102,241,.1),transparent 70%);
 }
 
-/* FOOTER */
-.footer{text-align:center;padding:2rem;color:#64748b;font-size:.85rem}
+.cta-section h2{
+  font-size:clamp(1.3rem,5vw,1.8rem);
+  font-weight:800;
+  margin-bottom:0.8rem;
+}
 
-@media(max-width:768px){
-  .hero{padding:6rem 1.5rem 3rem;min-height:auto}
-  .stats-row{gap:1.5rem}
-  .pricing-grid{grid-template-columns:1fr}
+.cta-section p{
+  color:#94a3b8;
+  margin-bottom:1.5rem;
+  font-size:0.85rem;
+  padding:0 0.5rem;
+}
+
+/* FOOTER */
+.footer{text-align:center;padding:2rem 1rem;color:#64748b;font-size:0.75rem}
+
+/* Media Queries */
+@media (min-width: 640px){
+  .hero-buttons{
+    flex-direction:row;
+  }
+  .hero-buttons .btn-primary,
+  .hero-buttons .btn-outline{
+    width:auto;
+  }
+  .value-grid{grid-template-columns:repeat(3,1fr);gap:1.5rem}
+  .demo-grid{grid-template-columns:repeat(2,1fr);gap:1.5rem}
+  .pricing-grid{grid-template-columns:repeat(3,1fr);gap:1.5rem}
+  .section{padding:4rem 2rem}
+  .hero{padding:7rem 2rem 4rem}
+  .hero h1{font-size:2rem}
+}
+
+@media (max-width: 768px){
+  .nav-links{display:none}
+  .hamburger{display:block}
+}
+
+@media (min-width: 769px){
+  .mobile-menu{display:none !important}
+  .hamburger{display:none}
 }
 </style>
 </head>
 <body>
 
+<!-- HEADER -->
 <div class="header">
   <div class="header-content">
     <div class="logo">Wa<span>Bot</span></div>
-    <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" class="cta-btn" target="_blank">
-      <i class="fab fa-whatsapp"></i> Contáctame
-    </a>
+    
+    <!-- Botón hamburguesa (solo móvil) -->
+    <button class="hamburger" id="hamburgerBtn">
+      <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Navegación desktop -->
+    <div class="nav-links">
+      <a href="#inicio">Inicio</a>
+      <a href="#que-es">¿Qué es?</a>
+      <a href="#demo">Demo</a>
+      <a href="#precios">Precios</a>
+      <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" class="cta-btn" target="_blank">
+        <i class="fab fa-whatsapp"></i> Contacto
+      </a>
+    </div>
   </div>
 </div>
 
-<!-- HERO -->
-<section class="hero">
+<!-- Menú móvil -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="close-menu" id="closeMenuBtn">✕</button>
+  <a href="#inicio" onclick="closeMobileMenu()">
+    <i class="fas fa-home"></i> Inicio
+  </a>
+  <a href="#que-es" onclick="closeMobileMenu()">
+    <i class="fas fa-brain"></i> ¿Qué es?
+  </a>
+  <a href="#demo" onclick="closeMobileMenu()">
+    <i class="fas fa-play-circle"></i> Demo
+  </a>
+  <a href="#precios" onclick="closeMobileMenu()">
+    <i class="fas fa-tag"></i> Precios
+  </a>
+  <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" target="_blank" onclick="closeMobileMenu()">
+    <i class="fab fa-whatsapp"></i> Contacto
+  </a>
+</div>
+
+<!-- HERO (INICIO) -->
+<section id="inicio" class="hero">
   <div class="glow" style="top:10%;left:10%"></div>
   <div class="glow" style="bottom:10%;right:10%"></div>
   
@@ -328,8 +505,8 @@ body{
   </div>
 </section>
 
-<!-- VALUE PROP -->
-<section class="section">
+<!-- VALUE PROP (QUÉ ES) -->
+<section id="que-es" class="section">
   <h2 class="section-title">Más que un bot de citas</h2>
   <p class="section-subtitle">Wabot no solo agenda. Analiza, predice y te ayuda a ganar más dinero.</p>
   
@@ -355,7 +532,7 @@ body{
 </section>
 
 <!-- DEMO -->
-<section class="section">
+<section id="demo" class="section">
   <h2 class="section-title">Míralo en acción</h2>
   <p class="section-subtitle">Así es como tus clientes agendan sin que hagas nada</p>
   
@@ -364,20 +541,20 @@ body{
       <div class="demo-icon">📱</div>
       <h3>Chat del Cliente</h3>
       <p>Tu cliente habla con la IA, elige profesional, servicio y hora. Todo automático.</p>
-      <a href="https://wabot-production-d544.up.railway.app/cliente/1" class="btn-primary" target="_blank" style="display:inline-block;padding:.8rem 2rem;">Probar Chat</a>
+      <a href="https://wabot-production-d544.up.railway.app/cliente/1" class="btn-primary" target="_blank" style="display:inline-block;padding:0.7rem 1.5rem;">Probar Chat</a>
     </div>
     
     <div class="demo-card">
       <div class="demo-icon">🏪</div>
       <h3>Perfil del Negocio</h3>
       <p>Así te ven tus clientes en el directorio. Con reseñas, fotos y servicios.</p>
-      <a href="https://wabot-directorio-production.up.railway.app/negocio/1" class="btn-primary" target="_blank" style="display:inline-block;padding:.8rem 2rem;">Ver Perfil</a>
+      <a href="https://wabot-directorio-production.up.railway.app/negocio/1" class="btn-primary" target="_blank" style="display:inline-block;padding:0.7rem 1.5rem;">Ver Perfil</a>
     </div>
   </div>
 </section>
 
 <!-- PRICING -->
-<section class="section" id="precios">
+<section id="precios" class="section">
   <h2 class="section-title">Planes Simples</h2>
   <p class="section-subtitle">Sin contratos, sin permanencia. Paga solo lo que usas.</p>
   
@@ -394,13 +571,13 @@ body{
         <li>Dashboard completo</li>
         <li>Promociones y concursos</li>
       </ul>
-      <div style="font-size:.8rem;opacity:.7;margin-bottom:1rem;">+ $40.000 configuración única</div>
+      <div style="font-size:0.7rem;opacity:.7;margin-bottom:0.8rem;">+ $40.000 configuración única</div>
       <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20COP" class="pricing-btn" target="_blank">Contratar en COP</a>
     </div>
     
-    <!-- AWG -->
+    <!-- AWG (MÁS POPULAR) -->
     <div class="pricing-card featured">
-      <div class="pricing-badge">Más popular</div>
+      <div class="pricing-badge">🌟 Más popular</div>
       <h3>🇦🇼 Florines Arubanos</h3>
       <div class="pricing-currency">AWG</div>
       <div class="pricing-price">45 <small>/luna</small></div>
@@ -411,7 +588,7 @@ body{
         <li>Dashboard completo</li>
         <li>Promociones y concursos</li>
       </ul>
-      <div style="font-size:.8rem;opacity:.7;margin-bottom:1rem;">+ 50 AWG configuración único</div>
+      <div style="font-size:0.7rem;opacity:.7;margin-bottom:0.8rem;">+ 50 AWG configuración único</div>
       <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20AWG" class="pricing-btn featured" target="_blank">Contratar en AWG</a>
     </div>
     
@@ -427,7 +604,7 @@ body{
         <li>Full dashboard</li>
         <li>Promos & contests</li>
       </ul>
-      <div style="font-size:.8rem;opacity:.7;margin-bottom:1rem;">+ $30 USD one-time setup</div>
+      <div style="font-size:0.7rem;opacity:.7;margin-bottom:0.8rem;">+ $30 USD one-time setup</div>
       <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20USD" class="pricing-btn" target="_blank">Hire in USD</a>
     </div>
   </div>
@@ -435,10 +612,10 @@ body{
 
 <!-- CTA FINAL -->
 <section class="cta-section">
-  <h2 style="font-size:2rem;font-weight:800;margin-bottom:1rem">¿Listo para dejar de perder clientes?</h2>
-  <p style="color:#94a3b8;margin-bottom:2rem;max-width:500px;margin-left:auto;margin-right:auto">Agenda una demo gratis en 2 minutos. Sin compromiso.</p>
+  <h2>¿Listo para dejar de perder clientes?</h2>
+  <p>Agenda una demo gratis en 2 minutos. Sin compromiso.</p>
   
-  <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20una%20demo%20de%20Wabot" class="btn-primary" target="_blank" style="font-size:1.1rem;padding:1.2rem 3rem;">
+  <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20una%20demo%20de%20Wabot" class="btn-primary" target="_blank" style="font-size:1rem;padding:0.9rem 2rem;">
     <i class="fab fa-whatsapp"></i> Quiero mi demo gratis
   </a>
 </section>
@@ -447,5 +624,74 @@ body{
   <p>© 2026 Wabot · Hecho con ❤️ desde Colombia</p>
 </div>
 
+<script>
+  // ==================== MENÚ HAMBURGUESA ====================
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const closeMenuBtn = document.getElementById('closeMenuBtn');
+
+  function openMobileMenu() {
+    mobileMenu.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileMenu() {
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  hamburgerBtn.addEventListener('click', openMobileMenu);
+  closeMenuBtn.addEventListener('click', closeMobileMenu);
+
+  // Cerrar menú al hacer clic en un enlace
+  window.closeMobileMenu = closeMobileMenu;
+
+  // ==================== ASEGURAR CARGA EN EL INICIO ====================
+  // Eliminar cualquier hash (#) de la URL al cargar
+  if (window.location.hash === '#precios' || window.location.hash === '#demo' || window.location.hash === '#que-es') {
+    // Forzar scroll al inicio después de un pequeño delay
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      // También puedes intentar cambiar la URL sin el hash
+      history.pushState('', document.title, window.location.pathname + window.location.search);
+    }, 100);
+  }
+
+  // Si alguien intenta acceder directamente con un hash, redirigir al inicio
+  window.addEventListener('load', function() {
+    if (window.location.hash) {
+      // Si el hash existe, hacer scroll suave a la sección correspondiente
+      // pero primero asegurar que la página está en el top
+      window.scrollTo(0, 0);
+      setTimeout(() => {
+        const targetId = window.location.hash.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } else {
+      window.scrollTo(0, 0);
+    }
+  });
+
+  // Scroll suave para todos los enlaces internos
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+      const href = this.getAttribute('href');
+      if (href === '#' || href === '#inicio') {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (href.startsWith('#') && href.length > 1) {
+        e.preventDefault();
+        const targetId = href.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    });
+  });
+</script>
 </body>
 </html>
