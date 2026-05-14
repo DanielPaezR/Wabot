@@ -7730,17 +7730,20 @@ def api_cliente_citas():
         
         cursor.execute('''
             SELECT c.id, c.fecha, c.hora, c.estado,
-                   s.nombre as servicio_nombre, s.precio,
-                   p.nombre as profesional_nombre,
-                   p.id as profesional_id,
-                   n.nombre as negocio_nombre,
-                   CASE 
-                       WHEN EXISTS (
-                           SELECT 1 FROM opiniones_profesional 
-                           WHERE cliente_telefono = %s AND cita_id = c.id
-                       ) THEN TRUE 
-                       ELSE FALSE 
-                   END as ya_calificada
+                s.nombre as servicio_nombre, s.precio,
+                p.nombre as profesional_nombre,
+                p.id as profesional_id,
+                n.nombre as negocio_nombre,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM opiniones_profesional op
+                        JOIN clientes cl ON op.cliente_id = cl.id
+                        WHERE cl.telefono = %s 
+                        AND op.profesional_id = c.profesional_id
+                        AND op.fecha::date >= c.fecha::date
+                    ) THEN TRUE 
+                    ELSE FALSE 
+                END as ya_calificada
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
