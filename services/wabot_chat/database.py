@@ -2,6 +2,7 @@
 # database.py - SISTEMA GENÉRICO DE CITAS - POSTGRESQL COMPLETO
 # =============================================================================
 import os
+import logging
 from datetime import datetime, timedelta
 import json
 import hashlib
@@ -9,6 +10,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import sqlite3  # Para fallback
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_connection():
@@ -1595,18 +1598,11 @@ def verificar_disponibilidad(profesional_id, fecha, hora, duracion_minutos):
 
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
     """Agregar nueva cita a la base de datos"""
-    print(f"🔍 [DEBUG agregar_cita] Iniciando inserción:")
-    print(f"   - negocio_id: {negocio_id}")
-    print(f"   - profesional_id: {profesional_id}")
-    print(f"   - cliente_telefono: {cliente_telefono}")
-    print(f"   - cliente_nombre: {cliente_nombre}")
-    print(f"   - fecha: {fecha}")
-    print(f"   - hora original: {hora}")
-    print(f"   - servicio_id: {servicio_id}")
+    logger.debug("agregar_cita: negocio_id=%s, profesional_id=%s, fecha=%s, hora=%s, servicio_id=%s",
+                 negocio_id, profesional_id, fecha, hora, servicio_id)
     
     # ✅ NORMALIZAR LA HORA (convertir de 12h a 24h si es necesario)
     hora_normalizada = normalizar_hora(hora)
-    print(f"   - hora normalizada: {hora_normalizada}")
     
     conn = get_db_connection()
     if not conn:
@@ -1995,9 +1991,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
             except:
                 cita['hora_display'] = hora_original
     
-    print(f"✅ [DB] Encontradas {len(citas)} citas activas")
-    for cita in citas:
-        print(f"  - {cita.get('hora_display', cita['hora'])}: {cita['cliente_nombre']} - {cita['servicio_nombre']}")
+    logger.debug("Encontradas %d citas activas", len(citas))
     
     # Procesar citas para marcar bloqueos
     for cita in citas:
@@ -2259,7 +2253,7 @@ def crear_usuario(negocio_id, nombre, email, password, rol='propietario'):
                 ''', (negocio_id, nombre, 'General', usuario_id))
         
         conn.commit()
-        print(f"✅ Usuario creado exitosamente: {email} (ID: {usuario_id}, Rol: {rol})")
+        logger.info("Usuario creado: ID=%s, Rol=%s", usuario_id, rol)
         return usuario_id
         
     except Exception as e:
@@ -2278,27 +2272,22 @@ def crear_profesional_con_usuario(negocio_id, nombre, email, password, especiali
     cursor = conn.cursor()
     
     try:
-        print(f"🔧 [DEBUG] Creando profesional con usuario:")
-        print(f"  - negocio_id: {negocio_id}")
-        print(f"  - nombre: {nombre}")
-        print(f"  - email: {email}")
-        print(f"  - especialidad: {especialidad}")
-        print(f"  - servicios_ids: {servicios_ids}")
-        
+        logger.debug("Creando profesional con usuario: negocio_id=%s, especialidad=%s, servicios=%s",
+                     negocio_id, especialidad, servicios_ids)
+
         # 1. Verificar si el email ya existe
         if is_postgresql():
             cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
         else:
             cursor.execute('SELECT id FROM usuarios WHERE email = ?', (email,))
-        
+
         if cursor.fetchone():
-            print(f"❌ Email {email} ya está en uso")
+            logger.warning("Email ya está en uso al crear profesional")
             conn.close()
             return None
-        
+
         # 2. Generar hash de la contraseña
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        password_hash = generate_password_hash(password)
         
         # 3. Crear usuario
         if is_postgresql():

@@ -24,6 +24,7 @@ from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler as scheduler
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from database import agregar_cita, normalizar_hora
 import psycopg2
 from collections import defaultdict
@@ -75,10 +76,11 @@ def add_security_headers(response):
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=()'
     return response
 
+app.permanent_session_lifetime = timedelta(hours=24)
+
 @app.before_request
 def make_session_permanent():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(days=30)
 
 # Configuración para subir imágenes
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -102,7 +104,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
         
         if not VAPID_PRIVATE_KEY:
             print("⚠️ No hay clave privada")
@@ -131,7 +133,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             conn.commit()
             conn.close()
             print(f"✅ Notificación guardada en BD")
-        except:
+        except Exception:
             pass
         
         # 2. Intentar push (opcional)
@@ -682,9 +684,11 @@ def api_votar(participacion_id):
         cursor.execute('UPDATE participaciones_concurso SET likes = likes + 1 WHERE id = %s', (participacion_id,))
         conn.commit()
         return jsonify({'success': True})
-    except:
+    except Exception:
+        conn.rollback()
         return jsonify({'success': False, 'message': 'Ya votaste'}), 400
-    finally: conn.close()
+    finally:
+        conn.close()
 
 # =============================================================================
 # RUTAS ADICIONALES PARA GESTIÓN DE PROMOCIONES
@@ -2131,8 +2135,7 @@ def admin_editar_usuario(usuario_id):
             if only_password:
                 # Solo cambiar contraseña
                 if nueva_password:
-                    import hashlib
-                    hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                    hashed_password = generate_password_hash(nueva_password)
                     
                     cursor.execute('''
                         UPDATE usuarios 
@@ -2155,8 +2158,7 @@ def admin_editar_usuario(usuario_id):
                 
                 # Si se proporciona nueva contraseña, incluirla en la actualización
                 if nueva_password:
-                    import hashlib
-                    hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                    hashed_password = generate_password_hash(nueva_password)
                     update_query += ', password_hash = %s'
                     params.append(hashed_password)
                 
@@ -4506,15 +4508,16 @@ def cambiar_password():
         if not usuario:
             return jsonify({'success': False, 'message': 'Usuario no encontrado'})
         
-        # Verificar contraseña actual
+        # Verificar contraseña actual (werkzeug o SHA256 legacy)
         import hashlib
-        current_hash = hashlib.sha256(current_password.encode()).hexdigest()
-        
-        if current_hash != usuario['password_hash']:
-            return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'})
-        
+        stored = usuario['password_hash']
+        if not check_password_hash(stored, current_password):
+            sha256 = hashlib.sha256(current_password.encode()).hexdigest()
+            if sha256 != stored:
+                return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'})
+
         # Actualizar contraseña
-        new_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        new_hash = generate_password_hash(new_password)
         cursor.execute('''
             UPDATE usuarios 
             SET password_hash = %s
@@ -6247,7 +6250,7 @@ def test_push_debug(profesional_id):
         # 1. Obtener y verificar VAPID
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
         
         print(f"🔑 [DEBUG] VAPID_PRIVATE_KEY: {'PRESENTE' if VAPID_PRIVATE_KEY else 'AUSENTE'}")
         print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {'PRESENTE' if VAPID_PUBLIC_KEY else 'AUSENTE'}")
@@ -6475,7 +6478,7 @@ def vapid_info():
     
     VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
     VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
     
     # Analizar formato de las claves
     def analyze_key(key, key_name):
@@ -6607,7 +6610,7 @@ def debug_vapid_complete():
     
     VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
     VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT') or 'mailto:danielpaezrami@gmail.com'
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
     
     # 1. Mostrar claves COMPLETAS (últimos 10 chars para seguridad)
     private_key_end = VAPID_PRIVATE_KEY[-10:] if len(VAPID_PRIVATE_KEY) > 10 else VAPID_PRIVATE_KEY
@@ -6781,7 +6784,7 @@ def test_ultimo():
             }),
             vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
             vapid_claims={
-                "sub": 'mailto:danielpaezrami@gmail.com',
+                "sub": os.getenv('VAPID_SUBJECT', ''),
                 "exp": int(time.time()) + 3600
             }
         )
@@ -6931,7 +6934,7 @@ def test_push_simple():
             }),
             vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
             vapid_claims={
-                'sub': 'mailto:danielpaezrami@gmail.com',
+                'sub': os.getenv('VAPID_SUBJECT', ''),
                 'exp': int(time.time()) + 3600
             }
         )
@@ -6956,7 +6959,7 @@ def debug_extremo():
     # 1. Obtener claves
     VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
     VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
     
     # 2. Verificar formato de clave privada
     private_key_info = {
@@ -7082,7 +7085,7 @@ def test_ultra_simple():
             }),
             vapid_private_key=VAPID_PRIVATE_KEY,
             vapid_claims={
-                "sub": "mailto:danielpaezrami@gmail.com",
+                "sub": os.getenv('VAPID_SUBJECT', ''),
                 "exp": int(time.time()) + 3600
             }
         )

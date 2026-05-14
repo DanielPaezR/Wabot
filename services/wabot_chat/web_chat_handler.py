@@ -40,8 +40,19 @@ tz_colombia = pytz.timezone('America/Bogota')
 
 web_chat_bp = Blueprint('web_chat', __name__)
 
-# Estados de conversación para sesiones web
+# Estados de conversación para sesiones web (en memoria — se pierde al reiniciar)
 conversaciones_activas = {}
+_CONVERSACION_TTL_MINUTOS = 30
+
+def _limpiar_conversaciones_viejas():
+    """Elimina conversaciones inactivas por más de _CONVERSACION_TTL_MINUTOS."""
+    ahora = datetime.now(tz_colombia)
+    claves_viejas = [
+        clave for clave, conv in conversaciones_activas.items()
+        if ahora - conv.get('timestamp', ahora) > timedelta(minutes=_CONVERSACION_TTL_MINUTOS)
+    ]
+    for clave in claves_viejas:
+        del conversaciones_activas[clave]
 
 # =============================================================================
 # FUNCIÓN PARA CONVERTIR A FORMATO 12 HORAS
@@ -132,7 +143,7 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
                 }),
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={
-                    "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
+                    "sub": os.getenv('VAPID_SUBJECT', ''),
                     "exp": expiration_time
                 },
                 ttl=86400  # 24 horas en segundos
@@ -167,7 +178,7 @@ def try_push_immediately(profesional_id, titulo, mensaje):
         
         # Verificar VAPID
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
         
         if not VAPID_PRIVATE_KEY:
             print("❌ No hay VAPID_PRIVATE_KEY - saltando push")
@@ -793,6 +804,7 @@ def guardar_historial_ia(clave_conversacion, role, contenido):
             'timestamp': datetime.now(tz_colombia),
             'historial': []
         }
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     conversaciones_activas[clave_conversacion].setdefault('historial', []).append({
         'role': role,
         'content': contenido
@@ -1518,8 +1530,9 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
     Reemplaza la función webhook_whatsapp
     """
     try:
+        _limpiar_conversaciones_viejas()
         user_message = user_message.strip()
-        
+
         print(f"🔧 [CHAT WEB] Mensaje recibido: '{user_message}'")
         
         # Verificar que el negocio existe y está activo
