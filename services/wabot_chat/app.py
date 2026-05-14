@@ -52,7 +52,10 @@ load_dotenv()
 tz_colombia = pytz.timezone('America/Bogota')
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
+_secret_key = os.getenv('SECRET_KEY')
+if not _secret_key:
+    raise RuntimeError("La variable de entorno SECRET_KEY es requerida")
+app.secret_key = _secret_key
 app.register_blueprint(push_bp, url_prefix='/push')
 app.register_blueprint(web_chat_bp, url_prefix='/cliente')
 
@@ -7400,7 +7403,7 @@ def crear_tabla_imagenes():
 def admin_panel():
     """Panel de administración - Solo super admin"""
     # Verificar si es super admin
-    if session.get('usuario_tipo') != 'admin':
+    if session.get('usuario_rol') != 'superadmin':
         return redirect(url_for('profesional_dashboard'))
     
     # Obtener estadísticas del sistema
@@ -8018,12 +8021,12 @@ def ver_tablas():
     """Ver todas las tablas en la base de datos (simplificado)"""
     try:
         # Solo super admin
-        if session.get('usuario_tipo') != 'superadmin':
+        if session.get('usuario_rol') != 'superadmin':
             return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
+
         conn = get_db_connection()
         cur = conn.cursor()
-        
+
         # Obtener todas las tablas
         cur.execute("""
             SELECT table_name
@@ -8077,9 +8080,9 @@ def ejecutar_sql():
     """Ejecutar SQL específico para crear tablas (versión segura)"""
     try:
         # Solo super admin
-        if session.get('usuario_tipo') != 'superadmin':
+        if session.get('usuario_rol') != 'superadmin':
             return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
+
         data = request.get_json()
         sql = data.get('sql', '').strip().upper()
         
@@ -8176,6 +8179,7 @@ def test_imagenes_sistema():
         })
 
 @app.route('/admin/crear-tabla-push-clientes')
+@role_required(['superadmin'])
 def crear_tabla_push_clientes():
     """Crear tabla de suscripciones push para clientes"""
     try:

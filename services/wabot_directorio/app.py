@@ -25,12 +25,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+_cors_origins = [
+    'https://wabot-production-d544.up.railway.app',
+    'https://wabot-deployment.up.railway.app',
+]
+_extra_origins = os.environ.get('CORS_ORIGINS', '')
+if _extra_origins:
+    _cors_origins += [o.strip() for o in _extra_origins.split(',') if o.strip()]
+CORS(app, origins=_cors_origins)
 
 # Configuración de base de datos
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
-    DATABASE_URL = "postgresql://postgres:ClWjzRkhvcoQJdNPaMxLpJBJBZUIOHHX@caboose.proxy.rlwy.net:55226/railway"
+    raise RuntimeError("La variable de entorno DATABASE_URL es requerida para ejecutar el directorio")
 
 print(f"Conectando a: {DATABASE_URL[:50]}...")
 

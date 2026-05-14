@@ -2223,8 +2223,7 @@ def crear_usuario(negocio_id, nombre, email, password, rol='propietario'):
             return None
         
         # Generar hash de la contraseña
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        password_hash = generate_password_hash(password)
         
         # Crear usuario
         if is_postgresql():
@@ -2431,24 +2430,39 @@ def verificar_usuario(email, password):
                 'negocio_nombre': usuario[9] if len(usuario) > 9 else 'Negocio'
             }
         
-        # Verificar contraseña (SHA256)
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        
-        if usuario_dict['password_hash'] != password_hash:
-            conn.close()
-            return None
-        
-        # ✅ CORRECCIÓN: Actualizar último login usando cursor.execute directamente
+        # Verificar contraseña — werkzeug primero, SHA256 como fallback para hashes legacy
+        stored_hash = usuario_dict['password_hash']
+        password_ok = check_password_hash(stored_hash, password)
+        if not password_ok:
+            # Fallback: hash SHA256 sin salt (hashes creados antes de la migración)
+            import hashlib
+            sha256_hash = hashlib.sha256(password.encode()).hexdigest()
+            if stored_hash != sha256_hash:
+                conn.close()
+                return None
+            # Contraseña correcta con hash legacy — upgrade transparente a werkzeug
+            nuevo_hash = generate_password_hash(password)
+            try:
+                if is_postgresql():
+                    cursor.execute('UPDATE usuarios SET password_hash = %s WHERE id = %s',
+                                   (nuevo_hash, usuario_dict['id']))
+                else:
+                    cursor.execute('UPDATE usuarios SET password_hash = ? WHERE id = ?',
+                                   (nuevo_hash, usuario_dict['id']))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+        # Actualizar último login
         try:
             if is_postgresql():
                 update_sql = 'UPDATE usuarios SET ultimo_login = %s WHERE id = %s'
             else:
                 update_sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
-            
+
             cursor.execute(update_sql, (datetime.now(), usuario_dict['id']))
             conn.commit()
-            
+
         except Exception as e:
             print(f"⚠️ Error actualizando último login: {e}")
             conn.rollback()
