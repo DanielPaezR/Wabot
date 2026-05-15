@@ -158,6 +158,31 @@
 
         .hidden { display: none; }
 
+        /* Botones de acción en card */
+        .promo-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-promo {
+            padding: 8px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn-promo:active { transform: scale(0.97); }
+        .btn-promo-primary { background: var(--primary); color: white; }
+        .btn-promo-success { background: var(--success); color: white; }
+
         /* Modal */
         .modal {
             display: none;
@@ -231,27 +256,6 @@
 
         .modal-footer .btn { flex: 1; justify-content: center; }
 
-        /* Servicios checkboxes */
-        .servicios-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .servicio-chip {
-            padding: 6px 14px;
-            border: 1px solid var(--border);
-            border-radius: 30px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.15s;
-            background: var(--white);
-        }
-        .servicio-chip.selected {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
         @media (max-width: 480px) {
             body { padding: 12px; }
             .tipo-grid { grid-template-columns: 1fr 1fr; }
@@ -301,22 +305,6 @@
                             <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar esta promoción?')">
                                 🗑 Eliminar
                             </button>
-                            <div class="promo-actions">
-                                <!-- Botones existentes -->
-                                <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
-                                target="_blank"
-                                class="btn-promo btn-promo-primary" 
-                                style="flex: 0.5; font-size: 0.75rem;">
-                                🎨 Ver Flyer
-                                </a>
-                                
-                                <!-- Botón compartir en WhatsApp -->
-                                <button class="btn-promo btn-promo-success" 
-                                        onclick="compartirFlyerWhatsApp({{ promo.id }})"
-                                        style="flex: 0.5; font-size: 0.75rem;">
-                                    📤 Compartir
-                                </button>
-                            </div>
                         </form>
                     </div>
                     
@@ -352,6 +340,19 @@
                         {% if expirada %}
                         <p class="text-light" style="color:var(--danger);">⏰ Esta promoción ya expiró</p>
                         {% endif %}
+                        
+                        <!-- ✅ BOTONES DE ACCIÓN (FUERA del form de eliminar) -->
+                        <div class="promo-actions">
+                            <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
+                               target="_blank"
+                               class="btn-promo btn-promo-primary">
+                                🎨 Ver Flyer
+                            </a>
+                            <button class="btn-promo btn-promo-success" 
+                                    onclick="compartirFlyerWhatsApp({{ promo.id }})">
+                                📤 Compartir
+                            </button>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -382,7 +383,6 @@
                 </div>
                 
                 <div class="modal-body">
-                    <!-- Selector de tipo -->
                     <label style="font-weight:600;font-size:0.8rem;margin-bottom:8px;display:block;">
                         ¿Qué tipo de promoción quieres crear?
                     </label>
@@ -409,7 +409,6 @@
                         </div>
                     </div>
                     
-                    <!-- Campos comunes -->
                     <div class="form-group">
                         <label>Título *</label>
                         <input type="text" name="titulo" class="form-control" placeholder="Ej: ¡Viernes de descuentos!" required>
@@ -420,7 +419,6 @@
                         <textarea name="descripcion" class="form-control" rows="2" placeholder="Describe tu promoción..."></textarea>
                     </div>
                     
-                    <!-- Campos para concurso de fotos -->
                     <div id="camposConcurso">
                         <div class="form-group">
                             <label>Premio</label>
@@ -428,7 +426,6 @@
                         </div>
                     </div>
                     
-                    <!-- Campos para descuentos -->
                     <div id="camposDescuento" class="hidden">
                         <div class="form-group">
                             <label>Porcentaje de descuento *</label>
@@ -436,7 +433,6 @@
                         </div>
                     </div>
                     
-                    <!-- Campos para hora feliz -->
                     <div id="camposHoras" class="hidden">
                         <div class="form-group">
                             <label>Porcentaje de descuento *</label>
@@ -454,7 +450,6 @@
                         </div>
                     </div>
                     
-                    <!-- Fechas -->
                     <div class="form-row">
                         <div class="form-group">
                             <label>Fecha inicio</label>
@@ -487,39 +482,30 @@
         }
         
         function seleccionarTipo(el) {
-            // Quitar selected de todos
             document.querySelectorAll('.tipo-option').forEach(o => o.classList.remove('selected'));
-            // Agregar al clickeado
             el.classList.add('selected');
             
             const tipo = el.dataset.tipo;
             document.getElementById('tipoPromocion').value = tipo;
             
-            // Mostrar/ocultar campos según tipo
             document.getElementById('camposConcurso').classList.toggle('hidden', tipo !== 'concurso_fotos');
             document.getElementById('camposDescuento').classList.toggle('hidden', tipo !== 'descuento_dia' && tipo !== 'dosxuno');
             document.getElementById('camposHoras').classList.toggle('hidden', tipo !== 'descuento_horas');
         }
         
-        // Cerrar modal al hacer clic fuera
         document.getElementById('modalCrear').addEventListener('click', function(e) {
             if (e.target === this) cerrarModalCrear();
         });
-
-        <div class="promo-actions">
-            <!-- Botones existentes -->
-            <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
-            target="_blank"
-            class="btn-promo btn-promo-primary" 
-            style="flex: 0.5; font-size: 0.75rem;">
-            🎨 Ver Flyer
-            </a>
-            <button class="btn-promo btn-promo-success" 
-                    onclick="compartirFlyerWhatsApp({{ promo.id }})"
-                    style="flex: 0.5; font-size: 0.75rem;">
-                📤 Compartir
-            </button>
-        </div>
+        
+        function compartirFlyerWhatsApp(promoId) {
+            const flyerUrl = window.location.origin + '/profesional/generar-flyer/' + promoId;
+            const mensaje = encodeURIComponent(
+                '🔥 ¡Mira esta promo!\n\n' +
+                'Agenda tu cita aquí: ' + window.location.origin + '/cliente/1\n\n' +
+                'Flyer: ' + flyerUrl
+            );
+            window.open('https://wa.me/?text=' + mensaje, '_blank');
+        }
     </script>
 </body>
 </html>
