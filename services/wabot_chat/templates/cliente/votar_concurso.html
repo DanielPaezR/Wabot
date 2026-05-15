@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta property="og:title" content="🏆 {{ p.promo_titulo }} — Vota por {{ p.cliente_nombre }}">
-    <meta property="og:description" content="Apoya a {{ p.cliente_nombre }} con tu voto. ¡Cada like cuenta!">
+    <meta property="og:description" content="Apoya a {{ p.cliente_nombre }} con tu voto. Cada like cuenta">
     {% if p.foto_url %}
     <meta property="og:image" content="{{ p.foto_url.split(',')[0] }}">
     {% endif %}
@@ -44,7 +44,6 @@
             padding-bottom: calc(100px + var(--safe-bottom));
         }
 
-        /* ── HERO ─────────────────────────────────────────────────────────── */
         .hero {
             background: linear-gradient(150deg, #667eea 0%, #764ba2 100%);
             padding: 32px 20px 80px;
@@ -80,14 +79,12 @@
             opacity: 0.85;
         }
 
-        /* ── CONTENEDOR PRINCIPAL ────────────────────────────────────────── */
         .page {
             max-width: 520px;
             margin: 0 auto;
             padding: 0 14px;
         }
 
-        /* ── TARJETA PARTICIPANTE (flota sobre el hero) ───────────────────── */
         .participant-card {
             background: var(--white);
             border-radius: var(--radius);
@@ -99,7 +96,6 @@
             position: relative;
         }
 
-        /* Galería de fotos */
         .photo-gallery {
             position: relative;
             background: #0f172a;
@@ -118,7 +114,6 @@
             display: block;
         }
 
-        /* Dots de la galería */
         .gallery-dots {
             position: absolute;
             bottom: 10px;
@@ -136,7 +131,6 @@
         }
         .gallery-dot.active { background: #fff; width: 18px; border-radius: 3px; }
 
-        /* Flechas galería */
         .gallery-arrow {
             position: absolute;
             top: 50%; transform: translateY(-50%);
@@ -155,7 +149,6 @@
         .gallery-arrow.right { right: 10px; }
         .gallery-arrow.hidden { display: none; }
 
-        /* Contador de fotos */
         .photo-counter {
             position: absolute;
             top: 10px; right: 10px;
@@ -167,7 +160,6 @@
             border-radius: 20px;
         }
 
-        /* Info del participante */
         .participant-info {
             padding: 16px 18px 6px;
             display: flex;
@@ -212,7 +204,6 @@
             font-style: italic;
         }
 
-        /* ── BOTÓN DE VOTO (sticky bottom) ───────────────────────────────── */
         .vote-bar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
@@ -270,7 +261,6 @@
         #voteMessage.success { color: var(--success); font-weight: 600; }
         #voteMessage.error   { color: var(--danger);  font-weight: 600; }
 
-        /* ── COMPARTIR ────────────────────────────────────────────────────── */
         .share-card {
             background: var(--white);
             border-radius: var(--radius);
@@ -326,7 +316,6 @@
             min-height: 18px;
         }
 
-        /* ── RANKING ──────────────────────────────────────────────────────── */
         .ranking-card {
             background: var(--white);
             border-radius: var(--radius);
@@ -429,7 +418,6 @@
             gap: 4px;
         }
 
-        /* ── WABOT PROMO ─────────────────────────────────────────────────── */
         .wabot-card {
             background: linear-gradient(135deg, #667eea, #764ba2);
             border-radius: var(--radius);
@@ -474,7 +462,6 @@
         .wabot-btn-outline { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
         .wabot-btn:active  { transform: scale(0.97); }
 
-        /* ── BOTTOM SHEET (compartir) ────────────────────────────────────── */
         .sheet-overlay {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.45);
@@ -586,7 +573,6 @@
         .sheet-option-text strong { font-size: 0.9rem; font-weight: 600; color: var(--dark); display: block; }
         .sheet-option-text span   { font-size: 0.75rem; color: var(--text-light); }
 
-        /* ── TOAST ───────────────────────────────────────────────────────── */
         #toast {
             position: fixed;
             bottom: calc(90px + var(--safe-bottom));
@@ -606,7 +592,6 @@
         }
         #toast.show { opacity: 1; transform: translateY(0); }
 
-        /* ── LOADER ──────────────────────────────────────────────────────── */
         #loader {
             position: fixed; inset: 0;
             background: rgba(15,23,42,0.75);
@@ -629,7 +614,6 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         #loaderText { font-size: 0.9rem; opacity: 0.85; }
 
-        /* ── FOOTER ──────────────────────────────────────────────────────── */
         .footer {
             text-align: center;
             color: #94a3b8;
@@ -641,19 +625,15 @@
 </head>
 <body>
 
-    <!-- LOADER -->
     <div id="loader">
         <div class="loader-spin"></div>
         <div id="loaderText">Preparando imagen...</div>
     </div>
 
-    <!-- TOAST -->
     <div id="toast"></div>
 
-    <!-- SHEET OVERLAY -->
     <div class="sheet-overlay" id="sheetOverlay" onclick="cerrarSheet()"></div>
 
-    <!-- BOTTOM SHEET COMPARTIR -->
     <div class="bottom-sheet" id="shareSheet">
         <div class="sheet-handle"></div>
         <div class="sheet-head">
@@ -661,7 +641,6 @@
             <button class="sheet-close-btn" onclick="cerrarSheet()">×</button>
         </div>
 
-        <!-- Preview -->
         <div class="sheet-preview">
             {% if p.foto_url %}
             <img src="{{ p.foto_url.split(',')[0] }}" alt="{{ p.cliente_nombre }}" crossorigin="anonymous">
@@ -719,7 +698,6 @@
         </div>
     </div>
 
-    <!-- ── HERO ── -->
     <div class="hero">
         <div class="hero-badge"><i class="fas fa-trophy"></i> Concurso activo</div>
         <h1>{{ p.promo_titulo }}</h1>
@@ -728,10 +706,8 @@
 
     <div class="page">
 
-        <!-- ── TARJETA PARTICIPANTE ── -->
         <div class="participant-card" id="cardToCapture">
 
-            <!-- Galería -->
             <div class="photo-gallery" id="photoGallery">
                 {% if p.foto_url %}
                     {% set fotos = p.foto_url.split(',') %}
@@ -765,7 +741,6 @@
                 {% endif %}
             </div>
 
-            <!-- Info -->
             <div class="participant-info">
                 <div>
                     <div class="participant-name">{{ p.cliente_nombre }}</div>
@@ -786,7 +761,6 @@
 
         </div>
 
-        <!-- ── COMPARTIR ── -->
         <div class="share-card">
             <div class="share-title"><i class="fas fa-share-nodes"></i> Ayuda a {{ p.cliente_nombre }} a ganar</div>
             <div class="share-btns">
@@ -806,7 +780,6 @@
             <div id="shareMsg"></div>
         </div>
 
-        <!-- ── RANKING ── -->
         <div class="ranking-card" id="rankingCard">
             <div class="ranking-head">
                 <div class="ranking-head-title">
@@ -821,7 +794,6 @@
             </div>
         </div>
 
-        <!-- ── WABOT ── -->
         <div class="wabot-card">
             <div class="wabot-icon">🤖</div>
             <h3>Automatiza tu negocio con Wabot</h3>
@@ -841,7 +813,6 @@
         <div class="footer">© 2025 Wabot · Automatiza tu negocio y conecta con más clientes</div>
     </div>
 
-    <!-- ── BOTÓN DE VOTO STICKY ── -->
     <div class="vote-bar">
         <button class="vote-btn" id="voteBtn">
             <i class="fas fa-heart"></i> Votar por {{ p.cliente_nombre }}
@@ -850,364 +821,340 @@
     </div>
 
     <script>
-        // ── CONSTANTES ────────────────────────────────────────────────────────
-        const PARTICIPACION_ID = {{ p.id }};
-        const PROMOCION_ID     = {{ p.promocion_id }};
-        const LS_KEY           = `wabot_voto_${PARTICIPACION_ID}`;
-        const SHARE_URL        = window.location.href;
-        const SHARE_TITLE      = {{ p.promo_titulo | tojson }};
-        const NOMBRE           = {{ p.cliente_nombre | tojson }};
-        const LIKES_ACTUALES   = {{ p.likes }};
-
-        // ── HELPERS ───────────────────────────────────────────────────────────
-        function toast(msg, tipo) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.style.background = tipo === 'error'   ? '#ef4444' :
-                                  tipo === 'success' ? '#10b981' : '#1e293b';
-            t.classList.add('show');
-            clearTimeout(t._timer);
-            t._timer = setTimeout(() => t.classList.remove('show'), 2500);
-        }
-
-        function setShareMsg(msg) {
-            document.getElementById('shareMsg').textContent = msg;
-            setTimeout(() => document.getElementById('shareMsg').textContent = '', 3000);
-        }
-
-        function loader(show, texto = 'Preparando imagen...') {
-            document.getElementById('loaderText').textContent = texto;
-            document.getElementById('loader').classList.toggle('show', show);
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const d = document.createElement('div');
-            d.textContent = text;
-            return d.innerHTML;
-        }
-
-        function storageGet(key) {
-            try {
-                return window.localStorage ? localStorage.getItem(key) : null;
-            } catch (e) {
-                console.warn('localStorage no disponible:', e);
-                return null;
+        (function() {
+            // Datos del servidor (escapados para evitar problemas con & y otros caracteres)
+            const PARTICIPACION_ID = {{ p.id|tojson }};
+            const PROMOCION_ID = {{ p.promocion_id|tojson }};
+            const SHARE_URL = window.location.href;
+            const SHARE_TITLE = {{ p.promo_titulo|tojson }};
+            const NOMBRE = {{ p.cliente_nombre|tojson }};
+            const LS_KEY = 'wabot_voto_' + PARTICIPACION_ID;
+            
+            let currentPhoto = 0;
+            const slides = document.querySelectorAll('.photo-slide');
+            const dots = document.querySelectorAll('.gallery-dot');
+            const counter = document.getElementById('photoCounter');
+            const arrowL = document.getElementById('arrowLeft');
+            const arrowR = document.getElementById('arrowRight');
+            
+            // Funciones helper
+            function toast(msg, tipo) {
+                const t = document.getElementById('toast');
+                if (!t) return;
+                t.textContent = msg;
+                t.style.background = tipo === 'error' ? '#ef4444' : tipo === 'success' ? '#10b981' : '#1e293b';
+                t.classList.add('show');
+                clearTimeout(t._timer);
+                t._timer = setTimeout(() => t.classList.remove('show'), 2500);
             }
-        }
-
-        function storageSet(key, value) {
-            try {
-                if (window.localStorage) localStorage.setItem(key, value);
-            } catch (e) {
-                console.warn('No se pudo guardar en localStorage:', e);
+            
+            function loader(show, texto) {
+                const loaderEl = document.getElementById('loader');
+                const loaderText = document.getElementById('loaderText');
+                if (!loaderEl) return;
+                if (texto && loaderText) loaderText.textContent = texto;
+                loaderEl.classList.toggle('show', show);
             }
-        }
-
-        // ── VERIFICAR SI YA VOTÓ ──────────────────────────────────────────────
-        function yaVoto() {
-            return storageGet(LS_KEY) === 'true';
-        }
-
-        // ── CONFIGURAR BOTÓN COMO VOTADO ──────────────────────────────────────
-        function setVoted() {
+            
+            function escapeHtml(text) {
+                if (!text) return '';
+                const d = document.createElement('div');
+                d.textContent = text;
+                return d.innerHTML;
+            }
+            
+            function storageGet(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch(e) {
+                    return null;
+                }
+            }
+            
+            function storageSet(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch(e) {}
+            }
+            
+            // Galería
+            function goToPhoto(i) {
+                if (slides.length <= 1) return;
+                slides[currentPhoto]?.classList.remove('active');
+                if (dots[currentPhoto]) dots[currentPhoto].classList.remove('active');
+                currentPhoto = (i + slides.length) % slides.length;
+                slides[currentPhoto]?.classList.add('active');
+                if (dots[currentPhoto]) dots[currentPhoto].classList.add('active');
+                if (counter) counter.textContent = (currentPhoto + 1) + ' / ' + slides.length;
+                if (arrowL) arrowL.classList.toggle('hidden', currentPhoto === 0);
+                if (arrowR) arrowR.classList.toggle('hidden', currentPhoto === slides.length - 1);
+            }
+            
+            window.nextPhoto = function() { goToPhoto(currentPhoto + 1); };
+            window.prevPhoto = function() { goToPhoto(currentPhoto - 1); };
+            window.goToPhoto = goToPhoto;
+            
+            // Swipe
+            const gallery = document.getElementById('photoGallery');
+            if (gallery && slides.length > 1) {
+                let startX = 0;
+                gallery.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+                gallery.addEventListener('touchend', e => {
+                    const dx = e.changedTouches[0].clientX - startX;
+                    if (Math.abs(dx) > 40) dx < 0 ? window.nextPhoto() : window.prevPhoto();
+                });
+            }
+            
+            // Votar
             const voteBtn = document.getElementById('voteBtn');
+            const voteCount = document.getElementById('voteCount');
             const voteMessage = document.getElementById('voteMessage');
             
-            voteBtn.disabled = true;
-            voteBtn.classList.add('voted');
-            voteBtn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Ya votaste por ' + NOMBRE + '!';
-            voteMessage.textContent = '🎉 ¡Gracias por tu voto! Comparte para que gane';
-            voteMessage.className = 'success';
-        }
-
-        // ── VERIFICAR VOTO DESDE EL SERVIDOR ──────────────────────────────────
-        async function verificarVotoServidor() {
-            try {
-                const res = await fetch(`/api/concurso/verificar-voto/${PARTICIPACION_ID}`);
-                const data = await res.json();
-                
-                if (data.success && data.voted) {
-                    storageSet(LS_KEY, 'true');
-                    setVoted();
-                    return true;
+            function setVoted() {
+                if (!voteBtn) return;
+                voteBtn.disabled = true;
+                voteBtn.classList.add('voted');
+                voteBtn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Ya votaste por ' + NOMBRE + '!';
+                if (voteMessage) {
+                    voteMessage.textContent = '🎉 ¡Gracias por tu voto! Comparte para que gane';
+                    voteMessage.className = 'success';
                 }
-                return false;
-            } catch(e) {
-                console.error('Error verificando voto:', e);
-                return yaVoto(); // Fallback a localStorage
-            }
-        }
-
-        // ── GALERÍA ───────────────────────────────────────────────────────────
-        let currentPhoto = 0;
-        const slides  = document.querySelectorAll('.photo-slide');
-        const dots    = document.querySelectorAll('.gallery-dot');
-        const counter = document.getElementById('photoCounter');
-        const arrowL  = document.getElementById('arrowLeft');
-        const arrowR  = document.getElementById('arrowRight');
-
-        function goToPhoto(i) {
-            if (slides.length <= 1) return;
-            slides[currentPhoto].classList.remove('active');
-            if (dots[currentPhoto]) dots[currentPhoto].classList.remove('active');
-            currentPhoto = (i + slides.length) % slides.length;
-            slides[currentPhoto].classList.add('active');
-            if (dots[currentPhoto]) dots[currentPhoto].classList.add('active');
-            if (counter) counter.textContent = `${currentPhoto + 1} / ${slides.length}`;
-            if (arrowL) arrowL.classList.toggle('hidden', currentPhoto === 0);
-            if (arrowR) arrowR.classList.toggle('hidden', currentPhoto === slides.length - 1);
-        }
-
-        function nextPhoto() { goToPhoto(currentPhoto + 1); }
-        function prevPhoto() { goToPhoto(currentPhoto - 1); }
-
-        // Swipe en galería
-        (() => {
-            const gallery = document.getElementById('photoGallery');
-            if (!gallery) return;
-            let startX = 0;
-            gallery.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
-            gallery.addEventListener('touchend', e => {
-                const dx = e.changedTouches[0].clientX - startX;
-                if (Math.abs(dx) > 40) dx < 0 ? nextPhoto() : prevPhoto();
-            }, { passive: true });
-        })();
-
-        // ── VOTO ─────────────────────────────────────────────────────────────
-        const voteBtn     = document.getElementById('voteBtn');
-        const voteCount   = document.getElementById('voteCount');
-        const voteMessage = document.getElementById('voteMessage');
-
-        voteBtn.addEventListener('click', async () => {
-            // Verificar si ya votó antes de enviar la petición
-            if (yaVoto()) {
-                toast('Ya votaste por ' + NOMBRE, 'success');
-                setVoted();
-                return;
             }
             
-            voteBtn.disabled = true;
-            voteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando voto...';
-
-            try {
-                const res  = await fetch(`/api/concurso/like/${PARTICIPACION_ID}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    // Actualizar contador
-                    const nuevoLikes = parseInt(voteCount.textContent) + 1;
-                    voteCount.textContent = nuevoLikes;
-                    
-                    // Guardar en localStorage
-                    storageSet(LS_KEY, 'true');
-                    
-                    // Configurar botón como votado
-                    setVoted();
-                    
-                    // Recargar ranking
-                    cargarRanking();
-                    
-                    // Animar el contador
-                    voteCount.style.transform = 'scale(1.4)';
-                    setTimeout(() => voteCount.style.transform = '', 300);
-                    
-                    toast('✅ ¡Voto registrado!', 'success');
-                    
-                } else if (data.already_voted) {
-                    // El servidor dice que ya votó
-                    storageSet(LS_KEY, 'true');
-                    setVoted();
-                    toast(data.message || 'Ya habías votado por ' + NOMBRE, 'success');
-                } else {
-                    // Error
-                    voteBtn.disabled = false;
-                    voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
-                    toast(data.message || 'Error al registrar el voto', 'error');
-                }
-            } catch(e) {
-                console.error('Error en voto:', e);
-                voteBtn.disabled = false;
-                voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
-                toast('Error de conexión. Intenta de nuevo', 'error');
-            }
-        });
-
-        // ── RANKING ───────────────────────────────────────────────────────────
-        async function cargarRanking() {
-            try {
-                const res  = await fetch(`/api/concurso/ranking/${PROMOCION_ID}`);
-                const data = await res.json();
-
-                if (!data.success || !data.participaciones || data.participaciones.length === 0) {
-                    document.getElementById('rankingList').innerHTML =
-                        '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:.85rem;">📭 Sin participantes aún</div>';
-                    return;
-                }
-
-                const maxVotes = Math.max(...data.participaciones.map(p => p.likes || 0), 1);
-                const medals   = ['🥇', '🥈', '🥉'];
-                const posClass = ['gold', 'silver', 'bronze'];
-
-                const html = data.participaciones.map((item, i) => {
-                    const isMe = parseInt(item.id) === PARTICIPACION_ID;
-                    const pct  = maxVotes > 0 ? Math.round((item.likes / maxVotes) * 100) : 0;
-                    return `
-                        <div class="ranking-row ${isMe ? 'me' : ''}">
-                            <div class="rank-pos ${posClass[i] || ''}">
-                                ${i < 3 ? medals[i] : (i+1) + 'º'}
-                            </div>
-                            <div class="rank-bar-wrap">
-                                <div class="rank-name">
-                                    ${escapeHtml(item.cliente_nombre)}
-                                    ${isMe ? '<span class="rank-me-tag">Tú</span>' : ''}
-                                </div>
-                                <div class="rank-bar-bg">
-                                    <div class="rank-bar-fill" style="width:${pct}%"></div>
-                                </div>
-                            </div>
-                            <div class="rank-votes">
-                                <i class="fas fa-heart" style="font-size:.7rem;"></i>
-                                ${item.likes}
-                            </div>
-                        </div>`;
-                }).join('');
-
-                document.getElementById('rankingList').innerHTML = html;
-
-                const now = new Date();
-                document.getElementById('rankingTime').textContent =
-                    `actualizado ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-
-            } catch(e) {
-                console.error('Error cargando ranking:', e);
-                document.getElementById('rankingList').innerHTML =
-                    '<div style="padding:28px; text-align:center; color:#ef4444; font-size:.85rem;">❌ Error al cargar el ranking</div>';
-            }
-        }
-
-        // ── CAPTURA DE IMAGEN (html2canvas) ──────────────────────────────────
-        async function capturarTarjeta() {
-            loader(true, 'Generando imagen...');
-            const card = document.getElementById('cardToCapture');
-            try {
-                const canvas = await html2canvas(card, {
-                    scale: 2.5,
-                    backgroundColor: '#ffffff',
-                    useCORS: true,
-                    logging: false,
-                    allowTaint: false,
-                });
-                const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 1.0));
-                loader(false);
-                return new File([blob], `concurso-${PARTICIPACION_ID}-${Date.now()}.png`, { type: 'image/png' });
-            } catch(e) {
-                loader(false);
-                console.error(e);
-                toast('Error al generar la imagen', 'error');
-                return null;
-            }
-        }
-
-        // ── SHEET ─────────────────────────────────────────────────────────────
-        function abrirSheet() {
-            document.getElementById('sheetOverlay').classList.add('open');
-            document.getElementById('shareSheet').classList.add('open');
-        }
-        function cerrarSheet() {
-            document.getElementById('sheetOverlay').classList.remove('open');
-            document.getElementById('shareSheet').classList.remove('open');
-        }
-
-        // ── ACCIONES COMPARTIR ────────────────────────────────────────────────
-        async function compartirNativo() {
-            cerrarSheet();
-            const texto = `🏆 *${SHARE_TITLE}*\n\n👤 Vota por *${NOMBRE}* 💪\n🔗 ${SHARE_URL}`;
-
-            if (navigator.share) {
+            async function verificarVotoServidor() {
                 try {
-                    const file = await capturarTarjeta();
-                    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-                        await navigator.share({ title: NOMBRE, text: texto, files: [file] });
-                    } else {
-                        await navigator.share({ title: NOMBRE, text: texto, url: SHARE_URL });
+                    const res = await fetch('/api/concurso/verificar-voto/' + PARTICIPACION_ID);
+                    const data = await res.json();
+                    if (data.success && data.voted) {
+                        storageSet(LS_KEY, 'true');
+                        setVoted();
+                        return true;
                     }
-                    toast('✅ Compartido', 'success');
-                    return;
-                } catch(e) { 
-                    console.log('Compartir cancelado o falló:', e);
-                    return;
+                    return false;
+                } catch(e) {
+                    console.error('Error verificando voto:', e);
+                    return storageGet(LS_KEY) === 'true';
                 }
             }
-            // Fallback: WhatsApp web
-            const wa = `https://wa.me/?text=${encodeURIComponent(texto)}`;
-            window.open(wa, '_blank');
-            toast('✅ Abriendo WhatsApp...', 'success');
-        }
-
-        function copiarEnlace() {
-            cerrarSheet();
-            navigator.clipboard.writeText(SHARE_URL).then(() => {
-                toast('✅ Enlace copiado', 'success');
-            }).catch(() => {
-                const ta = document.createElement('textarea');
-                ta.value = SHARE_URL;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                ta.remove();
-                toast('✅ Enlace copiado', 'success');
-            });
-        }
-
-        async function descargarImagen() {
-            cerrarSheet();
-            const file = await capturarTarjeta();
-            if (!file) { toast('Error al generar imagen', 'error'); return; }
-            const a = document.createElement('a');
-            a.href     = URL.createObjectURL(file);
-            a.download = file.name;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 100);
-            toast('✅ Imagen guardada', 'success');
-        }
-
-        async function compartirArchivo() {
-            cerrarSheet();
-            const file = await capturarTarjeta();
-            if (!file) { toast('Error al generar imagen', 'error'); return; }
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            
+            if (voteBtn) {
+                voteBtn.addEventListener('click', async () => {
+                    if (storageGet(LS_KEY) === 'true') {
+                        toast('Ya votaste por ' + NOMBRE, 'success');
+                        setVoted();
+                        return;
+                    }
+                    
+                    voteBtn.disabled = true;
+                    voteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando voto...';
+                    
+                    try {
+                        const res = await fetch('/api/concurso/like/' + PARTICIPACION_ID, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            const nuevoLikes = parseInt(voteCount.textContent) + 1;
+                            voteCount.textContent = nuevoLikes;
+                            storageSet(LS_KEY, 'true');
+                            setVoted();
+                            cargarRanking();
+                            voteCount.style.transform = 'scale(1.4)';
+                            setTimeout(() => voteCount.style.transform = '', 300);
+                            toast('✅ ¡Voto registrado!', 'success');
+                        } else if (data.already_voted) {
+                            storageSet(LS_KEY, 'true');
+                            setVoted();
+                            toast(data.message || 'Ya habías votado', 'success');
+                        } else {
+                            voteBtn.disabled = false;
+                            voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
+                            toast(data.message || 'Error al registrar el voto', 'error');
+                        }
+                    } catch(e) {
+                        console.error('Error en voto:', e);
+                        voteBtn.disabled = false;
+                        voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
+                        toast('Error de conexión. Intenta de nuevo', 'error');
+                    }
+                });
+            }
+            
+            // Ranking
+            async function cargarRanking() {
                 try {
-                    await navigator.share({ files: [file], title: NOMBRE });
-                    toast('✅ Compartido', 'success');
+                    const res = await fetch('/api/concurso/ranking/' + PROMOCION_ID);
+                    const data = await res.json();
+                    const rankingList = document.getElementById('rankingList');
+                    
+                    if (!data.success || !data.participaciones || data.participaciones.length === 0) {
+                        if (rankingList) {
+                            rankingList.innerHTML = '<div style="padding:28px; text-align:center; color:#94a3b8;">📭 Sin participantes aún</div>';
+                        }
+                        return;
+                    }
+                    
+                    const maxVotes = Math.max(...data.participaciones.map(p => p.likes || 0), 1);
+                    const medals = ['🥇', '🥈', '🥉'];
+                    const posClass = ['gold', 'silver', 'bronze'];
+                    
+                    const html = data.participaciones.map((item, i) => {
+                        const isMe = parseInt(item.id) === PARTICIPACION_ID;
+                        const pct = maxVotes > 0 ? Math.round((item.likes / maxVotes) * 100) : 0;
+                        return `
+                            <div class="ranking-row ${isMe ? 'me' : ''}">
+                                <div class="rank-pos ${posClass[i] || ''}">
+                                    ${i < 3 ? medals[i] : (i+1) + 'º'}
+                                </div>
+                                <div class="rank-bar-wrap">
+                                    <div class="rank-name">
+                                        ${escapeHtml(item.cliente_nombre)}
+                                        ${isMe ? '<span class="rank-me-tag">Tú</span>' : ''}
+                                    </div>
+                                    <div class="rank-bar-bg">
+                                        <div class="rank-bar-fill" style="width:${pct}%"></div>
+                                    </div>
+                                </div>
+                                <div class="rank-votes">
+                                    <i class="fas fa-heart" style="font-size:.7rem;"></i>
+                                    ${item.likes}
+                                </div>
+                            </div>`;
+                    }).join('');
+                    
+                    if (rankingList) rankingList.innerHTML = html;
+                    
+                    const now = new Date();
+                    const rankingTime = document.getElementById('rankingTime');
+                    if (rankingTime) {
+                        rankingTime.textContent = 'actualizado ' + now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+                    }
                 } catch(e) {
-                    console.log('Compartir cancelado:', e);
+                    console.error('Error cargando ranking:', e);
                 }
-            } else {
-                // Fallback: descargar
+            }
+            
+            // Compartir
+            async function capturarTarjeta() {
+                loader(true, 'Generando imagen...');
+                const card = document.getElementById('cardToCapture');
+                if (!card) {
+                    loader(false);
+                    return null;
+                }
+                try {
+                    const canvas = await html2canvas(card, {
+                        scale: 2.5,
+                        backgroundColor: '#ffffff',
+                        useCORS: true,
+                        logging: false,
+                        allowTaint: false
+                    });
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 1.0));
+                    loader(false);
+                    return new File([blob], 'concurso-' + PARTICIPACION_ID + '-' + Date.now() + '.png', { type: 'image/png' });
+                } catch(e) {
+                    loader(false);
+                    console.error(e);
+                    toast('Error al generar la imagen', 'error');
+                    return null;
+                }
+            }
+            
+            window.abrirSheet = function() {
+                document.getElementById('sheetOverlay')?.classList.add('open');
+                document.getElementById('shareSheet')?.classList.add('open');
+            };
+            
+            window.cerrarSheet = function() {
+                document.getElementById('sheetOverlay')?.classList.remove('open');
+                document.getElementById('shareSheet')?.classList.remove('open');
+            };
+            
+            window.compartirNativo = async function() {
+                window.cerrarSheet();
+                const texto = '🏆 *' + SHARE_TITLE + '*\n\n👤 Vota por *' + NOMBRE + '* 💪\n🔗 ' + SHARE_URL;
+                
+                if (navigator.share) {
+                    try {
+                        const file = await capturarTarjeta();
+                        if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({ title: NOMBRE, text: texto, files: [file] });
+                        } else {
+                            await navigator.share({ title: NOMBRE, text: texto, url: SHARE_URL });
+                        }
+                        toast('✅ Compartido', 'success');
+                        return;
+                    } catch(e) {
+                        return;
+                    }
+                }
+                const wa = 'https://wa.me/?text=' + encodeURIComponent(texto);
+                window.open(wa, '_blank');
+                toast('✅ Abriendo WhatsApp...', 'success');
+            };
+            
+            window.copiarEnlace = function() {
+                window.cerrarSheet();
+                navigator.clipboard.writeText(SHARE_URL).then(() => {
+                    toast('✅ Enlace copiado', 'success');
+                }).catch(() => {
+                    const ta = document.createElement('textarea');
+                    ta.value = SHARE_URL;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    toast('✅ Enlace copiado', 'success');
+                });
+            };
+            
+            window.descargarImagen = async function() {
+                window.cerrarSheet();
+                const file = await capturarTarjeta();
+                if (!file) {
+                    toast('Error al generar imagen', 'error');
+                    return;
+                }
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(file);
                 a.download = file.name;
                 a.click();
                 setTimeout(() => URL.revokeObjectURL(a.href), 100);
-                toast('✅ Imagen guardada (compártela manualmente)', 'success');
-            }
-        }
-
-        // ── INIT ──────────────────────────────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Verificar si ya votó
-            const votado = await verificarVotoServidor();
+                toast('✅ Imagen guardada', 'success');
+            };
             
-            // Cargar ranking
-            await cargarRanking();
+            window.compartirArchivo = async function() {
+                window.cerrarSheet();
+                const file = await capturarTarjeta();
+                if (!file) {
+                    toast('Error al generar imagen', 'error');
+                    return;
+                }
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({ files: [file], title: NOMBRE });
+                        toast('✅ Compartido', 'success');
+                    } catch(e) {}
+                } else {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(file);
+                    a.download = file.name;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 100);
+                    toast('✅ Imagen guardada', 'success');
+                }
+            };
             
-            // Actualizar ranking cada 30 segundos
-            setInterval(cargarRanking, 30000);
-        });
+            // Inicializar
+            document.addEventListener('DOMContentLoaded', async () => {
+                await verificarVotoServidor();
+                await cargarRanking();
+                setInterval(cargarRanking, 30000);
+            });
+        })();
     </script>
 </body>
 </html>
