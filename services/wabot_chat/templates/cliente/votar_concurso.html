@@ -816,7 +816,7 @@
             </div>
             <div id="rankingList">
                 <div style="padding:32px; text-align:center; color:#94a3b8;">
-                    <i class="fas fa-spinner fa-spin"></i>
+                    <i class="fas fa-spinner fa-spin"></i> Cargando ranking...
                 </div>
             </div>
         </div>
@@ -853,10 +853,11 @@
         // ── CONSTANTES ────────────────────────────────────────────────────────
         const PARTICIPACION_ID = {{ p.id }};
         const PROMOCION_ID     = {{ p.promocion_id }};
-        const LS_KEY           = `liked_post_${PARTICIPACION_ID}`;
+        const LS_KEY           = `wabot_voto_${PARTICIPACION_ID}`;
         const SHARE_URL        = window.location.href;
         const SHARE_TITLE      = {{ p.promo_titulo | tojson }};
         const NOMBRE           = {{ p.cliente_nombre | tojson }};
+        const LIKES_ACTUALES   = {{ p.likes }};
 
         // ── HELPERS ───────────────────────────────────────────────────────────
         function toast(msg, tipo) {
@@ -903,6 +904,41 @@
             }
         }
 
+        // ── VERIFICAR SI YA VOTÓ ──────────────────────────────────────────────
+        function yaVoto() {
+            return storageGet(LS_KEY) === 'true';
+        }
+
+        // ── CONFIGURAR BOTÓN COMO VOTADO ──────────────────────────────────────
+        function setVoted() {
+            const voteBtn = document.getElementById('voteBtn');
+            const voteMessage = document.getElementById('voteMessage');
+            
+            voteBtn.disabled = true;
+            voteBtn.classList.add('voted');
+            voteBtn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Ya votaste por ' + NOMBRE + '!';
+            voteMessage.textContent = '🎉 ¡Gracias por tu voto! Comparte para que gane';
+            voteMessage.className = 'success';
+        }
+
+        // ── VERIFICAR VOTO DESDE EL SERVIDOR ──────────────────────────────────
+        async function verificarVotoServidor() {
+            try {
+                const res = await fetch(`/api/concurso/verificar-voto/${PARTICIPACION_ID}`);
+                const data = await res.json();
+                
+                if (data.success && data.voted) {
+                    storageSet(LS_KEY, 'true');
+                    setVoted();
+                    return true;
+                }
+                return false;
+            } catch(e) {
+                console.error('Error verificando voto:', e);
+                return yaVoto(); // Fallback a localStorage
+            }
+        }
+
         // ── GALERÍA ───────────────────────────────────────────────────────────
         let currentPhoto = 0;
         const slides  = document.querySelectorAll('.photo-slide');
@@ -914,10 +950,10 @@
         function goToPhoto(i) {
             if (slides.length <= 1) return;
             slides[currentPhoto].classList.remove('active');
-            dots[currentPhoto]?.classList.remove('active');
+            if (dots[currentPhoto]) dots[currentPhoto].classList.remove('active');
             currentPhoto = (i + slides.length) % slides.length;
             slides[currentPhoto].classList.add('active');
-            dots[currentPhoto]?.classList.add('active');
+            if (dots[currentPhoto]) dots[currentPhoto].classList.add('active');
             if (counter) counter.textContent = `${currentPhoto + 1} / ${slides.length}`;
             if (arrowL) arrowL.classList.toggle('hidden', currentPhoto === 0);
             if (arrowR) arrowR.classList.toggle('hidden', currentPhoto === slides.length - 1);
@@ -943,17 +979,14 @@
         const voteCount   = document.getElementById('voteCount');
         const voteMessage = document.getElementById('voteMessage');
 
-        function setVoted() {
-            voteBtn.disabled = true;
-            voteBtn.classList.add('voted');
-            voteBtn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Ya votaste por ' + NOMBRE + '!';
-            voteMessage.textContent = 'Comparte para que gane 🎉';
-            voteMessage.className   = 'success';
-        }
-
-        if (storageGet(LS_KEY) === 'true') setVoted();
-
         voteBtn.addEventListener('click', async () => {
+            // Verificar si ya votó antes de enviar la petición
+            if (yaVoto()) {
+                toast('Ya votaste por ' + NOMBRE, 'success');
+                setVoted();
+                return;
+            }
+            
             voteBtn.disabled = true;
             voteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando voto...';
 
@@ -965,29 +998,41 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    voteCount.textContent = parseInt(voteCount.textContent) + 1;
+                    // Actualizar contador
+                    const nuevoLikes = parseInt(voteCount.textContent) + 1;
+                    voteCount.textContent = nuevoLikes;
+                    
+                    // Guardar en localStorage
                     storageSet(LS_KEY, 'true');
+                    
+                    // Configurar botón como votado
                     setVoted();
+                    
+                    // Recargar ranking
                     cargarRanking();
+                    
                     // Animar el contador
                     voteCount.style.transform = 'scale(1.4)';
                     setTimeout(() => voteCount.style.transform = '', 300);
+                    
+                    toast('✅ ¡Voto registrado!', 'success');
+                    
                 } else if (data.already_voted) {
+                    // El servidor dice que ya votó
                     storageSet(LS_KEY, 'true');
                     setVoted();
-                    voteMessage.textContent = data.message || 'Ese voto ya estaba registrado';
-                    voteMessage.className   = 'success';
+                    toast(data.message || 'Ya habías votado por ' + NOMBRE, 'success');
                 } else {
+                    // Error
                     voteBtn.disabled = false;
                     voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
-                    voteMessage.textContent = data.message || 'Inténtalo de nuevo';
-                    voteMessage.className   = 'error';
+                    toast(data.message || 'Error al registrar el voto', 'error');
                 }
             } catch(e) {
+                console.error('Error en voto:', e);
                 voteBtn.disabled = false;
                 voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
-                voteMessage.textContent = 'Error de conexión';
-                voteMessage.className   = 'error';
+                toast('Error de conexión. Intenta de nuevo', 'error');
             }
         });
 
@@ -997,9 +1042,9 @@
                 const res  = await fetch(`/api/concurso/ranking/${PROMOCION_ID}`);
                 const data = await res.json();
 
-                if (!data.success || !data.participaciones?.length) {
+                if (!data.success || !data.participaciones || data.participaciones.length === 0) {
                     document.getElementById('rankingList').innerHTML =
-                        '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:.85rem;">Sin participantes aún</div>';
+                        '<div style="padding:28px; text-align:center; color:#94a3b8; font-size:.85rem;">📭 Sin participantes aún</div>';
                     return;
                 }
 
@@ -1009,7 +1054,7 @@
 
                 const html = data.participaciones.map((item, i) => {
                     const isMe = parseInt(item.id) === PARTICIPACION_ID;
-                    const pct  = Math.round((item.likes / maxVotes) * 100);
+                    const pct  = maxVotes > 0 ? Math.round((item.likes / maxVotes) * 100) : 0;
                     return `
                         <div class="ranking-row ${isMe ? 'me' : ''}">
                             <div class="rank-pos ${posClass[i] || ''}">
@@ -1035,11 +1080,12 @@
 
                 const now = new Date();
                 document.getElementById('rankingTime').textContent =
-                    `actualizado ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+                    `actualizado ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
 
             } catch(e) {
+                console.error('Error cargando ranking:', e);
                 document.getElementById('rankingList').innerHTML =
-                    '<div style="padding:28px; text-align:center; color:#ef4444; font-size:.85rem;">Error al cargar</div>';
+                    '<div style="padding:28px; text-align:center; color:#ef4444; font-size:.85rem;">❌ Error al cargar el ranking</div>';
             }
         }
 
@@ -1061,6 +1107,7 @@
             } catch(e) {
                 loader(false);
                 console.error(e);
+                toast('Error al generar la imagen', 'error');
                 return null;
             }
         }
@@ -1090,7 +1137,10 @@
                     }
                     toast('✅ Compartido', 'success');
                     return;
-                } catch(e) { /* cancelado */ return; }
+                } catch(e) { 
+                    console.log('Compartir cancelado o falló:', e);
+                    return;
+                }
             }
             // Fallback: WhatsApp web
             const wa = `https://wa.me/?text=${encodeURIComponent(texto)}`;
@@ -1121,6 +1171,7 @@
             a.href     = URL.createObjectURL(file);
             a.download = file.name;
             a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 100);
             toast('✅ Imagen guardada', 'success');
         }
 
@@ -1132,20 +1183,29 @@
                 try {
                     await navigator.share({ files: [file], title: NOMBRE });
                     toast('✅ Compartido', 'success');
-                } catch(e) {}
+                } catch(e) {
+                    console.log('Compartir cancelado:', e);
+                }
             } else {
                 // Fallback: descargar
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(file);
                 a.download = file.name;
                 a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 100);
                 toast('✅ Imagen guardada (compártela manualmente)', 'success');
             }
         }
 
         // ── INIT ──────────────────────────────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', () => {
-            cargarRanking();
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Verificar si ya votó
+            const votado = await verificarVotoServidor();
+            
+            // Cargar ranking
+            await cargarRanking();
+            
+            // Actualizar ranking cada 30 segundos
             setInterval(cargarRanking, 30000);
         });
     </script>
