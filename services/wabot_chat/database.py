@@ -2,6 +2,7 @@
 # database.py - SISTEMA GENÉRICO DE CITAS - POSTGRESQL COMPLETO
 # =============================================================================
 import os
+import logging
 from datetime import datetime, timedelta
 import json
 import hashlib
@@ -9,6 +10,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import sqlite3  # Para fallback
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_connection():
@@ -223,12 +226,25 @@ def _crear_tablas(cursor):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             tipo_precio VARCHAR(20) DEFAULT 'fijo',
             precio_maximo DECIMAL(10,2),
+            foto_url TEXT,
+            moneda VARCHAR(10) DEFAULT 'COP',
             FOREIGN KEY (negocio_id) REFERENCES negocios (id)
         )
     '''
     if postgres:
         servicios_sql = servicios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
     execute_sql(cursor, servicios_sql)
+
+    if postgres:
+        execute_sql(cursor, 'ALTER TABLE servicios ADD COLUMN IF NOT EXISTS foto_url TEXT')
+        execute_sql(cursor, "ALTER TABLE servicios ADD COLUMN IF NOT EXISTS moneda VARCHAR(10) DEFAULT 'COP'")
+    else:
+        cursor.execute("PRAGMA table_info(servicios)")
+        columnas_servicios = {row[1] for row in cursor.fetchall()}
+        if 'foto_url' not in columnas_servicios:
+            cursor.execute('ALTER TABLE servicios ADD COLUMN foto_url TEXT')
+        if 'moneda' not in columnas_servicios:
+            cursor.execute("ALTER TABLE servicios ADD COLUMN moneda VARCHAR(10) DEFAULT 'COP'")
     
     # Tabla citas
     citas_sql = '''
@@ -1347,7 +1363,7 @@ def obtener_servicios(negocio_id):
     if is_postgresql():
         sql = '''
             SELECT id, nombre, duracion, precio, descripcion, activo, created_at,
-                   tipo_precio, precio_maximo
+                   tipo_precio, precio_maximo, foto_url
             FROM servicios 
             WHERE negocio_id = %s AND activo = TRUE
             ORDER BY nombre
@@ -1356,7 +1372,7 @@ def obtener_servicios(negocio_id):
     else:
         sql = '''
             SELECT id, nombre, duracion, precio, descripcion, activo, created_at,
-                   tipo_precio, precio_maximo
+                   tipo_precio, precio_maximo, foto_url
             FROM servicios 
             WHERE negocio_id = ? AND activo = TRUE
             ORDER BY nombre
@@ -1374,6 +1390,8 @@ def obtener_servicios(negocio_id):
                 servicio['tipo_precio'] = 'fijo'
             if 'precio_maximo' not in servicio:
                 servicio['precio_maximo'] = None
+            if 'foto_url' not in servicio:
+                servicio['foto_url'] = None
             servicios_procesados.append(servicio)
         else:
             # Si es tupla, convertir a diccionario
@@ -1386,7 +1404,8 @@ def obtener_servicios(negocio_id):
                 'activo': servicio[5] if len(servicio) > 5 else True,
                 'created_at': servicio[6] if len(servicio) > 6 else None,
                 'tipo_precio': servicio[7] if len(servicio) > 7 else 'fijo',
-                'precio_maximo': servicio[8] if len(servicio) > 8 else None
+                'precio_maximo': servicio[8] if len(servicio) > 8 else None,
+                'foto_url': servicio[9] if len(servicio) > 9 else None
             })
     
     return servicios_procesados
@@ -1595,18 +1614,11 @@ def verificar_disponibilidad(profesional_id, fecha, hora, duracion_minutos):
 
 def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
     """Agregar nueva cita a la base de datos"""
-    print(f"🔍 [DEBUG agregar_cita] Iniciando inserción:")
-    print(f"   - negocio_id: {negocio_id}")
-    print(f"   - profesional_id: {profesional_id}")
-    print(f"   - cliente_telefono: {cliente_telefono}")
-    print(f"   - cliente_nombre: {cliente_nombre}")
-    print(f"   - fecha: {fecha}")
-    print(f"   - hora original: {hora}")
-    print(f"   - servicio_id: {servicio_id}")
+    logger.debug("agregar_cita: negocio_id=%s, profesional_id=%s, fecha=%s, hora=%s, servicio_id=%s",
+                 negocio_id, profesional_id, fecha, hora, servicio_id)
     
     # ✅ NORMALIZAR LA HORA (convertir de 12h a 24h si es necesario)
     hora_normalizada = normalizar_hora(hora)
-    print(f"   - hora normalizada: {hora_normalizada}")
     
     conn = get_db_connection()
     if not conn:
@@ -1845,6 +1857,28 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
         '''
         params = (negocio_id, profesional_id, fecha)
     
+    if negocio_id is None:
+        if is_postgresql():
+            sql = '''
+                SELECT c.hora, s.duracion, c.estado
+                FROM citas c 
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = %s 
+                AND c.fecha::DATE = %s::DATE 
+                AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')
+                ORDER BY c.hora
+            '''
+        else:
+            sql = '''
+                SELECT c.hora, s.duracion, c.estado
+                FROM citas c 
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = ? AND c.fecha = ? 
+                AND c.estado IN ('confirmado', 'completado', 'bloqueado')
+                ORDER BY c.hora
+            '''
+        params = (profesional_id, fecha)
+    
     cursor = conn.cursor()
     cursor.execute(sql, params)
     
@@ -1995,9 +2029,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
             except:
                 cita['hora_display'] = hora_original
     
-    print(f"✅ [DB] Encontradas {len(citas)} citas activas")
-    for cita in citas:
-        print(f"  - {cita.get('hora_display', cita['hora'])}: {cita['cliente_nombre']} - {cita['servicio_nombre']}")
+    logger.debug("Encontradas %d citas activas", len(citas))
     
     # Procesar citas para marcar bloqueos
     for cita in citas:
@@ -2223,8 +2255,7 @@ def crear_usuario(negocio_id, nombre, email, password, rol='propietario'):
             return None
         
         # Generar hash de la contraseña
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        password_hash = generate_password_hash(password)
         
         # Crear usuario
         if is_postgresql():
@@ -2260,7 +2291,7 @@ def crear_usuario(negocio_id, nombre, email, password, rol='propietario'):
                 ''', (negocio_id, nombre, 'General', usuario_id))
         
         conn.commit()
-        print(f"✅ Usuario creado exitosamente: {email} (ID: {usuario_id}, Rol: {rol})")
+        logger.info("Usuario creado: ID=%s, Rol=%s", usuario_id, rol)
         return usuario_id
         
     except Exception as e:
@@ -2279,27 +2310,22 @@ def crear_profesional_con_usuario(negocio_id, nombre, email, password, especiali
     cursor = conn.cursor()
     
     try:
-        print(f"🔧 [DEBUG] Creando profesional con usuario:")
-        print(f"  - negocio_id: {negocio_id}")
-        print(f"  - nombre: {nombre}")
-        print(f"  - email: {email}")
-        print(f"  - especialidad: {especialidad}")
-        print(f"  - servicios_ids: {servicios_ids}")
-        
+        logger.debug("Creando profesional con usuario: negocio_id=%s, especialidad=%s, servicios=%s",
+                     negocio_id, especialidad, servicios_ids)
+
         # 1. Verificar si el email ya existe
         if is_postgresql():
             cursor.execute('SELECT id FROM usuarios WHERE email = %s', (email,))
         else:
             cursor.execute('SELECT id FROM usuarios WHERE email = ?', (email,))
-        
+
         if cursor.fetchone():
-            print(f"❌ Email {email} ya está en uso")
+            logger.warning("Email ya está en uso al crear profesional")
             conn.close()
             return None
-        
+
         # 2. Generar hash de la contraseña
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        password_hash = generate_password_hash(password)
         
         # 3. Crear usuario
         if is_postgresql():
@@ -2431,24 +2457,39 @@ def verificar_usuario(email, password):
                 'negocio_nombre': usuario[9] if len(usuario) > 9 else 'Negocio'
             }
         
-        # Verificar contraseña (SHA256)
-        import hashlib
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        
-        if usuario_dict['password_hash'] != password_hash:
-            conn.close()
-            return None
-        
-        # ✅ CORRECCIÓN: Actualizar último login usando cursor.execute directamente
+        # Verificar contraseña — werkzeug primero, SHA256 como fallback para hashes legacy
+        stored_hash = usuario_dict['password_hash']
+        password_ok = check_password_hash(stored_hash, password)
+        if not password_ok:
+            # Fallback: hash SHA256 sin salt (hashes creados antes de la migración)
+            import hashlib
+            sha256_hash = hashlib.sha256(password.encode()).hexdigest()
+            if stored_hash != sha256_hash:
+                conn.close()
+                return None
+            # Contraseña correcta con hash legacy — upgrade transparente a werkzeug
+            nuevo_hash = generate_password_hash(password)
+            try:
+                if is_postgresql():
+                    cursor.execute('UPDATE usuarios SET password_hash = %s WHERE id = %s',
+                                   (nuevo_hash, usuario_dict['id']))
+                else:
+                    cursor.execute('UPDATE usuarios SET password_hash = ? WHERE id = ?',
+                                   (nuevo_hash, usuario_dict['id']))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+        # Actualizar último login
         try:
             if is_postgresql():
                 update_sql = 'UPDATE usuarios SET ultimo_login = %s WHERE id = %s'
             else:
                 update_sql = 'UPDATE usuarios SET ultimo_login = ? WHERE id = ?'
-            
+
             cursor.execute(update_sql, (datetime.now(), usuario_dict['id']))
             conn.commit()
-            
+
         except Exception as e:
             print(f"⚠️ Error actualizando último login: {e}")
             conn.rollback()

@@ -10,7 +10,7 @@ push_bp = Blueprint('push', __name__)
 # Configurar webpush
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
 
 def get_db_connection():
     """Obtener conexión a la base de datos"""

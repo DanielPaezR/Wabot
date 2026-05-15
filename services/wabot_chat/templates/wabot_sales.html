@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Wabot - El bot que agenda citas por ti | Automatiza tu negocio</title>
-<meta name="description" content="Wabot responde automáticamente WhatsApp, agenda citas sin que hagas nada y muestra tu negocio en un mapa interactivo. Empieza gratis.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Wabot | IA que analiza tu negocio y agenda citas sola</title>
+<meta name="description" content="Wabot usa inteligencia artificial para analizar los datos de tu negocio, predecir días flojos, automatizar promociones y agendar citas 24/7. Sin mover un dedo.">
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
 <style>
@@ -17,6 +17,78 @@ body{
   background:#020617;
   color:#e2e8f0;
   line-height:1.6;
+  overflow-x:hidden;
+  scroll-behavior:smooth;
+}
+
+/* GLOW EFECTO */
+.glow{
+  position:absolute;
+  width:300px;
+  height:300px;
+  background:radial-gradient(circle,rgba(99,102,241,.15),transparent 70%);
+  border-radius:50%;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ==================== MENÚ HAMBURGUESA ==================== */
+.hamburger{
+  display:none;
+  background:none;
+  border:none;
+  color:white;
+  font-size:1.8rem;
+  cursor:pointer;
+  padding:0.5rem;
+}
+
+.mobile-menu{
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  background:rgba(2,6,23,.98);
+  backdrop-filter:blur(12px);
+  z-index:1001;
+  padding:5rem 2rem 2rem;
+  flex-direction:column;
+  gap:1rem;
+  border-bottom:1px solid rgba(255,255,255,.1);
+  transform:translateY(-100%);
+  transition:transform 0.3s ease;
+}
+
+.mobile-menu.open{
+  transform:translateY(0);
+}
+
+.mobile-menu a{
+  color:#e2e8f0;
+  text-decoration:none;
+  font-size:1.1rem;
+  font-weight:600;
+  padding:0.8rem 0;
+  border-bottom:1px solid rgba(255,255,255,.1);
+  display:flex;
+  align-items:center;
+  gap:0.8rem;
+}
+
+.mobile-menu a:active{
+  color:#8b5cf6;
+}
+
+.close-menu{
+  position:absolute;
+  top:1rem;
+  right:1rem;
+  background:none;
+  border:none;
+  color:white;
+  font-size:1.5rem;
+  cursor:pointer;
 }
 
 /* NAV */
@@ -24,7 +96,7 @@ body{
   position:fixed;
   top:0;
   width:100%;
-  background:rgba(2,6,23,.7);
+  background:rgba(2,6,23,.95);
   backdrop-filter:blur(12px);
   border-bottom:1px solid rgba(255,255,255,.05);
   z-index:1000;
@@ -33,364 +105,593 @@ body{
 .header-content{
   max-width:1200px;
   margin:auto;
-  padding:1rem 2rem;
+  padding:0.8rem 1.2rem;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
 
-.logo{
-  font-weight:800;
-  font-size:1.4rem;
-}
+.logo{font-weight:800;font-size:1.2rem}
 .logo span{color:#8b5cf6}
 
 .cta-btn{
   background:linear-gradient(135deg,#25D366,#1da851);
-  padding:.6rem 1.4rem;
+  padding:0.5rem 1rem;
   border-radius:999px;
   color:#fff;
   text-decoration:none;
   font-weight:600;
-  box-shadow:0 8px 20px rgba(37,211,102,.3);
+  font-size:0.8rem;
+  box-shadow:0 4px 12px rgba(37,211,102,.3);
+  transition:.3s;
 }
+.cta-btn:hover{transform:translateY(-2px)}
+
+/* Enlaces de navegación desktop */
+.nav-links{
+  display:flex;
+  gap:1.5rem;
+  align-items:center;
+}
+
+.nav-links a{
+  color:#94a3b8;
+  text-decoration:none;
+  font-weight:500;
+  font-size:0.85rem;
+  transition:color 0.2s;
+}
+
+.nav-links a:hover{color:#8b5cf6}
 
 /* HERO */
 .hero{
+  position:relative;
   display:flex;
   align-items:center;
   justify-content:center;
   text-align:center;
-  padding:6rem 2rem 3rem;
-  background:radial-gradient(circle at 20% 20%,#1e293b,#020617);
+  padding:6rem 1.2rem 3rem;
+  min-height:auto;
+  margin-top:0;
+}
+
+.hero-content{position:relative;z-index:1}
+
+.hero-badge{
+  display:inline-block;
+  background:rgba(139,92,246,.15);
+  color:#a78bfa;
+  padding:0.3rem 1rem;
+  border-radius:999px;
+  font-size:0.7rem;
+  font-weight:600;
+  margin-bottom:1rem;
+  border:1px solid rgba(139,92,246,.3);
 }
 
 .hero h1{
-  font-size:3rem;
-  max-width:900px;
+  font-size:clamp(1.6rem,6vw,2.2rem);
+  max-width:100%;
   margin-bottom:1rem;
   font-weight:800;
+  line-height:1.3;
 }
+.hero h1 span{background:linear-gradient(135deg,#6366f1,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 
 .hero p{
   color:#94a3b8;
-  max-width:600px;
-  margin:0 auto 2rem;
+  max-width:100%;
+  margin:0 auto 1.5rem;
+  font-size:0.9rem;
+  padding:0 0.5rem;
 }
 
 .hero-buttons{
   display:flex;
-  gap:1rem;
+  gap:0.8rem;
   justify-content:center;
   flex-wrap:wrap;
+  flex-direction:column;
+  align-items:center;
+}
+
+.hero-buttons .btn-primary,
+.hero-buttons .btn-outline{
+  width:100%;
+  max-width:260px;
+  text-align:center;
 }
 
 .btn-primary{
   background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  padding:1rem 2.2rem;
+  padding:0.8rem 1.5rem;
+  border-radius:999px;
+  color:white;
+  text-decoration:none;
+  font-weight:700;
+  font-size:0.9rem;
+  box-shadow:0 10px 30px rgba(99,102,241,.4);
+  transition:.3s;
+  display:inline-block;
+}
+.btn-primary:active{transform:scale(0.98)}
+
+.btn-outline{
+  padding:0.8rem 1.5rem;
   border-radius:999px;
   color:white;
   text-decoration:none;
   font-weight:600;
-  box-shadow:0 10px 30px rgba(99,102,241,.4);
+  border:2px solid rgba(255,255,255,.2);
   transition:.3s;
+  display:inline-block;
 }
-
-.btn-primary:hover{
-  transform:translateY(-4px);
-}
+.btn-outline:active{transform:scale(0.98)}
 
 /* SECTION */
 .section{
-  max-width:1200px;
+  max-width:100%;
   margin:auto;
-  padding:5rem 2rem;
+  padding:3rem 1.2rem;
 }
 
 .section-title{
   text-align:center;
-  font-size:2.2rem;
-  margin-bottom:1rem;
+  font-size:clamp(1.5rem,5vw,1.8rem);
+  margin-bottom:0.8rem;
+  font-weight:800;
 }
-
 .section-subtitle{
   text-align:center;
   color:#94a3b8;
-  margin-bottom:3rem;
+  margin-bottom:2rem;
+  font-size:0.9rem;
+  padding:0 0.5rem;
 }
 
-/* FEATURES */
-.features-grid{
+/* VALUE PROP - 3 CARDS */
+.value-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-  gap:2rem;
+  grid-template-columns:1fr;
+  gap:1.2rem;
+  margin-top:1rem;
 }
 
-.feature-card{
-  background:linear-gradient(145deg,#020617,#0f172a);
-  padding:2rem;
+.value-card{
+  background:linear-gradient(145deg,#0f172a,#1e293b);
+  padding:1.8rem 1.2rem;
   border-radius:20px;
   border:1px solid rgba(255,255,255,.05);
+  text-align:center;
+  transition:.3s;
+  position:relative;
+  overflow:hidden;
+}
+.value-card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;
+  width:100%;
+  height:3px;
+  background:linear-gradient(90deg,#6366f1,#8b5cf6,#6366f1);
+  opacity:0;
   transition:.3s;
 }
+.value-card:active::before{opacity:1}
+.value-card:active{transform:scale(0.98)}
 
-.feature-card:hover{
-  transform:translateY(-6px);
-  border-color:#8b5cf6;
-}
+.value-icon{font-size:2.2rem;margin-bottom:0.8rem}
 
-.feature-icon{
-  font-size:2rem;
-  margin-bottom:1rem;
-}
+.value-card h3{font-size:1.2rem;margin-bottom:0.5rem;font-weight:700}
 
-/* DEMO LINKS */
-.demo-links{
+.value-card p{color:#94a3b8;font-size:0.85rem;line-height:1.5}
+
+/* DEMO SECTION */
+.demo-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-  gap:2rem;
+  grid-template-columns:1fr;
+  gap:1.2rem;
 }
 
 .demo-card{
-  background:#020617;
+  background:linear-gradient(145deg,#0f172a,#1e293b);
   border:1px solid rgba(255,255,255,.05);
-  padding:2rem;
+  padding:1.8rem 1.2rem;
   border-radius:20px;
-  text-align:center;
-}
-
-.demo-card a{
-  display:inline-block;
-  margin-top:1rem;
-  text-decoration:none;
-}
-
-/* PRICING - 3 cards */
-.pricing-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-  gap:2rem;
-  margin-top:2rem;
-}
-
-.pricing-card{
-  background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  padding:2rem;
-  border-radius:25px;
   text-align:center;
   transition:.3s;
 }
+.demo-card:active{transform:scale(0.98)}
 
-.pricing-card:hover{
-  transform:translateY(-8px);
-  box-shadow:0 20px 40px rgba(99,102,241,.3);
+.demo-card .demo-icon{font-size:2rem;margin-bottom:0.8rem}
+.demo-card h3{font-size:1.1rem;margin-bottom:0.5rem}
+.demo-card p{color:#94a3b8;margin-bottom:1rem;font-size:0.85rem}
+
+/* STATS */
+.stats-row{
+  display:flex;
+  justify-content:center;
+  gap:1.5rem;
+  flex-wrap:wrap;
+  margin-top:1.5rem;
 }
 
-.pricing-card h3{
-  font-size:1.5rem;
-  margin-bottom:.5rem;
+.stat-item{text-align:center}
+.stat-number{
+  font-size:1.8rem;
+  font-weight:900;
+  background:linear-gradient(135deg,#6366f1,#a78bfa);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
 }
+.stat-label{color:#94a3b8;font-size:0.7rem}
 
-.pricing-currency{
-  font-size:.9rem;
-  opacity:.8;
-}
-
-.pricing-price{
-  font-size:2.5rem;
-  font-weight:800;
-  margin:1rem 0;
-}
-
-.pricing-price small{
-  font-size:1rem;
-  font-weight:400;
-}
-
-.pricing-btn{
-  background:white;
-  color:#6366f1;
-  padding:.8rem 2rem;
-  border-radius:999px;
-  text-decoration:none;
-  font-weight:700;
-  display:inline-block;
-  margin-top:1rem;
-  transition:.2s;
-}
-
-.pricing-btn:hover{
-  transform:scale(1.05);
-  box-shadow:0 4px 12px rgba(0,0,0,.2);
-}
-
-/* STEPS */
-.steps{
+/* PRICING */
+.pricing-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:2rem;
+  grid-template-columns:1fr;
+  gap:1.2rem;
 }
 
-.step{
-  background:#020617;
-  padding:2rem;
+.pricing-card{
+  background:linear-gradient(145deg,#0f172a,#1e293b);
+  padding:1.8rem 1.2rem;
   border-radius:20px;
   text-align:center;
   border:1px solid rgba(255,255,255,.05);
+  transition:.3s;
+  position:relative;
+}
+.pricing-card.featured{
+  border-color:#8b5cf6;
+  background:linear-gradient(145deg,#1e1b4b,#0f172a);
+}
+.pricing-card:active{transform:scale(0.98)}
+
+.pricing-badge{
+  position:absolute;
+  top:-12px;
+  left:50%;
+  transform:translateX(-50%);
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  padding:0.2rem 1rem;
+  border-radius:999px;
+  font-size:0.65rem;
+  font-weight:700;
+  white-space:nowrap;
 }
 
-.step-number{
-  width:50px;
-  height:50px;
-  background:#8b5cf6;
-  border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  margin:auto;
-  margin-bottom:1rem;
-  font-weight:bold;
+.pricing-card h3{font-size:1rem;margin-bottom:0.3rem}
+.pricing-currency{font-size:0.7rem;opacity:.7}
+.pricing-price{font-size:2rem;font-weight:900;margin:0.5rem 0}
+.pricing-price small{font-size:0.7rem;font-weight:400;opacity:.7}
+.pricing-features{list-style:none;margin:1rem 0;text-align:left}
+.pricing-features li{padding:0.3rem 0;font-size:0.8rem;color:#94a3b8}
+.pricing-features li::before{content:'✓ ';color:#25D366;font-weight:bold}
+
+.pricing-btn{
+  display:inline-block;
+  width:100%;
+  padding:0.7rem;
+  border-radius:999px;
+  text-decoration:none;
+  font-weight:700;
+  font-size:0.85rem;
+  transition:.2s;
+  background:white;
+  color:#6366f1;
+  cursor:pointer;
+}
+.pricing-btn:active{transform:scale(0.98)}
+.pricing-btn.featured{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white}
+
+/* CTA FINAL */
+.cta-section{
+  text-align:center;
+  padding:3rem 1.2rem;
+  background:radial-gradient(circle at 50% 50%,rgba(99,102,241,.1),transparent 70%);
+}
+
+.cta-section h2{
+  font-size:clamp(1.3rem,5vw,1.8rem);
+  font-weight:800;
+  margin-bottom:0.8rem;
+}
+
+.cta-section p{
+  color:#94a3b8;
+  margin-bottom:1.5rem;
+  font-size:0.85rem;
+  padding:0 0.5rem;
 }
 
 /* FOOTER */
-.footer{
-  text-align:center;
-  padding:2rem;
-  color:#64748b;
+.footer{text-align:center;padding:2rem 1rem;color:#64748b;font-size:0.75rem}
+
+/* Media Queries */
+@media (min-width: 640px){
+  .hero-buttons{
+    flex-direction:row;
+  }
+  .hero-buttons .btn-primary,
+  .hero-buttons .btn-outline{
+    width:auto;
+  }
+  .value-grid{grid-template-columns:repeat(3,1fr);gap:1.5rem}
+  .demo-grid{grid-template-columns:repeat(2,1fr);gap:1.5rem}
+  .pricing-grid{grid-template-columns:repeat(3,1fr);gap:1.5rem}
+  .section{padding:4rem 2rem}
+  .hero{padding:7rem 2rem 4rem}
+  .hero h1{font-size:2rem}
 }
 
-@media(max-width:768px){
-.hero h1{font-size:2.2rem}
-.pricing-grid{grid-template-columns:1fr}
+@media (max-width: 768px){
+  .nav-links{display:none}
+  .hamburger{display:block}
 }
 
+@media (min-width: 769px){
+  .mobile-menu{display:none !important}
+  .hamburger{display:none}
+}
 </style>
 </head>
-
 <body>
 
+<!-- HEADER -->
 <div class="header">
   <div class="header-content">
     <div class="logo">Wa<span>Bot</span></div>
-    <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" class="cta-btn" target="_blank">
-      <i class="fab fa-whatsapp"></i> Contáctame
-    </a>
+    
+    <!-- Botón hamburguesa (solo móvil) -->
+    <button class="hamburger" id="hamburgerBtn">
+      <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Navegación desktop -->
+    <div class="nav-links">
+      <a href="#inicio">Inicio</a>
+      <a href="#que-es">¿Qué es?</a>
+      <a href="#demo">Demo</a>
+      <a href="#precios">Precios</a>
+      <a href="https://wa.me/573174694941?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" class="cta-btn" target="_blank">
+        <i class="fab fa-whatsapp"></i> Contacto
+      </a>
+    </div>
   </div>
 </div>
 
-<section class="hero">
-  <div>
-    <h1>El bot que responde Mensajes y agenda citas automáticamente</h1>
-    <p>Nunca más pierdas un cliente por no responder a tiempo. Wabot atiende 24/7, agenda citas y muestra tu negocio en nuestro mapa interactivo.</p>
-  </div>
-</section>
+<!-- Menú móvil -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="close-menu" id="closeMenuBtn">✕</button>
+  <a href="#inicio" onclick="closeMobileMenu()">
+    <i class="fas fa-home"></i> Inicio
+  </a>
+  <a href="#que-es" onclick="closeMobileMenu()">
+    <i class="fas fa-brain"></i> ¿Qué es?
+  </a>
+  <a href="#demo" onclick="closeMobileMenu()">
+    <i class="fas fa-play-circle"></i> Demo
+  </a>
+  <a href="#precios" onclick="closeMobileMenu()">
+    <i class="fas fa-tag"></i> Precios
+  </a>
+  <a href="https://wa.me/573174694941?text=Hola%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Wabot" target="_blank" onclick="closeMobileMenu()">
+    <i class="fab fa-whatsapp"></i> Contacto
+  </a>
+</div>
 
-<section class="section">
-  <h2 class="section-title">Prueba real del sistema</h2>
-  <p class="section-subtitle">Mira exactamente cómo se ve tu negocio y la experiencia del cliente</p>
-
-  <div class="demo-links">
-    <div class="demo-card">
-      <h3>Vista del negocio</h3>
-      <p>Panel donde gestionas citas, servicios y clientes</p>
-      <a href="https://wabot-directorio-production.up.railway.app/negocio/1" class="btn-primary">Ver Negocio Ejemplo</a>
+<!-- HERO (INICIO) -->
+<section id="inicio" class="hero">
+  <div class="glow" style="top:10%;left:10%"></div>
+  <div class="glow" style="bottom:10%;right:10%"></div>
+  
+  <div class="hero-content">
+    <div class="hero-badge">🤖 Inteligencia Artificial para negocios</div>
+    <h1>Tu negocio genera datos valiosos cada día. <span>Wabot los analiza por ti.</span></h1>
+    <p>Deja de perder dinero por no entender lo que tus clientes te están diciendo. Wabot usa Machine Learning para predecir tus días flojos, automatizar promociones y agendar citas mientras duermes.</p>
+    
+    <div class="hero-buttons">
+      <a href="https://wabot-production-d544.up.railway.app/cliente/1" class="btn-primary" target="_blank">👀 Ver demo en vivo</a>
+      <a href="#precios" class="btn-outline">Ver precios ↓</a>
     </div>
-
-    <div class="demo-card">
-      <h3>Vista del cliente</h3>
-      <p>Así es como tus clientes reservan citas fácilmente</p>
-      <a href="https://wabot-production-d544.up.railway.app/cliente/1" class="btn-primary">Así lo ve tu Cliente</a>
+    
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Atención automática</div></div>
+      <div class="stat-item"><div class="stat-number">+90%</div><div class="stat-label">Respuesta inmediata</div></div>
+      <div class="stat-item"><div class="stat-number">0</div><div class="stat-label">Citas perdidas</div></div>
     </div>
   </div>
 </section>
 
-<section class="section">
-  <h2 class="section-title">Lo que incluye Wabot</h2>
-
-  <div class="features-grid">
-    <div class="feature-card"><div class="feature-icon">🤖</div><h3>Bot 24/7</h3><p>Responde mensajes automáticamente</p></div>
-    <div class="feature-card"><div class="feature-icon">📅</div><h3>Agenda automática</h3><p>Sin intervención humana</p></div>
-    <div class="feature-card"><div class="feature-icon">📊</div><h3>Dashboard</h3><p>Control total del negocio</p></div>
-    <div class="feature-card"><div class="feature-icon">⭐</div><h3>Reseñas</h3><p>Genera confianza</p></div>
-    <div class="feature-card"><div class="feature-icon">🎁</div><h3>Promociones virales</h3><p>Publica promociones donde tus clientes participan y ganan premios según la cantidad de likes dentro de la app.</p></div>
+<!-- VALUE PROP (QUÉ ES) -->
+<section id="que-es" class="section">
+  <h2 class="section-title">Más que un bot de citas</h2>
+  <p class="section-subtitle">Wabot no solo agenda. Analiza, predice y te ayuda a ganar más dinero.</p>
+  
+  <div class="value-grid">
+    <div class="value-card">
+      <div class="value-icon">📊</div>
+      <h3>Análisis Predictivo</h3>
+      <p>El sistema aprende de tus datos históricos y te dice: "El próximo jueves va a estar flojo, ¿lanzamos una promo automática?"</p>
+    </div>
+    
+    <div class="value-card">
+      <div class="value-icon">🎯</div>
+      <h3>Promociones Inteligentes</h3>
+      <p>Crea descuentos, 2x1 o concursos de fotos en segundos. El sistema sugiere el mejor día según tus datos reales.</p>
+    </div>
+    
+    <div class="value-card">
+      <div class="value-icon">📈</div>
+      <h3>Dashboard de Negocio</h3>
+      <p>Visualiza ingresos, tasa de ocupación, clientes frecuentes y predicciones. Toda la información que necesitas en un solo lugar.</p>
+    </div>
   </div>
 </section>
 
-<section class="section">
-  <h2 class="section-title">¿Cómo funciona?</h2>
-
-  <div class="steps">
-    <div class="step"><div class="step-number">1</div><p>Configuras tu negocio</p></div>
-    <div class="step"><div class="step-number">2</div><p>Conectas WhatsApp</p></div>
-    <div class="step"><div class="step-number">3</div><p>Recibes clientes automáticamente</p></div>
+<!-- DEMO -->
+<section id="demo" class="section">
+  <h2 class="section-title">Míralo en acción</h2>
+  <p class="section-subtitle">Así es como tus clientes agendan sin que hagas nada</p>
+  
+  <div class="demo-grid">
+    <div class="demo-card">
+      <div class="demo-icon">📱</div>
+      <h3>Chat del Cliente</h3>
+      <p>Tu cliente habla con la IA, elige profesional, servicio y hora. Todo automático.</p>
+      <a href="https://wabot-production-d544.up.railway.app/cliente/1" class="btn-primary" target="_blank" style="display:inline-block;padding:0.7rem 1.5rem;">Probar Chat</a>
+    </div>
+    
+    <div class="demo-card">
+      <div class="demo-icon">🏪</div>
+      <h3>Perfil del Negocio</h3>
+      <p>Así te ven tus clientes en el directorio. Con reseñas, fotos y servicios.</p>
+      <a href="https://wabot-directorio-production.up.railway.app/negocio/1" class="btn-primary" target="_blank" style="display:inline-block;padding:0.7rem 1.5rem;">Ver Perfil</a>
+    </div>
   </div>
 </section>
 
-<!-- SECCIÓN DE PRECIOS CON 3 CARD (COP, AWG, USD) - PRECIOS REALISTAS -->
-<section class="section">
-  <h2 class="section-title">Planes mensuales</h2>
-  <p class="section-subtitle">Elige la moneda que prefieras. Todos los planes incluyen las mismas funcionalidades.</p>
-
+<!-- PRICING -->
+<section id="precios" class="section">
+  <h2 class="section-title">Planes Simples</h2>
+  <p class="section-subtitle">Sin contratos, sin permanencia. Paga solo lo que usas.</p>
+  
   <div class="pricing-grid">
-    <!-- Card 1: Pesos Colombianos -->
+    <!-- COP -->
     <div class="pricing-card">
-      <h3>🇨🇴 WABot COP</h3>
-      <div class="pricing-price">
-        $15.000 <small>COP</small>
-      </div>
-      <p>por profesional / mes</p>
-      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
-        ⚡ + $30.000 COP<br>configuración única
-      </div>
-      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20COP" class="pricing-btn" target="_blank">
-        Contratar en COP
-      </a>
+      <h3>🇨🇴 Pesos Colombianos</h3>
+      <div class="pricing-currency">COP</div>
+      <div class="pricing-price">$25.000 <small>/mes</small></div>
+      <ul class="pricing-features">
+        <li>1 Profesional</li>
+        <li>Agendamiento automático</li>
+        <li>Análisis predictivo</li>
+        <li>Dashboard completo</li>
+        <li>Promociones y concursos</li>
+      </ul>
+      <div style="font-size:0.7rem;opacity:.7;margin-bottom:0.8rem;">+ $40.000 configuración única</div>
+      <a href="https://wa.me/573174694941?text=Quiero%20contratar%20WABot%20en%20COP" class="pricing-btn" target="_blank">Contratar en COP</a>
     </div>
-
-    <!-- Card 2: Florines Arubanos (AWG) - 8 AWG (~15.000 COP) -->
-    <div class="pricing-card">
-      <h3>🇦🇼 WABot AWG</h3>
-      <div class="pricing-price">
-        30 <small>AWG</small>
-      </div>
-      <p>pa profesional / luna</p>
-      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
-        ⚡ + 40 AWG<br>configuración único
-      </div>
-      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20AWG" class="pricing-btn" target="_blank">
-        Contratar en AWG
-      </a>
+    
+    <!-- AWG (MÁS POPULAR) -->
+    <div class="pricing-card featured">
+      <div class="pricing-badge">🌟 Más popular</div>
+      <h3>🇦🇼 Florines Arubanos</h3>
+      <div class="pricing-currency">AWG</div>
+      <div class="pricing-price">45 <small>/luna</small></div>
+      <ul class="pricing-features">
+        <li>1 Profesional</li>
+        <li>Agendamento automático</li>
+        <li>Análisis predictivo</li>
+        <li>Dashboard completo</li>
+        <li>Promociones y concursos</li>
+      </ul>
+      <div style="font-size:0.7rem;opacity:.7;margin-bottom:0.8rem;">+ 50 AWG configuración único</div>
+      <a href="https://wa.me/573174694941?text=Quiero%20contratar%20WABot%20en%20AWG" class="pricing-btn featured" target="_blank">Contratar en AWG</a>
     </div>
-
-    <!-- Card 3: Dólares Americanos - 4 USD (~15.000 COP) -->
+    
+    <!-- USD -->
     <div class="pricing-card">
-      <h3>🇺🇸 WABot USD</h3>
-      <div class="pricing-price">
-        $15 <small>USD</small>
-      </div>
-      <p>per professional / month</p>
-      <div style="margin:1rem 0; font-size:.85rem; opacity:0.9;">
-        ⚡ + $20 USD<br>one-time setup
-      </div>
-      <a href="https://wa.me/573225968095?text=Quiero%20contratar%20WABot%20en%20USD" class="pricing-btn" target="_blank">
-        Hire in USD
-      </a>
+      <h3>🇺🇸 Dólares Americanos</h3>
+      <div class="pricing-currency">USD</div>
+      <div class="pricing-price">$25 <small>/month</small></div>
+      <ul class="pricing-features">
+        <li>1 Professional</li>
+        <li>Auto scheduling</li>
+        <li>Predictive analytics</li>
+        <li>Full dashboard</li>
+        <li>Promos & contests</li>
+      </ul>
+      <div style="font-size:0.7rem;opacity:.7;margin-bottom:0.8rem;">+ $30 USD one-time setup</div>
+      <a href="https://wa.me/573174694941?text=Quiero%20contratar%20WABot%20en%20USD" class="pricing-btn" target="_blank">Hire in USD</a>
     </div>
   </div>
 </section>
 
-<section class="section" style="text-align:center">
-  <h2 class="section-title">¿Listo para empezar?</h2>
-  <p class="section-subtitle">Agenda una demo gratis en minutos</p>
-
-  <a href="https://wa.me/573225968095?text=Hola%2C%20quiero%20una%20demo%20de%20Wabot" class="cta-btn" target="_blank">
+<!-- CTA FINAL -->
+<section class="cta-section">
+  <h2>¿Listo para dejar de perder clientes?</h2>
+  <p>Agenda una demo gratis en 2 minutos. Sin compromiso.</p>
+  
+  <a href="https://wa.me/573174694941?text=Hola%2C%20quiero%20una%20demo%20de%20Wabot" class="btn-primary" target="_blank" style="font-size:1rem;padding:0.9rem 2rem;">
     <i class="fab fa-whatsapp"></i> Quiero mi demo gratis
   </a>
 </section>
 
 <div class="footer">
-  <p>© 2025 Wabot</p>
+  <p>© 2026 Wabot · Hecho con ❤️ desde Colombia</p>
 </div>
 
+<script>
+  // ==================== MENÚ HAMBURGUESA ====================
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const closeMenuBtn = document.getElementById('closeMenuBtn');
+
+  function openMobileMenu() {
+    mobileMenu.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileMenu() {
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  hamburgerBtn.addEventListener('click', openMobileMenu);
+  closeMenuBtn.addEventListener('click', closeMobileMenu);
+
+  // Cerrar menú al hacer clic en un enlace
+  window.closeMobileMenu = closeMobileMenu;
+
+  // ==================== ASEGURAR CARGA EN EL INICIO ====================
+  // Eliminar cualquier hash (#) de la URL al cargar
+  if (window.location.hash === '#precios' || window.location.hash === '#demo' || window.location.hash === '#que-es') {
+    // Forzar scroll al inicio después de un pequeño delay
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      // También puedes intentar cambiar la URL sin el hash
+      history.pushState('', document.title, window.location.pathname + window.location.search);
+    }, 100);
+  }
+
+  // Si alguien intenta acceder directamente con un hash, redirigir al inicio
+  window.addEventListener('load', function() {
+    if (window.location.hash) {
+      // Si el hash existe, hacer scroll suave a la sección correspondiente
+      // pero primero asegurar que la página está en el top
+      window.scrollTo(0, 0);
+      setTimeout(() => {
+        const targetId = window.location.hash.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } else {
+      window.scrollTo(0, 0);
+    }
+  });
+
+  // Scroll suave para todos los enlaces internos
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+      const href = this.getAttribute('href');
+      if (href === '#' || href === '#inicio') {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (href.startsWith('#') && href.length > 1) {
+        e.preventDefault();
+        const targetId = href.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    });
+  });
+</script>
 </body>
 </html>

@@ -24,9 +24,12 @@ from notification_system import notification_system
 from push_notifications import push_bp, enviar_notificacion_cita_creada
 import scheduler as scheduler
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from database import agregar_cita, normalizar_hora
 import psycopg2
 from collections import defaultdict
+import cloudinary
+import cloudinary.uploader
 
 rate_limit_cache = defaultdict(list)
 
@@ -49,17 +52,35 @@ def check_rate_limit(ip, max_requests=20, window_seconds=60):
 # Cargar variables de entorno
 load_dotenv()
 
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+)
+
 tz_colombia = pytz.timezone('America/Bogota')
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.secret_key = os.getenv('SECRET_KEY', 'negocio-secret-key')
+_secret_key = os.getenv('SECRET_KEY')
+if not _secret_key:
+    raise RuntimeError("La variable de entorno SECRET_KEY es requerida")
+app.secret_key = _secret_key
 app.register_blueprint(push_bp, url_prefix='/push')
 app.register_blueprint(web_chat_bp, url_prefix='/cliente')
+
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=()'
+    return response
+
+app.permanent_session_lifetime = timedelta(hours=24)
 
 @app.before_request
 def make_session_permanent():
     session.permanent = True
-    app.permanent_session_lifetime = timedelta(days=30)
 
 # Configuración para subir imágenes
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -67,8 +88,10 @@ UPLOAD_FOLDER = 'static/uploads/profesionales'
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename:
+        return False
+    filename = secure_filename(filename)
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
     """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
@@ -81,7 +104,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
         
         VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
         
         if not VAPID_PRIVATE_KEY:
             print("⚠️ No hay clave privada")
@@ -110,7 +133,7 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
             conn.commit()
             conn.close()
             print(f"✅ Notificación guardada en BD")
-        except:
+        except Exception:
             pass
         
         # 2. Intentar push (opcional)
@@ -552,10 +575,9 @@ def verificar_elegibilidad(negocio_id):
 def api_participar_concurso():
     """Sube hasta 3 fotos a Cloudinary y registra la participación"""
     try:
-        import cloudinary.uploader
         import psycopg2
         from datetime import datetime
-        
+
         telefono = request.form.get('telefono')
         nombre = request.form.get('nombre', 'Cliente')
         promocion_id = request.form.get('promocion_id')
@@ -654,17 +676,119 @@ def ver_post_concurso(participacion_id):
 
 @app.route('/api/concurso/like/<int:participacion_id>', methods=['POST'])
 def api_votar(participacion_id):
+    """Registra un voto para una participación en concurso"""
     ip = request.remote_addr
+    
+    # Obtener ID del cliente si está logueado (opcional)
+    cliente_id = None
+    if 'cliente_id' in session:
+        cliente_id = session['cliente_id']
+    
     conn = get_db_connection()
     cursor = conn.cursor()
+    
     try:
-        cursor.execute('INSERT INTO likes_concurso (participacion_id, ip_address) VALUES (%s, %s)', (participacion_id, ip))
-        cursor.execute('UPDATE participaciones_concurso SET likes = likes + 1 WHERE id = %s', (participacion_id,))
+        # 1. Verificar si ya votó (por IP o por cliente_id)
+        if cliente_id:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND cliente_id = %s
+            ''', (participacion_id, cliente_id))
+        else:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND ip_address = %s
+            ''', (participacion_id, ip))
+        
+        voto_existente = cursor.fetchone()
+        
+        if voto_existente:
+            return jsonify({
+                'success': False, 
+                'already_voted': True,
+                'message': 'Ya votaste por este participante'
+            }), 200  # Usar 200 para que el frontend pueda leer el mensaje
+        
+        # 2. Insertar el voto
+        if cliente_id:
+            cursor.execute('''
+                INSERT INTO likes_concurso (participacion_id, ip_address, cliente_id) 
+                VALUES (%s, %s, %s)
+            ''', (participacion_id, ip, cliente_id))
+        else:
+            cursor.execute('''
+                INSERT INTO likes_concurso (participacion_id, ip_address) 
+                VALUES (%s, %s)
+            ''', (participacion_id, ip))
+        
+        # 3. Actualizar contador
+        cursor.execute('''
+            UPDATE participaciones_concurso 
+            SET likes = likes + 1 
+            WHERE id = %s
+        ''', (participacion_id,))
+        
         conn.commit()
-        return jsonify({'success': True})
-    except:
-        return jsonify({'success': False, 'message': 'Ya votaste'}), 400
-    finally: conn.close()
+        
+        # 4. Obtener el nuevo total de likes
+        cursor.execute('SELECT likes FROM participaciones_concurso WHERE id = %s', (participacion_id,))
+        nuevo_total = cursor.fetchone()[0]
+        
+        return jsonify({
+            'success': True,
+            'message': 'Voto registrado correctamente',
+            'total_likes': nuevo_total
+        })
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error en voto: {e}")
+        return jsonify({
+            'success': False, 
+            'already_voted': False,
+            'message': 'Error al procesar el voto'
+        }), 500
+    finally:
+        conn.close()
+
+
+@app.route('/api/concurso/verificar-voto/<int:participacion_id>', methods=['GET'])
+def api_verificar_voto(participacion_id):
+    """Verifica si el usuario actual ya votó por esta participación"""
+    ip = request.remote_addr
+    cliente_id = session.get('cliente_id')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if cliente_id:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND cliente_id = %s
+            ''', (participacion_id, cliente_id))
+        else:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND ip_address = %s
+            ''', (participacion_id, ip))
+        
+        voto = cursor.fetchone()
+        
+        return jsonify({
+            'success': True,
+            'voted': voto is not None
+        })
+    except Exception as e:
+        print(f"Error verificando voto: {e}")
+        return jsonify({
+            'success': False,
+            'voted': False,
+            'message': 'Error al verificar'
+        }), 500
+    finally:
+        conn.close()
+
 
 # =============================================================================
 # RUTAS ADICIONALES PARA GESTIÓN DE PROMOCIONES
@@ -1279,9 +1403,13 @@ def eliminar_profesional(profesional_id, negocio_id):
 def login():
     """Login para todos los usuarios - VERSIÓN CORREGIDA"""
     if request.method == 'POST':
+        ip = request.remote_addr
+        if not check_rate_limit(ip, max_requests=5, window_seconds=60):
+            flash('Demasiados intentos. Espera 1 minuto.', 'error')
+            return redirect(url_for('login'))
         email = request.form.get('email')
         password = request.form.get('password')
-        
+
         usuario = db.verificar_usuario(email, password)
         
         if usuario:
@@ -2107,8 +2235,7 @@ def admin_editar_usuario(usuario_id):
             if only_password:
                 # Solo cambiar contraseña
                 if nueva_password:
-                    import hashlib
-                    hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                    hashed_password = generate_password_hash(nueva_password)
                     
                     cursor.execute('''
                         UPDATE usuarios 
@@ -2131,8 +2258,7 @@ def admin_editar_usuario(usuario_id):
                 
                 # Si se proporciona nueva contraseña, incluirla en la actualización
                 if nueva_password:
-                    import hashlib
-                    hashed_password = hashlib.sha256(nueva_password.encode()).hexdigest()
+                    hashed_password = generate_password_hash(nueva_password)
                     update_query += ', password_hash = %s'
                     params.append(hashed_password)
                 
@@ -4482,15 +4608,16 @@ def cambiar_password():
         if not usuario:
             return jsonify({'success': False, 'message': 'Usuario no encontrado'})
         
-        # Verificar contraseña actual
+        # Verificar contraseña actual (werkzeug o SHA256 legacy)
         import hashlib
-        current_hash = hashlib.sha256(current_password.encode()).hexdigest()
-        
-        if current_hash != usuario['password_hash']:
-            return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'})
-        
+        stored = usuario['password_hash']
+        if not check_password_hash(stored, current_password):
+            sha256 = hashlib.sha256(current_password.encode()).hexdigest()
+            if sha256 != stored:
+                return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'})
+
         # Actualizar contraseña
-        new_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        new_hash = generate_password_hash(new_password)
         cursor.execute('''
             UPDATE usuarios 
             SET password_hash = %s
@@ -5226,31 +5353,9 @@ def subscribe_push():
         print(f"❌ Error en subscribe_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
-@app.route('/api/push/test', methods=['POST'])
-@login_required
-def test_push():
-    """Probar notificaciones push"""
-    profesional_id = session.get('profesional_id')
-    
-    # Llamar a la función auxiliar que ya creaste
-    if enviar_notificacion_push_profesional(
-        profesional_id=profesional_id,  
-        titulo="🔔 Test Push",
-        mensaje="¡Las notificaciones push funcionan correctamente!",
-        cita_id=None
-    ):
-        return jsonify({'success': True, 'message': 'Notificación de prueba enviada'})
-    else:
-        return jsonify({'success': False, 'message': 'No hay suscripciones activas'})
-
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
-@app.route('/test_personalizar')
-def test_personalizar():
-    """Ruta de prueba para verificar que la personalización funciona"""
-    return "✅ Ruta de personalización funciona correctamente"
-
 @app.route('/api/debug/recreate-push-table', methods=['GET', 'POST'])
 def recreate_push_table():
     """Recrear tabla de suscripciones push correctamente"""
@@ -5924,31 +6029,6 @@ def from_json_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
-@app.route('/profesional/test-bloqueos')
-@login_required
-def test_bloqueos():
-    """Ruta de prueba para ver los bloqueos recurrentes en formato JSON"""
-    try:
-        profesional_id = session.get('profesional_id')
-        negocio_id = session.get('negocio_id')
-        
-        from database import obtener_bloqueos_recurrentes
-        
-        bloqueos = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
-        
-        # Ahora todos los objetos time y date ya son strings
-        return jsonify({
-            'success': True,
-            'total': len(bloqueos),
-            'bloqueos': bloqueos
-        })
-        
-    except Exception as e:
-        print(f"❌ Error en test_bloqueos: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/profesional/api/horarios-disponibles')
 @role_required(['profesional', 'propietario', 'superadmin'])
 def profesional_api_horarios_disponibles():
@@ -6099,1074 +6179,6 @@ def manifest():
 @app.route('/service-worker.js')
 def serve_service_worker():
     return send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
-
-    
-
-
-@app.route('/verify-key-tool')
-def verify_key_tool():
-    """Herramienta para verificar claves VAPID"""
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Verificador Claves VAPID</title>
-        <style>
-            body { font-family: Arial; padding: 20px; }
-            textarea { width: 100%; height: 100px; font-family: monospace; }
-            .valid { color: green; font-weight: bold; }
-            .invalid { color: red; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <h1>🔍 Verificador de Claves VAPID</h1>
-        
-        <textarea id="keyInput" placeholder="Pega tu clave pública VAPID aquí..."></textarea>
-        <br><br>
-        <button onclick="verifyKey()">Verificar Clave</button>
-        
-        <div id="result" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc;"></div>
-        
-        <script>
-        function verifyKey() {
-            const key = document.getElementById('keyInput').value.trim();
-            const result = document.getElementById('result');
-            
-            if (!key) {
-                result.innerHTML = '<span class="invalid">❌ Ingresa una clave</span>';
-                return;
-            }
-            
-            // 1. Verificar longitud
-            if (key.length !== 87) {
-                result.innerHTML = `
-                    <span class="invalid">❌ Longitud incorrecta: ${key.length} caracteres</span>
-                    <p>Debe ser EXACTAMENTE 87 caracteres.</p>
-                `;
-                return;
-            }
-            
-            // 2. Verificar caracteres válidos
-            const validChars = /^[A-Za-z0-9_-]+$/;
-            if (!validChars.test(key)) {
-                result.innerHTML = '<span class="invalid">❌ Contiene caracteres inválidos</span>';
-                return;
-            }
-            
-            // 3. Intentar decodificar
-            try {
-                // Añadir padding si es necesario
-                let base64 = key;
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                
-                // Convertir URL-safe a normal
-                base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-                
-                // Decodificar
-                const binary = atob(base64);
-                const bytes = new Uint8Array(binary.length);
-                
-                for (let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
-                }
-                
-                // Verificar longitud de bytes
-                if (bytes.length === 65) {
-                    // Verificar que el primer byte sea 0x04 (formato sin comprimir)
-                    if (bytes[0] === 0x04) {
-                        result.innerHTML = `
-                            <span class="valid">✅ CLAVE VÁLIDA</span>
-                            <p>• Longitud: 87 caracteres ✓</p>
-                            <p>• Bytes decodificados: 65 ✓</p>
-                            <p>• Formato: sin comprimir (0x04) ✓</p>
-                            <p>• Caracteres válidos: ✓</p>
-                        `;
-                    } else {
-                        result.innerHTML = `
-                            <span class="invalid">⚠️ Clave dudosa</span>
-                            <p>• Bytes: ${bytes.length} (OK)</p>
-                            <p>• Primer byte: 0x${bytes[0].toString(16)} (debería ser 0x04)</p>
-                        `;
-                    }
-                } else {
-                    result.innerHTML = `
-                        <span class="invalid">❌ Longitud de bytes incorrecta</span>
-                        <p>• Bytes decodificados: ${bytes.length}</p>
-                        <p>• Debería ser: 65 bytes</p>
-                    `;
-                }
-                
-            } catch (error) {
-                result.innerHTML = `
-                    <span class="invalid">❌ Error de decodificación</span>
-                    <p>${error.message}</p>
-                `;
-            }
-        }
-        </script>
-    </body>
-    </html>
-    '''
-@app.route('/test-push-debug/<int:profesional_id>')
-def test_push_debug(profesional_id):
-    """Prueba de push con DEBUG DETALLADO - CORREGIDO"""
-    try:
-        import os
-        import json
-        import time
-        from database import get_db_connection
-        
-        print(f"🔍 [DEBUG-PUSH-TEST] Iniciando test para profesional {profesional_id}")
-        
-        # 1. Obtener y verificar VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
-        
-        print(f"🔑 [DEBUG] VAPID_PRIVATE_KEY: {'PRESENTE' if VAPID_PRIVATE_KEY else 'AUSENTE'}")
-        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {'PRESENTE' if VAPID_PUBLIC_KEY else 'AUSENTE'}")
-        print(f"🔑 [DEBUG] VAPID_SUBJECT: {VAPID_SUBJECT}")
-        
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({
-                'success': False, 
-                'error': 'VAPID_PRIVATE_KEY no configurada',
-                'debug': 'Configurar en Railway: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT'
-            }), 500
-        
-        # 2. Obtener suscripción - CORREGIDO para manejar diccionarios
-        print(f"📋 [DEBUG] Obteniendo suscripción de la BD...")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT subscription_json 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-            ORDER BY id DESC LIMIT 1
-        ''', (profesional_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        print(f"📊 [DEBUG] Result type: {type(result)}")
-        print(f"📊 [DEBUG] Result: {result}")
-        
-        if not result:
-            return jsonify({
-                'success': False, 
-                'error': 'No hay suscripciones activas',
-                'profesional_id': profesional_id
-            }), 404
-        
-        # 3. EXTRAER el subscription_json correctamente
-        subscription_json = None
-        
-        # Si es tupla (cursor normal)
-        if isinstance(result, tuple):
-            subscription_json = result[0]
-        # Si es diccionario (RealDictCursor)
-        elif isinstance(result, dict):
-            subscription_json = result.get('subscription_json')
-        # Si es lista u otro tipo
-        elif hasattr(result, '__getitem__'):
-            try:
-                subscription_json = result[0]
-            except (KeyError, IndexError):
-                subscription_json = result.get('subscription_json') if hasattr(result, 'get') else None
-        
-        print(f"✅ [DEBUG] subscription_json extraído, type: {type(subscription_json)}")
-        
-        if not subscription_json:
-            return jsonify({
-                'success': False,
-                'error': 'No se pudo extraer subscription_json',
-                'result_structure': str(result)[:200]
-            }), 500
-        
-        # 4. Parsear JSON
-        try:
-            subscription = json.loads(subscription_json)
-            print(f"✅ [DEBUG] JSON parseado correctamente")
-        except json.JSONDecodeError as e:
-            print(f"❌ [DEBUG] Error parseando JSON: {e}")
-            print(f"📄 [DEBUG] JSON crudo: {subscription_json[:200]}")
-            return jsonify({
-                'success': False,
-                'error': f'JSON inválido: {str(e)}',
-                'json_preview': subscription_json[:200]
-            }), 500
-        
-        # 5. Verificar estructura
-        endpoint = subscription.get('endpoint', '')
-        keys = subscription.get('keys', {})
-        
-        print(f"📍 [DEBUG] Endpoint: {endpoint[:60]}...")
-        print(f"🔑 [DEBUG] Keys: {list(keys.keys()) if keys else 'NO KEYS'}")
-        
-        if not endpoint:
-            return jsonify({
-                'success': False,
-                'error': 'Suscripción no tiene endpoint',
-                'subscription_keys': list(subscription.keys())
-            }), 500
-        
-        # 6. Enviar push
-        print(f"⏰ [DEBUG] Configurando tiempos...")
-        current_time = int(time.time())
-        expiration_time = current_time + (12 * 60 * 60)  # 12 horas
-        
-        print(f"🚀 [DEBUG] Intentando enviar push...")
-        
-        try:
-            import pywebpush
-            
-            response = pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': '🔥 TEST PUSH DEBUG',
-                    'body': f'Prueba de debug: {time.ctime()}',
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": expiration_time
-                },
-                ttl=86400,
-                timeout=15
-            )
-            
-            print(f"🎉 [DEBUG] ¡PUSH ENVIADO EXITOSAMENTE!")
-            
-            return jsonify({
-                'success': True,
-                'message': '¡Push enviado exitosamente!',
-                'timestamp': current_time,
-                'endpoint_preview': endpoint[:50] + '...'
-            })
-            
-        except Exception as push_error:
-            error_type = type(push_error).__name__
-            error_msg = str(push_error)
-            
-            print(f"❌ [DEBUG] Error en webpush: {error_type}")
-            print(f"💡 [DEBUG] Mensaje: {error_msg[:200]}")
-            
-            # Análisis de error específico
-            diagnosis = "Error desconocido en pywebpush"
-            
-            if "vapid" in error_msg.lower():
-                diagnosis = "Problema con credenciales VAPID"
-                if "exp" in error_msg.lower():
-                    diagnosis = "Tiempo de expiración (exp) inválido"
-            elif "InvalidAuthorization" in error_msg:
-                diagnosis = "Token de autorización VAPID inválido"
-            elif "key" in error_msg.lower():
-                diagnosis = "Problema con la clave VAPID (formato incorrecto)"
-            elif "connection" in error_msg.lower():
-                diagnosis = "Error de conexión con Google FCM"
-            
-            return jsonify({
-                'success': False,
-                'error': error_msg,
-                'error_type': error_type,
-                'diagnosis': diagnosis,
-                'next_steps': [
-                    'Verificar formato de VAPID_PRIVATE_KEY (debe ser base64 url-safe)',
-                    'Verificar que VAPID_SUBJECT sea un email válido',
-                    'Probar con exp más corto (ej: 1 hora)'
-                ]
-            }), 500
-            
-    except Exception as e:
-        print(f"💥 [DEBUG] Error inesperado: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        return jsonify({
-            'success': False,
-            'error': f'Error inesperado: {type(e).__name__}',
-            'error_details': str(e)
-        }), 500
-    
-@app.route('/reset-subscriptions/<int:profesional_id>')
-def reset_subscriptions(profesional_id):
-    """Eliminar suscripciones antiguas y preparar para nuevas - CORREGIDO"""
-    from database import get_db_connection
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 1. Ver suscripciones actuales (sin created_at que no existe)
-        cursor.execute('''
-            SELECT id, profesional_id, activa 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s
-        ''', (profesional_id,))
-        
-        suscripciones = cursor.fetchall()
-        
-        # 2. Contar cuántas hay
-        count_before = len(suscripciones)
-        
-        # 3. Eliminar todas
-        cursor.execute('DELETE FROM suscripciones_push WHERE profesional_id = %s', (profesional_id,))
-        
-        deleted_count = cursor.rowcount
-        conn.commit()
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'message': f'Eliminadas {deleted_count} suscripciones antiguas',
-            'details': {
-                'profesional_id': profesional_id,
-                'found_before': count_before,
-                'deleted': deleted_count
-            },
-            'next_steps': [
-                '1. El profesional debe abrir la app web: https://wabot-production.up.railway.app',
-                '2. Cerrar y volver a abrir el navegador',
-                '3. Permitir notificaciones cuando el navegador pregunte',
-                '4. Probar con /test-push-debug/1'
-            ]
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False, 
-            'error': str(e),
-            'error_type': type(e).__name__
-        }), 500
-    
-@app.route('/vapid-info')
-def vapid_info():
-    """Ver información de las claves VAPID actuales - MEJORADA"""
-    import os
-    import re
-    
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com')
-    
-    # Analizar formato de las claves
-    def analyze_key(key, key_name):
-        if not key:
-            return {'status': 'MISSING', 'format': 'No configurada'}
-        
-        # Verificar si es base64 url-safe
-        is_base64_urlsafe = bool(re.match(r'^[A-Za-z0-9_-]+$', key))
-        
-        # Verificar longitud típica
-        expected_lengths = {
-            'VAPID_PRIVATE_KEY': 43,  # 32 bytes en base64 url-safe
-            'VAPID_PUBLIC_KEY': 87    # 65 bytes en base64 url-safe
-        }
-        
-        expected = expected_lengths.get(key_name)
-        length_ok = expected and len(key) == expected
-        
-        return {
-            'status': 'PRESENTE',
-            'length': len(key),
-            'expected_length': expected,
-            'length_ok': length_ok,
-            'is_base64_urlsafe': is_base64_urlsafe,
-            'preview': key[:20] + '...' + key[-5:] if len(key) > 30 else key
-        }
-    
-    private_analysis = analyze_key(VAPID_PRIVATE_KEY, 'VAPID_PRIVATE_KEY')
-    public_analysis = analyze_key(VAPID_PUBLIC_KEY, 'VAPID_PUBLIC_KEY')
-    
-    return jsonify({
-        'current_config': {
-            'VAPID_PRIVATE_KEY': private_analysis,
-            'VAPID_PUBLIC_KEY': public_analysis,
-            'VAPID_SUBJECT': VAPID_SUBJECT,
-            'subject_valid': VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
-        },
-        'problem': 'ERROR 403: Las credenciales VAPID no coinciden con las usadas al crear las suscripciones',
-        'explanation': 'Cuando el profesional se suscribió (permitió notificaciones), se usaron unas claves VAPID. Ahora estás usando claves diferentes.',
-        'solutions': [
-            {
-                'title': 'SOLUCIÓN RÁPIDA (Recomendada)',
-                'steps': [
-                    '1. Ejecutar: /reset-subscriptions/1',
-                    '2. Pedir al profesional que abra la app y permita notificaciones DE NUEVO',
-                    '3. Probar: /test-push-debug/1'
-                ]
-            },
-            {
-                'title': 'SOLUCIÓN PERMANENTE',
-                'steps': [
-                    '1. Generar nuevas claves VAPID (openssl)',
-                    '2. Actualizar en Railway las variables',
-                    '3. Ejecutar /reset-subscriptions/1',
-                    '4. Hacer que todos los usuarios se resuscriban'
-                ]
-            }
-        ],
-        'test_links': {
-            'reset_subscriptions': '/reset-subscriptions/1',
-            'test_push': '/test-push-debug/1',
-            'check_dependencies': '/check-dependencies'
-        }
-    })
-
-@app.route('/check-frontend-vapid')
-def check_frontend_vapid():
-    """Verificar qué clave pública VAPID está usando el frontend"""
-    import os
-    
-    # Esta es la clave pública ACTUAL en Railway
-    current_public = os.getenv('VAPID_PUBLIC_KEY', '')
-    
-    return jsonify({
-        'railway_public_key': current_public,
-        'railway_public_key_length': len(current_public),
-        'railway_public_key_preview': current_public[:30] + '...',
-        'instructions': [
-            '1. Busca en tu código frontend (static/js/, templates/) la constante de clave pública VAPID',
-            '2. Compara con la clave de arriba',
-            '3. DEBEN ser IDÉNTICAS',
-            '4. Si son diferentes, actualiza UNA de las dos para que coincidan'
-        ],
-        'common_locations': [
-            'static/js/service-worker.js',
-            'static/js/notifications.js', 
-            'templates/base.html',
-            'templates/includes/scripts.html'
-        ]
-    })
-
-@app.route('/whats-in-frontend')
-def whats_in_frontend():
-    """Verificar qué hay en el frontend actual"""
-    import os
-    
-    # Leer el archivo push-notificacion.js del filesystem
-    try:
-        with open('static/js/push-notificacion.js', 'r') as f:
-            content = f.read()
-    except:
-        try:
-            with open('/app/static/js/push-notificacion.js', 'r') as f:
-                content = f.read()
-        except:
-            content = "No se pudo leer el archivo"
-    
-    # Buscar la clave pública en el contenido
-    import re
-    public_key_match = re.search(r"publicKey\s*[:=]\s*['\"]([A-Za-z0-9_-]+)['\"]", content)
-    
-    found_key = public_key_match.group(1) if public_key_match else "NO ENCONTRADA"
-    
-    return jsonify({
-        'frontend_file': 'push-notificacion.js',
-        'found_public_key': found_key,
-        'found_key_length': len(found_key),
-        'railway_public_key': os.getenv('VAPID_PUBLIC_KEY', ''),
-        'railway_key_length': len(os.getenv('VAPID_PUBLIC_KEY', '')),
-        'match': found_key == os.getenv('VAPID_PUBLIC_KEY', ''),
-        'content_preview': content[:500] + '...' if len(content) > 500 else content
-    })
-
-@app.route('/debug-vapid-complete')
-def debug_vapid_complete():
-    """Debug COMPLETO de VAPID - muestra TODO"""
-    import os
-    import re
-    
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT') or 'mailto:danielpaezrami@gmail.com'
-    
-    # 1. Mostrar claves COMPLETAS (últimos 10 chars para seguridad)
-    private_key_end = VAPID_PRIVATE_KEY[-10:] if len(VAPID_PRIVATE_KEY) > 10 else VAPID_PRIVATE_KEY
-    public_key_end = VAPID_PUBLIC_KEY[-10:] if len(VAPID_PUBLIC_KEY) > 10 else VAPID_PUBLIC_KEY
-    
-    # 2. Verificar formato
-    def is_valid_base64_urlsafe(key):
-        return bool(re.match(r'^[A-Za-z0-9_-]+$', key)) if key else False
-    
-    # 3. Obtener suscripción actual
-    from database import get_db_connection
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
-    result = cursor.fetchone()
-    conn.close()
-    
-    subscription_info = None
-    if result:
-        import json
-        sub_json = result[0] if isinstance(result, tuple) else result.get('subscription_json')
-        if sub_json:
-            try:
-                subscription = json.loads(sub_json)
-                keys = subscription.get('keys', {})
-                subscription_info = {
-                    'endpoint': subscription.get('endpoint', '')[:60] + '...',
-                    'has_keys': bool(keys),
-                    'keys_present': list(keys.keys()) if keys else []
-                }
-            except:
-                subscription_info = {'error': 'JSON inválido'}
-    
-    return jsonify({
-        'vapid_config': {
-            'VAPID_PRIVATE_KEY': {
-                'present': bool(VAPID_PRIVATE_KEY),
-                'length': len(VAPID_PRIVATE_KEY),
-                'expected_length': 43,
-                'length_ok': len(VAPID_PRIVATE_KEY) == 43,
-                'format_ok': is_valid_base64_urlsafe(VAPID_PRIVATE_KEY),
-                'end': f"...{private_key_end}" if VAPID_PRIVATE_KEY else None
-            },
-            'VAPID_PUBLIC_KEY': {
-                'present': bool(VAPID_PUBLIC_KEY),
-                'length': len(VAPID_PUBLIC_KEY),
-                'expected_length': 87,
-                'length_ok': len(VAPID_PUBLIC_KEY) == 87,
-                'format_ok': is_valid_base64_urlsafe(VAPID_PUBLIC_KEY),
-                'full_key': VAPID_PUBLIC_KEY,  # MOSTRAMOS LA CLAVE COMPLETA
-                'end': f"...{public_key_end}" if VAPID_PUBLIC_KEY else None
-            },
-            'VAPID_SUBJECT': {
-                'value': VAPID_SUBJECT,
-                'valid': VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
-            }
-        },
-        'current_subscription': subscription_info,
-        'critical_check': '¿La VAPID_PUBLIC_KEY de arriba es EXACTAMENTE la misma que en push-notificacion.js?',
-        'action_required': 'COPIAR la VAPID_PUBLIC_KEY de arriba y pegarla en push-notificacion.js',
-        'verification_steps': [
-            '1. Copiar el valor de "full_key" de arriba',
-            '2. Pegarlo EXACTAMENTE en push-notificacion.js donde dice this.publicKey = \'...\'',
-            '3. Hacer commit y push',
-            '4. Railway hará deploy automático',
-            '5. El profesional debe CERRAR NAVEGADOR y volver a abrir',
-            '6. Permitir notificaciones DE NUEVO',
-            '7. Probar con /test-push-final/1'
-        ]
-    })
- 
-@app.route('/push/setup-completo')
-def push_setup_completo():
-    """Verificar estado completo del sistema push - CORREGIDO"""
-    import os
-    
-    try:
-        from database import get_db_connection
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Verificar suscripciones (con manejo de error si la tabla no existe)
-        try:
-            cursor.execute('SELECT COUNT(*) as count FROM suscripciones_push WHERE activa = TRUE')
-            result = cursor.fetchone()
-            suscripciones_activas = result[0] if result else 0
-        except Exception as e:
-            print(f"⚠️ Error contando suscripciones: {e}")
-            suscripciones_activas = 0
-        
-        # Verificar notificaciones en BD
-        try:
-            cursor.execute('SELECT COUNT(*) as count FROM notificaciones WHERE leida = FALSE')
-            result = cursor.fetchone()
-            notificaciones_pendientes = result[0] if result else 0
-        except Exception as e:
-            print(f"⚠️ Error contando notificaciones: {e}")
-            notificaciones_pendientes = 0
-        
-        conn.close()
-        
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
-        
-        return jsonify({
-            'status': 'OK',
-            'vapid_configurado': bool(VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY),
-            'clave_privada_length': len(VAPID_PRIVATE_KEY),
-            'clave_publica_length': len(VAPID_PUBLIC_KEY),
-            'subject': VAPID_SUBJECT,
-            'suscripciones_activas': suscripciones_activas,
-            'notificaciones_pendientes': notificaciones_pendientes,
-            'service_worker_accesible': True,  # Porque /service-worker.js da 200 OK
-            'diagnostico': 'Sistema push configurado correctamente' if VAPID_PRIVATE_KEY else 'Falta configurar VAPID',
-            'siguientes_pasos': [
-                '1. Profesional abre la app y permite notificaciones',
-                '2. Verificar que se crea suscripción en BD',
-                '3. Probar con /push/test-manual',
-                '4. Agenda cita desde chat web'
-            ] if VAPID_PRIVATE_KEY else [
-                '1. Configurar VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY y VAPID_SUBJECT en Railway',
-                '2. Reiniciar la aplicación'
-            ]
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'status': 'ERROR',
-            'error': str(e),
-            'error_type': type(e).__name__
-        }), 500
-    
-@app.route('/push/test-ultimo')
-def test_ultimo():
-    """TEST MÁS SIMPLE POSIBLE"""
-    try:
-        import os
-        import json
-        import time
-        
-        # 1. Obtener suscripción
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({'error': 'No hay suscripciones'})
-        
-        # Extraer
-        if isinstance(result, dict):
-            sub_json = result.get('subscription_json')
-        else:
-            sub_json = result[0]
-        
-        subscription = json.loads(sub_json)
-        
-        # 2. Enviar
-        from pywebpush import webpush
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '🎉 ¡FINALMENTE!',
-                'body': f'Test exitoso {time.ctime()}',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
-            vapid_claims={
-                "sub": 'mailto:danielpaezrami@gmail.com',
-                "exp": int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡FUNCIONA!'})
-        
-    except Exception as e:
-        error_msg = str(e)
-        
-        # Análisis detallado
-        diagnostico = {
-            'tipo': type(e).__name__,
-            'mensaje': error_msg,
-            'tiene_response': hasattr(e, 'response'),
-        }
-        
-        if hasattr(e, 'response'):
-            diagnostico['status_code'] = e.response.status_code if hasattr(e, 'response') else None
-            diagnostico['response_text'] = e.response.text[:200] if hasattr(e, 'response') and e.response.text else None
-        
-        return jsonify({
-            'error': error_msg,
-            'diagnostico': diagnostico,
-            'sugerencia': 'El problema está en la comunicación con el servicio de push (Google FCM)'
-        })
-    
-@app.route('/push/ver-suscripcion-simple')
-def push_ver_suscripcion_simple():
-    """Ver suscripción actual SIN created_at"""
-    from database import get_db_connection
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, profesional_id, activa, 
-                   LEFT(subscription_json::text, 150) as json_preview,
-                   LENGTH(subscription_json::text) as json_length
-            FROM suscripciones_push 
-            WHERE activa = TRUE
-            ORDER BY id DESC
-            LIMIT 1
-        ''')
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({
-                'encontrada': False, 
-                'mensaje': 'No hay suscripciones activas',
-                'accion': 'El profesional debe activar notificaciones'
-            })
-        
-        # Procesar resultado
-        if isinstance(result, tuple):
-            data = {
-                'id': result[0],
-                'profesional_id': result[1],
-                'activa': result[2],
-                'json_preview': result[3],
-                'json_length': result[4],
-                'es_valida': 'endpoint' in (result[3] or '') and 'keys' in (result[3] or '')
-            }
-        else:
-            data = dict(result)
-            data['es_valida'] = 'endpoint' in (data.get('json_preview', '')) and 'keys' in (data.get('json_preview', ''))
-        
-        return jsonify({
-            'encontrada': True,
-            'suscripcion': data,
-            'diagnostico': 'VÁLIDA' if data['es_valida'] else 'INVÁLIDA'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
-@app.route('/clear-sw')
-def clear_service_worker():
-    """Forzar limpieza del Service Worker"""
-    return '''
-    <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) {
-                registration.unregister();
-                console.log('Service Worker desregistrado');
-            }
-            // Limpiar cache
-            caches.keys().then(function(cacheNames) {
-                cacheNames.forEach(function(cacheName) {
-                    caches.delete(cacheName);
-                });
-            });
-            alert('✅ Service Worker limpiado. Recarga la página.');
-            location.reload();
-        });
-    }
-    </script>
-    '''
-
-# Crea esta ruta NUEVA para prueba limpia
-@app.route('/push/test-simple')
-def test_push_simple():
-    """Prueba SUPER SIMPLE de push"""
-    import os
-    import json
-    import time
-    
-    # 1. Obtener primera suscripción
-    from database import get_db_connection
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
-    result = cursor.fetchone()
-    conn.close()
-    
-    if not result:
-        return jsonify({'error': 'No hay suscripciones'})
-    
-    # Extraer JSON (manejar ambos tipos)
-    if isinstance(result, dict):
-        sub_json = result.get('subscription_json')
-    else:
-        sub_json = result[0] if result else None
-    
-    if not sub_json:
-        return jsonify({'error': 'JSON vacío'})
-    
-    # 2. Parsear suscripción
-    try:
-        subscription = json.loads(sub_json)
-    except:
-        return jsonify({'error': 'JSON inválido', 'json': sub_json[:100]})
-    
-    # 3. Enviar push SIMPLE
-    try:
-        from pywebpush import webpush
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '✅ TEST SIMPLE',
-                'body': 'Funciona!',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=os.getenv('VAPID_PRIVATE_KEY'),
-            vapid_claims={
-                'sub': 'mailto:danielpaezrami@gmail.com',
-                'exp': int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡PUSH ENVIADO!'})
-        
-    except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'error_type': type(e).__name__,
-            'subscription_keys': list(subscription.keys()) if subscription else [],
-            'endpoint': subscription.get('endpoint', '')[:50] + '...' if subscription else None
-        })
-
-@app.route('/push/debug-extremo')
-def debug_extremo():
-    """DEBUG EXTREMO de claves VAPID"""
-    import os
-    import json
-    import base64
-    
-    # 1. Obtener claves
-    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '').strip()
-    VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
-    
-    # 2. Verificar formato de clave privada
-    private_key_info = {
-        'raw': VAPID_PRIVATE_KEY,
-        'length': len(VAPID_PRIVATE_KEY),
-        'has_equals': '=' in VAPID_PRIVATE_KEY,
-        'has_plus': '+' in VAPID_PRIVATE_KEY,
-        'has_slash': '/' in VAPID_PRIVATE_KEY,
-        'has_dash': '-' in VAPID_PRIVATE_KEY,
-        'has_underscore': '_' in VAPID_PRIVATE_KEY,
-    }
-    
-    # 3. Intentar decodificar para ver si es base64 válido
-    try:
-        # Primero, asegurar padding
-        missing_padding = len(VAPID_PRIVATE_KEY) % 4
-        if missing_padding:
-            padded = VAPID_PRIVATE_KEY + '=' * (4 - missing_padding)
-        else:
-            padded = VAPID_PRIVATE_KEY
-            
-        # Convertir de URL-safe a normal
-        normal_base64 = padded.replace('-', '+').replace('_', '/')
-        
-        # Decodificar
-        decoded = base64.b64decode(normal_base64)
-        private_key_info['base64_valid'] = True
-        private_key_info['decoded_length'] = len(decoded)
-        private_key_info['decoded_hex'] = decoded.hex()[:50] + '...'
-        
-    except Exception as e:
-        private_key_info['base64_valid'] = False
-        private_key_info['error'] = str(e)
-    
-    # 4. Obtener una suscripción para probar
-    from database import get_db_connection
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
-    result = cursor.fetchone()
-    conn.close()
-    
-    subscription_data = None
-    if result:
-        if isinstance(result, dict):
-            subscription_data = result.get('subscription_json')
-        else:
-            subscription_data = result[0] if result else None
-    
-    # 5. Verificar si el subject tiene formato correcto
-    subject_valid = VAPID_SUBJECT.startswith('mailto:') and '@' in VAPID_SUBJECT
-    
-    return jsonify({
-        'analisis_clave_privada': private_key_info,
-        'claves_actuales': {
-            'VAPID_PUBLIC_KEY': VAPID_PUBLIC_KEY[:50] + '...',
-            'VAPID_PUBLIC_KEY_length': len(VAPID_PUBLIC_KEY),
-            'VAPID_SUBJECT': VAPID_SUBJECT,
-            'subject_valido': subject_valid,
-            'CLAVE_EN_JS': 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'[:50] + '...',
-            'coinciden_js_env': VAPID_PUBLIC_KEY == 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'
-        },
-        'suscripcion_existe': bool(subscription_data),
-        'suscripcion_length': len(subscription_data) if subscription_data else 0,
-        'posibles_problemas': [
-            'Clave privada demasiado corta (debe ser ~43 chars)' if len(VAPID_PRIVATE_KEY) < 40 else 'Clave privada longitud OK',
-            'Clave privada no es base64 válido' if not private_key_info.get('base64_valid', False) else 'Clave privada base64 válido',
-            'Subject no válido (debe ser mailto:email@dominio.com)' if not subject_valid else 'Subject válido',
-            'Clave pública no coincide con JS' if VAPID_PUBLIC_KEY != 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU' else 'Clave pública OK'
-        ]
-    })
-
-# ============================================
-# RUTAS DE PRUEBA PUSH EN app.py
-# ============================================
-
-@app.route('/push/test-ultra-simple')
-def test_ultra_simple():
-    """TEST ULTRA SIMPLE - Sin imports complicados"""
-    try:
-        import os
-        import json
-        import time
-        
-        print("🔧 TEST ULTRA SIMPLE INICIADO")
-        
-        # 1. Claves
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({'error': 'VAPID_PRIVATE_KEY no configurada'})
-        
-        # 2. Obtener suscripción MÁS RECIENTE
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({'error': 'No hay suscripciones'})
-        
-        # Extraer
-        sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
-        
-        if not sub_json:
-            return jsonify({'error': 'JSON vacío'})
-        
-        # 3. Parsear
-        subscription = json.loads(sub_json)
-        endpoint = subscription.get('endpoint', '')
-        print(f"📫 Endpoint: {endpoint[:60]}...")
-        
-        # 4. Enviar con pywebpush
-        from pywebpush import webpush
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '🔥 ULTRA SIMPLE',
-                'body': f'Hora: {time.ctime()}',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={
-                "sub": "mailto:danielpaezrami@gmail.com",
-                "exp": int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡FUNCIONÓ!'})
-        
-    except Exception as e:
-        error_msg = str(e)
-        print(f"❌ ERROR: {error_msg}")
-        
-        # Información extra si es WebPushException
-        if hasattr(e, 'response'):
-            error_info = {
-                'status_code': e.response.status_code if hasattr(e, 'response') else None,
-                'response_text': e.response.text[:300] if hasattr(e, 'response') and e.response.text else None
-            }
-        else:
-            error_info = {}
-        
-        return jsonify({
-            'error': error_msg,
-            'error_type': type(e).__name__,
-            'error_info': error_info
-        })
-
-@app.route('/push/ver-suscripcion')
-def ver_suscripcion():
-    """Ver la suscripción exacta almacenada"""
-    from database import get_db_connection
-    import json
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT subscription_json FROM suscripciones_push ORDER BY id DESC LIMIT 1')
-    result = cursor.fetchone()
-    conn.close()
-    
-    if not result:
-        return jsonify({'error': 'No hay suscripciones'})
-    
-    # Extraer
-    sub_json = result[0] if isinstance(result, (tuple, list)) else result.get('subscription_json')
-    
-    try:
-        subscription = json.loads(sub_json)
-        
-        # Mostrar información sensible pero necesaria
-        return jsonify({
-            'endpoint': subscription.get('endpoint'),
-            'keys_present': list(subscription.get('keys', {}).keys()) if subscription.get('keys') else [],
-            'endpoint_provider': 'FCM (Google)' if 'fcm.googleapis.com' in subscription.get('endpoint', '') else 'Otro',
-            'json_completo': subscription
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'error': f'Error parseando: {e}',
-            'json_crudo': sub_json[:500] + '...' if sub_json else None
-        })
-
-@app.route('/push/resetear-todo')
-def resetear_todo():
-    """Eliminar todo y empezar desde cero"""
-    from database import get_db_connection
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Contar antes
-    cursor.execute('SELECT COUNT(*) FROM suscripciones_push')
-    count_antes = cursor.fetchone()[0]
-    
-    # Eliminar todo
-    cursor.execute('DELETE FROM suscripciones_push')
-    conn.commit()
-    
-    # Contar después
-    cursor.execute('SELECT COUNT(*) FROM suscripciones_push')
-    count_despues = cursor.fetchone()[0]
-    conn.close()
-    
-    return jsonify({
-        'success': True,
-        'message': '✅ TODAS las suscripciones eliminadas',
-        'count_antes': count_antes,
-        'count_despues': count_despues,
-        'instrucciones': '1. Recarga la página del profesional 2. Haz clic en "Activar Notificaciones" 3. Permite notificaciones'
-    })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     
 @app.route('/profesional/perfil')
@@ -7332,75 +6344,13 @@ def obtener_profesionales(negocio_id):
             'error': str(e)
         })
     
-
-    
-# ==================== RUTA TEMPORAL PARA CREAR TABLA DE IMÁGENES ====================
-@app.route('/admin/crear-tabla-imagenes', methods=['POST'])
-def crear_tabla_imagenes():
-    """Crear tabla de imágenes - VERSIÓN PERMISIVA"""
-    try:
-        # DEBUG EXTREMO
-        print("=== DEBUG SESIÓN ===")
-        for key, value in session.items():
-            print(f"{key}: {value}")
-        print("===================")
-        
-        # ¡PERMITE A CUALQUIERA LOGUEADO! (temporal)
-        if not session.get('usuario_id'):
-            return jsonify({
-                'success': False, 
-                'message': 'Necesitas iniciar sesión'
-            }), 401
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # SQL super simple
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS imagenes_profesionales (
-                id SERIAL PRIMARY KEY,
-                profesional_id INTEGER NOT NULL,
-                negocio_id INTEGER NOT NULL,
-                tipo VARCHAR(50) DEFAULT 'perfil',
-                nombre_archivo VARCHAR(255) NOT NULL,
-                ruta_archivo VARCHAR(500) NOT NULL,
-                url_publica VARCHAR(500),
-                mime_type VARCHAR(100),
-                tamaño_bytes INTEGER,
-                es_principal BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        conn.commit()
-        cur.close()
-        
-        return jsonify({
-            'success': True,
-            'message': '✅ Tabla creada exitosamente'
-        })
-        
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        # Si ya existe, igual es éxito
-        if 'already exists' in str(e).lower():
-            return jsonify({
-                'success': True,
-                'message': 'La tabla ya existía'
-            })
-        
-        return jsonify({
-            'success': False,
-            'message': f'Error: {str(e)}'
-        }), 500
-
 # ==================== PANEL DE ADMINISTRACIÓN SUPER ADMIN ====================
 @app.route('/admin/panel')
 @login_required
 def admin_panel():
     """Panel de administración - Solo super admin"""
     # Verificar si es super admin
-    if session.get('usuario_tipo') != 'admin':
+    if session.get('usuario_rol') != 'superadmin':
         return redirect(url_for('profesional_dashboard'))
     
     # Obtener estadísticas del sistema
@@ -7451,8 +6401,10 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename:
+        return False
+    filename = secure_filename(filename)
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def actualizar_foto_perfil_profesional(profesional_id, file):
     """Función para actualizar foto de perfil usando el nuevo sistema"""
@@ -7560,9 +6512,6 @@ def subir_imagen_profesional():
 @login_required
 def subir_foto_profesional():
     try:
-        import cloudinary
-        import cloudinary.uploader
-        
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
@@ -7571,13 +6520,6 @@ def subir_foto_profesional():
             return jsonify({'success': False, 'message': 'No se envió imagen'}), 400
         
         file = request.files['foto']
-        
-        # Configurar Cloudinary
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         # Subir a Cloudinary
         upload_result = cloudinary.uploader.upload(
@@ -8018,12 +6960,12 @@ def ver_tablas():
     """Ver todas las tablas en la base de datos (simplificado)"""
     try:
         # Solo super admin
-        if session.get('usuario_tipo') != 'superadmin':
+        if session.get('usuario_rol') != 'superadmin':
             return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
+
         conn = get_db_connection()
         cur = conn.cursor()
-        
+
         # Obtener todas las tablas
         cur.execute("""
             SELECT table_name
@@ -8070,143 +7012,6 @@ def ver_tablas():
     except Exception as e:
         print(f"Error viendo tablas: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
-    
-@app.route('/admin/ejecutar-sql', methods=['POST'])
-@login_required
-def ejecutar_sql():
-    """Ejecutar SQL específico para crear tablas (versión segura)"""
-    try:
-        # Solo super admin
-        if session.get('usuario_tipo') != 'superadmin':
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
-        data = request.get_json()
-        sql = data.get('sql', '').strip().upper()
-        
-        # Permitir solo CREATE TABLE y SELECT (para seguridad)
-        if not (sql.startswith('CREATE TABLE') or sql.startswith('SELECT')):
-            return jsonify({
-                'success': False,
-                'message': 'Solo se permiten comandos CREATE TABLE y SELECT'
-            })
-        
-        # Bloquear comandos peligrosos
-        dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'UPDATE', 'INSERT']
-        for keyword in dangerous_keywords:
-            if keyword in sql:
-                return jsonify({
-                    'success': False,
-                    'message': f'Comando {keyword} no permitido por seguridad'
-                })
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        try:
-            if sql.startswith('SELECT'):
-                cur.execute(sql)
-                rows = cur.fetchall()
-                columns = [desc[0] for desc in cur.description]
-                
-                results = []
-                for row in rows:
-                    results.append(dict(zip(columns, row)))
-                
-                return jsonify({
-                    'success': True,
-                    'type': 'SELECT',
-                    'rowcount': len(rows),
-                    'data': results
-                })
-            else:
-                # Para CREATE TABLE
-                cur.execute(sql)
-                conn.commit()
-                
-                return jsonify({
-                    'success': True,
-                    'type': 'CREATE',
-                    'message': 'Tabla creada exitosamente'
-                })
-                
-        except Exception as e:
-            conn.rollback()
-            return jsonify({
-                'success': False,
-                'message': f'Error SQL: {str(e)}'
-            })
-        finally:
-            cur.close()
-        
-    except Exception as e:
-        print(f"Error ejecutando SQL: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'Error del sistema: {str(e)}'
-        }), 500
-
-@app.route('/api/imagenes/test')
-@login_required
-def test_imagenes_sistema():
-    """Verificar si existe la tabla de imágenes - VERSIÓN SIMPLE"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'imagenes_profesionales'
-            )
-        """)
-        tabla_existe = cur.fetchone()[0]
-        cur.close()
-        
-        return jsonify({
-            'success': True,
-            'table_exists': bool(tabla_existe)
-        })
-        
-    except Exception as e:
-        # En caso de error, tabla no existe
-        return jsonify({
-            'success': True,
-            'table_exists': False
-        })
-
-@app.route('/admin/crear-tabla-push-clientes')
-def crear_tabla_push_clientes():
-    """Crear tabla de suscripciones push para clientes"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS suscripciones_push_clientes (
-                id SERIAL PRIMARY KEY,
-                negocio_id INTEGER NOT NULL,
-                cliente_telefono VARCHAR(20) NOT NULL,
-                subscription_json TEXT NOT NULL,
-                dispositivo_info TEXT,
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                activa BOOLEAN DEFAULT TRUE
-            )
-        ''')
-        
-        # Agregar índice para búsquedas rápidas
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_suscripciones_cliente 
-            ON suscripciones_push_clientes (cliente_telefono, negocio_id)
-        ''')
-        
-        conn.commit()
-        conn.close()
-        
-        return "✅ Tabla suscripciones_push_clientes creada exitosamente"
-        
-    except Exception as e:
-        return f"❌ Error: {str(e)}"
 
 # =============================================================================
 # EDITOR VISUAL DEL NEGOCIO (WYSIWYG)
@@ -8306,8 +7111,6 @@ def negocio_editor_visual():
 def negocio_editor_subir_foto():
     """Subir foto usando Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
         from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
@@ -8319,13 +7122,6 @@ def negocio_editor_subir_foto():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
-        
-        # Configurar Cloudinary
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         # Subir a Cloudinary
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -8607,9 +7403,6 @@ def profesional_mis_trabajos():
 def profesional_subir_trabajo():
     """Subir foto de trabajo a Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
-        
         profesional_id = session.get('profesional_id')
         if not profesional_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
@@ -8620,13 +7413,6 @@ def profesional_subir_trabajo():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'message': 'Archivo vacío'}), 400
-        
-        # Configurar Cloudinary
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         # Subir a Cloudinary
         upload_result = cloudinary.uploader.upload(
@@ -8689,8 +7475,6 @@ def profesional_eliminar_trabajo(trabajo_id):
 def negocio_subir_foto_servicio():
     """Subir foto de servicio a Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
         from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
@@ -8701,12 +7485,6 @@ def negocio_subir_foto_servicio():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
-        
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         upload_result = cloudinary.uploader.upload(
@@ -8889,8 +7667,6 @@ def negocio_productos_eliminar(producto_id):
 def negocio_productos_subir_foto():
     """Subir foto de producto a Cloudinary"""
     try:
-        import cloudinary
-        import cloudinary.uploader
         from datetime import datetime
         
         negocio_id = session.get('negocio_id', 1)
@@ -8901,12 +7677,6 @@ def negocio_productos_subir_foto():
         file = request.files['foto']
         if file.filename == '':
             return jsonify({'success': False, 'error': 'Archivo vacío'}), 400
-        
-        cloudinary.config(
-            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'ddfaizdj9'),
-            api_key=os.environ.get('CLOUDINARY_API_KEY'),
-            api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-        )
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         upload_result = cloudinary.uploader.upload(
@@ -9045,6 +7815,103 @@ def subscribe_cliente_push_direct():
         print(f"❌ Error en subscribe_cliente_push_direct: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
+@app.route('/api/cliente/mis-citas', methods=['GET'])
+def api_cliente_citas():
+    """API para obtener las citas del cliente"""
+    try:
+        telefono = request.args.get('telefono', '')
+        negocio_id = request.args.get('negocio_id', 1, type=int)
+        
+        if not telefono or len(telefono) < 10:
+            return jsonify({'success': False, 'error': 'Teléfono requerido'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT c.id, c.fecha, c.hora, c.estado,
+                s.nombre as servicio_nombre, s.precio,
+                p.nombre as profesional_nombre,
+                p.id as profesional_id,
+                n.nombre as negocio_nombre,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM opiniones_profesional op
+                        JOIN clientes cl ON op.cliente_id = cl.id
+                        WHERE cl.telefono = %s 
+                        AND op.profesional_id = c.profesional_id
+                        AND op.fecha::date >= c.fecha::date
+                    ) THEN TRUE 
+                    ELSE FALSE 
+                END as ya_calificada
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            JOIN negocios n ON c.negocio_id = n.id
+            WHERE c.cliente_telefono = %s 
+            AND c.negocio_id = %s
+            ORDER BY c.fecha DESC, c.hora DESC
+            LIMIT 20
+        ''', (telefono, telefono, negocio_id))
+        
+        citas = cursor.fetchall()
+        conn.close()
+        
+        # Formatear citas
+        citas_formateadas = []
+        for cita in citas:
+            # Formatear hora
+            hora_str = str(cita['hora'])[:5] if cita['hora'] else ''
+            
+            # Formatear fecha
+            fecha_str = str(cita['fecha']) if cita['fecha'] else ''
+            if fecha_str and len(fecha_str) >= 10:
+                try:
+                    from datetime import datetime
+                    fecha_obj = datetime.strptime(fecha_str[:10], '%Y-%m-%d')
+                    fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
+                except:
+                    fecha_formateada = fecha_str[:10]
+            else:
+                fecha_formateada = fecha_str
+            
+            # Determinar estado visual
+            estado = cita['estado'] or 'confirmado'
+            if estado == 'completado':
+                estado_icono = '✅'
+                estado_texto = 'Completada'
+            elif estado == 'cancelado':
+                estado_icono = '❌'
+                estado_texto = 'Cancelada'
+            else:
+                estado_icono = '📅'
+                estado_texto = 'Pendiente'
+            
+            citas_formateadas.append({
+                'id': cita['id'],
+                'fecha': fecha_formateada,
+                'hora': hora_str,
+                'estado': estado,
+                'estado_icono': estado_icono,
+                'estado_texto': estado_texto,
+                'servicio': cita['servicio_nombre'],
+                'precio': float(cita['precio'] or 0),
+                'profesional': cita['profesional_nombre'],
+                'profesional_id': cita['profesional_id'],
+                'negocio': cita['negocio_nombre'],
+                'ya_calificada': cita['ya_calificada']
+            })
+        
+        return jsonify({
+            'success': True,
+            'citas': citas_formateadas,
+            'total': len(citas_formateadas)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error en api_cliente_citas: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # =============================================================================
 # Landing Page de Ventas para Wabot
 # =============================================================================
@@ -9065,6 +7932,83 @@ def serve_firebase_sw():
         mimetype='application/javascript'
     )
 
+@app.route('/profesional/generar-flyer/<int:promocion_id>')
+@login_required
+def generar_flyer_promocion(promocion_id):
+    """Generar flyer para una promoción"""
+    try:
+        from flyer_generator import generar_flyer_promocion as gen_promo, generar_flyer_concurso as gen_concurso
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT p.*, n.nombre as negocio_nombre, n.id as negocio_id,
+                   prof.nombre as profesional_nombre
+            FROM promociones p
+            JOIN negocios n ON p.negocio_id = n.id
+            JOIN profesionales prof ON p.profesional_id = prof.id
+            WHERE p.id = %s
+        ''', (promocion_id,))
+        
+        promo = cursor.fetchone()
+        conn.close()
+        
+        if not promo:
+            flash('Promoción no encontrada', 'error')
+            return redirect(url_for('profesional_promociones'))
+        
+        # Fecha formateada
+        fecha_fin = str(promo['fecha_fin'])[:10] if promo.get('fecha_fin') else 'Indefinido'
+        
+        # ID del negocio para el QR
+        negocio_id_flyer = promo.get('negocio_id')
+        
+        print(f"🎨 Generando flyer para promo {promocion_id}")
+        print(f"   Tipo: {promo.get('tipo_promocion', 'concurso_fotos')}")
+        print(f"   Negocio ID: {negocio_id_flyer}")
+        
+        # Generar flyer según tipo
+        if promo.get('tipo_promocion') == 'concurso_fotos':
+            flyer_path = gen_concurso(
+                negocio_nombre=promo['negocio_nombre'],
+                titulo_promo=promo['titulo'],
+                premio=promo.get('premio', ''),
+                fecha_fin=fecha_fin,
+                negocio_id=negocio_id_flyer,
+                profesional_nombre=promo.get('profesional_nombre', '')
+            )
+        else:
+            flyer_path = gen_promo(
+                negocio_nombre=promo['negocio_nombre'],
+                titulo_promo=promo['titulo'],
+                descripcion=promo.get('descripcion', ''),
+                descuento=promo.get('descuento_porcentaje', 0),
+                fecha_fin=fecha_fin,
+                negocio_id=negocio_id_flyer,
+                profesional_nombre=promo.get('profesional_nombre', '')
+            )
+        
+        if flyer_path and os.path.exists(flyer_path):
+            print(f"✅ Flyer generado: {flyer_path}")
+            # Mostrar la imagen directamente en el navegador
+            return send_from_directory(
+                os.path.dirname(os.path.abspath(flyer_path)),
+                os.path.basename(flyer_path),
+                mimetype='image/png'
+            )
+        else:
+            print(f"❌ Flyer NO generado. Path: {flyer_path}")
+            flash('Error al generar el flyer. Revisa los logs.', 'error')
+            return redirect(url_for('profesional_promociones'))
+            
+    except Exception as e:
+        print(f"❌ Error generando flyer: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al generar el flyer: {str(e)}', 'error')
+        return redirect(url_for('profesional_promociones'))
+    
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
 # =============================================================================

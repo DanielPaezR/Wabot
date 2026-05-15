@@ -715,6 +715,74 @@
             .promo-card  { background: #1e293b; border-color: #334155; }
             .bottom-sheet { background: #1e293b; }
         }
+
+        /* ==================== PANEL MIS CITAS ==================== */
+        .cita-card {
+            background: var(--white);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.15s;
+        }
+
+        .cita-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .cita-card-estado {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .cita-card-estado.completada { background: var(--success-soft); color: #065f46; }
+        .cita-card-estado.pendiente { background: var(--primary-soft); color: var(--primary-dark); }
+        .cita-card-estado.cancelada { background: var(--danger-soft); color: #991b1b; }
+
+        .cita-card-body {
+            font-size: 0.82rem;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .cita-card-body .cita-info-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .cita-card-footer {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .btn-calificar {
+            background: var(--warning);
+            color: #92400e;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-calificar:active { transform: scale(0.97); }
+        .btn-calificar.calificado { background: var(--success-soft); color: #065f46; }
     </style>
 </head>
 <body>
@@ -806,6 +874,19 @@
                 </div>
             </div>
 
+            <!-- PANEL MIS CITAS -->
+            <div id="panelMisCitas" class="panel">
+                <div class="panel-scroll" id="misCitasScroll">
+                    <div class="panel-title">Mis Citas</div>
+                    <div id="misCitasList">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <h4>Cargando tus citas...</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- PANEL DIRECTORIO -->
             <div id="panelDirectorio" class="panel">
                 <div class="panel-scroll">
@@ -837,6 +918,10 @@
             <span class="nav-icon">💬</span>
             <span class="nav-label">Chat</span>
         </button>
+        <button class="nav-item" id="navCitas" onclick="irASeccion('citas')">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Citas</span>
+        </button>
         <button class="nav-item" id="navPromos" onclick="irASeccion('promociones')">
             <span class="nav-icon">🎁</span>
             <span class="nav-label">Promos</span>
@@ -859,6 +944,7 @@
     <input type="hidden" id="negocioId"    value="{{ negocio.id }}">
     <input type="hidden" id="negocioNombre" value="{{ negocio.nombre }}">
     <script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>
+    
 
     <script>
         // ==================== HELPERS ====================
@@ -1003,7 +1089,12 @@
 
             // Paneles
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            const panelMap = { chat: 'panelChat', promociones: 'panelPromociones', directorio: 'panelDirectorio' };
+            const panelMap = { 
+                chat: 'panelChat', 
+                promociones: 'panelPromociones', 
+                citas: 'panelMisCitas',       // ✅ NUEVO
+                directorio: 'panelDirectorio' 
+            };
             document.getElementById(panelMap[s])?.classList.add('active');
 
             // Input bar solo en chat
@@ -1013,10 +1104,16 @@
 
             // Nav items
             document.querySelectorAll('.nav-item:not(.nav-fab)').forEach(n => n.classList.remove('active'));
-            const navMap = { chat: 'navChat', promociones: 'navPromos', directorio: 'navDirectorio' };
+            const navMap = { 
+                chat: 'navChat', 
+                promociones: 'navPromos', 
+                citas: 'navCitas',           // ✅ NUEVO
+                directorio: 'navDirectorio' 
+            };
             document.getElementById(navMap[s])?.classList.add('active');
 
             if (s === 'promociones') cargarPromociones();
+            if (s === 'citas') cargarMisCitas();  // ✅ NUEVO
         }
 
         // Función para hacer scroll al final del chat
@@ -1100,14 +1197,18 @@
             scrollToBottomChat();
 
             if (options && options.length) {
-                const isProfessionals = options[0].type === 'professional' || options[0].image;
+                const isCards = options[0].type === 'professional' || options[0].type === 'service' || options[0].image;
 
-                if (isProfessionals) {
+                if (isCards) {
                     const grid = document.createElement('div');
                     grid.className = 'professionals-grid';
                     options.forEach(opt => {
                         const card = document.createElement('div');
                         card.className = 'professional-card';
+                        const details = opt.type === 'service'
+                            ? `<div class="prof-specialty">${escapeHtml(opt.price_text || '')}${opt.duration ? ` · ${escapeHtml(String(opt.duration))} min` : ''}</div>`
+                            : opt.specialty ? `<div class="prof-specialty">${escapeHtml(opt.specialty)}</div>` : '';
+
                         card.innerHTML = `
                             <div class="prof-avatar">
                                 ${opt.image
@@ -1115,7 +1216,7 @@
                                     : '👤'}
                             </div>
                             <div class="prof-name">${escapeHtml(opt.name || opt.text)}</div>
-                            ${opt.specialty ? `<div class="prof-specialty">${escapeHtml(opt.specialty)}</div>` : ''}
+                            ${details}
                             <button class="btn-select-prof" data-value="${escapeHtml(opt.value)}">Seleccionar</button>
                         `;
                         grid.appendChild(card);
@@ -1338,6 +1439,122 @@
             // Saludo inicial
             setTimeout(() => enviarMensaje('hola'), 300);
         });
+
+        // ==================== MIS CITAS ====================
+        async function cargarMisCitas() {
+            const container = document.getElementById('misCitasList');
+            const tel = localStorage.getItem('telefono_cliente');
+            const negocioId = document.getElementById('negocioId').value;
+            
+            if (!tel) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔒</div>
+                        <h4>Identifícate primero</h4>
+                        <p>Ve al chat y escribe tu número de teléfono para ver tus citas</p>
+                        <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">
+                            💬 Ir al Chat
+                        </button>
+                    </div>`;
+                return;
+            }
+            
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><h4>Cargando...</h4></div>`;
+            
+            try {
+                const res = await fetch(`/api/cliente/mis-citas?telefono=${encodeURIComponent(tel)}&negocio_id=${negocioId}`);
+                const data = await res.json();
+                
+                if (!data.success) {
+                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error</h4><p>${data.error || 'Intenta de nuevo'}</p></div>`;
+                    return;
+                }
+                
+                if (!data.citas || data.citas.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <h4>Sin citas aún</h4>
+                            <p>Agenda tu primera cita desde el chat</p>
+                            <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">
+                                💬 Agendar Cita
+                            </button>
+                        </div>`;
+                    return;
+                }
+                
+                // Separar pendientes y pasadas
+                const pendientes = data.citas.filter(c => c.estado === 'confirmado');
+                const pasadas = data.citas.filter(c => c.estado !== 'confirmado');
+                
+                let html = '';
+                
+                // Sección pendientes
+                if (pendientes.length > 0) {
+                    html += `<div style="margin-bottom:16px;">
+                        <div style="font-weight:700;font-size:0.8rem;color:var(--primary);margin-bottom:8px;">📅 PRÓXIMAS CITAS</div>`;
+                    html += pendientes.map(c => `
+                        <div class="cita-card">
+                            <div class="cita-card-header">
+                                <span class="cita-card-estado pendiente">📅 ${c.estado_texto}</span>
+                                <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
+                            </div>
+                            <div class="cita-card-body">
+                                <div class="cita-info-row">📅 <strong>${c.fecha}</strong> · ⏰ ${c.hora}</div>
+                                <div class="cita-info-row">💈 ${c.servicio}</div>
+                                <div class="cita-info-row">👨‍💼 ${c.profesional}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    html += `</div>`;
+                }
+                
+                // Sección pasadas
+                if (pasadas.length > 0) {
+                    html += `<div>
+                        <div style="font-weight:700;font-size:0.8rem;color:var(--text-light);margin-bottom:8px;">📋 HISTORIAL</div>`;
+                    html += pasadas.map(c => {
+                        const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
+                        return `
+                        <div class="cita-card">
+                            <div class="cita-card-header">
+                                <span class="cita-card-estado ${c.estado === 'completado' ? 'completada' : 'cancelada'}">${c.estado_icono} ${c.estado_texto}</span>
+                                <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
+                            </div>
+                            <div class="cita-card-body">
+                                <div class="cita-info-row">📅 <strong>${c.fecha}</strong> · ⏰ ${c.hora}</div>
+                                <div class="cita-info-row">💈 ${c.servicio}</div>
+                                <div class="cita-info-row">👨‍💼 ${c.profesional}</div>
+                            </div>
+                            ${puedeCalificar ? `
+                            <div class="cita-card-footer">
+                                <button class="btn-calificar" onclick="calificarCita(${c.id})">
+                                    ⭐ Calificar
+                                </button>
+                            </div>
+                            ` : (c.ya_calificada ? `
+                            <div class="cita-card-footer">
+                                <button class="btn-calificar calificado" disabled>
+                                    ✅ Ya calificada
+                                </button>
+                            </div>
+                            ` : '')}
+                        </div>
+                        `;
+                    }).join('');
+                    html += `</div>`;
+                }
+                
+                container.innerHTML = html;
+                
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error</h4><p>No se pudo conectar</p></div>`;
+            }
+        }
+
+        function calificarCita(citaId) {
+            window.open(`/calificar/${citaId}`, '_blank');
+        }
     </script>
 </body>
 </html>

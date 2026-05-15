@@ -24,11 +24,12 @@ except ImportError:
     openai = None
     print("⚠️ [IA] openai no está instalado. El agente IA no estará disponible.")
 
-OPENAI_MODEL = os.getenv('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo-0613')
+OPENAI_MODEL = os.getenv('OPENAI_CHAT_MODEL', 'gpt-4o-mini')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+_openai_client = None
 
 if openai and OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+    _openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 elif openai:
     print('⚠️ [IA] OPENAI_API_KEY no configurada. El agente IA no estará disponible.')
 
@@ -39,8 +40,19 @@ tz_colombia = pytz.timezone('America/Bogota')
 
 web_chat_bp = Blueprint('web_chat', __name__)
 
-# Estados de conversación para sesiones web
+# Estados de conversación para sesiones web (en memoria — se pierde al reiniciar)
 conversaciones_activas = {}
+_CONVERSACION_TTL_MINUTOS = 30
+
+def _limpiar_conversaciones_viejas():
+    """Elimina conversaciones inactivas por más de _CONVERSACION_TTL_MINUTOS."""
+    ahora = datetime.now(tz_colombia)
+    claves_viejas = [
+        clave for clave, conv in conversaciones_activas.items()
+        if ahora - conv.get('timestamp', ahora) > timedelta(minutes=_CONVERSACION_TTL_MINUTOS)
+    ]
+    for clave in claves_viejas:
+        del conversaciones_activas[clave]
 
 # =============================================================================
 # FUNCIÓN PARA CONVERTIR A FORMATO 12 HORAS
@@ -131,7 +143,7 @@ def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None
                 }),
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims={
-                    "sub": os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com'),
+                    "sub": os.getenv('VAPID_SUBJECT', ''),
                     "exp": expiration_time
                 },
                 ttl=86400  # 24 horas en segundos
@@ -166,7 +178,7 @@ def try_push_immediately(profesional_id, titulo, mensaje):
         
         # Verificar VAPID
         VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:danielpaezrami@gmail.com').strip()
+        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
         
         if not VAPID_PRIVATE_KEY:
             print("❌ No hay VAPID_PRIVATE_KEY - saltando push")
@@ -516,6 +528,9 @@ OPENAI_TOOLS = [
     }
 ]
 
+# Formato requerido por OpenAI SDK >= 1.0
+_OPENAI_TOOLS_V1 = [{"type": "function", "function": t} for t in OPENAI_TOOLS]
+
 
 def es_mensaje_numerico(mensaje):
     return bool(re.fullmatch(r'\d+', mensaje.strip()))
@@ -789,6 +804,7 @@ def guardar_historial_ia(clave_conversacion, role, contenido):
             'timestamp': datetime.now(tz_colombia),
             'historial': []
         }
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
     conversaciones_activas[clave_conversacion].setdefault('historial', []).append({
         'role': role,
         'content': contenido
@@ -871,7 +887,7 @@ def sanitizar_mensaje(mensaje):
 
 
 def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente):
-    if not openai or not OPENAI_API_KEY:
+    if not _openai_client:
         return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
 
     # ✅ SEGURIDAD CAPA 1: Sanitizar entrada
@@ -1007,24 +1023,24 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
     print(f"🔧 [IA] Historial previo (últimos {len(historial[-5:])} mensajes)")
 
     try:
-        respuesta_openai = openai.ChatCompletion.create(
+        respuesta_openai = _openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
-            functions=OPENAI_TOOLS,
-            function_call='auto',
+            tools=_OPENAI_TOOLS_V1,
+            tool_choice='auto',
             temperature=0.2,
             max_tokens=600
         )
 
-        choice = respuesta_openai['choices'][0]
-        message = choice['message']
+        choice = respuesta_openai.choices[0]
+        message = choice.message
 
-        print(f"🔧 [IA] Respuesta raw: {json.dumps(choice, ensure_ascii=False)[:2000]}")
+        print(f"🔧 [IA] finish_reason: {choice.finish_reason}")
 
-        if message.get('function_call'):
-            funcion = message['function_call']
-            nombre_funcion = funcion.get('name')
-            argumentos_texto = funcion.get('arguments', '{}')
+        if choice.finish_reason == 'tool_calls' and message.tool_calls:
+            tool_call = message.tool_calls[0]
+            nombre_funcion = tool_call.function.name
+            argumentos_texto = tool_call.function.arguments
             try:
                 argumentos = json.loads(argumentos_texto)
             except Exception as e:
@@ -1034,9 +1050,9 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
             print(f"🔧 [IA] Función solicitada: {nombre_funcion} - args: {argumentos}")
             return ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente, nombre_cliente)
 
-        if message.get('content'):
-            print(f"🔧 [IA] Respuesta de contenido directo: {message.get('content')}")
-            return message['content']
+        if message.content:
+            print(f"🔧 [IA] Respuesta de contenido directo: {message.content}")
+            return message.content
 
         return 'Lo siento, no pude procesar tu petición. Por favor intenta con una frase más clara o usa el menú numérico.'
 
@@ -1092,7 +1108,7 @@ def ejecutar_funcion_ia(nombre_funcion, argumentos, negocio_id, telefono_cliente
         return ia_info_profesional(argumentos, negocio_id)
     
     if nombre_funcion == 'responder_cliente':
-        return arguments.get('mensaje', '¿En qué puedo ayudarte?')
+        return argumentos.get('mensaje', '¿En qué puedo ayudarte?')
 
     return 'La herramienta solicitada no está disponible. Por favor usa el menú numérico.'
 
@@ -1346,6 +1362,15 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
         nombre_cliente = flask_session.get('cliente_nombre')
 
     guardar_historial_ia(clave_conversacion, 'user', mensaje)
+    conversacion = conversaciones_activas.setdefault(clave_conversacion, {
+        'estado': 'ia_libre',
+        'timestamp': datetime.now(tz_colombia),
+        'historial': []
+    })
+    if telefono_cliente:
+        conversacion['telefono_cliente'] = telefono_cliente
+    if nombre_cliente:
+        conversacion['cliente_nombre'] = nombre_cliente
     historial = conversaciones_activas.get(clave_conversacion, {}).get('historial', [])
     respuesta = procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
@@ -1514,8 +1539,9 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
     Reemplaza la función webhook_whatsapp
     """
     try:
+        _limpiar_conversaciones_viejas()
         user_message = user_message.strip()
-        
+
         print(f"🔧 [CHAT WEB] Mensaje recibido: '{user_message}'")
         
         # Verificar que el negocio existe y está activo
@@ -1813,14 +1839,37 @@ def generar_opciones_servicios(numero, negocio_id):
         # ✅ TEXTO COMPLETO PARA LOS BOTONES
         texto_boton = f"{servicio['nombre']} - {texto_precio} ({servicio['duracion']} min)"
         
-        opciones.append({
+        opcion = {
             'value': str(i),
             'text': texto_boton,
-            # Metadata útil para el frontend
+            'name': servicio.get('nombre', texto_boton),
+            'type': 'service',
+            'duration': servicio.get('duracion'),
+            'price_text': texto_precio,
             'tipo_precio': tipo_precio,
             'precio_min': precio_base,
             'precio_max': precio_maximo
-        })
+        }
+
+        # Agregar imagen de servicio si existe
+        foto_url = servicio.get('foto_url')
+        if foto_url:
+            if foto_url.startswith('http://') or foto_url.startswith('https://'):
+                opcion['image'] = foto_url
+            else:
+                if foto_url.startswith('static/'):
+                    foto_url = '/' + foto_url
+                elif foto_url.startswith('/static/'):
+                    pass
+                elif not foto_url.startswith('/'):
+                    foto_url = '/' + foto_url
+
+                if foto_url.startswith('/uploads/'):
+                    foto_url = '/static' + foto_url
+
+                opcion['image'] = foto_url
+
+        opciones.append(opcion)
     
     return opciones
 
@@ -2928,8 +2977,21 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
             print(f"🔧 [SYNC] Sincronizando datos de IA: {pending}")
             
             # Convertir al formato que espera el flujo numérico
-            conversacion['hora_seleccionada'] = pending.get('hora')
-            conversacion['fecha_seleccionada'] = pending.get('fecha')
+            fecha_normalizada = normalizar_fecha_usuario(pending.get('fecha'))
+            hora_normalizada = normalizar_hora_usuario(pending.get('hora'))
+            if not fecha_normalizada or not hora_normalizada:
+                print(f"❌ [SYNC] Fecha u hora inválida desde IA: fecha={pending.get('fecha')}, hora={pending.get('hora')}")
+                return "❌ No pude validar la fecha u hora de la cita. Por favor indícame nuevamente la fecha y hora."
+
+            conversacion['fecha_seleccionada'] = fecha_normalizada
+            conversacion['hora_seleccionada'] = hora_normalizada
+            if flask_session.get('cliente_telefono'):
+                conversacion.setdefault('telefono_cliente', flask_session.get('cliente_telefono'))
+            if flask_session.get('cliente_nombre'):
+                conversacion.setdefault('cliente_nombre', flask_session.get('cliente_nombre'))
+            if not conversacion.get('telefono_cliente'):
+                print("❌ [SYNC] La confirmación IA no tiene teléfono del cliente")
+                return "❌ Para confirmar la cita necesito primero tu teléfono de 10 dígitos."
             
             # Buscar profesional_id y servicio_id desde los nombres
             if pending.get('profesional_nombre'):
@@ -2947,6 +3009,10 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                     conversacion['servicio_nombre'] = servicio['nombre']
                     conversacion['servicio_precio'] = servicio['precio']
                     conversacion['servicio_duracion'] = servicio['duracion']
+            
+            if 'profesional_id' not in conversacion or 'servicio_id' not in conversacion:
+                print(f"❌ [SYNC] No se pudo resolver profesional o servicio desde IA: {pending}")
+                return "❌ No pude validar el profesional o servicio de la cita. Por favor elige nuevamente desde los botones."
             
             # Limpiar pending
             del conversacion['pending_agendamiento']
