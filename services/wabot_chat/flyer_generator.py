@@ -119,7 +119,7 @@ def generar_flyer_promocion(negocio_nombre, titulo_promo, descripcion, descuento
         
         # QR Code
         qr_size = 180
-        qr_x = PAD + 30
+        qr_x = + 30
         qr_y = H - qr_size - 120
         qr_url = f'{BASE_URL}{negocio_id}'
         qr_img = _qr(qr_url, qr_size)
@@ -144,7 +144,7 @@ def generar_flyer_promocion(negocio_nombre, titulo_promo, descripcion, descuento
         
         # Footer
         ff2 = _font(22, False)
-        _center(draw, H-35, 'Powered by Wabot · agendamiento inteligente', ff2, DIM, W)
+        _center(draw, H-35, 'Powered by Wabot · agendamiento inteligente', ff2, DIM, W) # type: ignore
         
         # Guardar
         if not output_path:
@@ -224,7 +224,7 @@ def generar_flyer_concurso(negocio_nombre, titulo_promo, premio, fecha_fin, nego
         
         # QR
         qr_size = 180
-        qr_x = PAD + 30
+        qr_x = 30
         qr_y = H - qr_size - 120
         qr_url = f'{BASE_URL}{negocio_id}'
         qr_img = _qr(qr_url, qr_size)
@@ -247,7 +247,7 @@ def generar_flyer_concurso(negocio_nombre, titulo_promo, premio, fecha_fin, nego
         draw.text((tx, ty), cta_txt, font=fcta, fill=WHITE)
         
         ff2 = _font(22, False)
-        _center(draw, H-35, 'Powered by Wabot · agendamiento inteligente', ff2, DIM, W)
+        _center(draw, H-35, 'Powered by Wabot · agendamiento inteligente', ff2, DIM, W) # type: ignore
         
         if not output_path:
             ts = datetime.now().strftime('%Y%m%d_%H%M%S')
