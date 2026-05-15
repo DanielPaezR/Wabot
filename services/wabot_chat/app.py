@@ -7837,13 +7837,14 @@ def serve_firebase_sw():
 def generar_flyer_promocion(promocion_id):
     """Generar flyer para una promoción"""
     try:
-        from flyer_generator import generar_flyer_promocion, generar_flyer_concurso
+        from flyer_generator import generar_flyer_promocion as gen_promo, generar_flyer_concurso as gen_concurso
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         cursor.execute('''
-            SELECT p.*, n.nombre as negocio_nombre, prof.nombre as profesional_nombre
+            SELECT p.*, n.nombre as negocio_nombre, n.id as negocio_id,
+                   prof.nombre as profesional_nombre
             FROM promociones p
             JOIN negocios n ON p.negocio_id = n.id
             JOIN profesionales prof ON p.profesional_id = prof.id
@@ -7857,47 +7858,55 @@ def generar_flyer_promocion(promocion_id):
             flash('Promoción no encontrada', 'error')
             return redirect(url_for('profesional_promociones'))
         
-        # Generar QR URL (apunta al chat del negocio)
-        qr_url = f"https://wabot-deployment.up.railway.app/cliente/{promo['negocio_id']}"
-        
         # Fecha formateada
         fecha_fin = str(promo['fecha_fin'])[:10] if promo.get('fecha_fin') else 'Indefinido'
         
+        # ID del negocio para el QR
+        negocio_id_flyer = promo.get('negocio_id')
+        
+        print(f"🎨 Generando flyer para promo {promocion_id}")
+        print(f"   Tipo: {promo.get('tipo_promocion', 'concurso_fotos')}")
+        print(f"   Negocio ID: {negocio_id_flyer}")
+        
         # Generar flyer según tipo
         if promo.get('tipo_promocion') == 'concurso_fotos':
-            flyer_path = generar_flyer_concurso(
+            flyer_path = gen_concurso(
                 negocio_nombre=promo['negocio_nombre'],
                 titulo_promo=promo['titulo'],
                 premio=promo.get('premio', ''),
                 fecha_fin=fecha_fin,
-                qr_url=qr_url,
+                negocio_id=negocio_id_flyer,
                 profesional_nombre=promo.get('profesional_nombre', '')
             )
         else:
-            flyer_path = generar_flyer_promocion(
+            flyer_path = gen_promo(
                 negocio_nombre=promo['negocio_nombre'],
                 titulo_promo=promo['titulo'],
                 descripcion=promo.get('descripcion', ''),
                 descuento=promo.get('descuento_porcentaje', 0),
                 fecha_fin=fecha_fin,
-                qr_url=qr_url,
+                negocio_id=negocio_id_flyer,
                 profesional_nombre=promo.get('profesional_nombre', '')
             )
         
-        if flyer_path:
-            # Devolver la imagen
+        if flyer_path and os.path.exists(flyer_path):
+            print(f"✅ Flyer generado: {flyer_path}")
+            # Mostrar la imagen directamente en el navegador
             return send_from_directory(
-                os.path.dirname(os.path.abspath(__file__)), 
-                flyer_path, 
+                os.path.dirname(os.path.abspath(flyer_path)),
+                os.path.basename(flyer_path),
                 mimetype='image/png'
             )
         else:
-            flash('Error al generar el flyer', 'error')
+            print(f"❌ Flyer NO generado. Path: {flyer_path}")
+            flash('Error al generar el flyer. Revisa los logs.', 'error')
             return redirect(url_for('profesional_promociones'))
             
     except Exception as e:
-        print(f"❌ Error: {e}")
-        flash('Error al generar el flyer', 'error')
+        print(f"❌ Error generando flyer: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al generar el flyer: {str(e)}', 'error')
         return redirect(url_for('profesional_promociones'))
     
 # =============================================================================
