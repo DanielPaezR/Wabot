@@ -1,219 +1,77 @@
 {% extends "base_negocio.html" %}
 
-{% block title %}Prompt IA - {{ negocio.nombre }}{% endblock %}
+{% block title %}Configurar IA - {{ negocio.nombre }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4">
-    <h1 class="mt-4">
-        <i class="fas fa-robot me-2"></i>
-        Prompt de Inteligencia Artificial
-    </h1>
-    <p class="text-muted">
-        Personaliza cómo la IA responde a tus clientes en el chat.
-    </p>
-    
     <div class="row">
-        <!-- Formulario -->
-        <div class="col-lg-8">
-            <div class="card mb-4">
+        <div class="col-12">
+            <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <i class="fas fa-edit me-2"></i>
-                    Editar Prompt Personalizado
+                    <h5 class="mb-0">
+                        <i class="fas fa-robot me-2"></i>
+                        Configurar Comportamiento de la IA
+                    </h5>
                 </div>
                 <div class="card-body">
+                    <p class="text-muted">
+                        Escribe las instrucciones para la IA. Usa los botones para insertar información de tu negocio.
+                    </p>
+                    
                     <form method="POST" id="promptForm">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         
+                        <!-- Editor de texto -->
                         <div class="mb-3">
-                            <label for="prompt_ia" class="form-label">
-                                <strong>Instrucciones para la IA</strong>
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-comment-dots me-1"></i>
+                                Instrucciones:
                             </label>
                             
-                            <!-- Editor visual -->
-                            <div class="border rounded" style="background: #fff;">
-                                <div class="p-2 border-bottom bg-light">
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        Haz clic en los botones de abajo para insertar información de tu negocio
-                                    </small>
-                                </div>
-                                <div 
-                                    id="editorContent"
-                                    contenteditable="true"
-                                    class="p-3"
-                                    style="min-height: 250px; outline: none; background: #fff;"
-                                    placeholder="Escribe aquí las instrucciones para la IA..."
-                                >{{ prompt_vista_previa|safe }}</div>
+                            <!-- Botones de variables (arriba del editor) -->
+                            <div class="mb-2 pb-2 border-bottom">
+                                <span class="text-muted small me-2">Insertar:</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary var-btn" data-valor="{{ negocio.nombre }}">
+                                    <i class="fas fa-store"></i> Nombre del negocio
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary var-btn" data-valor="{{ negocio.direccion or 'No especificada' }}">
+                                    <i class="fas fa-map-marker-alt"></i> Dirección
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary var-btn" data-valor="{{ negocio.telefono or 'No especificado' }}">
+                                    <i class="fas fa-phone"></i> Teléfono
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success var-btn" data-valor="{{ contexto.servicios|map(attribute='nombre')|join(', ') or 'Sin servicios' }}">
+                                    <i class="fas fa-cut"></i> Servicios
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info var-btn" data-valor="{{ contexto.profesionales|map(attribute='nombre')|join(', ') or 'Sin profesionales' }}">
+                                    <i class="fas fa-users"></i> Profesionales
+                                </button>
                             </div>
                             
-                            <!-- Campo oculto para almacenar el prompt con variables -->
+                            <!-- Campo de texto -->
                             <textarea 
-                                id="prompt_ia" 
+                                id="promptTextarea"
+                                class="form-control" 
                                 name="prompt_ia" 
-                                style="display: none;"
+                                rows="10"
+                                placeholder="Ejemplo: Eres el asistente de [Nombre del negocio]. Atiende a los clientes de forma cordial. Ayúdales a agendar citas y consultar precios. Si no sabes algo, diles que hablarán con el dueño."
+                                style="font-size: 14px; line-height: 1.6; font-family: monospace;"
                             >{{ prompt_actual }}</textarea>
-                            
-                            <div class="form-text mt-2">
-                                💡 <strong>Tip:</strong> Haz clic en los botones de información (📦, 👤, ✂️) para insertar automáticamente los datos reales de tu negocio.
-                            </div>
                         </div>
                         
+                        <!-- Botones de acción -->
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary" onclick="guardarPrompt()">
-                                <i class="fas fa-save me-1"></i> Guardar Prompt
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" id="btnCancelar">
+                                <i class="fas fa-times me-1"></i> Cancelar
                             </button>
                             <button type="button" class="btn btn-outline-secondary" id="btnRestaurar">
-                                <i class="fas fa-undo me-1"></i> Restaurar por Defecto
-                            </button>
-                            <button type="button" class="btn btn-outline-info" id="btnPrevisualizar">
-                                <i class="fas fa-eye me-1"></i> Previsualizar
+                                <i class="fas fa-undo me-1"></i> Restaurar predeterminado
                             </button>
                         </div>
                     </form>
-                </div>
-            </div>
-            
-            <!-- Vista previa -->
-            <div class="card mb-4">
-                <div class="card-header bg-info text-white">
-                    <i class="fas fa-eye me-2"></i>
-                    Cómo verán tu prompt los clientes
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info mb-2">
-                        <i class="fas fa-comment-dots me-2"></i>
-                        <strong>Ejemplo de conversación:</strong>
-                    </div>
-                    <div id="vistaPreviaCliente" class="bg-light p-3 rounded" style="min-height: 150px;">
-                        {{ prompt_vista_previa or 'No hay prompt personalizado. Se usará el prompt genérico.' }}
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Sidebar -->
-        <div class="col-lg-4">
-            <!-- Variables disponibles (versión mejorada) -->
-            <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <i class="fas fa-puzzle-piece me-2"></i>
-                    Botones Inteligentes
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-2">
-                        Haz clic en cualquier botón para insertar la información real:
-                    </p>
-                    
-                    <div class="mb-3">
-                        <label class="fw-bold small">📦 Información del Negocio</label>
-                        <div class="d-flex flex-wrap gap-2 mt-1">
-                            <button type="button" class="btn btn-sm btn-outline-primary variable-btn" data-variable="nombre_negocio" data-valor="{{ negocio.nombre }}">
-                                <i class="fas fa-store"></i> {{ negocio.nombre|truncate(20) }}
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-primary variable-btn" data-variable="direccion" data-valor="{{ negocio.direccion or 'No configurada' }}">
-                                <i class="fas fa-map-marker-alt"></i> Dirección
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-primary variable-btn" data-variable="telefono" data-valor="{{ negocio.telefono or 'No configurado' }}">
-                                <i class="fas fa-phone"></i> Teléfono
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="fw-bold small">✂️ Servicios Destacados</label>
-                        <div class="d-flex flex-wrap gap-2 mt-1">
-                            {% for servicio in contexto.servicios[:5] %}
-                            <button type="button" class="btn btn-sm btn-outline-success variable-btn" data-variable="servicio" data-valor="{{ servicio.nombre }}">
-                                <i class="fas fa-cut"></i> {{ servicio.nombre|truncate(20) }}
-                            </button>
-                            {% endfor %}
-                        </div>
-                        {% if contexto.servicios|length > 5 %}
-                        <button class="btn btn-link btn-sm mt-1" type="button" data-bs-toggle="collapse" data-bs-target="#moreServices">
-                            +{{ contexto.servicios|length - 5 }} más...
-                        </button>
-                        <div class="collapse mt-2" id="moreServices">
-                            <div class="d-flex flex-wrap gap-2">
-                                {% for servicio in contexto.servicios[5:] %}
-                                <button type="button" class="btn btn-sm btn-outline-success variable-btn" data-variable="servicio" data-valor="{{ servicio.nombre }}">
-                                    <i class="fas fa-cut"></i> {{ servicio.nombre|truncate(20) }}
-                                </button>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="fw-bold small">👤 Profesionales</label>
-                        <div class="d-flex flex-wrap gap-2 mt-1">
-                            {% for prof in contexto.profesionales[:5] %}
-                            <button type="button" class="btn btn-sm btn-outline-info variable-btn" data-variable="profesional" data-valor="{{ prof.nombre }}">
-                                <i class="fas fa-user"></i> {{ prof.nombre|truncate(20) }}
-                            </button>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="fw-bold small">📝 Estilo de Respuesta</label>
-                        <div class="d-flex flex-wrap gap-2 mt-1">
-                            <button type="button" class="btn btn-sm btn-outline-secondary style-btn" data-texto="Sé amable y profesional">
-                                <i class="fas fa-smile"></i> Amable
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary style-btn" data-texto="Usa emojis para ser más cercano">
-                                <i class="fas fa-grin-squint-tears"></i> Con emojis
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary style-btn" data-texto="Sé directo y conciso">
-                                <i class="fas fa-bolt"></i> Directo
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary style-btn" data-texto="Ofrece promociones cuando sea posible">
-                                <i class="fas fa-tag"></i> Ofertas
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Vista rápida de datos -->
-            <div class="card mb-4">
-                <div class="card-header bg-dark text-white">
-                    <i class="fas fa-database me-2"></i>
-                    Tus Datos Actuales
-                </div>
-                <div class="card-body">
-                    <ul class="list-unstyled small">
-                        <li><strong><i class="fas fa-store"></i> Negocio:</strong> {{ negocio.nombre }}</li>
-                        <li><strong><i class="fas fa-map-marker-alt"></i> Dirección:</strong> {{ negocio.direccion or 'No configurada' }}</li>
-                        <li><strong><i class="fas fa-users"></i> Profesionales:</strong> {{ contexto.profesionales|length }}</li>
-                        <li><strong><i class="fas fa-cut"></i> Servicios:</strong> {{ contexto.servicios|length }}</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <!-- Consejos -->
-            <div class="card">
-                <div class="card-header bg-warning">
-                    <i class="fas fa-lightbulb me-2"></i>
-                    Consejos para un Buen Prompt
-                </div>
-                <div class="card-body small">
-                    <ul class="mb-2">
-                        <li>Define el <strong>tono</strong> (amable, profesional, casual)</li>
-                        <li>Indica si debe usar <strong>emojis</strong></li>
-                        <li>Especifica cómo <strong>confirmar citas</strong></li>
-                        <li>Menciona <strong>políticas del negocio</strong></li>
-                    </ul>
-                    
-                    <hr>
-                    <p class="fw-bold mb-1">✨ Ejemplo práctico:</p>
-                    <div class="bg-light p-2 rounded small">
-                        "Soy {{ negocio.nombre }}. Ofrezco corte de cabello, barba y cejas. 
-                        Soy amable y uso emojis. Confirmo cita con fecha y hora antes de agendar."
-                    </div>
-                    <button class="btn btn-link btn-sm mt-2" onclick="ejemploRapido()">
-                        <i class="fas fa-magic"></i> Usar este ejemplo
-                    </button>
                 </div>
             </div>
         </div>
@@ -221,239 +79,114 @@
 </div>
 
 <style>
-    #editorContent {
-        cursor: text;
-        line-height: 1.6;
+    #promptTextarea {
+        resize: vertical;
+        font-family: 'Segoe UI', monospace;
     }
-    #editorContent:empty:before {
-        content: attr(placeholder);
-        color: #999;
-        font-style: italic;
-    }
-    .variable-tag {
-        display: inline-block;
-        background: #e3f2fd;
-        color: #1976d2;
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-size: 0.85em;
-        margin: 0 2px;
-        cursor: pointer;
+    
+    .var-btn {
         transition: all 0.2s;
     }
-    .variable-tag:hover {
-        background: #bbdef5;
-        transform: scale(1.05);
+    
+    .var-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .variable-tag i {
-        font-size: 0.8em;
-        margin-right: 4px;
+    
+    .var-btn:active {
+        transform: translateY(1px);
     }
 </style>
 
 <script>
-// Variables globales
-let editor = document.getElementById('editorContent');
-let textareaOculto = document.getElementById('prompt_ia');
+// Obtener elementos
+const textarea = document.getElementById('promptTextarea');
+const varBtns = document.querySelectorAll('.var-btn');
+const btnCancelar = document.getElementById('btnCancelar');
+const btnRestaurar = document.getElementById('btnRestaurar');
+const form = document.getElementById('promptForm');
 
-// Inicializar editor con contenido
-function initEditor() {
-    if (editor && textareaOculto) {
-        // Cargar contenido guardado (convertir variables a etiquetas visuales)
-        let contenido = textareaOculto.value;
-        if (contenido) {
-            editor.innerHTML = convertirVariablesATags(contenido);
-        }
-    }
+// Guardar el valor original para cancelar
+const valorOriginal = textarea.value;
+
+// Función para insertar texto en la posición del cursor
+function insertarEnCursor(texto) {
+    if (!textarea) return;
+    
+    // Obtener posición del cursor
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const contenido = textarea.value;
+    
+    // Insertar texto
+    const nuevoContenido = contenido.substring(0, start) + texto + contenido.substring(end);
+    textarea.value = nuevoContenido;
+    
+    // Mover cursor después del texto insertado
+    textarea.selectionStart = textarea.selectionEnd = start + texto.length;
+    
+    // Enfocar el textarea
+    textarea.focus();
 }
 
-// Convertir texto con {variables} a etiquetas HTML visuales
-function convertirVariablesATags(texto) {
-    if (!texto) return '';
-    
-    // Mapeo de variables a iconos
-    const iconos = {
-        'nombre_negocio': 'store',
-        'direccion': 'map-marker-alt',
-        'telefono': 'phone',
-        'servicios': 'cut',
-        'profesionales': 'users',
-        'nombre_cliente': 'user',
-        'servicio': 'cut'
-    };
-    
-    // Reemplazar {variable} con etiquetas visuales
-    return texto.replace(/\{(\w+)\}/g, (match, variable) => {
-        const icono = iconos[variable] || 'info-circle';
-        return `<span class="variable-tag" contenteditable="false" data-variable="${variable}">
-                    <i class="fas fa-${icono}"></i> ${variable}
-                </span>`;
-    });
-}
-
-// Convertir etiquetas visuales de vuelta a {variables}
-function convertirTagsAVariables() {
-    if (!editor) return '';
-    
-    let html = editor.innerHTML;
-    
-    // Reemplazar etiquetas visuales por {variable}
-    html = html.replace(/<span[^>]*data-variable="([^"]+)"[^>]*>.*?<\/span>/g, '{$1}');
-    
-    // Limpiar HTML extra
-    html = html.replace(/<div>/g, '\n').replace(/<\/div>/g, '');
-    html = html.replace(/<br>/g, '\n');
-    html = html.replace(/<[^>]*>/g, '');
-    
-    return html.trim();
-}
-
-// Insertar variable en el editor
-function insertarVariable(nombre, valorReal) {
-    if (!editor) return;
-    
-    // Enfocar editor
-    editor.focus();
-    
-    // Insertar etiqueta visual
-    const icono = {
-        'nombre_negocio': 'store',
-        'direccion': 'map-marker-alt',
-        'telefono': 'phone',
-        'servicio': 'cut'
-    }[nombre] || 'info-circle';
-    
-    const etiqueta = `<span class="variable-tag" contenteditable="false" data-variable="${nombre}" title="${valorReal}">
-                        <i class="fas fa-${icono}"></i> ${nombre}
-                      </span>`;
-    
-    // Insertar en la posición del cursor
-    document.execCommand('insertHTML', false, etiqueta);
-    
-    // Agregar un espacio después
-    document.execCommand('insertText', false, ' ');
-    
-    // Actualizar campo oculto
-    actualizarCampoOculto();
-}
-
-// Insertar texto plano
-function insertarTexto(texto) {
-    if (!editor) return;
-    editor.focus();
-    document.execCommand('insertText', false, texto + ' ');
-    actualizarCampoOculto();
-}
-
-// Actualizar el textarea oculto
-function actualizarCampoOculto() {
-    if (textareaOculto && editor) {
-        textareaOculto.value = convertirTagsAVariables();
-    }
-}
-
-// Guardar prompt
-function guardarPrompt() {
-    actualizarCampoOculto();
-    document.getElementById('promptForm').submit();
-}
-
-// Restaurar prompt por defecto
-function restaurarPrompt() {
-    if (confirm('¿Restaurar el prompt por defecto?')) {
-        const defaultPrompt = `Soy {nombre_negocio}, un asistente virtual. 
-Ofrezco los siguientes servicios: corte de cabello, barba, cejas.
-Soy amable y uso emojis para ser más cercano.
-Confirmo las citas con fecha y hora antes de agendar.
-Pregunto siempre el nombre del cliente.`;
+// Configurar botones de variables
+varBtns.forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const valor = this.dataset.valor;
+        insertarEnCursor(valor);
         
-        if (editor) {
-            editor.innerHTML = convertirVariablesATags(defaultPrompt);
-            actualizarCampoOculto();
-        }
-    }
-}
-
-// Previsualizar cómo se ve reemplazado
-function previsualizar() {
-    actualizarCampoOculto();
-    let promptConVariables = textareaOculto.value;
-    
-    // Reemplazar variables con valores reales
-    let preview = promptConVariables
-        .replace(/{nombre_negocio}/g, '{{ negocio.nombre }}')
-        .replace(/{direccion}/g, '{{ negocio.direccion or "No configurada" }}')
-        .replace(/{telefono}/g, '{{ negocio.telefono or "No configurado" }}')
-        .replace(/{servicios}/g, '{{ contexto.servicios|map(attribute="nombre")|join(", ") }}')
-        .replace(/{profesionales}/g, '{{ contexto.profesionales|map(attribute="nombre")|join(", ") }}');
-    
-    document.getElementById('vistaPreviaCliente').innerHTML = `
-        <div class="mb-2">
-            <i class="fas fa-user-circle text-primary"></i> 
-            <strong>Cliente:</strong> "Hola, quiero agendar una cita"
-        </div>
-        <div class="mb-2">
-            <i class="fas fa-robot text-success"></i> 
-            <strong>IA (tú):</strong> "${preview}"
-        </div>
-        <div class="text-muted small mt-2">
-            <i class="fas fa-info-circle"></i> Esta es una vista previa de cómo respondería la IA
-        </div>
-    `;
-}
-
-// Ejemplo rápido
-function ejemploRapido() {
-    if (confirm('¿Usar el ejemplo de prompt? Esto reemplazará tu prompt actual.')) {
-        const ejPrompt = `Soy {nombre_negocio}. 
-Ofrezco servicios profesionales de barbería.
-Soy amable, uso emojis y siempre confirmo la cita antes de agendar.
-Pregunto al cliente: "¿Qué día y hora te gustaría venir?"`;
-        
-        if (editor) {
-            editor.innerHTML = convertirVariablesATags(ejPrompt);
-            actualizarCampoOculto();
-            previsualizar();
-        }
-    }
-}
-
-// Eventos
-document.addEventListener('DOMContentLoaded', function() {
-    initEditor();
-    
-    // Botones de variables
-    document.querySelectorAll('.variable-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const variable = this.dataset.variable;
-            const valor = this.dataset.valor;
-            insertarVariable(variable, valor);
-        });
+        // Efecto visual de feedback
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-check"></i> Insertado!';
+        setTimeout(() => {
+            this.innerHTML = originalText;
+        }, 800);
     });
-    
-    // Botones de estilo
-    document.querySelectorAll('.style-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const texto = this.dataset.texto;
-            insertarTexto(texto);
-        });
-    });
-    
-    // Botón restaurar
-    document.getElementById('btnRestaurar')?.addEventListener('click', restaurarPrompt);
-    
-    // Botón previsualizar
-    document.getElementById('btnPrevisualizar')?.addEventListener('click', previsualizar);
-    
-    // Guardar al hacer clic fuera del editor
-    editor?.addEventListener('blur', actualizarCampoOculto);
-    editor?.addEventListener('input', actualizarCampoOculto);
-    
-    // Previsualización automática
-    previsualizar();
 });
 
-// Sincronizar con el textarea original por si hay otros métodos
-setInterval(actualizarCampoOculto, 1000);
+// Botón cancelar - volver al valor original
+btnCancelar.addEventListener('click', function() {
+    if (textarea.value !== valorOriginal) {
+        if (confirm('¿Cancelar los cambios? Se perderán las modificaciones no guardadas.')) {
+            textarea.value = valorOriginal;
+        }
+    } else {
+        alert('No hay cambios para cancelar.');
+    }
+});
+
+// Botón restaurar valores predeterminados
+btnRestaurar.addEventListener('click', function() {
+    if (confirm('¿Restaurar el prompt a su valor predeterminado?')) {
+        const defaultPrompt = `Eres el asistente virtual de [Nombre del negocio].
+
+Instrucciones:
+- Atiende a los clientes de forma cordial y natural
+- Ayuda a agendar citas (pregunta fecha, hora y servicio)
+- Consulta precios de servicios
+- Informa sobre horarios de atención
+- Si no sabes algo, diles que se comunicarán con el dueño
+
+Siempre confirma los datos antes de agendar una cita.`;
+        
+        textarea.value = defaultPrompt;
+        textarea.focus();
+    }
+});
+
+// Atajo de teclado: Ctrl+Enter para guardar
+textarea.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        form.submit();
+    }
+});
+
+// Mostrar notificación de atajo
+const helpText = document.createElement('small');
+helpText.className = 'form-text text-muted mt-1';
+helpText.innerHTML = '<i class="fas fa-keyboard"></i> Tip: Presiona Ctrl+Enter para guardar rápidamente';
+document.querySelector('.mb-3').appendChild(helpText);
 </script>
 {% endblock %}
