@@ -704,7 +704,11 @@
         <div class="hero-sub">Vota por tu favorito y ayúdalo a ganar</div>
     </div>
 
-    <div class="page">
+    <div id="votePage" class="page"
+         data-participacion-id="{{ p.id }}"
+         data-promocion-id="{{ p.promocion_id }}"
+         data-share-title="{{ p.promo_titulo|escape }}"
+         data-cliente-nombre="{{ p.cliente_nombre|escape }}">
 
         <div class="participant-card" id="cardToCapture">
 
@@ -823,11 +827,12 @@
     <script>
         (function() {
             // Datos del servidor
-            const PARTICIPACION_ID = {{ p.id|tojson }};
-            const PROMOCION_ID = {{ p.promocion_id|tojson }};
+            const pageEl = document.getElementById('votePage');
+            const PARTICIPACION_ID = Number(pageEl?.dataset.participacionId || 0);
+            const PROMOCION_ID = Number(pageEl?.dataset.promocionId || 0);
             const SHARE_URL = window.location.href;
-            const SHARE_TITLE = {{ p.promo_titulo|tojson }};
-            const NOMBRE = {{ p.cliente_nombre|tojson }};
+            const SHARE_TITLE = pageEl?.dataset.shareTitle || '';
+            const NOMBRE = pageEl?.dataset.clienteNombre || '';
             const LS_KEY = 'wabot_voto_' + PARTICIPACION_ID;
             
             let currentPhoto = 0;
