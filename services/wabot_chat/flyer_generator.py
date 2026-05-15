@@ -1,471 +1,266 @@
-# flyer_generator.py — Generador de flyers profesionales para Wabot
-# Requiere: pip install pillow qrcode[pil]
-
+# flyer_generator.py — Versión SIMPLIFICADA y ROBUSTA
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
 import os
 from datetime import datetime
 
-# ─── CONFIGURACIÓN ───────────────────────────────────────────────────────────
-BASE_URL  = 'https://wabot-production-d544.up.railway.app/cliente/'  # URL base para QR
+BASE_URL = 'https://wabot-deployment.up.railway.app/cliente/'
+W, H = 1080, 1080
 
-POPPINS_B = '/usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf'
-POPPINS_M = '/usr/share/fonts/truetype/google-fonts/Poppins-Medium.ttf'
-POPPINS_R = '/usr/share/fonts/truetype/google-fonts/Poppins-Regular.ttf'
-POPPINS_L = '/usr/share/fonts/truetype/google-fonts/Poppins-Light.ttf'
-FALLBACK  = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+# Colores
+BG      = (15, 23, 42)
+CARD    = (30, 41, 59)
+INDIGO  = (99, 102, 241)
+AMBER   = (245, 158, 11)
+GREEN   = (16, 185, 129)
+WHITE   = (255, 255, 255)
+GRAY    = (148, 163, 184)
 
-# ─── PALETA ──────────────────────────────────────────────────────────────────
-C_BG      = (10,  12,  28)
-C_CARD    = (18,  22,  48)
-C_PRIMARY = (102, 126, 234)   # #667eea
-C_ACCENT  = (245, 158,  11)   # #f59e0b
-C_SUCCESS = (16,  185, 129)   # #10b981
-C_WHITE   = (255, 255, 255)
-C_LIGHT   = (148, 163, 184)
-C_DIM     = ( 60,  70, 110)
-
-
-# ─── HELPERS ─────────────────────────────────────────────────────────────────
-
-def _font(path, size):
-    try:    return ImageFont.truetype(path, size)
-    except:
-        try:    return ImageFont.truetype(FALLBACK, size)
-        except: return ImageFont.load_default()
-
-
-def _tw(draw, text, font):
-    bb = draw.textbbox((0, 0), text, font=font)
-    return bb[2] - bb[0]
-
+def _font(size, bold=False):
+    paths = [
+        f'/usr/share/fonts/truetype/dejavu/DejaVuSans{"-Bold" if bold else ""}.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    ]
+    for p in paths:
+        try: return ImageFont.truetype(p, size)
+        except: pass
+    return ImageFont.load_default()
 
 def _center(draw, y, text, font, fill, W):
-    draw.text(((W - _tw(draw, text, font)) // 2, y), text, font=font, fill=fill)
-
+    b = draw.textbbox((0,0), text, font=font)
+    draw.text(((W-b[2]+b[0])//2, y), text, font=font, fill=fill)
 
 def _wrap(text, font, draw, max_w):
     words, lines, cur = text.split(), [], ''
     for w in words:
-        test = (cur + ' ' + w).strip()
-        if _tw(draw, test, font) <= max_w: cur = test
+        test = (cur+' '+w).strip()
+        b = draw.textbbox((0,0), test, font=font)
+        if b[2]-b[0] <= max_w: cur = test
         else:
             if cur: lines.append(cur)
             cur = w
     if cur: lines.append(cur)
     return lines
 
-
-def _rounded_rect_ov(W, H, xy, r, fill=None, outline=None, lw=2):
-    ov = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    d  = ImageDraw.Draw(ov)
-    x0, y0, x1, y1 = xy
-    if fill:
-        d.rectangle([x0+r, y0, x1-r, y1], fill=fill)
-        d.rectangle([x0, y0+r, x1, y1-r], fill=fill)
-        for ex, ey in [(x0,y0),(x1-2*r,y0),(x0,y1-2*r),(x1-2*r,y1-2*r)]:
-            d.ellipse([ex, ey, ex+2*r, ey+2*r], fill=fill)
-    if outline:
-        for i in range(lw):
-            d.arc([x0+i,y0+i,x0+2*r-i,y0+2*r-i], 180, 270, fill=outline)
-            d.arc([x1-2*r+i,y0+i,x1-i,y0+2*r-i], 270, 360, fill=outline)
-            d.arc([x0+i,y1-2*r+i,x0+2*r-i,y1-i], 90,  180, fill=outline)
-            d.arc([x1-2*r+i,y1-2*r+i,x1-i,y1-i], 0,   90,  fill=outline)
-            d.line([x0+r,y0+i,x1-r,y0+i], fill=outline)
-            d.line([x0+r,y1-i,x1-r,y1-i], fill=outline)
-            d.line([x0+i,y0+r,x0+i,y1-r], fill=outline)
-            d.line([x1-i,y0+r,x1-i,y1-r], fill=outline)
-    return ov
-
-
-def _comp(img, ov):
-    rgba = img.convert('RGBA')
-    rgba.alpha_composite(ov)
-    return rgba.convert('RGB')
-
-
-def _gradient_stripe(draw, x0, y0, x1, y1, ca, cb):
-    for x in range(x0, x1):
-        r = (x - x0) / max(x1 - x0 - 1, 1)
-        draw.line([(x, y0), (x, y1)],
-                  fill=tuple(int(ca[i] + (cb[i]-ca[i])*r) for i in range(3)))
-
-
-def _bg(W, H):
-    img = Image.new('RGB', (W, H))
-    draw = ImageDraw.Draw(img)
-    for y in range(H):
-        r = y / H
-        draw.line([(0,y),(W,y)],
-                  fill=tuple(int(C_BG[i]+(C_CARD[i]-C_BG[i])*r) for i in range(3)))
-    ov = Image.new('RGBA', (W, H), (0,0,0,0))
-    od = ImageDraw.Draw(ov)
-    od.ellipse([-180,-180,420,420],  fill=(*C_PRIMARY,28))
-    od.ellipse([680,680,1260,1260],  fill=(*C_ACCENT, 18))
-    od.ellipse([820,-120,1200,260],  fill=(*C_SUCCESS,16))
-    return _comp(img, ov)
-
-
-def _make_qr(url, size, negocio_id=None):
-    """
-    Genera un QR real apuntando a BASE_URL + negocio_id (o a url directamente).
-    Devuelve una imagen PIL RGBA lista para pegar en el flyer.
-    """
-    # Construir la URL final
-    if negocio_id is not None:
-        target_url = BASE_URL + str(negocio_id)
-    else:
-        target_url = url  # si ya viene la URL completa, se usa tal cual
-
-    qr = qrcode.QRCode(
-        version=2,
-        error_correction=qrcode.constants.ERROR_CORRECT_H,
-        box_size=10,
-        border=2,
-    )
-    qr.add_data(target_url)
+def _qr(url, size):
+    qr = qrcode.QRCode(version=2, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
+    qr.add_data(url)
     qr.make(fit=True)
+    return qr.make_image(fill_color=CARD, back_color=WHITE).convert('RGBA').resize((size, size), Image.LANCZOS)
 
-    # Módulos oscuros sobre fondo blanco
-    qr_img = qr.make_image(fill_color=C_CARD, back_color=(255, 255, 255))
-    qr_img = qr_img.convert('RGBA')
-    qr_img = qr_img.resize((size, size), Image.LANCZOS)
-    return qr_img
-
-
-def _paste_qr(img, draw, qr_url, negocio_id, x, y, size, border_color):
-    """
-    Genera el QR funcional, lo pega con fondo blanco redondeado y devuelve
-    (img, draw) actualizados.
-    """
-    # Fondo blanco redondeado
-    padding = 10
-    bg_xy = [x - padding, y - padding, x + size + padding, y + size + padding]
-    ov_bg = _rounded_rect_ov(img.width, img.height, bg_xy, r=14,
-                              fill=(255,255,255,255),
-                              outline=(*border_color, 180), lw=3)
-    img = _comp(img, ov_bg)
-
-    # QR real
-    qr_img = _make_qr(qr_url, size, negocio_id)
-    img_rgba = img.convert('RGBA')
-    img_rgba.paste(qr_img, (x, y), qr_img)
-    img = img_rgba.convert('RGB')
-    draw = ImageDraw.Draw(img)
-    return img, draw
-
-
-def _output_path(prefix):
-    ts  = datetime.now().strftime('%Y%m%d_%H%M%S')
-    out = 'static/flyers'
-    os.makedirs(out, exist_ok=True)
-    return f'{out}/{prefix}_{ts}.png'
-
-
-# ─── FLYER DE PROMOCIÓN ───────────────────────────────────────────────────────
-
-def generar_flyer_promocion(negocio_nombre, titulo_promo, descripcion,
-                             descuento, fecha_fin, negocio_id,
-                             profesional_nombre='', output_path=None):
-    """
-    Genera un flyer 1080×1080 px para una promoción con descuento.
-
-    Parámetros:
-        negocio_nombre    – Nombre del negocio / salón
-        titulo_promo      – Título corto del servicio o promo
-        descripcion       – Descripción del servicio (1-2 oraciones)
-        descuento         – Entero con el % de descuento, o None si no aplica
-        fecha_fin         – String con la fecha límite (ej. "31 de enero 2025")
-        negocio_id        – ID del negocio → genera QR a BASE_URL + negocio_id
-        profesional_nombre– Nombre del profesional (opcional)
-        output_path       – Ruta de salida. None = se genera automáticamente.
-
-    Retorna la ruta del archivo generado, o None si hubo error.
-    """
+def generar_flyer_promocion(negocio_nombre, titulo_promo, descripcion, descuento, fecha_fin, negocio_id, profesional_nombre='', output_path=None):
     try:
-        W, H, PAD = 1080, 1080, 60
-        img  = _bg(W, H)
+        img = Image.new('RGB', (W, H), BG)
         draw = ImageDraw.Draw(img)
-
-        # Stripe superior
-        _gradient_stripe(draw, 0, 0, W, 10, C_PRIMARY, C_ACCENT)
-
-        # Pill nombre del negocio
-        y     = 48
-        f_neg = _font(POPPINS_M, 30)
-        neg_u = negocio_nombre.upper()
-        nw    = _tw(draw, neg_u, f_neg)
-        pp    = 22
-        px0, px1 = (W-nw-pp*2)//2, (W-nw-pp*2)//2 + nw + pp*2
-        img = _comp(img, _rounded_rect_ov(W, H, [px0, y, px1, y+52], 26,
-                                           fill=(*C_PRIMARY,32),
-                                           outline=(*C_PRIMARY,160), lw=2))
-        draw = ImageDraw.Draw(img)
-        _center(draw, y+10, neg_u, f_neg, C_PRIMARY, W)
-
+        
+        # Fondo con gradiente sutil
+        for y in range(H):
+            r = int(15 + (10 * y/H))
+            g = int(23 + (18 * y/H))
+            b = int(42 + (20 * y/H))
+            draw.line([(0,y), (W,y)], fill=(r,g,b))
+        
+        # Borde superior de color
+        draw.rectangle([(0,0), (W,8)], fill=INDIGO)
+        draw.rectangle([(0,H-8), (W,H)], fill=AMBER)
+        
+        y_pos = 60
+        
+        # Nombre del negocio
+        fn = _font(36, True)
+        _center(draw, y_pos, negocio_nombre.upper(), fn, INDIGO, W)
+        y_pos += 60
+        
+        # Línea separadora
+        draw.line([(W//4, y_pos), (3*W//4, y_pos)], fill=INDIGO, width=2)
+        y_pos += 40
+        
         # Badge oferta
-        y = 132
-        _center(draw, y, '✦  OFERTA ESPECIAL  ✦', _font(POPPINS_M, 22), C_ACCENT, W)
-
-        # Separador
-        y = 170
-        mid = W // 2
-        draw.line([(PAD, y+10), (mid-170, y+10)], fill=C_PRIMARY, width=2)
-        draw.line([(mid+170, y+10), (W-PAD, y+10)], fill=C_PRIMARY, width=2)
-        draw.polygon([(mid-9,y+10),(mid,y+2),(mid+9,y+10),(mid,y+18)], fill=C_ACCENT)
-
+        fb = _font(24, True)
+        _center(draw, y_pos, '✦ OFERTA ESPECIAL ✦', fb, AMBER, W)
+        y_pos += 60
+        
         # Título
-        y = 195
-        f_t = _font(POPPINS_B, 58)
-        for line in _wrap(titulo_promo.upper(), f_t, draw, W-PAD*2)[:2]:
-            _center(draw, y, line, f_t, C_WHITE, W); y += 70
-
-        # Descuento grande
+        ft = _font(64, True)
+        for line in _wrap(titulo_promo.upper(), ft, draw, W-100)[:2]:
+            _center(draw, y_pos, line, ft, WHITE, W)
+            y_pos += 80
+        
+        # Descuento
         if descuento:
-            y += 8
-            f_h, f_o = _font(POPPINS_B, 100), _font(POPPINS_B, 38)
-            pt = f'{descuento}%'
-            pw, ow = _tw(draw, pt, f_h), _tw(draw, 'OFF', f_o)
-            total_w = pw + 28 + ow
-            bx0, bx1 = (W-total_w-64)//2, (W-total_w-64)//2 + total_w + 64
-            img = _comp(img, _rounded_rect_ov(W, H, [bx0, y-10, bx1, y+118], 30,
-                                               fill=(*C_ACCENT,22),
-                                               outline=(*C_ACCENT,80), lw=2))
-            draw = ImageDraw.Draw(img)
-            xs = (W - total_w) // 2
-            draw.text((xs, y), pt, font=f_h, fill=C_ACCENT)
-            draw.text((xs+pw+28, y+44), 'OFF', font=f_o, fill=C_WHITE)
-            y += 128
-
+            y_pos += 20
+            fh = _font(120, True)
+            txt = f'{descuento}%'
+            _center(draw, y_pos, txt, fh, AMBER, W)
+            y_pos += 100
+            fo = _font(40, True)
+            _center(draw, y_pos, 'OFF', fo, WHITE, W)
+            y_pos += 80
+        
         # Descripción
         if descripcion:
-            f_b = _font(POPPINS_R, 28)
-            for line in _wrap(descripcion, f_b, draw, W-PAD*3)[:3]:
-                _center(draw, y, line, f_b, C_LIGHT, W); y += 40
-            y += 8
-
+            fd = _font(30, False)
+            for line in _wrap(descripcion, fd, draw, W-150)[:2]:
+                _center(draw, y_pos, line, fd, GRAY, W)
+                y_pos += 45
+        
         # Profesional
         if profesional_nombre:
-            _center(draw, y, f'👤  con {profesional_nombre}',
-                    _font(POPPINS_M, 28), C_WHITE, W); y += 50
-
-        # Separador fino
-        sep_y = max(y+14, 760)
-        draw.line([(PAD*2, sep_y), (W-PAD*2, sep_y)], fill=(40,50,90), width=1)
-        footer_y = sep_y + 28
-
-        # QR funcional
-        qr_size = 140
-        qr_x, qr_y = PAD + 14, footer_y
-        qr_url = BASE_URL + str(negocio_id)
-        img, draw = _paste_qr(img, draw, qr_url, negocio_id,
-                               qr_x, qr_y, qr_size, C_PRIMARY)
-        draw.text((qr_x - 10, qr_y + qr_size + 14),
-                  'Escanea para agendar', font=_font(POPPINS_L, 21), fill=C_LIGHT)
-
-        # Info derecha del QR
-        info_x, info_y = qr_x + qr_size + 50, footer_y + 8
+            y_pos += 20
+            fp = _font(32, True)
+            _center(draw, y_pos, f'👤 con {profesional_nombre}', fp, WHITE, W)
+            y_pos += 60
+        
+        # Fecha
         if fecha_fin:
-            draw.text((info_x, info_y), '📅  Válido hasta',
-                      font=_font(POPPINS_L, 22), fill=C_LIGHT)
-            draw.text((info_x, info_y+30), str(fecha_fin),
-                      font=_font(POPPINS_B, 28), fill=C_WHITE)
-            info_y += 84
-
-        cta, f_cta = '¡Agenda ahora!', _font(POPPINS_B, 26)
-        cw = _tw(draw, cta, f_cta)
-        img = _comp(img, _rounded_rect_ov(W, H,
-                                           [info_x, info_y, info_x+cw+34, info_y+48],
-                                           23, fill=(*C_SUCCESS,220)))
-        draw = ImageDraw.Draw(img)
-        draw.text((info_x+17, info_y+10), cta, font=f_cta, fill=C_WHITE)
-
-        # Brand
-        _center(draw, H-44, 'Powered by Wabot · agendamiento inteligente',
-                _font(POPPINS_L, 20), C_DIM, W)
-        _gradient_stripe(draw, 0, H-9, W, H, C_ACCENT, C_PRIMARY)
-
-        path = output_path or _output_path('promo')
-        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else '.', exist_ok=True)
-        img.save(path, 'PNG', optimize=True)
-        print(f'✅ Flyer promo generado: {path}')
-        print(f'   QR apunta a: {qr_url}')
-        return path
-
+            ff = _font(28, False)
+            _center(draw, y_pos, f'📅 Válido hasta: {fecha_fin}', ff, GRAY, W)
+            y_pos += 50
+        
+        # QR Code
+        qr_size = 180
+        qr_x = PAD + 30
+        qr_y = H - qr_size - 120
+        qr_url = f'{BASE_URL}{negocio_id}'
+        qr_img = _qr(qr_url, qr_size)
+        img.paste(qr_img, (qr_x, qr_y), qr_img)
+        
+        # Texto QR
+        fqr = _font(22, False)
+        draw.text((qr_x - 10, qr_y + qr_size + 10), 'Escanea para agendar', font=fqr, fill=GRAY)
+        
+        # Botón CTA (a la derecha del QR)
+        btn_x = qr_x + qr_size + 50
+        btn_y = qr_y + 40
+        btn_w = 400
+        btn_h = 70
+        draw.rounded_rectangle([btn_x, btn_y, btn_x+btn_w, btn_y+btn_h], radius=35, fill=GREEN)
+        fcta = _font(36, True)
+        cta_txt = '¡Agenda Ahora!'
+        b = draw.textbbox((0,0), cta_txt, font=fcta)
+        tx = btn_x + (btn_w - b[2] + b[0])//2
+        ty = btn_y + (btn_h - b[3] + b[1])//2
+        draw.text((tx, ty), cta_txt, font=fcta, fill=WHITE)
+        
+        # Footer
+        ff2 = _font(22, False)
+        _center(draw, H-35, 'Powered by Wabot · agendamiento inteligente', ff2, DIM, W)
+        
+        # Guardar
+        if not output_path:
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_dir = 'static/flyers'
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = f'{output_dir}/promo_{ts}.png'
+        
+        img.save(output_path, 'PNG', optimize=True)
+        print(f'✅ Flyer generado: {output_path}')
+        return output_path
+        
     except Exception as e:
-        print(f'❌ Error generando flyer promo: {e}')
-        import traceback; traceback.print_exc()
+        print(f'❌ Error: {e}')
+        import traceback
+        traceback.print_exc()
         return None
 
 
-# ─── FLYER DE CONCURSO ───────────────────────────────────────────────────────
-
-def generar_flyer_concurso(negocio_nombre, titulo_promo, premio,
-                            fecha_fin, negocio_id,
-                            profesional_nombre='', output_path=None):
-    """
-    Genera un flyer 1080×1080 px para un concurso de fotos.
-
-    Parámetros:
-        negocio_nombre    – Nombre del negocio / salón
-        titulo_promo      – Título del concurso
-        premio            – Descripción del premio principal
-        fecha_fin         – String con la fecha límite
-        negocio_id        – ID del negocio → genera QR a BASE_URL + negocio_id
-        profesional_nombre– Nombre del profesional (opcional)
-        output_path       – Ruta de salida. None = se genera automáticamente.
-
-    Retorna la ruta del archivo generado, o None si hubo error.
-    """
+def generar_flyer_concurso(negocio_nombre, titulo_promo, premio, fecha_fin, negocio_id, profesional_nombre='', output_path=None):
     try:
-        W, H, PAD = 1080, 1080, 60
-        img  = _bg(W, H)
+        img = Image.new('RGB', (W, H), BG)
         draw = ImageDraw.Draw(img)
-
-        # Stripe superior (paleta concurso: dorado → rojo)
-        _gradient_stripe(draw, 0, 0, W, 10, C_ACCENT, (239, 68, 68))
-
-        # Pill nombre del negocio
-        y     = 48
-        f_neg = _font(POPPINS_M, 30)
-        neg_u = negocio_nombre.upper()
-        nw    = _tw(draw, neg_u, f_neg)
-        pp    = 22
-        px0, px1 = (W-nw-pp*2)//2, (W-nw-pp*2)//2 + nw + pp*2
-        img = _comp(img, _rounded_rect_ov(W, H, [px0, y, px1, y+52], 26,
-                                           fill=(*C_ACCENT,28),
-                                           outline=(*C_ACCENT,160), lw=2))
-        draw = ImageDraw.Draw(img)
-        _center(draw, y+10, neg_u, f_neg, C_ACCENT, W)
-
+        
+        for y in range(H):
+            r = int(15 + (10 * y/H))
+            g = int(23 + (18 * y/H))
+            b = int(42 + (20 * y/H))
+            draw.line([(0,y), (W,y)], fill=(r,g,b))
+        
+        draw.rectangle([(0,0), (W,8)], fill=AMBER)
+        draw.rectangle([(0,H-8), (W,H)], fill=AMBER)
+        
+        y_pos = 60
+        
+        fn = _font(36, True)
+        _center(draw, y_pos, negocio_nombre.upper(), fn, AMBER, W)
+        y_pos += 60
+        
+        draw.line([(W//4, y_pos), (3*W//4, y_pos)], fill=AMBER, width=2)
+        y_pos += 40
+        
         # Ícono cámara
-        y = 130
-        _center(draw, y, '📸', _font(POPPINS_B, 70), C_WHITE, W)
-
+        fc = _font(80, True)
+        _center(draw, y_pos, '📸', fc, WHITE, W)
+        y_pos += 100
+        
         # Badge concurso
-        y = 218
-        _center(draw, y, '✦  CONCURSO DE FOTOS  ✦', _font(POPPINS_M, 22), C_ACCENT, W)
-
+        fb = _font(24, True)
+        _center(draw, y_pos, '✦ CONCURSO DE FOTOS ✦', fb, AMBER, W)
+        y_pos += 60
+        
         # Título
-        y = 254
-        f_t = _font(POPPINS_B, 54)
-        for line in _wrap(titulo_promo.upper(), f_t, draw, W-PAD*2)[:2]:
-            _center(draw, y, line, f_t, C_WHITE, W); y += 65
-
+        ft = _font(56, True)
+        for line in _wrap(titulo_promo.upper(), ft, draw, W-100)[:2]:
+            _center(draw, y_pos, line, ft, WHITE, W)
+            y_pos += 70
+        
         # Premio
         if premio:
-            y += 10
-            _center(draw, y, '🏆  PREMIO', _font(POPPINS_M, 30), C_ACCENT, W)
-            y += 46
-            f_p = _font(POPPINS_B, 60)
-            prize_lines = _wrap(premio, f_p, draw, W-PAD*2)[:2]
-            bh = len(prize_lines)*72 + 20
-            img = _comp(img, _rounded_rect_ov(W, H, [PAD*2, y-10, W-PAD*2, y+bh], 24,
-                                               fill=(*C_ACCENT,20),
-                                               outline=(*C_ACCENT,90), lw=2))
-            draw = ImageDraw.Draw(img)
-            for line in prize_lines:
-                _center(draw, y, line, f_p, C_ACCENT, W); y += 72
-            y += 18
-
+            y_pos += 20
+            fp2 = _font(32, True)
+            _center(draw, y_pos, '🏆 PREMIO', fp2, AMBER, W)
+            y_pos += 50
+            fp3 = _font(52, True)
+            for line in _wrap(premio, fp3, draw, W-150)[:2]:
+                _center(draw, y_pos, line, fp3, WHITE, W)
+                y_pos += 65
+        
         # Pasos
-        y += 10
-        pasos = [
-            ('1', 'Ven a tu cita',          '→ Agenda con nosotros'),
-            ('2', 'Tómate la foto',          '→ Muestra tu nuevo look'),
-            ('3', 'Súbela al concurso',      '→ Escanea el QR'),
-            ('4', 'Consigue más likes',      '→ ¡Gana el premio!'),
-        ]
-        f_pn = _font(POPPINS_B, 24)
-        f_pt = _font(POPPINS_M, 24)
-        f_pd = _font(POPPINS_L, 21)
-        sx   = PAD + 20
-
-        for num, tit, det in pasos:
-            cr = 22
-            cx_, cy_ = sx+cr, y+cr
-            img = _comp(img, _rounded_rect_ov(W, H,
-                                               [cx_-cr, cy_-cr, cx_+cr, cy_+cr],
-                                               cr, fill=(*C_PRIMARY,220)))
-            draw = ImageDraw.Draw(img)
-            nw2 = _tw(draw, num, f_pn)
-            draw.text((cx_-nw2//2, cy_-14), num, font=f_pn, fill=C_WHITE)
-            tx = sx + cr*2 + 16
-            draw.text((tx, y+4),  tit, font=f_pt, fill=C_WHITE)
-            draw.text((tx, y+30), det, font=f_pd, fill=C_LIGHT)
-            y += 54
-
-        # Profesional
-        if profesional_nombre:
-            _center(draw, y+6, f'👤  con {profesional_nombre}',
-                    _font(POPPINS_M, 26), C_WHITE, W); y += 44
-
-        # Separador fino
-        sep_y = max(y+10, 828)
-        draw.line([(PAD*2, sep_y), (W-PAD*2, sep_y)], fill=(40,50,90), width=1)
-        footer_y = sep_y + 24
-
-        # QR funcional
-        qr_size = 130
-        qr_x, qr_y = PAD + 14, footer_y
-        qr_url = BASE_URL + str(negocio_id)
-        img, draw = _paste_qr(img, draw, qr_url, negocio_id,
-                               qr_x, qr_y, qr_size, C_ACCENT)
-        draw.text((qr_x - 10, qr_y + qr_size + 14),
-                  'Escanea y participa', font=_font(POPPINS_L, 20), fill=C_LIGHT)
-
-        # Info derecha
-        info_x, info_y = qr_x + qr_size + 46, footer_y + 8
-        if fecha_fin:
-            draw.text((info_x, info_y), '📅  Válido hasta',
-                      font=_font(POPPINS_L, 21), fill=C_LIGHT)
-            draw.text((info_x, info_y+28), str(fecha_fin),
-                      font=_font(POPPINS_B, 26), fill=C_WHITE)
-            info_y += 76
-
-        cta, f_cta = '¡Participa gratis!', _font(POPPINS_B, 25)
-        cw = _tw(draw, cta, f_cta)
-        img = _comp(img, _rounded_rect_ov(W, H,
-                                           [info_x, info_y, info_x+cw+34, info_y+46],
-                                           23, fill=(*C_SUCCESS,220)))
-        draw = ImageDraw.Draw(img)
-        draw.text((info_x+17, info_y+10), cta, font=f_cta, fill=C_WHITE)
-
-        # Brand
-        _center(draw, H-44, 'Powered by Wabot · agendamiento inteligente',
-                _font(POPPINS_L, 20), C_DIM, W)
-        _gradient_stripe(draw, 0, H-9, W, H, (239,68,68), C_ACCENT)
-
-        path = output_path or _output_path('concurso')
-        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else '.', exist_ok=True)
-        img.save(path, 'PNG', optimize=True)
-        print(f'✅ Flyer concurso generado: {path}')
-        print(f'   QR apunta a: {qr_url}')
-        return path
-
+        y_pos += 30
+        pasos = ['1️⃣ Ven a tu cita', '2️⃣ Tómate la foto', '3️⃣ Súbela al concurso', '4️⃣ ¡Gana con más likes!']
+        fs = _font(28, False)
+        for paso in pasos:
+            _center(draw, y_pos, paso, fs, GRAY, W)
+            y_pos += 45
+        
+        # QR
+        qr_size = 180
+        qr_x = PAD + 30
+        qr_y = H - qr_size - 120
+        qr_url = f'{BASE_URL}{negocio_id}'
+        qr_img = _qr(qr_url, qr_size)
+        img.paste(qr_img, (qr_x, qr_y), qr_img)
+        
+        fqr = _font(22, False)
+        draw.text((qr_x - 10, qr_y + qr_size + 10), 'Escanea y participa', font=fqr, fill=GRAY)
+        
+        # Botón
+        btn_x = qr_x + qr_size + 50
+        btn_y = qr_y + 40
+        btn_w = 400
+        btn_h = 70
+        draw.rounded_rectangle([btn_x, btn_y, btn_x+btn_w, btn_y+btn_h], radius=35, fill=GREEN)
+        fcta = _font(36, True)
+        cta_txt = '¡Participa!'
+        b = draw.textbbox((0,0), cta_txt, font=fcta)
+        tx = btn_x + (btn_w - b[2] + b[0])//2
+        ty = btn_y + (btn_h - b[3] + b[1])//2
+        draw.text((tx, ty), cta_txt, font=fcta, fill=WHITE)
+        
+        ff2 = _font(22, False)
+        _center(draw, H-35, 'Powered by Wabot · agendamiento inteligente', ff2, DIM, W)
+        
+        if not output_path:
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_dir = 'static/flyers'
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = f'{output_dir}/concurso_{ts}.png'
+        
+        img.save(output_path, 'PNG', optimize=True)
+        print(f'✅ Flyer concurso generado: {output_path}')
+        return output_path
+        
     except Exception as e:
-        print(f'❌ Error generando flyer concurso: {e}')
-        import traceback; traceback.print_exc()
+        print(f'❌ Error: {e}')
+        import traceback
+        traceback.print_exc()
         return None
-
-
-# ─── EJEMPLO DE USO ──────────────────────────────────────────────────────────
-if __name__ == '__main__':
-    generar_flyer_promocion(
-        negocio_nombre     = 'Barbería Imperial',
-        titulo_promo       = 'Corte + Barba Premium',
-        descripcion        = 'Incluye lavado, corte personalizado y acabado con navaja.',
-        descuento          = 30,
-        fecha_fin          = '31 de enero 2025',
-        negocio_id         = 42,          # ← ID real del negocio
-        profesional_nombre = 'Carlos Rodríguez',
-    )
-
-    generar_flyer_concurso(
-        negocio_nombre     = 'Barbería Imperial',
-        titulo_promo       = 'El Mejor Corte del Mes',
-        premio             = 'Corte Gratis por 3 Meses',
-        fecha_fin          = '28 de febrero 2025',
-        negocio_id         = 42,          # ← ID real del negocio
-        profesional_nombre = 'Carlos Rodríguez',
-    )

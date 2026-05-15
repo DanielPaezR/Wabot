@@ -301,12 +301,22 @@
                             <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar esta promoción?')">
                                 🗑 Eliminar
                             </button>
-                            <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
-                                class="btn btn-sm btn-outline" 
+                            <div class="promo-actions">
+                                <!-- Botones existentes -->
+                                <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
                                 target="_blank"
-                                style="margin-top:8px;">
-                                📤 Ver Flyer
-                            </a>
+                                class="btn-promo btn-promo-primary" 
+                                style="flex: 0.5; font-size: 0.75rem;">
+                                🎨 Ver Flyer
+                                </a>
+                                
+                                <!-- Botón compartir en WhatsApp -->
+                                <button class="btn-promo btn-promo-success" 
+                                        onclick="compartirFlyerWhatsApp({{ promo.id }})"
+                                        style="flex: 0.5; font-size: 0.75rem;">
+                                    📤 Compartir
+                                </button>
+                            </div>
                         </form>
                     </div>
                     
@@ -495,6 +505,21 @@
         document.getElementById('modalCrear').addEventListener('click', function(e) {
             if (e.target === this) cerrarModalCrear();
         });
+
+        <div class="promo-actions">
+            <!-- Botones existentes -->
+            <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
+            target="_blank"
+            class="btn-promo btn-promo-primary" 
+            style="flex: 0.5; font-size: 0.75rem;">
+            🎨 Ver Flyer
+            </a>
+            <button class="btn-promo btn-promo-success" 
+                    onclick="compartirFlyerWhatsApp({{ promo.id }})"
+                    style="flex: 0.5; font-size: 0.75rem;">
+                📤 Compartir
+            </button>
+        </div>
     </script>
 </body>
 </html>
