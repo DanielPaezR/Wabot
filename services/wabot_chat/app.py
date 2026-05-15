@@ -676,7 +676,8 @@ def ver_post_concurso(participacion_id):
 
 @app.route('/api/concurso/like/<int:participacion_id>', methods=['POST'])
 def api_votar(participacion_id):
-    ip = request.remote_addr
+    forwarded_for = request.headers.get('X-Forwarded-For', '')
+    ip = forwarded_for.split(',')[0].strip() if forwarded_for else request.remote_addr
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -684,9 +685,10 @@ def api_votar(participacion_id):
         cursor.execute('UPDATE participaciones_concurso SET likes = likes + 1 WHERE id = %s', (participacion_id,))
         conn.commit()
         return jsonify({'success': True})
-    except Exception:
+    except Exception as e:
         conn.rollback()
-        return jsonify({'success': False, 'message': 'Ya votaste'}), 400
+        print(f"⚠️ Voto no registrado para participacion={participacion_id}, ip={ip}: {e}")
+        return jsonify({'success': False, 'already_voted': True, 'message': 'Ya votaste'}), 200
     finally:
         conn.close()
 

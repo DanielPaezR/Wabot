@@ -886,6 +886,23 @@
             return d.innerHTML;
         }
 
+        function storageGet(key) {
+            try {
+                return window.localStorage ? localStorage.getItem(key) : null;
+            } catch (e) {
+                console.warn('localStorage no disponible:', e);
+                return null;
+            }
+        }
+
+        function storageSet(key, value) {
+            try {
+                if (window.localStorage) localStorage.setItem(key, value);
+            } catch (e) {
+                console.warn('No se pudo guardar en localStorage:', e);
+            }
+        }
+
         // ── GALERÍA ───────────────────────────────────────────────────────────
         let currentPhoto = 0;
         const slides  = document.querySelectorAll('.photo-slide');
@@ -934,7 +951,7 @@
             voteMessage.className   = 'success';
         }
 
-        if (localStorage.getItem(LS_KEY) === 'true') setVoted();
+        if (storageGet(LS_KEY) === 'true') setVoted();
 
         voteBtn.addEventListener('click', async () => {
             voteBtn.disabled = true;
@@ -949,12 +966,17 @@
 
                 if (data.success) {
                     voteCount.textContent = parseInt(voteCount.textContent) + 1;
-                    localStorage.setItem(LS_KEY, 'true');
+                    storageSet(LS_KEY, 'true');
                     setVoted();
                     cargarRanking();
                     // Animar el contador
                     voteCount.style.transform = 'scale(1.4)';
                     setTimeout(() => voteCount.style.transform = '', 300);
+                } else if (data.already_voted) {
+                    storageSet(LS_KEY, 'true');
+                    setVoted();
+                    voteMessage.textContent = data.message || 'Ese voto ya estaba registrado';
+                    voteMessage.className   = 'success';
                 } else {
                     voteBtn.disabled = false;
                     voteBtn.innerHTML = '<i class="fas fa-heart"></i> Votar por ' + NOMBRE;
