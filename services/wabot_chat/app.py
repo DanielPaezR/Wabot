@@ -676,19 +676,152 @@ def ver_post_concurso(participacion_id):
 
 @app.route('/api/concurso/like/<int:participacion_id>', methods=['POST'])
 def api_votar(participacion_id):
-    forwarded_for = request.headers.get('X-Forwarded-For', '')
-    ip = forwarded_for.split(',')[0].strip() if forwarded_for else request.remote_addr
+    """Registra un voto para una participación en concurso"""
+    ip = request.remote_addr
+    
+    # Obtener ID del cliente si está logueado (opcional)
+    cliente_id = None
+    if 'cliente_id' in session:
+        cliente_id = session['cliente_id']
+    
     conn = get_db_connection()
     cursor = conn.cursor()
+    
     try:
-        cursor.execute('INSERT INTO likes_concurso (participacion_id, ip_address) VALUES (%s, %s)', (participacion_id, ip))
-        cursor.execute('UPDATE participaciones_concurso SET likes = likes + 1 WHERE id = %s', (participacion_id,))
+        # 1. Verificar si ya votó (por IP o por cliente_id)
+        if cliente_id:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND cliente_id = %s
+            ''', (participacion_id, cliente_id))
+        else:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND ip_address = %s
+            ''', (participacion_id, ip))
+        
+        voto_existente = cursor.fetchone()
+        
+        if voto_existente:
+            return jsonify({
+                'success': False, 
+                'already_voted': True,
+                'message': 'Ya votaste por este participante'
+            }), 200  # Usar 200 para que el frontend pueda leer el mensaje
+        
+        # 2. Insertar el voto
+        if cliente_id:
+            cursor.execute('''
+                INSERT INTO likes_concurso (participacion_id, ip_address, cliente_id) 
+                VALUES (%s, %s, %s)
+            ''', (participacion_id, ip, cliente_id))
+        else:
+            cursor.execute('''
+                INSERT INTO likes_concurso (participacion_id, ip_address) 
+                VALUES (%s, %s)
+            ''', (participacion_id, ip))
+        
+        # 3. Actualizar contador
+        cursor.execute('''
+            UPDATE participaciones_concurso 
+            SET likes = likes + 1 
+            WHERE id = %s
+        ''', (participacion_id,))
+        
         conn.commit()
-        return jsonify({'success': True})
+        
+        # 4. Obtener el nuevo total de likes
+        cursor.execute('SELECT likes FROM participaciones_concurso WHERE id = %s', (participacion_id,))
+        nuevo_total = cursor.fetchone()[0]
+        
+        return jsonify({
+            'success': True,
+            'message': 'Voto registrado correctamente',
+            'total_likes': nuevo_total
+        })
+        
     except Exception as e:
         conn.rollback()
-        print(f"⚠️ Voto no registrado para participacion={participacion_id}, ip={ip}: {e}")
-        return jsonify({'success': False, 'already_voted': True, 'message': 'Ya votaste'}), 200
+        print(f"Error en voto: {e}")
+        return jsonify({
+            'success': False, 
+            'already_voted': False,
+            'message': 'Error al procesar el voto'
+        }), 500
+    finally:
+        conn.close()
+
+
+@app.route('/api/concurso/verificar-voto/<int:participacion_id>', methods=['GET'])
+def api_verificar_voto(participacion_id):
+    """Verifica si el usuario actual ya votó por esta participación"""
+    ip = request.remote_addr
+    cliente_id = session.get('cliente_id')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if cliente_id:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND cliente_id = %s
+            ''', (participacion_id, cliente_id))
+        else:
+            cursor.execute('''
+                SELECT id FROM likes_concurso 
+                WHERE participacion_id = %s AND ip_address = %s
+            ''', (participacion_id, ip))
+        
+        voto = cursor.fetchone()
+        
+        return jsonify({
+            'success': True,
+            'voted': voto is not None
+        })
+    except Exception as e:
+        print(f"Error verificando voto: {e}")
+        return jsonify({
+            'success': False,
+            'voted': False,
+            'message': 'Error al verificar'
+        }), 500
+    finally:
+        conn.close()
+
+
+@app.route('/api/concurso/ranking/<int:promocion_id>', methods=['GET'])
+def api_ranking(promocion_id):
+    """Obtiene el ranking de participantes de un concurso"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        cursor.execute('''
+            SELECT 
+                pc.id,
+                pc.cliente_nombre,
+                pc.foto_url,
+                pc.likes,
+                pc.nota
+            FROM participaciones_concurso pc
+            WHERE pc.promocion_id = %s
+            ORDER BY pc.likes DESC
+        ''', (promocion_id,))
+        
+        participantes = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'participaciones': participantes
+        })
+    except Exception as e:
+        print(f"Error cargando ranking: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Error al cargar ranking',
+            'participaciones': []
+        }), 500
     finally:
         conn.close()
 

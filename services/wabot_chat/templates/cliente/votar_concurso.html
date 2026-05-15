@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta property="og:title" content="🏆 {{ p.promo_titulo }} — Vota por {{ p.cliente_nombre }}">
-    <meta property="og:description" content="Apoya a {{ p.cliente_nombre }} con tu voto. Cada like cuenta">
+    <meta property="og:title" content="🏆 Concurso - Vota por tu favorito">
+    <meta property="og:description" content="Apoya a tu participante favorito en este concurso. Cada voto cuenta">
     {% if p.foto_url %}
     <meta property="og:image" content="{{ p.foto_url.split(',')[0] }}">
     {% endif %}
-    <title>🏆 {{ p.promo_titulo }} | Wabot</title>
+    <title>🏆 Concurso de fotos | Wabot</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -643,13 +643,13 @@
 
         <div class="sheet-preview">
             {% if p.foto_url %}
-            <img src="{{ p.foto_url.split(',')[0] }}" alt="{{ p.cliente_nombre }}" crossorigin="anonymous">
+            <img src="{{ p.foto_url.split(',')[0] }}" alt="Foto del participante" crossorigin="anonymous">
             {% else %}
             <div class="sheet-preview-placeholder">📸</div>
             {% endif %}
             <div class="sheet-preview-info">
-                <strong>{{ p.cliente_nombre }}</strong>
-                <span>{{ p.promo_titulo }}</span>
+                <strong>{{ p.cliente_nombre|escape }}</strong>
+                <span>{{ p.promo_titulo|escape }}</span>
             </div>
         </div>
 
@@ -700,7 +700,7 @@
 
     <div class="hero">
         <div class="hero-badge"><i class="fas fa-trophy"></i> Concurso activo</div>
-        <h1>{{ p.promo_titulo }}</h1>
+        <h1>{{ p.promo_titulo|escape }}</h1>
         <div class="hero-sub">Vota por tu favorito y ayúdalo a ganar</div>
     </div>
 
@@ -713,7 +713,7 @@
                     {% set fotos = p.foto_url.split(',') %}
                     {% for url in fotos %}
                     <div class="photo-slide {% if loop.first %}active{% endif %}" data-index="{{ loop.index0 }}">
-                        <img src="{{ url.strip() }}" alt="Foto {{ loop.index }} de {{ p.cliente_nombre }}" crossorigin="anonymous" loading="lazy">
+                        <img src="{{ url.strip() }}" alt="Foto {{ loop.index }} del participante" crossorigin="anonymous" loading="lazy">
                     </div>
                     {% endfor %}
 
@@ -743,7 +743,7 @@
 
             <div class="participant-info">
                 <div>
-                    <div class="participant-name">{{ p.cliente_nombre }}</div>
+                    <div class="participant-name">{{ p.cliente_nombre|escape }}</div>
                     <div class="participant-label"><i class="fas fa-cut" style="font-size:0.7rem;"></i> Participante del concurso</div>
                 </div>
                 <div class="votes-pill">
@@ -755,14 +755,14 @@
             {% if p.nota %}
             <div class="participant-note">
                 <i class="fas fa-quote-left" style="opacity:0.4; margin-right:5px;"></i>
-                {{ p.nota }}
+                {{ p.nota|escape }}
             </div>
             {% endif %}
 
         </div>
 
         <div class="share-card">
-            <div class="share-title"><i class="fas fa-share-nodes"></i> Ayuda a {{ p.cliente_nombre }} a ganar</div>
+            <div class="share-title"><i class="fas fa-share-nodes"></i> Ayuda a {{ p.cliente_nombre|escape }} a ganar</div>
             <div class="share-btns">
                 <button class="share-btn btn-whatsapp" onclick="abrirSheet()">
                     <i class="fab fa-whatsapp"></i> WhatsApp
@@ -815,14 +815,14 @@
 
     <div class="vote-bar">
         <button class="vote-btn" id="voteBtn">
-            <i class="fas fa-heart"></i> Votar por {{ p.cliente_nombre }}
+            <i class="fas fa-heart"></i> Votar por {{ p.cliente_nombre|escape }}
         </button>
         <div id="voteMessage"></div>
     </div>
 
     <script>
         (function() {
-            // Datos del servidor (escapados para evitar problemas con & y otros caracteres)
+            // Datos del servidor
             const PARTICIPACION_ID = {{ p.id|tojson }};
             const PROMOCION_ID = {{ p.promocion_id|tojson }};
             const SHARE_URL = window.location.href;
@@ -880,10 +880,10 @@
             // Galería
             function goToPhoto(i) {
                 if (slides.length <= 1) return;
-                slides[currentPhoto]?.classList.remove('active');
+                if (slides[currentPhoto]) slides[currentPhoto].classList.remove('active');
                 if (dots[currentPhoto]) dots[currentPhoto].classList.remove('active');
                 currentPhoto = (i + slides.length) % slides.length;
-                slides[currentPhoto]?.classList.add('active');
+                if (slides[currentPhoto]) slides[currentPhoto].classList.add('active');
                 if (dots[currentPhoto]) dots[currentPhoto].classList.add('active');
                 if (counter) counter.textContent = (currentPhoto + 1) + ' / ' + slides.length;
                 if (arrowL) arrowL.classList.toggle('hidden', currentPhoto === 0);
