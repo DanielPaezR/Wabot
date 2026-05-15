@@ -11,3 +11,4 @@ Pillow>=10.0.0
 pywebpush==2.1.2
 cloudinary==1.36.0
 openai>=1.0.0
+qrcode[pil]>=7.4.2
