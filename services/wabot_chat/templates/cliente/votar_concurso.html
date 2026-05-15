@@ -1033,6 +1033,16 @@
                     }
                 } catch(e) {
                     console.error('Error cargando ranking:', e);
+                    if (rankingList) {
+                        rankingList.innerHTML = '<div style="padding:28px; text-align:center; color:#f97316;">⚠️ No se pudo cargar el ranking. Intenta de nuevo más tarde.</div>';
+                    }
+                    const rankingTime = document.getElementById('rankingTime');
+                    if (rankingTime) {
+                        rankingTime.textContent = 'error al actualizar';
+                    }
+                    if (typeof toast === 'function') {
+                        toast('Error al cargar el ranking', 'error');
+                    }
                 }
             }
             

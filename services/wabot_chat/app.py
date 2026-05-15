@@ -790,41 +790,6 @@ def api_verificar_voto(participacion_id):
         conn.close()
 
 
-@app.route('/api/concurso/ranking/<int:promocion_id>', methods=['GET'])
-def api_ranking(promocion_id):
-    """Obtiene el ranking de participantes de un concurso"""
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
-    try:
-        cursor.execute('''
-            SELECT 
-                pc.id,
-                pc.cliente_nombre,
-                pc.foto_url,
-                pc.likes,
-                pc.nota
-            FROM participaciones_concurso pc
-            WHERE pc.promocion_id = %s
-            ORDER BY pc.likes DESC
-        ''', (promocion_id,))
-        
-        participantes = cursor.fetchall()
-        
-        return jsonify({
-            'success': True,
-            'participaciones': participantes
-        })
-    except Exception as e:
-        print(f"Error cargando ranking: {e}")
-        return jsonify({
-            'success': False,
-            'message': 'Error al cargar ranking',
-            'participaciones': []
-        }), 500
-    finally:
-        conn.close()
-
 # =============================================================================
 # RUTAS ADICIONALES PARA GESTIÓN DE PROMOCIONES
 # =============================================================================
