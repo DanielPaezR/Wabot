@@ -153,6 +153,17 @@ def _crear_tablas(cursor):
     if postgres:
         negocios_sql = negocios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
     execute_sql(cursor, negocios_sql)
+
+    columnas_redes_negocio = ['instagram', 'facebook', 'tiktok', 'twitter', 'youtube', 'sitio_web']
+    if postgres:
+        for columna in columnas_redes_negocio:
+            execute_sql(cursor, f'ALTER TABLE negocios ADD COLUMN IF NOT EXISTS {columna} TEXT')
+    else:
+        cursor.execute("PRAGMA table_info(negocios)")
+        columnas_negocios = {row[1] for row in cursor.fetchall()}
+        for columna in columnas_redes_negocio:
+            if columna not in columnas_negocios:
+                cursor.execute(f'ALTER TABLE negocios ADD COLUMN {columna} TEXT')
     
     # Tabla usuarios
     usuarios_sql = '''

@@ -7017,6 +7017,24 @@ def ver_tablas():
 # EDITOR VISUAL DEL NEGOCIO (WYSIWYG)
 # =============================================================================
 
+def asegurar_columnas_redes_negocio(conn, cursor):
+    columnas_redes = ['instagram', 'facebook', 'tiktok', 'twitter', 'youtube', 'sitio_web']
+    try:
+        if db.is_postgresql():
+            for columna in columnas_redes:
+                cursor.execute(f'ALTER TABLE negocios ADD COLUMN IF NOT EXISTS {columna} TEXT')
+        else:
+            cursor.execute("PRAGMA table_info(negocios)")
+            columnas_actuales = {row[1] for row in cursor.fetchall()}
+            for columna in columnas_redes:
+                if columna not in columnas_actuales:
+                    cursor.execute(f'ALTER TABLE negocios ADD COLUMN {columna} TEXT')
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️ No se pudieron asegurar columnas de redes sociales: {e}")
+    return columnas_redes
+
 @app.route('/negocio/editor')
 @role_required(['propietario', 'superadmin'])
 def negocio_editor_visual():
@@ -7026,6 +7044,8 @@ def negocio_editor_visual():
     # Obtener datos del negocio
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    asegurar_columnas_redes_negocio(conn, cursor)
     
     cursor.execute('''
         SELECT * FROM negocios WHERE id = %s
@@ -7234,6 +7254,8 @@ def negocio_editor_guardar():
         
         # Usar RealDictCursor para obtener diccionarios
         cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        columnas_redes = asegurar_columnas_redes_negocio(conn, cursor)
         
         campos = []
         valores = []
@@ -7271,6 +7293,12 @@ def negocio_editor_guardar():
             valores.append(data['emoji'])
             print(f"  ✓ emoji: {data['emoji']}")
         
+        for campo_red in columnas_redes:
+            if campo_red in data:
+                campos.append(f"{campo_red} = %s")
+                valores.append((data.get(campo_red) or '').strip() or None)
+                print(f"  ✓ {campo_red}: {data.get(campo_red) or ''}")
+
         # Actualizar configuración general (JSON)
         cursor.execute('SELECT configuracion FROM negocios WHERE id = %s', (negocio_id,))
         result = cursor.fetchone()

@@ -27,6 +27,12 @@ class Negocio(Base):
     total_opiniones = Column(Integer, default=0)
     foto_portada = Column(String(500))   # Banner superior
     foto_perfil = Column(String(500))    # Logo/perfil circular
+    instagram = Column(String(500))
+    facebook = Column(String(500))
+    tiktok = Column(String(500))
+    twitter = Column(String(500))
+    youtube = Column(String(500))
+    sitio_web = Column(String(500))
     
     # Relaciones
     fotos = relationship("FotoNegocio", back_populates="negocio")

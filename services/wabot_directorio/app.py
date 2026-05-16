@@ -58,13 +58,15 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 db_session = scoped_session(sessionmaker(bind=engine))
 
 def asegurar_columnas_servicios():
-    """Mantiene compatible el directorio con servicios creados desde el panel."""
+    """Mantiene compatible el directorio con columnas creadas desde el panel."""
     try:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE servicios ADD COLUMN IF NOT EXISTS moneda VARCHAR(10) DEFAULT 'COP'"))
             conn.execute(text("ALTER TABLE servicios ADD COLUMN IF NOT EXISTS foto_url TEXT"))
+            for columna in ['instagram', 'facebook', 'tiktok', 'twitter', 'youtube', 'sitio_web']:
+                conn.execute(text(f"ALTER TABLE negocios ADD COLUMN IF NOT EXISTS {columna} TEXT"))
     except Exception as e:
-        print(f"Advertencia: no se pudieron verificar columnas de servicios: {e}")
+        print(f"Advertencia: no se pudieron verificar columnas del directorio: {e}")
 
 asegurar_columnas_servicios()
 
