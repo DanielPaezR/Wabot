@@ -7086,6 +7086,13 @@ def negocio_editor_visual():
     dias_map = {1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 
                 5: 'Viernes', 6: 'Sábado', 7: 'Domingo'}
     
+    def formatear_hora_editor(valor):
+        if not valor:
+            return ''
+        if hasattr(valor, 'strftime'):
+            return valor.strftime('%H:%M')
+        return str(valor)[:5]
+
     # Convertir los horarios (filas) a una lista de objetos que la plantilla espera
     horarios_list = []
     for h in horarios:
@@ -7093,8 +7100,8 @@ def negocio_editor_visual():
         horarios_list.append({
             'dia': dia_nombre,
             'activo': h.get('activo', False),
-            'hora_inicio': h.get('hora_inicio') or '',
-            'hora_fin': h.get('hora_fin') or ''
+            'hora_inicio': formatear_hora_editor(h.get('hora_inicio')),
+            'hora_fin': formatear_hora_editor(h.get('hora_fin'))
         })
     
     return render_template('negocio/editor_visual.html',

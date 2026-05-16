@@ -781,7 +781,7 @@
                 {% for h in horarios %}
                 <div class="dia-chip-edit {% if h.activo %}abierto{% else %}cerrado{% endif %}">
                     <span class="dc-abrev">{{ h.dia[:3] }}</span>
-                    <span class="dc-hora">{% if h.activo %}{{ h.hora_inicio[:5] }}{% else %}Cerr.{% endif %}</span>
+                    <span class="dc-hora">{% if h.activo %}{{ h.hora_inicio }}{% else %}Cerr.{% endif %}</span>
                 </div>
                 {% endfor %}
             </div>
