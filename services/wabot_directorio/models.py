@@ -46,6 +46,7 @@ class Servicio(Base):
     precio = Column(DECIMAL(10, 2))
     precio_maximo = Column(DECIMAL(10, 2))
     tipo_precio = Column(String(20))
+    moneda = Column(String(5), default='COP')
     activo = Column(Boolean, default=True)
     foto_url = Column(String(500))   # Foto ejemplo del servicio
     

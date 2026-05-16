@@ -7340,6 +7340,56 @@ def eliminar_foto_servicio(servicio_id):
         print(f"Error eliminando foto: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/negocio/editor/guardar-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_guardar_servicio():
+    """Crear o actualizar un servicio desde el editor visual."""
+    try:
+        data = request.get_json() or {}
+        negocio_id = session.get('negocio_id', 1)
+
+        servicio_id = data.get('id')
+        nombre = (data.get('nombre') or '').strip()
+        precio = float(data.get('precio') or 0)
+        duracion = int(data.get('duracion') or 30)
+        moneda = (data.get('moneda') or 'COP').upper()
+
+        if moneda not in ['COP', 'USD', 'EUR', 'AWG']:
+            moneda = 'COP'
+        if not nombre:
+            return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
+        if precio < 0 or duracion <= 0:
+            return jsonify({'success': False, 'error': 'Precio o duración inválidos'}), 400
+
+        servicio_actual = None
+        if servicio_id:
+            servicio_actual = db.obtener_servicio_por_id(servicio_id, negocio_id)
+            if not servicio_actual:
+                return jsonify({'success': False, 'error': 'Servicio no encontrado'}), 404
+
+        resultado = db.guardar_servicio(
+            negocio_id=negocio_id,
+            servicio_id=servicio_id,
+            nombre=nombre,
+            duracion=duracion,
+            precio=precio,
+            descripcion=(servicio_actual or {}).get('descripcion', ''),
+            activo=True,
+            tipo_precio=(servicio_actual or {}).get('tipo_precio', 'fijo'),
+            precio_maximo=(servicio_actual or {}).get('precio_maximo'),
+            foto_url=(servicio_actual or {}).get('foto_url') if servicio_id else None,
+            moneda=moneda
+        )
+
+        status = 200 if resultado.get('success') else 500
+        return jsonify(resultado), status
+
+    except Exception as e:
+        print(f"❌ Error guardando servicio desde editor: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
 @role_required(['propietario', 'superadmin'])
 def negocio_editor_eliminar_servicio():

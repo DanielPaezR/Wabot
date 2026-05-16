@@ -618,9 +618,20 @@
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                 <div class="form-group">
+                    <label class="form-label">Moneda</label>
+                    <select class="form-control" id="servicioSheetMoneda">
+                        <option value="COP">COP $</option>
+                        <option value="USD">USD US$</option>
+                        <option value="EUR">EUR €</option>
+                        <option value="AWG">AWG ƒ</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Precio</label>
                     <input type="number" class="form-control" id="servicioSheetPrecio" placeholder="0">
                 </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                 <div class="form-group">
                     <label class="form-label">Duración (min)</label>
                     <input type="number" class="form-control" id="servicioSheetDuracion" placeholder="30">
@@ -793,12 +804,15 @@
                      data-id="{{ servicio.id }}"
                      data-nombre="{{ servicio.nombre }}"
                      data-precio="{{ servicio.precio }}"
+                     data-moneda="{{ servicio.moneda or 'COP' }}"
                      data-duracion="{{ servicio.duracion }}">
                     <div style="flex:1; min-width:0;">
                         <div class="servicio-nombre">{{ servicio.nombre }}</div>
                         <div class="servicio-dur"><i class="far fa-clock" style="font-size:10px;"></i> {{ servicio.duracion }} min</div>
                     </div>
-                    <div class="servicio-precio-tag">${{ "{:,.0f}".format(servicio.precio).replace(',','.') }}</div>
+                    <div class="servicio-precio-tag">
+                        {% if servicio.moneda == 'EUR' %}€{% elif servicio.moneda == 'USD' %}US${% elif servicio.moneda == 'AWG' %}ƒ{% else %}${% endif %}{{ "{:,.0f}".format(servicio.precio).replace(',','.') }}
+                    </div>
                     <div class="servicio-edit-btns">
                         <button class="icon-btn-sm edit" onclick="abrirServicioSheet(this.closest('.servicio-item'))" title="Editar">
                             <i class="fas fa-pencil"></i>
@@ -1073,6 +1087,7 @@
             document.getElementById('servicioSheetId').value      = item ? item.dataset.id : '';
             document.getElementById('servicioSheetNombre').value  = item ? item.dataset.nombre : '';
             document.getElementById('servicioSheetPrecio').value  = item ? item.dataset.precio : '';
+            document.getElementById('servicioSheetMoneda').value  = item ? (item.dataset.moneda || 'COP') : 'COP';
             document.getElementById('servicioSheetDuracion').value= item ? item.dataset.duracion : '30';
             abrirSheet('servicioSheet');
         }
@@ -1080,6 +1095,7 @@
         async function guardarServicio() {
             const id       = document.getElementById('servicioSheetId').value;
             const nombre   = document.getElementById('servicioSheetNombre').value.trim();
+            const moneda   = document.getElementById('servicioSheetMoneda').value || 'COP';
             const precio   = parseFloat(document.getElementById('servicioSheetPrecio').value);
             const duracion = parseInt(document.getElementById('servicioSheetDuracion').value);
 
@@ -1090,7 +1106,7 @@
                 const res  = await fetch('/negocio/editor/guardar-servicio', {
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ id: id ? parseInt(id) : null, nombre, precio, duracion })
+                    body: JSON.stringify({ id: id ? parseInt(id) : null, nombre, precio, duracion, moneda })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -1150,4 +1166,4 @@
         };
     </script>
 </body>
-</html>
+</html> 

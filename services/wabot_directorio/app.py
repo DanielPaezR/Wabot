@@ -35,6 +35,18 @@ if _extra_origins:
     _cors_origins += [o.strip() for o in _extra_origins.split(',') if o.strip()]
 CORS(app, origins=_cors_origins)
 
+def simbolo_moneda(moneda):
+    """Retorna el símbolo visual para códigos de moneda usados en el directorio."""
+    simbolos = {
+        'COP': '$',
+        'USD': 'US$',
+        'EUR': '€',
+        'AWG': 'ƒ',
+    }
+    return simbolos.get(str(moneda or 'COP').upper(), '$')
+
+app.jinja_env.globals['simbolo_moneda'] = simbolo_moneda
+
 # Configuración de base de datos
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
@@ -44,6 +56,17 @@ print(f"Conectando a: {DATABASE_URL[:50]}...")
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 db_session = scoped_session(sessionmaker(bind=engine))
+
+def asegurar_columnas_servicios():
+    """Mantiene compatible el directorio con servicios creados desde el panel."""
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE servicios ADD COLUMN IF NOT EXISTS moneda VARCHAR(10) DEFAULT 'COP'"))
+            conn.execute(text("ALTER TABLE servicios ADD COLUMN IF NOT EXISTS foto_url TEXT"))
+    except Exception as e:
+        print(f"Advertencia: no se pudieron verificar columnas de servicios: {e}")
+
+asegurar_columnas_servicios()
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
