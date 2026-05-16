@@ -153,6 +153,17 @@ def _crear_tablas(cursor):
     if postgres:
         negocios_sql = negocios_sql.replace('CURRENT_TIMESTAMP', 'NOW()')
     execute_sql(cursor, negocios_sql)
+
+    columnas_redes_negocio = ['instagram', 'facebook', 'tiktok', 'twitter', 'youtube', 'sitio_web']
+    if postgres:
+        for columna in columnas_redes_negocio:
+            execute_sql(cursor, f'ALTER TABLE negocios ADD COLUMN IF NOT EXISTS {columna} TEXT')
+    else:
+        cursor.execute("PRAGMA table_info(negocios)")
+        columnas_negocios = {row[1] for row in cursor.fetchall()}
+        for columna in columnas_redes_negocio:
+            if columna not in columnas_negocios:
+                cursor.execute(f'ALTER TABLE negocios ADD COLUMN {columna} TEXT')
     
     # Tabla usuarios
     usuarios_sql = '''
@@ -445,7 +456,7 @@ def _insertar_plantillas_base(cursor):
         # PLANTILLAS PARA EL NUEVO FLUJO (web_chat_handler)
         # ============================================
         ('saludo_inicial',
-         '¡Hola! 👋 Soy tu asistente virtual de {nombre_negocio}.\n\n📱 **Para identificarte en nuestro sistema, necesitamos tu número de teléfono.**\n\nTu número de teléfono se usará como identificador durante toda la conversación para:\n• Identificarte en futuras consultas\n• Mantener el historial de tus citas\n• Enviarte recordatorios importantes\n\n**Por favor, ingresa tu número de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):**',
+         '¡Hola! 👋 Para comenzar, ingresa tu número de teléfono de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):',
          'Saludo inicial para pedir teléfono',
          '["nombre_negocio"]'),
         

@@ -7017,6 +7017,24 @@ def ver_tablas():
 # EDITOR VISUAL DEL NEGOCIO (WYSIWYG)
 # =============================================================================
 
+def asegurar_columnas_redes_negocio(conn, cursor):
+    columnas_redes = ['instagram', 'facebook', 'tiktok', 'twitter', 'youtube', 'sitio_web']
+    try:
+        if db.is_postgresql():
+            for columna in columnas_redes:
+                cursor.execute(f'ALTER TABLE negocios ADD COLUMN IF NOT EXISTS {columna} TEXT')
+        else:
+            cursor.execute("PRAGMA table_info(negocios)")
+            columnas_actuales = {row[1] for row in cursor.fetchall()}
+            for columna in columnas_redes:
+                if columna not in columnas_actuales:
+                    cursor.execute(f'ALTER TABLE negocios ADD COLUMN {columna} TEXT')
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️ No se pudieron asegurar columnas de redes sociales: {e}")
+    return columnas_redes
+
 @app.route('/negocio/editor')
 @role_required(['propietario', 'superadmin'])
 def negocio_editor_visual():
@@ -7026,6 +7044,8 @@ def negocio_editor_visual():
     # Obtener datos del negocio
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    asegurar_columnas_redes_negocio(conn, cursor)
     
     cursor.execute('''
         SELECT * FROM negocios WHERE id = %s
@@ -7086,19 +7106,28 @@ def negocio_editor_visual():
     dias_map = {1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 
                 5: 'Viernes', 6: 'Sábado', 7: 'Domingo'}
     
-    horarios_dict = {}
+    def formatear_hora_editor(valor):
+        if not valor:
+            return ''
+        if hasattr(valor, 'strftime'):
+            return valor.strftime('%H:%M')
+        return str(valor)[:5]
+
+    # Convertir los horarios (filas) a una lista de objetos que la plantilla espera
+    horarios_list = []
     for h in horarios:
         dia_nombre = dias_map.get(h['dia_semana'], str(h['dia_semana']))
-        horarios_dict[dia_nombre] = {
-            'activo': h['activo'],
-            'hora_inicio': h['hora_inicio'],
-            'hora_fin': h['hora_fin']
-        }
+        horarios_list.append({
+            'dia': dia_nombre,
+            'activo': h.get('activo', False),
+            'hora_inicio': formatear_hora_editor(h.get('hora_inicio')),
+            'hora_fin': formatear_hora_editor(h.get('hora_fin'))
+        })
     
     return render_template('negocio/editor_visual.html',
                          negocio=negocio,
                          config_general=config_general,
-                         horarios=horarios_dict,
+                         horarios=horarios_list,
                          servicios=servicios,
                          fotos_galeria=fotos_galeria,
                          profesionales=profesionales,
@@ -7225,6 +7254,8 @@ def negocio_editor_guardar():
         
         # Usar RealDictCursor para obtener diccionarios
         cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        columnas_redes = asegurar_columnas_redes_negocio(conn, cursor)
         
         campos = []
         valores = []
@@ -7262,6 +7293,12 @@ def negocio_editor_guardar():
             valores.append(data['emoji'])
             print(f"  ✓ emoji: {data['emoji']}")
         
+        for campo_red in columnas_redes:
+            if campo_red in data:
+                campos.append(f"{campo_red} = %s")
+                valores.append((data.get(campo_red) or '').strip() or None)
+                print(f"  ✓ {campo_red}: {data.get(campo_red) or ''}")
+
         # Actualizar configuración general (JSON)
         cursor.execute('SELECT configuracion FROM negocios WHERE id = %s', (negocio_id,))
         result = cursor.fetchone()
@@ -7338,6 +7375,56 @@ def eliminar_foto_servicio(servicio_id):
         
     except Exception as e:
         print(f"Error eliminando foto: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/negocio/editor/guardar-servicio', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def negocio_editor_guardar_servicio():
+    """Crear o actualizar un servicio desde el editor visual."""
+    try:
+        data = request.get_json() or {}
+        negocio_id = session.get('negocio_id', 1)
+
+        servicio_id = data.get('id')
+        nombre = (data.get('nombre') or '').strip()
+        precio = float(data.get('precio') or 0)
+        duracion = int(data.get('duracion') or 30)
+        moneda = (data.get('moneda') or 'COP').upper()
+
+        if moneda not in ['COP', 'USD', 'EUR', 'AWG']:
+            moneda = 'COP'
+        if not nombre:
+            return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
+        if precio < 0 or duracion <= 0:
+            return jsonify({'success': False, 'error': 'Precio o duración inválidos'}), 400
+
+        servicio_actual = None
+        if servicio_id:
+            servicio_actual = db.obtener_servicio_por_id(servicio_id, negocio_id)
+            if not servicio_actual:
+                return jsonify({'success': False, 'error': 'Servicio no encontrado'}), 404
+
+        resultado = db.guardar_servicio(
+            negocio_id=negocio_id,
+            servicio_id=servicio_id,
+            nombre=nombre,
+            duracion=duracion,
+            precio=precio,
+            descripcion=(servicio_actual or {}).get('descripcion', ''),
+            activo=True,
+            tipo_precio=(servicio_actual or {}).get('tipo_precio', 'fijo'),
+            precio_maximo=(servicio_actual or {}).get('precio_maximo'),
+            foto_url=(servicio_actual or {}).get('foto_url') if servicio_id else None,
+            moneda=moneda
+        )
+
+        status = 200 if resultado.get('success') else 500
+        return jsonify(resultado), status
+
+    except Exception as e:
+        print(f"❌ Error guardando servicio desde editor: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/negocio/editor/eliminar-servicio', methods=['POST'])
