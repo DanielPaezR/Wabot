@@ -445,7 +445,7 @@ def _insertar_plantillas_base(cursor):
         # PLANTILLAS PARA EL NUEVO FLUJO (web_chat_handler)
         # ============================================
         ('saludo_inicial',
-         '¡Hola! 👋 Soy tu asistente virtual de {nombre_negocio}.\n\n📱 **Para identificarte en nuestro sistema, necesitamos tu número de teléfono.**\n\nTu número de teléfono se usará como identificador durante toda la conversación para:\n• Identificarte en futuras consultas\n• Mantener el historial de tus citas\n• Enviarte recordatorios importantes\n\n**Por favor, ingresa tu número de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):**',
+         '¡Hola! 👋 Para comenzar, ingresa tu número de teléfono de 10 dígitos (debe empezar con 3, ejemplo: 3101234567):',
          'Saludo inicial para pedir teléfono',
          '["nombre_negocio"]'),
         

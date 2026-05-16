@@ -4,161 +4,147 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Editor Visual - {{ negocio.nombre }}</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        :root {
+            --primary:       #667eea;
+            --primary-dark:  #5a67d8;
+            --primary-soft:  #eef0fd;
+            --success:       #10b981;
+            --success-soft:  #ecfdf5;
+            --danger:        #ef4444;
+            --danger-soft:   #fee2e2;
+            --warning:       #f59e0b;
+            --gold:          #fbbf24;
+            --dark:          #0f172a;
+            --mid:           #475569;
+            --text-light:    #64748b;
+            --border:        #e2e8f0;
+            --bg:            #f1f5f9;
+            --white:         #ffffff;
+            --radius:        16px;
+            --radius-sm:     10px;
+            --safe-bottom:   env(safe-area-inset-bottom, 0px);
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f5f7fa;
-            color: #1e293b;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--dark);
+            padding-bottom: 40px;
         }
-        
-        /* Header */
+
+        /* ── HEADER ──────────────────────────────────────────────────────── */
         .header {
-            background: white;
-            padding: 1rem 1.5rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: var(--white);
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 1rem;
+            gap: 10px;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         }
-        
-        .header h1 {
-            font-size: 1.3rem;
-            color: #1e293b;
-        }
-        
-        .header-actions {
+
+        .header-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--dark);
             display: flex;
-            gap: 1rem;
             align-items: center;
+            gap: 8px;
         }
-        
+        .header-title i { color: var(--primary); }
+
+        .header-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
         .btn {
-            padding: 8px 16px;
+            padding: 8px 14px;
             border: none;
-            border-radius: 8px;
-            font-weight: 500;
+            border-radius: 30px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 6px;
             text-decoration: none;
-            font-size: 0.9rem;
+            font-size: 0.82rem;
         }
-        
-        .btn-primary {
-            background: #27ae60;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #219a52;
-            transform: translateY(-1px);
-        }
-        
-        .btn-secondary {
-            background: #64748b;
-            color: white;
-        }
-        
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #cbd5e1;
-            color: #475569;
-        }
-        
-        .btn-outline:hover {
-            background: #f1f5f9;
-        }
-        
-        /* Container */
+        .btn:active { transform: scale(0.97); }
+        .btn-primary   { background:var(--success); color:#fff; }
+        .btn-primary:hover { background:#059669; }
+        .btn-outline   { background:transparent; border:1px solid var(--border); color:var(--mid); }
+        .btn-outline:hover { background:var(--bg); }
+
+        /* ── CONTENEDOR ──────────────────────────────────────────────────── */
         .container {
-            max-width: 800px;
+            max-width: 560px;
             margin: 0 auto;
-            padding: 1.5rem;
+            padding: 16px;
         }
-        
-        /* Vista previa de la página pública */
+
+        /* ── PREVIEW CARD ────────────────────────────────────────────────── */
         .preview-card {
-            background: white;
-            border-radius: 24px;
+            background: var(--white);
+            border-radius: var(--radius);
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 14px;
         }
-        
-        /* Portada */
+
+        /* PORTADA */
         .cover {
             width: 100%;
             height: 180px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             position: relative;
             cursor: pointer;
             overflow: hidden;
         }
-        
-        .cover img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
+        .cover img { width:100%; height:100%; object-fit:cover; display:block; }
         .cover-placeholder {
-            width: 100%;
-            height: 100%;
+            width:100%; height:100%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:48px; color:#fff;
+        }
+        .edit-overlay {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            text-align: center;
+            padding: 7px;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
-            color: white;
+            gap: 6px;
         }
-        
-        .edit-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            text-align: center;
-            padding: 6px;
-            font-size: 12px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        
         .cover:hover .edit-overlay,
-        .profile-logo:hover .edit-overlay {
-            opacity: 1;
-        }
-        
-        /* Perfil */
-        .profile-section {
-            position: relative;
-            padding: 0 20px;
-        }
-        
+        .profile-logo:hover .edit-overlay { opacity: 1; }
+
+        /* LOGO */
+        .profile-section { position:relative; padding:0 20px; }
+
         .profile-logo {
             position: absolute;
             top: -50px;
             left: 20px;
             width: 100px;
             height: 100px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background: var(--white);
+            border-radius: 22px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.13);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -166,744 +152,1001 @@
             overflow: hidden;
             cursor: pointer;
             z-index: 2;
+            border: 3px solid var(--white);
         }
-        
-        .profile-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        /* Información */
+        .profile-logo img { width:100%; height:100%; object-fit:cover; }
+
+        /* INFO SECTION */
         .info-section {
-            background: white;
-            border-radius: 24px;
-            margin-top: 60px;
-            padding: 20px;
+            background: var(--white);
+            border-radius: var(--radius);
+            margin-top: 62px;
+            padding: 18px;
         }
-        
-        .business-name {
-            font-size: 24px;
-            font-weight: 700;
+
+        .field-editable {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .business-name .edit-icon {
-            opacity: 0;
-            cursor: pointer;
-            font-size: 16px;
-            color: #94a3b8;
-        }
-        
-        .business-name:hover .edit-icon {
-            opacity: 1;
-        }
-        
-        .rating {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 10px 0;
-        }
-        
-        .stars {
-            color: #fbbf24;
-            font-size: 14px;
-        }
-        
-        .info-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #475569;
-            font-size: 14px;
-            margin: 8px 0;
-            padding: 6px 0;
-            cursor: pointer;
-            border-radius: 8px;
-        }
-        
-        .info-row:hover {
-            background: #f8fafc;
-        }
-        
-        .info-row i {
-            width: 20px;
-            color: #667eea;
-        }
-        
-        .info-row .edit-icon {
-            margin-left: auto;
-            opacity: 0;
-            color: #94a3b8;
-        }
-        
-        .info-row:hover .edit-icon {
-            opacity: 1;
-        }
-        
-        .descripcion {
-            color: #334155;
-            line-height: 1.5;
-            margin-top: 12px;
-            padding: 12px;
-            border-radius: 12px;
-            cursor: pointer;
-        }
-        
-        .descripcion:hover {
-            background: #f8fafc;
-        }
-        
-        /* Secciones editables */
-        .section {
-            background: white;
-            border-radius: 20px;
-            margin: 12px 0;
-            padding: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        
-        .section-header {
-            display: flex;
+            align-items: flex-start;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.15s;
+            margin: 0 -10px;
         }
-        
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
+        .field-editable:hover { background: var(--bg); }
+        .field-editable:active { background: var(--border); }
+
+        .field-content { flex:1; min-width:0; }
+        .field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-light); margin-bottom:2px; display:flex; align-items:center; gap:5px; }
+        .field-label i { color:var(--primary); }
+        .field-value { font-size:14px; color:var(--dark); font-weight:500; }
+        .field-value.placeholder { color:#94a3b8; font-style:italic; font-weight:400; }
+        .field-edit-icon { color:#94a3b8; font-size:12px; margin-top:3px; flex-shrink:0; }
+
+        .business-name-display {
+            font-size:20px; font-weight:800; color:var(--dark);
+            padding: 4px 10px 10px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 6px;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .business-name-display:hover { background:var(--bg); }
+
+        .config-note {
+            background: var(--primary-soft);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            margin: 12px 0 4px;
             display: flex;
             align-items: center;
             gap: 10px;
-            color: #0f172a;
+            font-size: 12px;
+            color: var(--primary-dark);
+            font-weight: 500;
         }
-        
-        .add-btn {
-            background: none;
-            border: none;
-            color: #667eea;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 4px 8px;
-            border-radius: 20px;
+        .config-note a { color:var(--primary-dark); font-weight:700; }
+
+        /* ── SECCIÓN GENÉRICA ────────────────────────────────────────────── */
+        .section {
+            background: var(--white);
+            border-radius: var(--radius);
+            margin-bottom: 14px;
+            padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
         }
-        
-        .add-btn:hover {
-            background: #eef2ff;
-        }
-        
-        /* Servicios */
-        .servicio-item {
+
+        .section-head {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #e2e8f0;
-            cursor: pointer;
+            margin-bottom: 14px;
         }
-        
-        .servicio-item:hover {
-            background: #f8fafc;
-            margin: 0 -8px;
-            padding: 12px 8px;
-        }
-        
-        .servicio-nombre {
-            font-weight: 500;
-        }
-        
-        .servicio-precio {
+
+        .section-title {
+            font-size: 14px;
             font-weight: 700;
-            color: #10b981;
-        }
-        
-        .servicio-actions {
-            display: none;
-            gap: 8px;
-        }
-        
-        .servicio-item:hover .servicio-actions {
             display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--dark);
         }
-        
-        /* Galería */
-        .galeria-grid {
+        .section-title i { color:var(--primary); font-size:13px; }
+
+        .add-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            transition: background 0.15s;
+        }
+        .add-btn:hover { background:var(--primary-soft); }
+
+        /* ── REDES SOCIALES (editor) ─────────────────────────────────────── */
+        .redes-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: 1fr 1fr;
             gap: 8px;
         }
-        
-        .galeria-item {
-            aspect-ratio: 1;
-            border-radius: 12px;
-            object-fit: cover;
-            width: 100%;
+
+        @media (max-width:400px) { .redes-grid { grid-template-columns:1fr; } }
+
+        .red-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            border: 1.5px solid var(--border);
             cursor: pointer;
+            transition: all 0.15s;
+            background: var(--bg);
             position: relative;
         }
-        
-        .galeria-item:hover .delete-galeria {
-            display: flex;
-        }
-        
-        .delete-galeria {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            background: #e74c3c;
-            color: white;
+        .red-item:hover   { border-color:var(--primary); background:var(--primary-soft); }
+        .red-item.activa  { border-color: currentColor; }
+
+        .red-item-icon {
+            width: 32px; height: 32px;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
         }
-        
+
+        .red-item-text { flex:1; min-width:0; }
+        .red-item-name { font-size:12px; font-weight:700; }
+        .red-item-url  { font-size:10px; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .red-item-url.configurada { color:var(--success); }
+
+        .red-item-check {
+            font-size:12px;
+            flex-shrink:0;
+        }
+
+        /* colores por red */
+        .ri-instagram .red-item-icon { background:#fce4ec; color:#c2185b; }
+        .ri-facebook  .red-item-icon { background:#e3f2fd; color:#1565c0; }
+        .ri-tiktok    .red-item-icon { background:#f3e5f5; color:#4a148c; }
+        .ri-twitter   .red-item-icon { background:#e0f7fa; color:#006064; }
+        .ri-youtube   .red-item-icon { background:#ffebee; color:#b71c1c; }
+        .ri-web       .red-item-icon { background:var(--primary-soft); color:var(--primary-dark); }
+
+        .ri-instagram.activa { border-color:#c2185b; color:#c2185b; }
+        .ri-facebook.activa  { border-color:#1565c0; color:#1565c0; }
+        .ri-tiktok.activa    { border-color:#4a148c; color:#4a148c; }
+        .ri-twitter.activa   { border-color:#006064; color:#006064; }
+        .ri-youtube.activa   { border-color:#b71c1c; color:#b71c1c; }
+        .ri-web.activa       { border-color:var(--primary); color:var(--primary); }
+
+        /* ── HORARIO COMPACTO (editor) ───────────────────────────────────── */
+        .horario-chips-edit {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .dia-chip-edit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px 9px;
+            border-radius: 9px;
+            font-size: 10px;
+            font-weight: 700;
+            gap: 1px;
+        }
+        .dia-chip-edit .dc-abrev { font-size:10px; font-weight:800; text-transform:uppercase; }
+        .dia-chip-edit .dc-hora  { font-size:9px; opacity:0.75; }
+        .dia-chip-edit.abierto { background:var(--success-soft); color:#065f46; border:1px solid #6ee7b7; }
+        .dia-chip-edit.cerrado { background:#f1f5f9; color:#94a3b8; border:1px solid var(--border); }
+
+        .horario-config-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            background: var(--primary-soft);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+        .horario-config-note a { color:var(--primary-dark); font-weight:700; }
+
+        /* ── SERVICIOS ───────────────────────────────────────────────────── */
+        .servicio-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 11px 10px;
+            border-bottom: 1px solid #f8fafc;
+            border-radius: var(--radius-sm);
+            gap: 10px;
+            transition: background 0.15s;
+        }
+        .servicio-item:last-child { border-bottom:none; }
+        .servicio-item:hover { background:var(--bg); }
+
+        .servicio-nombre  { font-weight:600; font-size:14px; color:var(--dark); }
+        .servicio-dur     { font-size:11px; color:var(--text-light); margin-top:2px; }
+        .servicio-precio-tag {
+            font-weight:700; color:var(--success);
+            background:var(--success-soft);
+            padding:3px 9px; border-radius:20px;
+            font-size:12px; white-space:nowrap;
+        }
+        .servicio-edit-btns { display:flex; gap:6px; }
+        .icon-btn-sm {
+            width:30px; height:30px;
+            border-radius:50%;
+            border:none;
+            background:none;
+            cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            font-size:13px;
+            transition:all 0.15s;
+        }
+        .icon-btn-sm.edit   { color:var(--primary); }
+        .icon-btn-sm.edit:hover { background:var(--primary-soft); }
+        .icon-btn-sm.del    { color:var(--danger); }
+        .icon-btn-sm.del:hover { background:var(--danger-soft); }
+
+        /* ── GALERÍA ─────────────────────────────────────────────────────── */
+        .galeria-grid {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 8px;
+        }
+        .galeria-item {
+            aspect-ratio: 1;
+            border-radius: var(--radius-sm);
+            position: relative;
+            overflow: hidden;
+            background: var(--border);
+        }
+        .galeria-item img { width:100%; height:100%; object-fit:cover; display:block; }
+        .galeria-delete {
+            position: absolute;
+            top: 4px; right: 4px;
+            background: rgba(239,68,68,0.9);
+            color: #fff;
+            border-radius: 50%;
+            width: 24px; height: 24px;
+            display: none;
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 11px;
+            border: none;
+        }
+        .galeria-item:hover .galeria-delete { display:flex; }
+
         .add-photo {
             aspect-ratio: 1;
-            border-radius: 12px;
-            background: #f1f5f9;
+            border-radius: var(--radius-sm);
+            background: var(--bg);
+            border: 2px dashed var(--border);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             color: #94a3b8;
-            font-size: 24px;
+            font-size: 1.4rem;
+            gap: 4px;
+            transition: all 0.15s;
         }
-        
-        /* Profesionales */
+        .add-photo:hover { border-color:var(--primary); color:var(--primary); background:var(--primary-soft); }
+        .add-photo span { font-size:10px; font-weight:600; }
+
+        /* ── PROFESIONALES ───────────────────────────────────────────────── */
         .profesional-card {
             display: flex;
             align-items: center;
-            gap: 14px;
-            padding: 12px;
-            background: #f8fafc;
-            border-radius: 16px;
-            margin-bottom: 10px;
-            cursor: pointer;
+            gap: 12px;
+            padding: 10px;
+            background: var(--bg);
+            border-radius: 12px;
+            margin-bottom: 8px;
         }
-        
-        .profesional-card:hover {
-            background: #e2e8f0;
-        }
-        
         .profesional-foto {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: #cbd5e1;
+            width:48px; height:48px;
+            border-radius:50%;
+            object-fit:cover;
+            background:#cbd5e1;
+            flex-shrink:0;
         }
-        
-        /* Modal de edición */
-        .modal {
+
+        /* ── BOTTOM SHEET ────────────────────────────────────────────────── */
+        .sheet-overlay {
+            position: fixed; inset:0;
+            background: rgba(0,0,0,0.4);
+            z-index: 500;
             display: none;
+        }
+        .sheet-overlay.open { display:block; }
+
+        .bottom-sheet {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
+            bottom:0; left:0; right:0;
+            background: var(--white);
+            border-radius: 20px 20px 0 0;
+            padding-bottom: var(--safe-bottom);
+            z-index: 600;
+            transform: translateY(100%);
+            transition: transform 0.28s ease;
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        
-        .modal-content {
-            background: white;
-            border-radius: 24px;
-            width: 90%;
-            max-width: 400px;
-            padding: 24px;
+        .bottom-sheet.open { transform:translateY(0); }
+
+        .sheet-handle {
+            width:38px; height:4px;
+            background:var(--border);
+            border-radius:4px;
+            margin:10px auto 0;
         }
-        
-        .modal-content h3 {
-            margin-bottom: 16px;
+
+        .sheet-head {
+            padding:14px 18px;
+            border-bottom:1px solid var(--border);
+            display:flex; justify-content:space-between; align-items:center;
         }
-        
-        .modal-content input,
-        .modal-content textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 16px;
-            font-size: 14px;
+        .sheet-head-title { font-size:1rem; font-weight:700; color:var(--dark); }
+        .sheet-close-btn {
+            width:30px; height:30px;
+            border-radius:50%; background:var(--bg);
+            border:none; font-size:1rem;
+            cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
         }
-        
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
+
+        .sheet-body { padding:16px 18px; }
+
+        .form-group { margin-bottom:14px; }
+        .form-label {
+            font-size:11px; font-weight:700;
+            text-transform:uppercase; letter-spacing:0.4px;
+            color:var(--text-light); margin-bottom:5px; display:block;
         }
-        
-        /* Notificaciones */
-        .toast {
+        .form-control {
+            width:100%;
+            padding:10px 12px;
+            border:1.5px solid var(--border);
+            border-radius:var(--radius-sm);
+            font-size:14px;
+            color:var(--dark);
+            background:var(--bg);
+            transition:border-color 0.15s, background 0.15s;
+        }
+        .form-control:focus { outline:none; border-color:var(--primary); background:var(--white); }
+
+        textarea.form-control { resize:vertical; min-height:80px; }
+
+        /* Sheet específico para RED SOCIAL */
+        .red-sheet-icon {
+            width:56px; height:56px;
+            border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.6rem;
+            margin: 0 auto 14px;
+        }
+
+        .sheet-footer { padding:12px 18px 16px; display:flex; gap:8px; }
+        .btn-sheet { flex:1; padding:12px; border-radius:30px; font-size:0.9rem; font-weight:700; border:none; cursor:pointer; }
+        .btn-sheet-primary   { background:var(--primary); color:#fff; }
+        .btn-sheet-secondary { background:var(--bg); color:var(--dark); }
+        .btn-sheet-danger    { background:var(--danger-soft); color:var(--danger); }
+
+        /* ── TOAST ───────────────────────────────────────────────────────── */
+        #toast {
             position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e293b;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 50px;
+            bottom: 24px; left:50%; transform:translateX(-50%) translateY(8px);
+            background: var(--dark);
+            color: #fff;
+            padding: 10px 22px;
+            border-radius: 30px;
             z-index: 1100;
-            display: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.25s;
+            pointer-events: none;
+            white-space: nowrap;
         }
-        
-        /* Alerta de configuración */
-        .config-note {
-            background: #eef2ff;
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin: 12px 0;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 13px;
-            color: #4f46e5;
-        }
-        
-        .config-note i {
-            font-size: 18px;
-        }
-        
-        .config-note a {
-            color: #4f46e5;
-            font-weight: 600;
-            text-decoration: none;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 1rem;
-            }
-            .profile-logo {
-                width: 80px;
-                height: 80px;
-                top: -40px;
-            }
-            .info-section {
-                margin-top: 50px;
-            }
-            .cover {
-                height: 140px;
-            }
-        }
-        
-        @media (min-width: 768px) {
-            .container {
-                max-width: 500px;
-            }
+        #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+        @media (max-width:480px) {
+            .profile-logo { width:80px; height:80px; top:-40px; font-size:38px; border-radius:18px; }
+            .info-section { margin-top:50px; }
+            .cover { height:145px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1><i class="fas fa-edit"></i> Editor Visual</h1>
-        <div class="header-actions">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-outline">📊 Dashboard</a>
-            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-outline">⚙️ Configuración</a>
-            <button class="btn btn-primary" id="guardarTodo">💾 Guardar Cambios</button>
+
+    <!-- TOAST -->
+    <div id="toast"></div>
+
+    <!-- SHEET OVERLAY -->
+    <div class="sheet-overlay" id="sheetOverlay" onclick="cerrarSheet()"></div>
+
+    <!-- BOTTOM SHEET: edición de campo de texto -->
+    <div class="bottom-sheet" id="editSheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+            <span class="sheet-head-title" id="editSheetTitle">Editar</span>
+            <button class="sheet-close-btn" onclick="cerrarSheet()">×</button>
+        </div>
+        <div class="sheet-body">
+            <div class="form-group">
+                <label class="form-label" id="editSheetLabel">Valor</label>
+                <input  type="text"    class="form-control" id="editSheetInput"    style="display:none;">
+                <textarea              class="form-control" id="editSheetTextarea" style="display:none;"></textarea>
+            </div>
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-sheet btn-sheet-secondary" onclick="cerrarSheet()">Cancelar</button>
+            <button class="btn-sheet btn-sheet-primary"   id="editSheetSave">Guardar</button>
         </div>
     </div>
+
+    <!-- BOTTOM SHEET: red social -->
+    <div class="bottom-sheet" id="redSheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+            <span class="sheet-head-title" id="redSheetTitle">Red social</span>
+            <button class="sheet-close-btn" onclick="cerrarSheet()">×</button>
+        </div>
+        <div class="sheet-body">
+            <div id="redSheetIcon" class="red-sheet-icon"></div>
+            <div class="form-group">
+                <label class="form-label">URL del perfil</label>
+                <input type="url" class="form-control" id="redSheetInput"
+                       placeholder="https://instagram.com/tu_perfil">
+            </div>
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-sheet btn-sheet-danger"    id="redSheetDelete" onclick="borrarRed()">Quitar</button>
+            <button class="btn-sheet btn-sheet-secondary" onclick="cerrarSheet()">Cancelar</button>
+            <button class="btn-sheet btn-sheet-primary"   onclick="guardarRed()">Guardar</button>
+        </div>
+    </div>
+
+    <!-- BOTTOM SHEET: servicio -->
+    <div class="bottom-sheet" id="servicioSheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+            <span class="sheet-head-title" id="servicioSheetTitle">Servicio</span>
+            <button class="sheet-close-btn" onclick="cerrarSheet()">×</button>
+        </div>
+        <div class="sheet-body">
+            <input type="hidden" id="servicioSheetId">
+            <div class="form-group">
+                <label class="form-label">Nombre del servicio</label>
+                <input type="text"   class="form-control" id="servicioSheetNombre" placeholder="Ej: Corte clásico">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div class="form-group">
+                    <label class="form-label">Precio</label>
+                    <input type="number" class="form-control" id="servicioSheetPrecio" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Duración (min)</label>
+                    <input type="number" class="form-control" id="servicioSheetDuracion" placeholder="30">
+                </div>
+            </div>
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-sheet btn-sheet-secondary" onclick="cerrarSheet()">Cancelar</button>
+            <button class="btn-sheet btn-sheet-primary"   onclick="guardarServicio()">Guardar</button>
+        </div>
+    </div>
+
+    <!-- ── HEADER ── -->
+    <div class="header">
+        <div class="header-title"><i class="fas fa-wand-magic-sparkles"></i> Editor Visual</div>
+        <div class="header-actions">
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-outline">📊 Dashboard</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-outline">⚙️ Config</a>
+            <button class="btn btn-primary" id="btnGuardarTodo"><i class="fas fa-floppy-disk"></i> Guardar</button>
+        </div>
+    </div>
+
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    
+    <input type="file"   id="fileInput" accept="image/*" style="display:none;">
+
     <div class="container">
-        <!-- Vista previa de la página pública -->
+
+        <!-- ── PREVIEW ── -->
         <div class="preview-card">
-            <!-- Portada -->
+
+            <!-- PORTADA -->
             <div class="cover" id="coverArea">
                 {% if negocio.foto_portada %}
                 <img id="coverImg" src="{{ negocio.foto_portada }}" alt="Portada">
                 {% else %}
-                <div class="cover-placeholder">
-                    {{ negocio.emoji or '🏪' }}
-                </div>
+                <div class="cover-placeholder">{{ negocio.emoji or '🏪' }}</div>
                 {% endif %}
-                <div class="edit-overlay">
-                    <i class="fas fa-camera"></i> Cambiar portada
-                </div>
+                <div class="edit-overlay"><i class="fas fa-camera"></i> Cambiar portada</div>
             </div>
-            
-            <!-- Perfil -->
+
+            <!-- LOGO -->
             <div class="profile-section">
                 <div class="profile-logo" id="profileArea">
                     {% if negocio.foto_perfil %}
                     <img id="profileImg" src="{{ negocio.foto_perfil }}" alt="Logo">
                     {% else %}
-                    <span>{{ negocio.emoji or '🏪' }}</span>
+                    <span id="profileEmoji">{{ negocio.emoji or '🏪' }}</span>
                     {% endif %}
-                    <div class="edit-overlay">
-                        <i class="fas fa-camera"></i>
-                    </div>
+                    <div class="edit-overlay"><i class="fas fa-camera"></i></div>
                 </div>
             </div>
-            
-            <!-- Información editable -->
+
+            <!-- INFO -->
             <div class="info-section">
-                <div class="business-name" id="nombreArea">
+
+                <!-- Nombre -->
+                <div class="business-name-display" id="nombreArea">
                     <span id="nombreDisplay">{{ negocio.nombre }}</span>
-                    <i class="fas fa-pencil-alt edit-icon"></i>
+                    <i class="fas fa-pencil" style="color:#94a3b8; font-size:13px;"></i>
                 </div>
-                
-                <div class="rating">
-                    <div class="stars">★★★★☆</div>
-                    <span>({{ negocio.total_opiniones or 0 }} opiniones)</span>
+
+                <!-- Campos de información -->
+                <div class="field-editable" id="direccionArea">
+                    <div class="field-content">
+                        <div class="field-label"><i class="fas fa-map-marker-alt"></i> Dirección</div>
+                        <div class="field-value {% if not negocio.direccion %}placeholder{% endif %}" id="direccionDisplay">
+                            {{ negocio.direccion or 'Añadir dirección' }}
+                        </div>
+                    </div>
+                    <i class="fas fa-pencil field-edit-icon"></i>
                 </div>
-                
-                <div class="info-row" id="direccionArea">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <span id="direccionDisplay">{{ negocio.direccion or 'Añadir dirección' }}</span>
-                    <i class="fas fa-pencil-alt edit-icon"></i>
+
+                <div class="field-editable" id="telefonoArea">
+                    <div class="field-content">
+                        <div class="field-label"><i class="fab fa-whatsapp"></i> WhatsApp</div>
+                        <div class="field-value {% if not negocio.telefono_whatsapp %}placeholder{% endif %}" id="telefonoDisplay">
+                            {{ negocio.telefono_whatsapp|replace('whatsapp:','') if negocio.telefono_whatsapp else 'Añadir teléfono' }}
+                        </div>
+                    </div>
+                    <i class="fas fa-pencil field-edit-icon"></i>
                 </div>
-                
-                <div class="info-row" id="telefonoArea">
-                    <i class="fab fa-whatsapp"></i>
-                    <span id="telefonoDisplay">{{ negocio.telefono_whatsapp|replace('whatsapp:', '') if negocio.telefono_whatsapp else 'Añadir teléfono' }}</span>
-                    <i class="fas fa-pencil-alt edit-icon"></i>
+
+                <div class="field-editable" id="descripcionArea">
+                    <div class="field-content">
+                        <div class="field-label"><i class="fas fa-align-left"></i> Descripción</div>
+                        <div class="field-value {% if not negocio.descripcion %}placeholder{% endif %}" id="descripcionDisplay">
+                            {{ negocio.descripcion or 'Añade una descripción atractiva' }}
+                        </div>
+                    </div>
+                    <i class="fas fa-pencil field-edit-icon"></i>
                 </div>
-                
-                <!-- NOTA: Horario eliminado - Se gestiona en Configuración -->
-                <div class="config-note">
-                    <i class="fas fa-clock"></i>
-                    <span>Gestiona los horarios detallados en <a href="{{ url_for('negocio_configuracion') }}">Configuración →</a></span>
+
+                <div class="config-note" style="margin-top:10px;">
+                    <i class="fas fa-clock" style="color:var(--primary);"></i>
+                    <span>Los horarios se gestionan en <a href="{{ url_for('negocio_configuracion') }}">Configuración →</a></span>
                 </div>
-                
-                <div class="descripcion" id="descripcionArea">
-                    <span id="descripcionDisplay">{{ negocio.descripcion or 'Añade una descripción para tu negocio' }}</span>
-                    <i class="fas fa-pencil-alt edit-icon" style="float: right;"></i>
-                </div>
+
             </div>
         </div>
-        
-        <!-- Servicios -->
+
+        <!-- ── REDES SOCIALES ── -->
         <div class="section">
-            <div class="section-header">
-                <div class="section-title">
-                    <i class="fas fa-cut"></i>
-                    Servicios
+            <div class="section-head">
+                <div class="section-title"><i class="fas fa-share-nodes"></i> Redes Sociales</div>
+                <span style="font-size:11px; color:var(--text-light);">Toca para configurar</span>
+            </div>
+
+            <div class="redes-grid">
+                {% set redes_config = [
+                    ('instagram', 'fab fa-instagram', 'Instagram', 'ri-instagram'),
+                    ('facebook',  'fab fa-facebook',  'Facebook',  'ri-facebook'),
+                    ('tiktok',    'fab fa-tiktok',    'TikTok',    'ri-tiktok'),
+                    ('twitter',   'fab fa-x-twitter', 'X / Twitter','ri-twitter'),
+                    ('youtube',   'fab fa-youtube',   'YouTube',   'ri-youtube'),
+                    ('sitio_web', 'fas fa-globe',     'Sitio Web', 'ri-web'),
+                ] %}
+                {% for campo, icono, nombre, clase in redes_config %}
+                {% set valor = negocio[campo] if campo in negocio else '' %}
+                <div class="red-item {{ clase }} {% if valor %}activa{% endif %}"
+                     id="red-item-{{ campo }}"
+                     onclick="abrirRedSheet('{{ campo }}', '{{ nombre }}', '{{ icono }}', '{{ clase }}')">
+                    <div class="red-item-icon"><i class="{{ icono }}"></i></div>
+                    <div class="red-item-text">
+                        <div class="red-item-name">{{ nombre }}</div>
+                        <div class="red-item-url {% if valor %}configurada{% endif %}" id="red-url-{{ campo }}">
+                            {{ valor if valor else 'Sin configurar' }}
+                        </div>
+                    </div>
+                    {% if valor %}
+                    <i class="fas fa-check-circle red-item-check" style="color:var(--success);"></i>
+                    {% else %}
+                    <i class="fas fa-plus red-item-check" style="color:#94a3b8; font-size:11px;"></i>
+                    {% endif %}
                 </div>
-                <button class="add-btn" id="addServicioBtn">+ Agregar servicio</button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ── HORARIO (vista compacta, edición en Configuración) ── -->
+        {% if horarios %}
+        <div class="section">
+            <div class="section-head">
+                <div class="section-title"><i class="far fa-clock"></i> Horario de atención</div>
+                <a href="{{ url_for('negocio_configuracion') }}" class="add-btn">Editar →</a>
+            </div>
+            <div class="horario-chips-edit">
+                {% for h in horarios %}
+                <div class="dia-chip-edit {% if h.activo %}abierto{% else %}cerrado{% endif %}">
+                    <span class="dc-abrev">{{ h.dia[:3] }}</span>
+                    <span class="dc-hora">{% if h.activo %}{{ h.hora_inicio[:5] }}{% else %}Cerr.{% endif %}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="horario-config-note">
+                <i class="fas fa-info-circle"></i>
+                <span>Para editar horarios ve a <a href="{{ url_for('negocio_configuracion') }}">Configuración</a></span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ── SERVICIOS ── -->
+        <div class="section">
+            <div class="section-head">
+                <div class="section-title"><i class="fas fa-cut"></i> Servicios</div>
+                <button class="add-btn" onclick="abrirServicioSheet(null)">+ Agregar</button>
             </div>
             <div id="serviciosList">
                 {% for servicio in servicios %}
-                <div class="servicio-item" 
-                    data-id="{{ servicio.id }}" 
-                    data-nombre="{{ servicio.nombre }}" 
-                    data-precio="{{ servicio.precio }}" 
-                    data-duracion="{{ servicio.duracion }}">
-                    <div>
+                <div class="servicio-item"
+                     data-id="{{ servicio.id }}"
+                     data-nombre="{{ servicio.nombre }}"
+                     data-precio="{{ servicio.precio }}"
+                     data-duracion="{{ servicio.duracion }}">
+                    <div style="flex:1; min-width:0;">
                         <div class="servicio-nombre">{{ servicio.nombre }}</div>
-                        <div class="servicio-duracion" style="font-size: 12px; color: #64748b;">{{ servicio.duracion }} min</div>
+                        <div class="servicio-dur"><i class="far fa-clock" style="font-size:10px;"></i> {{ servicio.duracion }} min</div>
                     </div>
-                    <div class="servicio-precio">${{ "{:,.0f}".format(servicio.precio).replace(',', '.') }}</div>
-                    <div class="servicio-actions">
-                        <i class="fas fa-edit" style="color: #667eea; cursor: pointer;" onclick="editarServicio(this)"></i>
-                        <i class="fas fa-trash-alt" style="color: #e74c3c; cursor: pointer;" onclick="eliminarServicio(this)"></i>
+                    <div class="servicio-precio-tag">${{ "{:,.0f}".format(servicio.precio).replace(',','.') }}</div>
+                    <div class="servicio-edit-btns">
+                        <button class="icon-btn-sm edit" onclick="abrirServicioSheet(this.closest('.servicio-item'))" title="Editar">
+                            <i class="fas fa-pencil"></i>
+                        </button>
+                        <button class="icon-btn-sm del" onclick="eliminarServicio(this.closest('.servicio-item'))" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
-        
-        <!-- Galería -->
+
+        <!-- ── GALERÍA ── -->
         <div class="section">
-            <div class="section-header">
-                <div class="section-title">
-                    <i class="fas fa-images"></i>
-                    Galería
-                </div>
-                <button class="add-btn" id="addGaleriaBtn">+ Agregar foto</button>
+            <div class="section-head">
+                <div class="section-title"><i class="fas fa-images"></i> Galería</div>
+                <button class="add-btn" onclick="subirFoto('galeria')">+ Foto</button>
             </div>
             <div class="galeria-grid" id="galeriaList">
                 {% for foto in fotos_galeria %}
-                <div class="galeria-item" style="position: relative;">
-                    <img src="{{ foto.url }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
-                    <div class="delete-galeria" data-id="{{ foto.id }}" onclick="eliminarFotoGaleria(this)">
-                        <i class="fas fa-trash-alt"></i>
-                    </div>
+                <div class="galeria-item">
+                    <img src="{{ foto.url }}" alt="Foto galería">
+                    <button class="galeria-delete" data-id="{{ foto.id }}"
+                            onclick="eliminarFotoGaleria(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
                 {% endfor %}
-                <div class="add-photo" id="addGaleriaTrigger">
+                <div class="add-photo" onclick="subirFoto('galeria')">
                     <i class="fas fa-plus"></i>
+                    <span>Añadir</span>
                 </div>
             </div>
         </div>
-        
-        <!-- Profesionales -->
+
+        <!-- ── PROFESIONALES ── -->
         <div class="section">
-            <div class="section-header">
-                <div class="section-title">
-                    <i class="fas fa-users"></i>
-                    Profesionales
-                </div>
+            <div class="section-head">
+                <div class="section-title"><i class="fas fa-users"></i> Profesionales</div>
                 <a href="{{ url_for('negocio_profesionales') }}" class="add-btn">+ Gestionar</a>
             </div>
             {% for prof in profesionales %}
             <div class="profesional-card">
-                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=667eea&color=fff&name=' + prof.nombre|urlencode }}" class="profesional-foto">
+                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=667eea&color=fff&name=' + prof.nombre|urlencode }}"
+                     class="profesional-foto" alt="{{ prof.nombre }}">
                 <div>
-                    <div><strong>{{ prof.nombre }}</strong></div>
-                    <div style="font-size: 12px; color: #64748b;">{{ prof.especialidad or 'Sin especialidad' }}</div>
+                    <div style="font-weight:700; font-size:14px;">{{ prof.nombre }}</div>
+                    <div style="font-size:11px; color:var(--text-light);">{{ prof.especialidad or 'Sin especialidad' }}</div>
                 </div>
             </div>
             {% else %}
-            <div style="text-align: center; padding: 24px; color: #94a3b8;">
-                <i class="fas fa-user-plus"></i>
-                <p>No hay profesionales registrados</p>
-                <a href="{{ url_for('negocio_profesionales') }}" class="btn btn-outline" style="margin-top: 8px;">Agregar profesional</a>
+            <div style="text-align:center; padding:24px; color:#94a3b8;">
+                <i class="fas fa-user-plus" style="font-size:2rem; margin-bottom:8px; display:block;"></i>
+                <p style="font-size:13px; margin-bottom:12px;">No hay profesionales aún</p>
+                <a href="{{ url_for('negocio_profesionales') }}" class="btn btn-outline">Agregar profesional</a>
             </div>
             {% endfor %}
         </div>
-    </div>
-    
-    <!-- Toast de notificación -->
-    <div id="toast" class="toast">✅ Cambios guardados</div>
-    
-    <!-- Modal de edición -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <h3 id="modalTitle">Editar</h3>
-            <input type="text" id="editInput" placeholder="Valor">
-            <textarea id="editTextarea" rows="3" style="display: none;"></textarea>
-            <div class="modal-buttons">
-                <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-                <button class="btn btn-primary" id="modalSaveBtn">Guardar</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Input oculto para subir fotos -->
-    <input type="file" id="fileInput" accept="image/*" style="display: none;">
-    
+
+    </div><!-- /container -->
+
     <script>
-        let currentEditField = null;
-        
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.style.display = 'block';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 3000);
+        const CSRF = document.querySelector('input[name="csrf_token"]')?.value || '';
+
+        /* ── TOAST ──────────────────────────────────────────────────────── */
+        function toast(msg, tipo) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.background = tipo === 'error' ? '#ef4444' : tipo === 'success' ? '#10b981' : '#1e293b';
+            t.classList.add('show');
+            clearTimeout(t._t);
+            t._t = setTimeout(() => t.classList.remove('show'), 2600);
         }
-        
-        function openModal(title, value, field, isTextarea = false) {
-            currentEditField = field;
-            document.getElementById('modalTitle').textContent = title;
-            if (isTextarea) {
-                document.getElementById('editInput').style.display = 'none';
-                document.getElementById('editTextarea').style.display = 'block';
-                document.getElementById('editTextarea').value = value;
-            } else {
-                document.getElementById('editInput').style.display = 'block';
-                document.getElementById('editTextarea').style.display = 'none';
-                document.getElementById('editInput').value = value;
-            }
-            document.getElementById('editModal').style.display = 'flex';
+
+        /* ── SHEETS ─────────────────────────────────────────────────────── */
+        let currentSheet = null;
+
+        function abrirSheet(id) {
+            cerrarSheet();
+            currentSheet = id;
+            document.getElementById('sheetOverlay').classList.add('open');
+            document.getElementById(id).classList.add('open');
         }
-        
-        function closeModal() {
-            document.getElementById('editModal').style.display = 'none';
+
+        function cerrarSheet() {
+            document.getElementById('sheetOverlay').classList.remove('open');
+            document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
+            currentSheet = null;
         }
-        
-        // Configurar campos editables
-        document.getElementById('nombreArea').onclick = () => openModal('Editar nombre', document.getElementById('nombreDisplay').innerText, 'nombre');
-        document.getElementById('direccionArea').onclick = () => openModal('Editar dirección', document.getElementById('direccionDisplay').innerText, 'direccion');
-        document.getElementById('telefonoArea').onclick = () => openModal('Editar teléfono', document.getElementById('telefonoDisplay').innerText, 'telefono');
-        document.getElementById('descripcionArea').onclick = () => openModal('Editar descripción', document.getElementById('descripcionDisplay').innerText, 'descripcion', true);
-        
-        // Subir portada
-        document.getElementById('coverArea').onclick = () => subirFoto('portada');
+
+        /* ── FOTOS ──────────────────────────────────────────────────────── */
+        document.getElementById('coverArea').onclick   = () => subirFoto('portada');
         document.getElementById('profileArea').onclick = () => subirFoto('perfil');
-        
+
         function subirFoto(tipo) {
             const input = document.getElementById('fileInput');
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                
-                const formData = new FormData();
-                formData.append('foto', file);
-                formData.append('tipo', tipo);
-                
+                const fd = new FormData();
+                fd.append('foto', file);
+                fd.append('tipo', tipo);
                 try {
-                    const response = await fetch('/negocio/editor/subir-foto', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const result = await response.json();
-                    if (result.success) {
+                    const res  = await fetch('/negocio/editor/subir-foto', { method:'POST', body:fd });
+                    const data = await res.json();
+                    if (data.success) {
                         if (tipo === 'portada') {
-                            const coverImg = document.getElementById('coverImg');
-                            if (coverImg) {
-                                coverImg.src = result.url;
-                            } else {
-                                document.getElementById('coverArea').innerHTML = `<img id="coverImg" src="${result.url}" style="width:100%;height:100%;object-fit:cover"><div class="edit-overlay"><i class="fas fa-camera"></i> Cambiar portada</div>`;
-                            }
+                            const el = document.getElementById('coverImg');
+                            if (el) el.src = data.url;
+                            else document.getElementById('coverArea').innerHTML =
+                                `<img id="coverImg" src="${data.url}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                                 <div class="edit-overlay"><i class="fas fa-camera"></i> Cambiar portada</div>`;
                         } else if (tipo === 'perfil') {
-                            const profileImg = document.getElementById('profileImg');
-                            if (profileImg) {
-                                profileImg.src = result.url;
-                            } else {
-                                document.getElementById('profileArea').innerHTML = `<img id="profileImg" src="${result.url}" style="width:100%;height:100%;object-fit:cover"><div class="edit-overlay"><i class="fas fa-camera"></i></div>`;
-                            }
+                            const el = document.getElementById('profileImg');
+                            if (el) el.src = data.url;
+                            else document.getElementById('profileArea').innerHTML =
+                                `<img id="profileImg" src="${data.url}" style="width:100%;height:100%;object-fit:cover;">
+                                 <div class="edit-overlay"><i class="fas fa-camera"></i></div>`;
+                        } else if (tipo === 'galeria') {
+                            const grid = document.getElementById('galeriaList');
+                            const addBtn = grid.querySelector('.add-photo');
+                            const div = document.createElement('div');
+                            div.className = 'galeria-item';
+                            div.innerHTML = `<img src="${data.url}" alt="Foto galería">
+                                <button class="galeria-delete" data-id="${data.foto_id}" onclick="eliminarFotoGaleria(this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>`;
+                            grid.insertBefore(div, addBtn);
                         }
-                        showToast('Foto actualizada');
-                    } else {
-                        alert('Error: ' + result.error);
-                    }
-                } catch (error) {
-                    alert('Error al subir la foto');
-                }
+                        toast('✅ Foto actualizada', 'success');
+                    } else { toast('❌ ' + (data.error || 'Error'), 'error'); }
+                } catch { toast('❌ Error de conexión', 'error'); }
                 input.value = '';
             };
             input.click();
         }
-        
-        // Galería
-        document.getElementById('addGaleriaBtn').onclick = () => subirFoto('galeria');
-        document.getElementById('addGaleriaTrigger').onclick = () => subirFoto('galeria');
-        
-        function eliminarFotoGaleria(element) {
-            const fotoId = element.getAttribute('data-id');
-            if (confirm('¿Eliminar esta foto?')) {
-                fetch('/negocio/editor/eliminar-foto', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ foto_id: parseInt(fotoId), tipo: 'galeria' })
-                }).then(res => res.json()).then(result => {
-                    if (result.success) {
-                        element.closest('.galeria-item').remove();
-                        showToast('Foto eliminada');
-                    }
+
+        /* ── GALERÍA ELIMINAR ─────────────────────────────────────────── */
+        async function eliminarFotoGaleria(btn) {
+            if (!confirm('¿Eliminar esta foto?')) return;
+            const id = btn.dataset.id;
+            try {
+                const res  = await fetch('/negocio/editor/eliminar-foto', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ foto_id:parseInt(id), tipo:'galeria' })
                 });
-            }
-        }
-        
-        // Servicios
-        function editarServicio(element) {
-            const item = element.closest('.servicio-item');
-            const id = item.getAttribute('data-id');
-            const nombre = item.getAttribute('data-nombre');
-            const precio = item.getAttribute('data-precio');
-            const duracion = item.getAttribute('data-duracion');
-            
-            const nuevoNombre = prompt('Nombre del servicio:', nombre);
-            if (!nuevoNombre) return;
-            const nuevoPrecio = prompt('Precio:', precio);
-            if (!nuevoPrecio) return;
-            const nuevoDuracion = prompt('Duración (minutos):', duracion);
-            if (!nuevoDuracion) return;
-            
-            fetch('/negocio/editor/guardar-servicio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: parseInt(id), nombre: nuevoNombre, precio: parseFloat(nuevoPrecio), duracion: parseInt(nuevoDuracion) })
-            }).then(res => res.json()).then(result => {
-                if (result.success) {
-                    item.setAttribute('data-nombre', nuevoNombre);
-                    item.setAttribute('data-precio', nuevoPrecio);
-                    item.setAttribute('data-duracion', nuevoDuracion);
-                    item.querySelector('.servicio-nombre').textContent = nuevoNombre;
-                    item.querySelector('.servicio-precio').textContent = `$${parseInt(nuevoPrecio).toLocaleString()}`;
-                    showToast('Servicio actualizado');
-                }
-            });
+                const data = await res.json();
+                if (data.success) { btn.closest('.galeria-item').remove(); toast('✅ Foto eliminada', 'success'); }
+                else toast('❌ Error', 'error');
+            } catch { toast('❌ Error de conexión', 'error'); }
         }
 
-        function eliminarServicio(element) {
-            const item = element.closest('.servicio-item');
-            const id = item.getAttribute('data-id');
-            if (confirm('¿Eliminar este servicio?')) {
-                fetch('/negocio/editor/eliminar-servicio', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ servicio_id: parseInt(id) })
-                }).then(res => res.json()).then(result => {
-                    if (result.success) {
-                        item.remove();
-                        showToast('Servicio eliminado');
-                    }
-                });
+        /* ── CAMPO EDITABLE ──────────────────────────────────────────── */
+        let editField = null;
+
+        function abrirEditSheet(title, displayId, field, isTextarea = false) {
+            editField = { displayId, field };
+            document.getElementById('editSheetTitle').textContent = title;
+            document.getElementById('editSheetLabel').textContent = title;
+            const inp = document.getElementById('editSheetInput');
+            const ta  = document.getElementById('editSheetTextarea');
+            const val = document.getElementById(displayId).innerText;
+            if (isTextarea) {
+                inp.style.display = 'none'; ta.style.display = 'block';
+                ta.value = val;
+            } else {
+                ta.style.display = 'none'; inp.style.display = 'block';
+                inp.value = val;
             }
+            abrirSheet('editSheet');
+            setTimeout(() => (isTextarea ? ta : inp).focus(), 300);
         }
-        
-        document.getElementById('addServicioBtn').onclick = () => {
-            const nombre = prompt('Nombre del servicio:');
-            if (!nombre) return;
-            const precio = prompt('Precio:');
-            if (!precio) return;
-            const duracion = prompt('Duración (minutos):', 30);
-            if (!duracion) return;
-            
-            fetch('/negocio/editor/guardar-servicio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre: nombre, precio: parseFloat(precio), duracion: parseInt(duracion) })
-            }).then(res => res.json()).then(result => {
-                if (result.success) {
+
+        document.getElementById('editSheetSave').onclick = () => {
+            if (!editField) return;
+            const isTA = document.getElementById('editSheetTextarea').style.display !== 'none';
+            const val  = isTA
+                ? document.getElementById('editSheetTextarea').value
+                : document.getElementById('editSheetInput').value;
+            if (!val.trim()) { toast('⚠️ El campo no puede estar vacío', 'error'); return; }
+            const el = document.getElementById(editField.displayId);
+            el.innerText = val;
+            el.classList.remove('placeholder');
+            cerrarSheet();
+        };
+
+        document.getElementById('nombreArea').onclick      = () => abrirEditSheet('Nombre del negocio', 'nombreDisplay', 'nombre');
+        document.getElementById('direccionArea').onclick   = () => abrirEditSheet('Dirección', 'direccionDisplay', 'direccion');
+        document.getElementById('telefonoArea').onclick    = () => abrirEditSheet('Teléfono WhatsApp', 'telefonoDisplay', 'telefono');
+        document.getElementById('descripcionArea').onclick = () => abrirEditSheet('Descripción', 'descripcionDisplay', 'descripcion', true);
+
+        /* ── REDES SOCIALES ──────────────────────────────────────────── */
+        let redActual = null;
+
+        const RED_COLORES = {
+            'ri-instagram': { bg:'#fce4ec', color:'#c2185b' },
+            'ri-facebook':  { bg:'#e3f2fd', color:'#1565c0' },
+            'ri-tiktok':    { bg:'#f3e5f5', color:'#4a148c' },
+            'ri-twitter':   { bg:'#e0f7fa', color:'#006064' },
+            'ri-youtube':   { bg:'#ffebee', color:'#b71c1c' },
+            'ri-web':       { bg:'#eef0fd', color:'#5a67d8' },
+        };
+
+        function abrirRedSheet(campo, nombre, icono, clase) {
+            redActual = campo;
+            document.getElementById('redSheetTitle').textContent = nombre;
+
+            const colores = RED_COLORES[clase] || { bg:'#f1f5f9', color:'#475569' };
+            const iconEl  = document.getElementById('redSheetIcon');
+            iconEl.style.background = colores.bg;
+            iconEl.style.color      = colores.color;
+            iconEl.innerHTML        = `<i class="${icono}"></i>`;
+
+            const urlActual = document.getElementById(`red-url-${campo}`).textContent.trim();
+            document.getElementById('redSheetInput').value =
+                urlActual === 'Sin configurar' ? '' : urlActual;
+
+            // Mostrar botón "Quitar" solo si hay algo
+            document.getElementById('redSheetDelete').style.display =
+                urlActual === 'Sin configurar' ? 'none' : 'flex';
+
+            abrirSheet('redSheet');
+            setTimeout(() => document.getElementById('redSheetInput').focus(), 300);
+        }
+
+        function guardarRed() {
+            if (!redActual) return;
+            let url = document.getElementById('redSheetInput').value.trim();
+            if (!url) { borrarRed(); return; }
+            // Agregar https:// si falta
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+            const urlEl  = document.getElementById(`red-url-${redActual}`);
+            const itemEl = document.getElementById(`red-item-${redActual}`);
+            urlEl.textContent = url;
+            urlEl.className   = 'red-item-url configurada';
+            itemEl.classList.add('activa');
+
+            // Actualizar icono de check
+            const checkEl = itemEl.querySelector('.red-item-check');
+            checkEl.className = 'fas fa-check-circle red-item-check';
+            checkEl.style.color = 'var(--success)';
+            checkEl.style.fontSize = '';
+
+            toast('✅ Red social guardada', 'success');
+            cerrarSheet();
+        }
+
+        function borrarRed() {
+            if (!redActual) return;
+            const urlEl  = document.getElementById(`red-url-${redActual}`);
+            const itemEl = document.getElementById(`red-item-${redActual}`);
+            urlEl.textContent = 'Sin configurar';
+            urlEl.className   = 'red-item-url';
+            itemEl.classList.remove('activa');
+
+            const checkEl = itemEl.querySelector('.red-item-check');
+            checkEl.className   = 'fas fa-plus red-item-check';
+            checkEl.style.color = '#94a3b8';
+            checkEl.style.fontSize = '11px';
+
+            toast('🗑 Red eliminada', 'success');
+            cerrarSheet();
+        }
+
+        /* ── SERVICIOS ───────────────────────────────────────────────── */
+        function abrirServicioSheet(item) {
+            document.getElementById('servicioSheetTitle').textContent =
+                item ? 'Editar servicio' : 'Nuevo servicio';
+            document.getElementById('servicioSheetId').value      = item ? item.dataset.id : '';
+            document.getElementById('servicioSheetNombre').value  = item ? item.dataset.nombre : '';
+            document.getElementById('servicioSheetPrecio').value  = item ? item.dataset.precio : '';
+            document.getElementById('servicioSheetDuracion').value= item ? item.dataset.duracion : '30';
+            abrirSheet('servicioSheet');
+        }
+
+        async function guardarServicio() {
+            const id       = document.getElementById('servicioSheetId').value;
+            const nombre   = document.getElementById('servicioSheetNombre').value.trim();
+            const precio   = parseFloat(document.getElementById('servicioSheetPrecio').value);
+            const duracion = parseInt(document.getElementById('servicioSheetDuracion').value);
+
+            if (!nombre) { toast('⚠️ Escribe el nombre', 'error'); return; }
+            if (isNaN(precio) || precio < 0) { toast('⚠️ Precio inválido', 'error'); return; }
+
+            try {
+                const res  = await fetch('/negocio/editor/guardar-servicio', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ id: id ? parseInt(id) : null, nombre, precio, duracion })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    cerrarSheet();
                     location.reload();
+                } else toast('❌ ' + (data.error || 'Error'), 'error');
+            } catch { toast('❌ Error de conexión', 'error'); }
+        }
+
+        async function eliminarServicio(item) {
+            if (!confirm('¿Eliminar este servicio?')) return;
+            const id = item.dataset.id;
+            try {
+                const res  = await fetch('/negocio/editor/eliminar-servicio', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ servicio_id: parseInt(id) })
+                });
+                const data = await res.json();
+                if (data.success) { item.remove(); toast('✅ Servicio eliminado', 'success'); }
+                else toast('❌ Error', 'error');
+            } catch { toast('❌ Error de conexión', 'error'); }
+        }
+
+        /* ── GUARDAR TODO ────────────────────────────────────────────── */
+        document.getElementById('btnGuardarTodo').onclick = async () => {
+            // Recopilar redes desde los elementos del DOM
+            const redes = {};
+            ['instagram','facebook','tiktok','twitter','youtube','sitio_web'].forEach(campo => {
+                const urlEl = document.getElementById(`red-url-${campo}`);
+                if (urlEl) {
+                    const v = urlEl.textContent.trim();
+                    redes[campo] = v === 'Sin configurar' ? '' : v;
                 }
             });
-        };
-        
-        // Guardar cambios generales
-        document.getElementById('guardarTodo').onclick = async () => {
+
             const data = {
-                nombre: document.getElementById('nombreDisplay').innerText,
-                direccion: document.getElementById('direccionDisplay').innerText,
-                telefono_whatsapp: document.getElementById('telefonoDisplay').innerText,
-                descripcion: document.getElementById('descripcionDisplay').innerText,
-                tipo_negocio: '{{ negocio.tipo_negocio }}',
-                emoji: '{{ negocio.emoji }}'
+                nombre:            document.getElementById('nombreDisplay').innerText.trim(),
+                direccion:         document.getElementById('direccionDisplay').innerText.trim(),
+                telefono_whatsapp: document.getElementById('telefonoDisplay').innerText.trim(),
+                descripcion:       document.getElementById('descripcionDisplay').innerText.trim(),
+                tipo_negocio:      '{{ negocio.tipo_negocio }}',
+                emoji:             '{{ negocio.emoji }}',
+                ...redes
             };
-            
+
             try {
-                const response = await fetch('/negocio/editor/guardar', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
-                    },
+                const res  = await fetch('/negocio/editor/guardar', {
+                    method:'POST',
+                    headers:{ 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
                     body: JSON.stringify(data)
                 });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToast('✅ Cambios guardados');
-                } else {
-                    showToast('❌ Error: ' + (result.error || 'No se pudo guardar'));
-                }
-            } catch (error) {
-                showToast('❌ Error de conexión');
-            }
-        };
-        
-        document.getElementById('modalSaveBtn').onclick = () => {
-            let value;
-            if (currentEditField === 'descripcion') {
-                value = document.getElementById('editTextarea').value;
-            } else {
-                value = document.getElementById('editInput').value;
-            }
-            
-            if (value.trim() === '') {
-                showToast('⚠️ El campo no puede estar vacío');
-                return;
-            }
-            
-            document.getElementById(`${currentEditField}Display`).innerText = value;
-            closeModal();
+                const result = await res.json();
+                if (result.success) toast('✅ Cambios guardados', 'success');
+                else toast('❌ ' + (result.error || 'Error al guardar'), 'error');
+            } catch { toast('❌ Error de conexión', 'error'); }
         };
     </script>
 </body>

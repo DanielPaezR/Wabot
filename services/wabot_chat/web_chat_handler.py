@@ -2007,7 +2007,7 @@ def saludo_inicial(numero, negocio_id):
             'estado': 'solicitando_telefono_inicial',
             'timestamp': datetime.now(tz_colombia)
         }
-        return "¡Hola! 👋 Para comenzar, necesitamos tu número de teléfono como identificador.\n\nPor favor, ingresa tu número de 10 dígitos (debe empezar con 3, ej: 3101234567):"
+        return "¡Hola! 👋 Para comenzar, ingresa tu número de teléfono de 10 dígitos (debe empezar con 3, ej: 3101234567):"
 
 def procesar_telefono_inicial(numero, mensaje, negocio_id):
     """Procesar teléfono ingresado al inicio - USANDO PLANTILLAS"""
