@@ -284,6 +284,14 @@
                     <input type="text" id="telefono_whatsapp" name="telefono_whatsapp" value="{{ negocio.telefono_whatsapp }}" required>
                     <small>Formato: +573001234567</small>
                 </div>
+
+                <div class="form-group">
+                    <label for="numero_api_whatsapp">Número de API de WhatsApp (Opcional)</label>
+                    <input type="text" id="numero_api_whatsapp" name="numero_api_whatsapp" 
+                           value="{{ numero_api_whatsapp or '' }}"
+                           placeholder="Ej: 573001234567">
+                    <small>Número que Meta asignó a este negocio para la API (solo dígitos, sin +)</small>
+                </div>
                 
                 <div class="form-row">
                     <div class="form-group">

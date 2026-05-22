@@ -1768,6 +1768,52 @@ def admin_nuevo_negocio():
         )
         
         if negocio_id:
+            # Guardar número de API de WhatsApp si se proporcionó
+            numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
+            if numero_api_whatsapp:
+                # Validar que solo contenga dígitos
+                if not numero_api_whatsapp.isdigit():
+                    flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
+                    return redirect(url_for('admin_nuevo_negocio'))
+                
+                # Validar unicidad (no esté en otro negocio)
+                from database import get_db_connection
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                
+                if db.is_postgresql():
+                    cursor.execute('''
+                        SELECT id FROM numeros_whatsapp_negocio 
+                        WHERE numero_whatsapp = %s AND negocio_id != %s
+                    ''', (numero_api_whatsapp, negocio_id))
+                else:
+                    cursor.execute('''
+                        SELECT id FROM numeros_whatsapp_negocio 
+                        WHERE numero_whatsapp = ? AND negocio_id != ?
+                    ''', (numero_api_whatsapp, negocio_id))
+                
+                if cursor.fetchone():
+                    conn.close()
+                    flash('❌ Este número de API ya está registrado para otro negocio', 'error')
+                    return redirect(url_for('admin_nuevo_negocio'))
+                
+                # Guardar o actualizar
+                if db.is_postgresql():
+                    cursor.execute('''
+                        INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                        VALUES (%s, %s)
+                        ON CONFLICT (negocio_id) DO UPDATE SET numero_whatsapp = %s
+                    ''', (negocio_id, numero_api_whatsapp, numero_api_whatsapp))
+                else:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                        VALUES (?, ?)
+                    ''', (negocio_id, numero_api_whatsapp))
+                
+                conn.commit()
+                conn.close()
+                print(f'✅ Número de API WhatsApp guardado para negocio {negocio_id}: {numero_api_whatsapp}')
+            
             flash('✅ Negocio creado exitosamente', 'success')
             return redirect(url_for('admin_negocios'))
         else:
@@ -1843,11 +1889,91 @@ def admin_editar_negocio(negocio_id):
             direccion=direccion
         )
         
+        # Guardar o eliminar número de API de WhatsApp
+        numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
+        if numero_api_whatsapp:
+            # Validar que solo contenga dígitos
+            if not numero_api_whatsapp.isdigit():
+                flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
+                return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
+            
+            # Validar unicidad (no esté en otro negocio)
+            from database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            if db.is_postgresql():
+                cursor.execute('''
+                    SELECT id FROM numeros_whatsapp_negocio 
+                    WHERE numero_whatsapp = %s AND negocio_id != %s
+                ''', (numero_api_whatsapp, negocio_id))
+            else:
+                cursor.execute('''
+                    SELECT id FROM numeros_whatsapp_negocio 
+                    WHERE numero_whatsapp = ? AND negocio_id != ?
+                ''', (numero_api_whatsapp, negocio_id))
+            
+            if cursor.fetchone():
+                conn.close()
+                flash('❌ Este número de API ya está registrado para otro negocio', 'error')
+                return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
+            
+            # Guardar o actualizar
+            if db.is_postgresql():
+                cursor.execute('''
+                    INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                    VALUES (%s, %s)
+                    ON CONFLICT (negocio_id) DO UPDATE SET numero_whatsapp = %s
+                ''', (negocio_id, numero_api_whatsapp, numero_api_whatsapp))
+            else:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                    VALUES (?, ?)
+                ''', (negocio_id, numero_api_whatsapp))
+            
+            conn.commit()
+            conn.close()
+            print(f'✅ Número de API WhatsApp actualizado para negocio {negocio_id}: {numero_api_whatsapp}')
+        else:
+            # Si se vacío el campo, eliminar el registro
+            from database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            if db.is_postgresql():
+                cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
+            else:
+                cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
+            
+            conn.commit()
+            conn.close()
+            print(f'✅ Número de API WhatsApp eliminado para negocio {negocio_id}')
+        
         flash('✅ Negocio actualizado exitosamente', 'success')
         return redirect(url_for('admin_negocios'))
     
+    # Obtener número de API de WhatsApp actual
+    numero_api_whatsapp = None
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if db.is_postgresql():
+            cursor.execute('SELECT numero_whatsapp FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
+        else:
+            cursor.execute('SELECT numero_whatsapp FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
+        
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if resultado:
+            numero_api_whatsapp = resultado[0] if isinstance(resultado, tuple) else resultado.get('numero_whatsapp')
+    except Exception as e:
+        print(f"⚠️ Error obteniendo número API: {e}")
+    
     config = json.loads(negocio['configuracion'] if negocio['configuracion'] else '{}')
-    return render_template('admin/editar_negocio.html', negocio=negocio, config=config)
+    return render_template('admin/editar_negocio.html', negocio=negocio, config=config, numero_api_whatsapp=numero_api_whatsapp)
 
 # =============================================================================
 # RUTAS PARA ELIMINAR NEGOCIOS
@@ -3161,6 +3287,66 @@ def negocio_configuracion():
             if db.actualizar_configuracion_completa(
                 negocio_id, nombre, tipo_negocio, emoji, nueva_configuracion, horarios_actualizados
             ):
+                # Guardar o eliminar número de API de WhatsApp
+                numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
+                if numero_api_whatsapp:
+                    # Validar que solo contenga dígitos
+                    if not numero_api_whatsapp.isdigit():
+                        flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
+                        return redirect(url_for('negocio_configuracion'))
+                    
+                    # Validar unicidad (no esté en otro negocio)
+                    from database import get_db_connection
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    
+                    if db.is_postgresql():
+                        cursor.execute('''
+                            SELECT id FROM numeros_whatsapp_negocio 
+                            WHERE numero_whatsapp = %s AND negocio_id != %s
+                        ''', (numero_api_whatsapp, negocio_id))
+                    else:
+                        cursor.execute('''
+                            SELECT id FROM numeros_whatsapp_negocio 
+                            WHERE numero_whatsapp = ? AND negocio_id != ?
+                        ''', (numero_api_whatsapp, negocio_id))
+                    
+                    if cursor.fetchone():
+                        conn.close()
+                        flash('❌ Este número de API ya está registrado para otro negocio', 'error')
+                        return redirect(url_for('negocio_configuracion'))
+                    
+                    # Guardar o actualizar
+                    if db.is_postgresql():
+                        cursor.execute('''
+                            INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                            VALUES (%s, %s)
+                            ON CONFLICT (negocio_id) DO UPDATE SET numero_whatsapp = %s
+                        ''', (negocio_id, numero_api_whatsapp, numero_api_whatsapp))
+                    else:
+                        cursor.execute('''
+                            INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                            VALUES (?, ?)
+                        ''', (negocio_id, numero_api_whatsapp))
+                    
+                    conn.commit()
+                    conn.close()
+                    print(f'✅ Número de API WhatsApp actualizado en configuración: {numero_api_whatsapp}')
+                else:
+                    # Si se vacío el campo, eliminar el registro
+                    from database import get_db_connection
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    
+                    if db.is_postgresql():
+                        cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
+                    else:
+                        cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
+                    
+                    conn.commit()
+                    conn.close()
+                    print(f'✅ Número de API WhatsApp eliminado en configuración')
+                
                 flash('✅ Configuración actualizada exitosamente', 'success')
             else:
                 flash('❌ Error al actualizar la configuración', 'error')
@@ -3171,10 +3357,31 @@ def negocio_configuracion():
             traceback.print_exc()
             flash(f'❌ Error al procesar la configuración: {str(e)}', 'error')
     
+    # Obtener número de API de WhatsApp actual
+    numero_api_whatsapp = None
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if db.is_postgresql():
+            cursor.execute('SELECT numero_whatsapp FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
+        else:
+            cursor.execute('SELECT numero_whatsapp FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
+        
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if resultado:
+            numero_api_whatsapp = resultado[0] if isinstance(resultado, tuple) else resultado.get('numero_whatsapp')
+    except Exception as e:
+        print(f"⚠️ Error obteniendo número API: {e}")
+    
     return render_template('negocio/configuracion.html', 
                          negocio=negocio, 
                          dias_semana=dias_semana,
-                         config_actual=config_actual)
+                         config_actual=config_actual,
+                         numero_api_whatsapp=numero_api_whatsapp)
 
 @app.route('/negocio/prompt-ia', methods=['GET', 'POST'])
 @role_required(['propietario', 'superadmin'])

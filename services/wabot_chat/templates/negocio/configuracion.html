@@ -567,6 +567,14 @@
                         </div>
 
                         <div class="form-group">
+                            <label for="numero_api_whatsapp">Número de API de WhatsApp (Opcional)</label>
+                            <input type="text" id="numero_api_whatsapp" name="numero_api_whatsapp" 
+                                   value="{{ numero_api_whatsapp or '' }}"
+                                   placeholder="Ej: 573001234567">
+                            <div class="help-text">Número que Meta asignó a este negocio para la API de WhatsApp Business (solo dígitos)</div>
+                        </div>
+
+                        <div class="form-group">
                             <label for="politica_cancelacion">Política de Cancelación</label>
                             <input type="text" id="politica_cancelacion" name="politica_cancelacion" 
                                    value="{{ config_actual.politica_cancelacion if config_actual and config_actual.politica_cancelacion else 'Puedes cancelar hasta 2 horas antes' }}"
