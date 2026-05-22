@@ -30,6 +30,7 @@ import psycopg2
 from collections import defaultdict
 import cloudinary
 import cloudinary.uploader
+import re
 
 rate_limit_cache = defaultdict(list)
 
@@ -8095,6 +8096,298 @@ def generar_flyer_promocion(promocion_id):
         traceback.print_exc()
         flash(f'Error al generar el flyer: {str(e)}', 'error')
         return redirect(url_for('profesional_promociones'))
+
+# =============================================================================
+# NUEVOS ENDPOINTS PARA INTEGRACIÓN CON WHATSAPP VÍA n8n
+# =============================================================================
+
+@app.route('/api/whatsapp/webhook', methods=['POST'])
+def whatsapp_webhook():
+    """
+    Endpoint que n8n llamará cuando llegue un mensaje de WhatsApp
+    Reutiliza TODA la lógica de web_chat_handler.py
+    """
+    try:
+        data = request.json
+        print(f"📱 [WHATSAPP] Mensaje recibido de n8n: {data}")
+        
+        # Extraer datos que n8n enviará
+        # Formato esperado:
+        # {
+        #   "from": "+573001234567",  # número del cliente
+        #   "to": "+573009876543",    # número del negocio (para identificar qué negocio es)
+        #   "message": "Hola, quiero agendar una cita",
+        #   "message_id": "wamid.123456789"
+        # }
+        
+        cliente_telefono = data.get('from', '').strip()
+        numero_negocio = data.get('to', '').strip()
+        mensaje = data.get('message', '').strip()
+        
+        if not cliente_telefono or not numero_negocio or not mensaje:
+            return jsonify({'error': 'Datos incompletos'}), 400
+        
+        # Limpiar número de teléfono (eliminar +, espacios, etc.)
+        cliente_telefono_limpio = re.sub(r'[^0-9]', '', cliente_telefono)
+        if len(cliente_telefono_limpio) > 10:
+            # Si tiene código de país (ej: 573001234567), tomar últimos 10 dígitos
+            cliente_telefono_limpio = cliente_telefono_limpio[-10:]
+        
+        print(f"📱 [WHATSAPP] Teléfono limpio: {cliente_telefono_limpio}")
+        
+        # 1. IDENTIFICAR QUÉ NEGOCIO ES según el número de WhatsApp
+        negocio_id = obtener_negocio_por_numero_whatsapp(numero_negocio)
+        
+        if not negocio_id:
+            print(f"❌ [WHATSAPP] Número {numero_negocio} no está registrado a ningún negocio")
+            return jsonify({'error': 'Número no registrado'}), 404
+        
+        print(f"🏢 [WHATSAPP] Negocio ID: {negocio_id}")
+        
+        # 2. CREAR O RECUPERAR SESIÓN (igual que en chat web)
+        session_id = f"wa_{cliente_telefono_limpio}_{negocio_id}"
+        
+        # Inicializar sesión en memoria (similar a flask_session pero para WhatsApp)
+        if 'whatsapp_sessions' not in app.config:
+            app.config['whatsapp_sessions'] = {}
+        
+        if session_id not in app.config['whatsapp_sessions']:
+            # Crear sesión nueva similar a la del chat web
+            app.config['whatsapp_sessions'][session_id] = {
+                'cliente_telefono': cliente_telefono_limpio,
+                'chat_session_id': session_id,
+                'negocio_id': negocio_id,
+                'chat_step': 'inicio',
+                'datos_agendamiento': {}
+            }
+        
+        # 3. USAR LA MISMA FUNCIÓN QUE USA EL CHAT WEB
+        from web_chat_handler import procesar_mensaje_chat
+        
+        # Simular la sesión de Flask que espera la función
+        class SimulatedSession:
+            def __init__(self, data):
+                self._data = data
+                self.permanent = False
+            
+            def get(self, key, default=None):
+                return self._data.get(key, default)
+            
+            def __getitem__(self, key):
+                return self._data[key]
+            
+            def __setitem__(self, key, value):
+                self._data[key] = value
+            
+            def __contains__(self, key):
+                return key in self._data
+        
+        simulated_session = SimulatedSession(app.config['whatsapp_sessions'][session_id])
+        
+        # Procesar mensaje usando tu lógica existente
+        respuesta = procesar_mensaje_chat(
+            user_message=mensaje,
+            session_id=session_id,
+            negocio_id=negocio_id,
+            session=simulated_session
+        )
+        
+        # Guardar cambios en la sesión simulada
+        app.config['whatsapp_sessions'][session_id] = simulated_session._data
+        
+        # 4. PREPARAR RESPUESTA PARA n8n
+        # n8n espera un formato específico para enviar de vuelta a WhatsApp
+        respuesta_whatsapp = {
+            'success': True,
+            'to': cliente_telefono,  # Enviar respuesta al cliente
+            'message': respuesta.get('message', ''),
+            'session_id': session_id
+        }
+        
+        # Si hay opciones (botones), incluirlas para que n8n las maneje
+        if respuesta.get('options'):
+            # Convertir opciones al formato que WhatsApp espera (botones)
+            respuesta_whatsapp['buttons'] = []
+            for opt in respuesta['options']:
+                respuesta_whatsapp['buttons'].append({
+                    'id': opt['value'],
+                    'title': opt['text'][:20]  # WhatsApp tiene límite de 20 chars
+                })
+        
+        print(f"✅ [WHATSAPP] Respuesta generada: {respuesta_whatsapp['message'][:100]}...")
+        
+        return jsonify(respuesta_whatsapp)
+        
+    except Exception as e:
+        print(f"❌ [WHATSAPP] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/whatsapp/negocio-por-numero', methods=['GET'])
+def whatsapp_negocio_por_numero():
+    """
+    Endpoint para que n8n consulte qué negocio corresponde a un número de WhatsApp
+    """
+    try:
+        numero = request.args.get('numero', '').strip()
+        
+        if not numero:
+            return jsonify({'error': 'Número requerido'}), 400
+        
+        # Limpiar número
+        numero_limpio = re.sub(r'[^0-9]', '', numero)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Buscar negocio por número de WhatsApp
+        cursor.execute('''
+            SELECT id, nombre, telefono_whatsapp
+            FROM negocios
+            WHERE telefono_whatsapp LIKE %s AND activo = TRUE
+        ''', (f'%{numero_limpio}%',))
+        
+        negocio = cursor.fetchone()
+        conn.close()
+        
+        if negocio:
+            return jsonify({
+                'success': True,
+                'negocio_id': negocio['id'],
+                'negocio_nombre': negocio['nombre'],
+                'telefono_whatsapp': negocio['telefono_whatsapp']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No se encontró negocio para este número'
+            }), 404
+            
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/whatsapp/registrar-numero', methods=['POST'])
+@role_required(['propietario', 'superadmin'])
+def whatsapp_registrar_numero():
+    """
+    Registrar un número de WhatsApp para un negocio (para la tabla de relación)
+    """
+    try:
+        data = request.json
+        negocio_id = data.get('negocio_id')
+        numero_whatsapp = data.get('numero_whatsapp', '').strip()
+        
+        if not negocio_id or not numero_whatsapp:
+            return jsonify({'error': 'Faltan datos'}), 400
+        
+        # Limpiar número
+        numero_limpio = re.sub(r'[^0-9]', '', numero_whatsapp)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Crear tabla si no existe
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS numeros_whatsapp_negocio (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+                numero_whatsapp VARCHAR(20) NOT NULL UNIQUE,
+                activo BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        
+        # Insertar o actualizar
+        cursor.execute('''
+            INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+            VALUES (%s, %s)
+            ON CONFLICT (numero_whatsapp) 
+            DO UPDATE SET negocio_id = %s, updated_at = NOW()
+        ''', (negocio_id, numero_limpio, negocio_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Número {numero_limpio} registrado para negocio ID {negocio_id}'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error registrando número: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def obtener_negocio_por_numero_whatsapp(numero_whatsapp):
+    """
+    Obtener negocio_id a partir de un número de WhatsApp
+    """
+    try:
+        numero_limpio = re.sub(r'[^0-9]', '', numero_whatsapp)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Primero buscar en tabla de relación
+        cursor.execute('''
+            SELECT negocio_id FROM numeros_whatsapp_negocio
+            WHERE numero_whatsapp = %s AND activo = TRUE
+        ''', (numero_limpio,))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            negocio_id = result[0] if isinstance(result, tuple) else result.get('negocio_id')
+            conn.close()
+            return negocio_id
+        
+        # Si no está en la tabla de relación, buscar directamente en negocios
+        cursor.execute('''
+            SELECT id FROM negocios
+            WHERE telefono_whatsapp LIKE %s AND activo = TRUE
+        ''', (f'%{numero_limpio}%',))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            negocio_id = result[0] if isinstance(result, tuple) else result.get('id')
+            return negocio_id
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo negocio por número: {e}")
+        return None
+
+
+# Endpoint para que n8n verifique el estado de la sesión (opcional)
+@app.route('/api/whatsapp/sesion/<session_id>', methods=['GET'])
+def whatsapp_obtener_sesion(session_id):
+    """Obtener estado actual de una sesión de WhatsApp"""
+    try:
+        if 'whatsapp_sessions' not in app.config:
+            return jsonify({'exists': False})
+        
+        session = app.config['whatsapp_sessions'].get(session_id)
+        
+        if not session:
+            return jsonify({'exists': False})
+        
+        return jsonify({
+            'exists': True,
+            'estado': session.get('chat_step', 'inicio'),
+            'cliente_telefono': session.get('cliente_telefono'),
+            'negocio_id': session.get('negocio_id')
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     
 # =============================================================================
 # EJECUCIÓN PRINCIPAL - SOLO AL EJECUTAR DIRECTAMENTE
