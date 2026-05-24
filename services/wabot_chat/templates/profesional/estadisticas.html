@@ -3,597 +3,1178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Estadísticas - {{ profesional_nombre }}</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Estadísticas — {{ profesional_nombre }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
         :root {
-            --primary: #6366f1;
-            --primary-soft: #eef0fd;
-            --success: #10b981;
-            --success-soft: #d1fae5;
-            --danger: #ef4444;
-            --danger-soft: #fee2e2;
-            --warning: #f59e0b;
-            --warning-soft: #fef3c7;
-            --dark: #1e293b;
-            --text: #334155;
-            --text-light: #64748b;
-            --border: #e2e8f0;
-            --bg: #f8fafc;
-            --white: #ffffff;
-            --radius: 16px;
-            --radius-sm: 12px;
-            --shadow: 0 1px 3px rgba(0,0,0,0.06);
-            --shadow-lg: 0 4px 12px rgba(0,0,0,0.08);
+            --ink:       #111827;
+            --ink-2:     #374151;
+            --ink-3:     #6b7280;
+            --ink-4:     #9ca3af;
+            --surface:   #ffffff;
+            --surface-2: #f9fafb;
+            --surface-3: #f3f4f6;
+            --border:    #e5e7eb;
+            --border-2:  #d1d5db;
+
+            --blue:      #2563eb;
+            --blue-lt:   #eff6ff;
+            --blue-dk:   #1d4ed8;
+            --green:     #16a34a;
+            --green-lt:  #f0fdf4;
+            --red:       #dc2626;
+            --red-lt:    #fef2f2;
+            --amber:     #d97706;
+            --amber-lt:  #fffbeb;
+            --violet:    #7c3aed;
+            --violet-lt: #f5f3ff;
+            --teal:      #0d9488;
+            --teal-lt:   #f0fdfa;
+
+            --r:    10px;
+            --r-sm:  7px;
+            --sh:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding-bottom: 100px;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--surface-3);
+            color: var(--ink);
+            font-size: 14px;
+            line-height: 1.5;
+            padding-bottom: 60px;
         }
-        
-        .header {
-            background: var(--white);
-            padding: 1rem 1.2rem;
-            box-shadow: var(--shadow);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            flex-wrap: wrap;
-            gap: 0.5rem;
+
+        /* ─── TOPBAR ─────────────────────────────────── */
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.5rem;
+            height: 56px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
         }
-        
-        .header h1 { font-size: 1.1rem; font-weight: 700; color: var(--dark); }
-        
-        .btn-sm {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            border: none;
-            cursor: pointer;
+        .topbar-left { display: flex; align-items: center; gap: .75rem; }
+        .prof-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--violet-lt);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 800; color: var(--violet);
+            flex-shrink: 0;
         }
-        .btn-outline { background: var(--white); color: var(--primary); border: 2px solid var(--primary); }
-        .btn-danger { background: var(--danger); color: white; }
-        
-        .container { max-width: 900px; margin: 0 auto; padding: 1rem; }
-        
-        /* NAV */
+        .prof-name { font-weight: 700; font-size: 15px; color: var(--ink); }
+        .prof-tag  { font-size: 11px; color: var(--ink-3); background: var(--surface-2); border: 1px solid var(--border); padding: 2px 8px; border-radius: 12px; }
+        .topbar-right { display: flex; align-items: center; gap: .75rem; }
+        .user-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); }
+        .btn-logout { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--red-lt); color: var(--red); border: 1px solid #fecaca; text-decoration: none; }
+
+        /* ─── NAV ────────────────────────────────────── */
+        .nav-wrap {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+        }
         .nav-tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--white);
-            border-radius: 30px;
-            padding: 4px;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border);
+            display: flex; gap: 0; padding: 0 1.5rem;
+            max-width: 900px; margin: 0 auto;
         }
         .nav-tab {
-            flex: 1;
-            text-align: center;
-            padding: 8px;
-            border-radius: 26px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-light);
-            text-decoration: none;
-            transition: all 0.2s;
-            border: none;
-            background: none;
-            cursor: pointer;
+            padding: 14px 16px; font-size: 13px; font-weight: 600; color: var(--ink-3);
+            text-decoration: none; white-space: nowrap;
+            border-bottom: 2px solid transparent;
+            transition: color .15s, border-color .15s;
         }
-        .nav-tab.active { background: var(--primary); color: white; }
-        
-        /* FILTROS */
-        .filters-row {
+        .nav-tab:hover { color: var(--ink-2); }
+        .nav-tab.active { color: var(--violet); border-bottom-color: var(--violet); }
+
+        /* ─── LAYOUT ─────────────────────────────────── */
+        .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+
+        /* ─── CONTROL BAR ────────────────────────────── */
+        .control-bar {
+            display: flex; gap: .75rem; align-items: center;
+            flex-wrap: wrap; margin-bottom: 1.5rem;
+        }
+        .period-tabs {
             display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r-sm); overflow: hidden;
         }
-        .filter-select {
-            padding: 8px 12px;
+        .pt-btn {
+            padding: 7px 16px; font-size: 13px; font-weight: 600;
+            color: var(--ink-3); background: none; border: none; cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+        .pt-btn.active { background: var(--violet); color: #fff; }
+        .pt-btn:not(:last-child) { border-right: 1px solid var(--border); }
+
+        .ctrl-select, .ctrl-input {
+            padding: 7px 12px; border: 1px solid var(--border);
+            border-radius: var(--r-sm); font-size: 13px;
+            background: var(--surface); color: var(--ink); cursor: pointer;
+        }
+        .ctrl-select:focus, .ctrl-input:focus { outline: none; border-color: var(--violet); }
+        .btn-apply {
+            padding: 7px 18px; background: var(--violet); color: #fff;
+            border: none; border-radius: var(--r-sm);
+            font-size: 13px; font-weight: 700; cursor: pointer;
+        }
+        .btn-apply:hover { background: #6d28d9; }
+        .period-label {
+            font-size: 12px; font-weight: 600; color: var(--ink-3);
+            background: var(--surface-2); border: 1px solid var(--border);
+            padding: 5px 12px; border-radius: 20px;
+        }
+
+        /* ─── PERFIL STRIP ───────────────────────────── */
+        .profile-strip {
+            background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            font-size: 0.85rem;
-            background: var(--white);
-            color: var(--dark);
-            cursor: pointer;
-        }
-        .btn-refresh {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        
-        /* STATS GRID */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 0.7rem;
+            border-radius: var(--r);
+            padding: 1rem 1.2rem;
             margin-bottom: 1.5rem;
+            display: flex; align-items: center; gap: 1rem;
+            box-shadow: var(--sh);
         }
-        
-        .stat-card {
-            background: var(--white);
-            padding: 1rem 0.8rem;
-            border-radius: var(--radius-sm);
-            text-align: center;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
+        .profile-strip .big-avatar {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: var(--violet-lt); border: 2px solid var(--violet);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; font-weight: 900; color: var(--violet);
+            flex-shrink: 0;
         }
-        .stat-card .stat-icon { font-size: 1.4rem; margin-bottom: 4px; }
-        .stat-card .stat-number { font-size: 1.3rem; font-weight: 800; color: var(--dark); }
-        .stat-card .stat-label { font-size: 0.65rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
-        
-        .stat-card.highlight-success { border-left: 3px solid var(--success); }
-        .stat-card.highlight-danger { border-left: 3px solid var(--danger); }
-        .stat-card.highlight-warning { border-left: 3px solid var(--warning); }
-        .stat-card.highlight-primary { border-left: 3px solid var(--primary); }
-        
-        /* CARDS */
-        .card {
-            background: var(--white);
-            border-radius: var(--radius);
-            padding: 1.2rem;
-            margin-bottom: 1rem;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
+        .profile-strip .info { flex: 1; }
+        .profile-strip .info .name  { font-size: 16px; font-weight: 800; color: var(--ink); }
+        .profile-strip .info .sub   { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+        .profile-strip .perf-chips  { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .perf-chip {
+            padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
         }
-        .card-title {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--dark);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        /* CONFIANZA BAR */
-        .confidence-bar {
-            height: 8px;
-            background: var(--border);
-            border-radius: 4px;
-            margin-top: 0.8rem;
-            overflow: hidden;
-        }
-        .confidence-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-        .confidence-fill.low { background: var(--danger); }
-        .confidence-fill.medium { background: var(--warning); }
-        .confidence-fill.high { background: var(--success); }
-        
-        /* SUGERENCIA */
-        .sugerencia-card {
-            background: var(--warning-soft);
-            border-radius: var(--radius-sm);
-            padding: 1rem;
-            margin-bottom: 0.8rem;
-            border-left: 4px solid var(--warning);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .sugerencia-card .sugerencia-text { font-size: 0.85rem; font-weight: 600; color: #92400e; flex: 1; }
-        .btn-promo-action {
-            background: var(--warning);
-            color: #92400e;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        
-        /* LISTA ITEMS */
-        .lista-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
-        }
-        .lista-item:last-child { border-bottom: none; }
-        .lista-item .item-left { display: flex; align-items: center; gap: 8px; }
-        .lista-item .item-right { font-weight: 700; }
-        
-        /* PREDICCIÓN */
-        .prediccion-big {
-            text-align: center;
-            padding: 1rem 0;
-        }
-        .prediccion-big .big-number {
-            font-size: 4rem;
-            font-weight: 900;
-            color: var(--primary);
-            line-height: 1;
-        }
-        .prediccion-big .big-label {
-            font-size: 0.8rem;
-            color: var(--text-light);
-            margin-top: 4px;
-        }
-        .prediccion-big .big-sub {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--success);
-            margin-top: 8px;
-        }
-        
-        .charts-grid {
+        .chip-green  { background: var(--green-lt);  color: var(--green); }
+        .chip-violet { background: var(--violet-lt); color: var(--violet); }
+        .chip-amber  { background: var(--amber-lt);  color: var(--amber); }
+        .chip-red    { background: var(--red-lt);    color: var(--red); }
+
+        /* ─── KPI CARDS ──────────────────────────────── */
+        .kpi-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: .75rem; margin-bottom: 1.5rem;
         }
-        
-        .no-data {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-light);
-            font-size: 0.85rem;
+        .kpi-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1rem 1.1rem;
+            box-shadow: var(--sh);
+            display: flex; flex-direction: column; gap: 4px;
         }
-        
-        @media (max-width: 600px) {
-            .charts-grid { grid-template-columns: 1fr; }
-            .stats-grid { grid-template-columns: 1fr 1fr 1fr; }
-            .prediccion-big .big-number { font-size: 3rem; }
+        .kpi-header { display: flex; justify-content: space-between; align-items: center; }
+        .kpi-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+        .kpi-delta { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 12px; }
+        .delta-up   { background: var(--green-lt); color: var(--green); }
+        .delta-down { background: var(--red-lt);   color: var(--red); }
+        .delta-flat { background: var(--surface-3); color: var(--ink-3); }
+        .kpi-value  { font-size: 1.6rem; font-weight: 800; color: var(--ink); line-height: 1.1; margin-top: 4px; }
+        .kpi-label  { font-size: 11.5px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; }
+        .kpi-compare { font-size: 11px; color: var(--ink-4); margin-top: 2px; }
+
+        .kpi-card.accent-violet { border-left: 3px solid var(--violet); }
+        .kpi-card.accent-green  { border-left: 3px solid var(--green); }
+        .kpi-card.accent-red    { border-left: 3px solid var(--red); }
+        .kpi-card.accent-amber  { border-left: 3px solid var(--amber); }
+        .kpi-card.accent-teal   { border-left: 3px solid var(--teal); }
+
+        /* ─── COMPARE ROW ────────────────────────────── */
+        .compare-row {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: .75rem; margin-bottom: 1.5rem;
+        }
+        .compare-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 1rem 1.2rem; box-shadow: var(--sh);
+        }
+        .compare-title {
+            font-size: 12px; font-weight: 700; color: var(--ink-3);
+            text-transform: uppercase; letter-spacing: .5px;
+            margin-bottom: .75rem;
+        }
+        .compare-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .compare-col-label { font-size: 11px; color: var(--ink-4); font-weight: 600; margin-bottom: 2px; }
+        .compare-col-val { font-size: 1.1rem; font-weight: 800; color: var(--ink); }
+        .compare-col-val.better  { color: var(--green); }
+        .compare-col-val.worse   { color: var(--red); }
+        .compare-bars { display: flex; gap: 4px; align-items: flex-end; height: 40px; margin-top: 8px; }
+        .compare-bar { flex: 1; border-radius: 4px 4px 0 0; transition: height .4s; }
+        .bar-current  { background: var(--violet); }
+        .bar-previous { background: var(--border-2); }
+        .bar-labels { display: flex; gap: 4px; margin-top: 4px; }
+        .bar-lbl { flex: 1; text-align: center; font-size: 10px; color: var(--ink-4); }
+
+        /* ─── CARDS / SECTION ────────────────────────── */
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 1.1rem 1.2rem; box-shadow: var(--sh);
+        }
+        .card-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: .9rem; }
+        .chart-wrap { position: relative; width: 100%; }
+
+        .section-title {
+            font-size: 13px; font-weight: 700; color: var(--ink-2);
+            margin-bottom: .75rem; display: flex; align-items: center; gap: 8px;
+        }
+
+        .charts-grid-2 {
+            display: grid; grid-template-columns: 1.4fr 1fr;
+            gap: .75rem; margin-bottom: 1.5rem;
+        }
+        .charts-grid-half {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: .75rem; margin-bottom: 1.5rem;
+        }
+
+        /* ─── PREDICCIÓN ─────────────────────────────── */
+        .pred-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 1.1rem 1.2rem; box-shadow: var(--sh);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: .5rem;
+        }
+        .pred-big-num {
+            font-size: 3.5rem; font-weight: 900; color: var(--violet); line-height: 1;
+        }
+        .pred-label  { font-size: 12px; color: var(--ink-3); }
+        .pred-ing    { font-size: 15px; font-weight: 700; color: var(--green); }
+        .pred-tend   { font-size: 13px; font-weight: 700; }
+        .tend-up     { color: var(--green); }
+        .tend-down   { color: var(--red); }
+        .tend-flat   { color: var(--ink-3); }
+
+        .confidence-bar { height: 6px; background: var(--border); border-radius: 3px; width: 100%; margin-top: 4px; overflow: hidden; }
+        .confidence-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+        .confidence-fill.low    { background: var(--red); }
+        .confidence-fill.medium { background: var(--amber); }
+        .confidence-fill.high   { background: var(--green); }
+
+        /* ─── DIAS TABLE ─────────────────────────────── */
+        .dias-list { display: flex; flex-direction: column; gap: 0; }
+        .dias-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid var(--border); gap: .5rem;
+        }
+        .dias-row:last-child { border-bottom: none; }
+        .dias-date { font-size: 12.5px; color: var(--ink-2); font-weight: 600; min-width: 90px; }
+        .dias-bar-wrap { flex: 1; height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; min-width: 40px; }
+        .dias-bar-fill { height: 100%; border-radius: 4px; }
+        .dias-val { font-size: 12.5px; font-weight: 800; min-width: 50px; text-align: right; }
+
+        /* ─── FREQ TABLE ─────────────────────────────── */
+        .freq-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .freq-table th { text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+        .freq-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .freq-table tr:last-child td { border-bottom: none; }
+        .freq-table tr:hover td { background: var(--surface-2); }
+        .freq-bar-bg   { height: 6px; background: var(--surface-3); border-radius: 3px; min-width: 60px; }
+        .freq-bar-fill { height: 100%; border-radius: 3px; background: var(--violet); }
+        .rank-badge { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+        .rank-1 { background: #fef3c7; color: #92400e; }
+        .rank-2 { background: var(--surface-3); color: var(--ink-3); }
+        .rank-3 { background: #fff7ed; color: #9a3412; }
+        .rank-n { background: var(--surface-2); color: var(--ink-4); }
+
+        /* ─── RETENTION ──────────────────────────────── */
+        .retention-row {
+            display: flex; align-items: center; gap: 1.2rem;
+        }
+        .donut-wrap { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
+        .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+        .donut-pct { font-size: 1.3rem; font-weight: 900; color: var(--ink); }
+        .donut-sub { font-size: 10px; color: var(--ink-4); }
+        .ret-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+        .ret-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface-2); }
+        .ret-row-label { font-size: 12px; font-weight: 600; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+        .ret-row-val   { font-size: 13px; font-weight: 800; }
+
+        /* ─── ESTADOS LEGEND ─────────────────────────── */
+        .estados-wrap { display: flex; align-items: center; gap: 1.2rem; }
+        .estados-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+        /* ─── SERVS TABLE ────────────────────────────── */
+        .servs-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .servs-table th { text-align: left; padding: 7px 8px; font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+        .servs-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); }
+        .servs-table tr:last-child td { border-bottom: none; }
+        .servs-table tr:hover td { background: var(--surface-2); }
+        .serv-bar-bg   { height: 5px; background: var(--surface-3); border-radius: 3px; min-width: 50px; }
+        .serv-bar-fill { height: 100%; border-radius: 3px; background: var(--teal); }
+
+        /* ─── SUGGESTIONS ────────────────────────────── */
+        .suggestion {
+            display: flex; gap: .75rem; align-items: flex-start;
+            background: var(--amber-lt); border: 1px solid #fde68a;
+            border-left: 3px solid var(--amber); border-radius: var(--r-sm);
+            padding: .75rem 1rem; margin-bottom: .6rem;
+        }
+        .suggestion-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .suggestion-body { flex: 1; }
+        .suggestion-text { font-size: 13px; font-weight: 600; color: #78350f; }
+        .suggestion-sub  { font-size: 11px; font-weight: 400; color: #92400e; margin-top: 2px; }
+        .btn-promo {
+            padding: 5px 12px; border: none; border-radius: 20px;
+            background: var(--amber); color: #78350f;
+            font-size: 11px; font-weight: 700; cursor: pointer;
+            white-space: nowrap; flex-shrink: 0; align-self: center;
+        }
+
+        /* ─── CITAS TABLE ────────────────────────────── */
+        .recent-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .recent-table th { padding: 7px 10px; font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; background: var(--surface-2); text-align: left; }
+        .recent-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+        .recent-table tr:last-child td { border-bottom: none; }
+        .state-badge { padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+        .state-completado { background: var(--green-lt); color: var(--green); }
+        .state-confirmado { background: var(--blue-lt);  color: var(--blue); }
+        .state-cancelado  { background: var(--red-lt);   color: var(--red); }
+
+        .empty { text-align: center; padding: 2rem; color: var(--ink-4); font-size: 13px; }
+        .no-data-banner {
+            background: var(--surface); border: 1px solid var(--border);
+            border-left: 3px solid var(--red); border-radius: var(--r);
+            padding: 1rem 1.2rem; margin-bottom: 1.5rem;
+            font-size: 13px; font-weight: 600; color: var(--red);
+        }
+        .no-data-banner span { color: var(--ink-3); font-weight: 400; display: block; margin-top: 4px; font-size: 12px; }
+
+        /* ─── RESPONSIVE ─────────────────────────────── */
+        @media(max-width:700px) {
+            .kpi-grid         { grid-template-columns: 1fr 1fr 1fr; }
+            .charts-grid-2    { grid-template-columns: 1fr; }
+            .charts-grid-half { grid-template-columns: 1fr; }
+            .compare-row      { grid-template-columns: 1fr; }
+            .page             { padding: 1rem .75rem; }
+            .topbar           { padding: 0 .75rem; }
+            .nav-tabs         { padding: 0 .75rem; }
+            .retention-row    { flex-direction: column; align-items: flex-start; }
+            .estados-wrap     { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📊 {{ profesional_nombre }}</h1>
-        <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:0.8rem;color:var(--text-light);">👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <a href="{{ url_for('logout') }}" class="btn-sm btn-danger">🚪 Salir</a>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="prof-avatar" id="topAvatar">?</div>
+        <div>
+            <div class="prof-name">{{ profesional_nombre }}</div>
+        </div>
+        <span class="prof-tag">Mis Estadísticas</span>
+    </div>
+    <div class="topbar-right">
+        <div class="user-chip">
+            <span>{{ session.get('usuario_nombre', 'Usuario') }}</span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Salir</a>
+    </div>
+</div>
+
+<!-- NAV -->
+<div class="nav-wrap">
+    <nav class="nav-tabs">
+        <a href="{{ url_for('profesional_dashboard') }}"                                       class="nav-tab">Dashboard</a>
+        <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-tab active">Estadísticas</a>
+        <a href="{{ url_for('profesional_promociones') }}"                                      class="nav-tab">Promociones</a>
+    </nav>
+</div>
+
+<div class="page">
+
+    <!-- CONTROL BAR -->
+    <div class="control-bar">
+        <div class="period-tabs" id="periodTabs">
+            <button class="pt-btn"        data-p="day"   onclick="setPeriodo('day')">Día</button>
+            <button class="pt-btn"        data-p="week"  onclick="setPeriodo('week')">Semana</button>
+            <button class="pt-btn active" data-p="month" onclick="setPeriodo('month')">Mes</button>
+        </div>
+
+        <div id="pickerDay" style="display:none;align-items:center;gap:.5rem;">
+            <span style="font-size:12px;font-weight:600;color:var(--ink-3);">Fecha</span>
+            <input type="date" id="inputDay" class="ctrl-input" />
+        </div>
+        <div id="pickerWeek" style="display:none;align-items:center;gap:.5rem;">
+            <span style="font-size:12px;font-weight:600;color:var(--ink-3);">Semana del</span>
+            <input type="date" id="inputWeekStart" class="ctrl-input" />
+        </div>
+        <div id="pickerMonth" style="display:flex;align-items:center;gap:.5rem;">
+            <select id="selMes" class="ctrl-select">
+                <option value="1">Enero</option><option value="2">Febrero</option>
+                <option value="3">Marzo</option><option value="4">Abril</option>
+                <option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option>
+                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+            <select id="selAnio" class="ctrl-select"></select>
+        </div>
+
+        <button class="btn-apply" onclick="cargarTodo()">Actualizar</button>
+        <div class="period-label" id="periodoLabel">—</div>
+    </div>
+
+    <!-- NO DATA BANNER (oculto por defecto) -->
+    <div id="noDataBanner" class="no-data-banner" style="display:none;">
+        Sin citas registradas en este período
+        <span>A medida que acumules más citas, las predicciones serán más precisas.</span>
+    </div>
+
+    <!-- PERFIL STRIP -->
+    <div class="profile-strip">
+        <div class="big-avatar" id="bigAvatar">?</div>
+        <div class="info">
+            <div class="name">{{ profesional_nombre }}</div>
+            <div class="sub" id="profileSub">Cargando resumen...</div>
+        </div>
+        <div class="perf-chips" id="perfChips"></div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid">
+        <div class="kpi-card accent-violet">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background:var(--violet-lt)">📅</div>
+                <span class="kpi-delta delta-flat" id="dCitas">—</span>
+            </div>
+            <div class="kpi-value" id="vCitas">—</div>
+            <div class="kpi-label">Total Citas</div>
+            <div class="kpi-compare" id="cCitas">vs período anterior</div>
+        </div>
+        <div class="kpi-card accent-green">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background:var(--green-lt)">💰</div>
+                <span class="kpi-delta delta-flat" id="dIngresos">—</span>
+            </div>
+            <div class="kpi-value" id="vIngresos">—</div>
+            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-compare" id="cIngresos">vs período anterior</div>
+        </div>
+        <div class="kpi-card accent-amber">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background:var(--amber-lt)">👥</div>
+                <span class="kpi-delta delta-flat" id="dClientes">—</span>
+            </div>
+            <div class="kpi-value" id="vClientes">—</div>
+            <div class="kpi-label">Clientes Únicos</div>
+            <div class="kpi-compare" id="cClientes">clientes distintos</div>
+        </div>
+        <div class="kpi-card accent-teal">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background:var(--teal-lt)">🎯</div>
+                <span class="kpi-delta delta-flat" id="dTasa">—</span>
+            </div>
+            <div class="kpi-value" id="vTasa">—</div>
+            <div class="kpi-label">Tasa de Éxito</div>
+            <div class="kpi-compare" id="cTasa">completadas + confirmadas</div>
+        </div>
+        <div class="kpi-card accent-red">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background:var(--red-lt)">❌</div>
+                <span class="kpi-delta delta-flat" id="dCancel">—</span>
+            </div>
+            <div class="kpi-value" id="vCancel">—</div>
+            <div class="kpi-label">Canceladas</div>
+            <div class="kpi-compare" id="cCancel">vs período anterior</div>
+        </div>
+        <div class="kpi-card accent-violet">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background:var(--violet-lt)">🔁</div>
+                <span class="kpi-delta delta-flat" id="dRetorno">—</span>
+            </div>
+            <div class="kpi-value" id="vRetorno">—</div>
+            <div class="kpi-label">Retención</div>
+            <div class="kpi-compare" id="cRetorno">clientes que repiten</div>
         </div>
     </div>
 
-    <div class="container">
-        <!-- NAV TABS -->
-        <div class="nav-tabs">
-            <a href="{{ url_for('profesional_dashboard') }}" class="nav-tab">📋 Dashboard</a>
-            <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-tab active">📊 Estadísticas</a>
-            <a href="{{ url_for('profesional_promociones') }}" class="nav-tab">🎁 Promos</a>
-        </div>
-
-        <!-- FILTROS -->
-        <form method="GET" action="{{ url_for('profesional_estadisticas') }}" style="margin-bottom:1.5rem;">
-            <input type="hidden" name="profesional_id" value="{{ profesional_id }}">
-            <div class="filters-row">
-                <select name="mes" class="filter-select">
-                    {% for i in range(1, 13) %}
-                    <option value="{{ i }}" {% if i == estadisticas.mes %}selected{% endif %}>
-                        {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][i-1] }}
-                    </option>
-                    {% endfor %}
-                </select>
-                <select name="año" class="filter-select">
-                    {% for year in range(2024, 2028) %}
-                    <option value="{{ year }}" {% if year == estadisticas.año %}selected{% endif %}>{{ year }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="btn-refresh">🔄</button>
-            </div>
-        </form>
-
-        <!-- PERÍODO INFO -->
-        {% if estadisticas.total_citas == 0 %}
-        <div class="card" style="text-align:center;border-left:4px solid var(--danger);">
-            <p style="font-size:0.9rem;">⚠️ <strong>No hay citas registradas</strong> para {{ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][estadisticas.mes-1] }} {{ estadisticas.año }}</p>
-            <p style="font-size:0.8rem;color:var(--text-light);">A medida que tengas más citas, las predicciones serán más precisas.</p>
-        </div>
-        {% endif %}
-
-        <!-- STATS CARDS -->
-        <div class="stats-grid">
-            <div class="stat-card highlight-primary">
-                <div class="stat-icon">📅</div>
-                <div class="stat-number">{{ estadisticas.total_citas }}</div>
-                <div class="stat-label">Total Citas</div>
-            </div>
-            <div class="stat-card highlight-success">
-                <div class="stat-icon">✅</div>
-                <div class="stat-number">{{ estadisticas.confirmadas }}</div>
-                <div class="stat-label">Confirmadas</div>
-            </div>
-            <div class="stat-card highlight-success">
-                <div class="stat-icon">🎯</div>
-                <div class="stat-number">{{ estadisticas.completadas }}</div>
-                <div class="stat-label">Completadas</div>
-            </div>
-            <div class="stat-card highlight-danger">
-                <div class="stat-icon">❌</div>
-                <div class="stat-number">{{ estadisticas.canceladas }}</div>
-                <div class="stat-label">Canceladas</div>
-            </div>
-            <div class="stat-card highlight-success">
-                <div class="stat-icon">💰</div>
-                <div class="stat-number">${{ "{:,.0f}".format(estadisticas.ingresos_totales|int) }}</div>
-                <div class="stat-label">Ingresos</div>
-            </div>
-            <div class="stat-card highlight-warning">
-                <div class="stat-icon">📊</div>
-                <div class="stat-number">{{ estadisticas.tasa_exito }}%</div>
-                <div class="stat-label">Tasa Éxito</div>
-            </div>
-        </div>
-
-        <!-- GRÁFICOS BÁSICOS -->
-        <div class="charts-grid">
-            <div class="card">
-                <div class="card-title">📅 Distribución de Citas</div>
-                <canvas id="chartEstados" height="180"></canvas>
-            </div>
-            <div class="card">
-                <div class="card-title">💼 Servicios Más Solicitados</div>
-                <canvas id="chartServicios" height="180"></canvas>
-            </div>
-        </div>
-
-        <!-- ==================== SECCIONES AVANZADAS ==================== -->
-
-        <!-- SUGERENCIAS INTELIGENTES -->
-        <div id="sugerenciasSection" style="display:none;margin-top:1rem;">
-            <div class="card-title" style="margin-bottom:0.5rem;">💡 Sugerencias para Mejorar</div>
-            <div id="sugerenciasList"></div>
-        </div>
-
-        <!-- PREDICCIÓN + CONFIANZA -->
-        <div class="charts-grid" style="margin-top:1rem;">
-            <div class="card" style="text-align:center;">
-                <div class="card-title">🔮 Predicción Próxima Semana</div>
-                <div class="prediccion-big">
-                    <div class="big-number" id="prediccionCitas">--</div>
-                    <div class="big-label">citas estimadas</div>
-                    <div class="big-sub" id="prediccionIngresos"></div>
-                    <div style="margin-top:1rem;font-size:0.85rem;font-weight:600;" id="prediccionTendencia"></div>
-                    <div style="margin-top:0.8rem;">
-                        <span style="font-size:0.7rem;color:var(--text-light);">Nivel de confianza</span>
-                        <div class="confidence-bar">
-                            <div class="confidence-fill" id="confidenceFill" style="width:0%;"></div>
-                        </div>
-                        <span style="font-size:0.7rem;color:var(--text-light);" id="confidenceLabel">Basado en 0 meses de datos</span>
-                    </div>
+    <!-- COMPARE -->
+    <div class="compare-row">
+        <div class="compare-card">
+            <div class="compare-title">📊 Citas: actual vs período anterior</div>
+            <div class="compare-cols">
+                <div>
+                    <div class="compare-col-label" id="cmCurrLabel">Actual</div>
+                    <div class="compare-col-val" id="cmCurrCitas">—</div>
+                    <div style="font-size:11px;color:var(--ink-4);" id="cmCurrIng">—</div>
+                </div>
+                <div>
+                    <div class="compare-col-label" id="cmPrevLabel">Anterior</div>
+                    <div class="compare-col-val neutral" id="cmPrevCitas">—</div>
+                    <div style="font-size:11px;color:var(--ink-4);" id="cmPrevIng">—</div>
                 </div>
             </div>
-            <div class="card">
-                <div class="card-title">👥 Clientes Más Frecuentes</div>
-                <div id="clientesFrecuentesList" class="no-data">Cargando...</div>
+            <div class="compare-bars">
+                <div class="compare-bar bar-current"  id="barCurr" style="height:32px;"></div>
+                <div class="compare-bar bar-previous" id="barPrev" style="height:32px;"></div>
+            </div>
+            <div class="bar-labels">
+                <div class="bar-lbl">Actual</div>
+                <div class="bar-lbl">Anterior</div>
             </div>
         </div>
-
-        <!-- DÍAS OCUPADOS / FLOJOS -->
-        <div class="charts-grid" style="margin-top:1rem;">
-            <div class="card">
-                <div class="card-title">📅 Días Más Ocupados</div>
-                <div id="diasOcupadosList" class="no-data">Cargando...</div>
+        <div class="compare-card">
+            <div class="compare-title">📆 Vs. mismo período año anterior</div>
+            <div class="compare-cols">
+                <div>
+                    <div class="compare-col-label">Este año</div>
+                    <div class="compare-col-val" id="ycCurrCitas">—</div>
+                    <div style="font-size:11px;color:var(--ink-4);" id="ycCurrIng">—</div>
+                </div>
+                <div>
+                    <div class="compare-col-label" id="ycPrevLabel">Año anterior</div>
+                    <div class="compare-col-val neutral" id="ycPrevCitas">—</div>
+                    <div style="font-size:11px;color:var(--ink-4);" id="ycPrevIng">—</div>
+                </div>
             </div>
-            <div class="card">
-                <div class="card-title">📉 Días con Menos Movimiento</div>
-                <div id="diasFlujosList" class="no-data">Cargando...</div>
+            <div style="margin-top:.75rem;">
+                <div style="font-size:11px;color:var(--ink-4);margin-bottom:4px;">Variación interanual</div>
+                <div style="font-size:1.3rem;font-weight:900;" id="ycDelta">—</div>
             </div>
         </div>
-
-        <!-- TABLA SERVICIOS -->
-        {% if estadisticas.servicios_populares %}
-        <div class="card" style="margin-top:1rem;">
-            <div class="card-title">📋 Top Servicios del Mes</div>
-            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
-                <thead>
-                    <tr style="background:var(--bg);">
-                        <th style="padding:10px;text-align:left;">Servicio</th>
-                        <th style="padding:10px;text-align:right;">Citas</th>
-                        <th style="padding:10px;text-align:right;">%</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for servicio in estadisticas.servicios_populares %}
-                    <tr style="border-bottom:1px solid var(--border);">
-                        <td style="padding:10px;">{{ servicio.nombre }}</td>
-                        <td style="padding:10px;text-align:right;font-weight:700;">{{ servicio.cantidad }}</td>
-                        <td style="padding:10px;text-align:right;color:var(--text-light);">
-                            {{ ((servicio.cantidad / estadisticas.total_citas * 100) if estadisticas.total_citas > 0 else 0)|round(1) }}%
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
     </div>
 
-    <script>
-        // Datos desde el servidor
-        var estadisticas = {{ estadisticas|tojson|safe }};
-        var profesionalId = {{ profesional_id|tojson|safe }};
-        
-        var chartEstadosInstance = null;
-        var chartServiciosInstance = null;
-        
-        function escapeHtml(text) {
-            if (!text) return '';
-            var div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        // ==================== GRÁFICOS BÁSICOS ====================
-        function crearGraficosBasicos() {
-            if (chartEstadosInstance) { chartEstadosInstance.destroy(); chartEstadosInstance = null; }
-            if (chartServiciosInstance) { chartServiciosInstance.destroy(); chartServiciosInstance = null; }
-            
-            var ctxEstados = document.getElementById('chartEstados');
-            if (ctxEstados && estadisticas.total_citas > 0) {
-                chartEstadosInstance = new Chart(ctxEstados, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Confirmadas', 'Completadas', 'Canceladas'],
-                        datasets: [{
-                            data: [estadisticas.confirmadas || 0, estadisticas.completadas || 0, estadisticas.canceladas || 0],
-                            backgroundColor: ['#10b981', '#6366f1', '#ef4444'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
-                });
+    <!-- TENDENCIA + ESTADOS -->
+    <div class="section-title">Tendencia del período</div>
+    <div class="charts-grid-2" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-title" id="trendTitle">Citas por día</div>
+            <div class="chart-wrap" style="height:190px;">
+                <canvas id="chartTrend" role="img" aria-label="Tendencia de citas en el período"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">Distribución de estados</div>
+            <div class="estados-wrap">
+                <div class="donut-wrap" style="width:110px;height:110px;">
+                    <canvas id="chartEstados" width="110" height="110" role="img" aria-label="Distribución de estados"></canvas>
+                </div>
+                <div class="estados-legend" id="estadosLegend"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREDICCIÓN + RETENCIÓN -->
+    <div class="charts-grid-half" style="margin-bottom:1.5rem;">
+        <div class="pred-card">
+            <div class="card-title" style="margin-bottom:.25rem;">🔮 Predicción próxima semana</div>
+            <div class="pred-big-num" id="predNum">—</div>
+            <div class="pred-label">citas estimadas</div>
+            <div class="pred-ing"    id="predIng"></div>
+            <div class="pred-tend"   id="predTend"></div>
+            <div style="width:100%;margin-top:.5rem;">
+                <div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;">Nivel de confianza</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confFill" style="width:0%;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-4);margin-top:3px;" id="confLabel">Basado en 0 mes(es)</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">Retención de clientes</div>
+            <div class="retention-row">
+                <div class="donut-wrap">
+                    <canvas id="chartRetention" width="100" height="100" role="img" aria-label="Tasa de retención"></canvas>
+                    <div class="donut-center">
+                        <div class="donut-pct" id="retPct">—</div>
+                        <div class="donut-sub">retención</div>
+                    </div>
+                </div>
+                <div class="ret-stats">
+                    <div class="ret-row">
+                        <span class="ret-row-label"><span style="color:var(--green)">●</span> Repiten</span>
+                        <span class="ret-row-val" style="color:var(--green)" id="retRepeat">—</span>
+                    </div>
+                    <div class="ret-row">
+                        <span class="ret-row-label"><span style="color:var(--amber)">●</span> Solo una vez</span>
+                        <span class="ret-row-val" style="color:var(--amber)" id="retOnce">—</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--ink-4);padding:0 10px;">Historial completo</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVICIOS + HORAS PICO -->
+    <div class="charts-grid-half" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-title">💼 Mis servicios</div>
+            <div id="servsTableWrap" style="overflow-x:auto;">
+                <div class="empty">Cargando...</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">⏰ Mis horas pico</div>
+            <div class="chart-wrap" style="height:175px;">
+                <canvas id="chartHoras" role="img" aria-label="Distribución de citas por hora"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- DÍAS OCUPADOS + FLOJOS -->
+    <div class="charts-grid-half" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-title">📈 Días más ocupados</div>
+            <div id="diasOcupList"><div class="empty">Cargando...</div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">📉 Días con menos actividad</div>
+            <div id="diasFlujoList"><div class="empty">Cargando...</div></div>
+        </div>
+    </div>
+
+    <!-- CLIENTES FRECUENTES -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-title">👥 Clientes más frecuentes</div>
+        <div style="overflow-x:auto;">
+            <table class="freq-table">
+                <thead>
+                    <tr><th>#</th><th>Cliente</th><th>Citas</th><th>Frecuencia</th></tr>
+                </thead>
+                <tbody id="freqBody"><tr><td colspan="4" class="empty">Cargando...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SUGERENCIAS -->
+    <div id="suggestSection" style="margin-bottom:1.5rem;display:none;">
+        <div class="section-title">💡 Oportunidades para mejorar</div>
+        <div id="suggestList"></div>
+    </div>
+
+    <!-- CITAS DEL PERÍODO -->
+    <div class="card">
+        <div class="card-title">Citas del período</div>
+        <div style="overflow-x:auto;">
+            <table class="recent-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th><th>Teléfono</th><th>Servicio</th>
+                        <th>Fecha</th><th>Hora</th><th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="recentBody"><tr><td colspan="6" class="empty">Cargando...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- /page -->
+
+<script>
+/* eslint-disable */
+var PROF_ID  = {{ profesional_id|tojson|safe }};
+/* eslint-enable */
+var PROF_NOM = "{{ profesional_nombre }}";
+var TODAY    = new Date();
+var MESES    = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+var MESES_S  = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+var modo     = 'month';
+var charts   = {};
+
+// ── INIT ─────────────────────────────────────────────────────────
+(function init() {
+    var ini = PROF_NOM.slice(0,1).toUpperCase() || '?';
+    document.getElementById('topAvatar').textContent  = ini;
+    document.getElementById('bigAvatar').textContent  = ini;
+
+    var selA = document.getElementById('selAnio');
+    for (var y = TODAY.getFullYear(); y >= 2022; y--) {
+        var opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        if (y === TODAY.getFullYear()) opt.selected = true;
+        selA.appendChild(opt);
+    }
+    document.getElementById('selMes').value = TODAY.getMonth() + 1;
+    document.getElementById('inputDay').value = TODAY.toISOString().split('T')[0];
+    document.getElementById('inputWeekStart').value = getMonday(TODAY).toISOString().split('T')[0];
+})();
+
+function getMonday(d) {
+    var dt = new Date(d), day = dt.getDay() || 7;
+    if (day !== 1) dt.setDate(dt.getDate() - day + 1);
+    return dt;
+}
+
+// ── PERIOD SWITCHER ───────────────────────────────────────────────
+function setPeriodo(p) {
+    modo = p;
+    document.querySelectorAll('.pt-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.p === p); });
+    document.getElementById('pickerDay').style.display   = p === 'day'   ? 'flex' : 'none';
+    document.getElementById('pickerWeek').style.display  = p === 'week'  ? 'flex' : 'none';
+    document.getElementById('pickerMonth').style.display = p === 'month' ? 'flex' : 'none';
+    cargarTodo();
+}
+
+// ── RANGE HELPERS ─────────────────────────────────────────────────
+function getRange() {
+    if (modo === 'day') {
+        var d = document.getElementById('inputDay').value || TODAY.toISOString().split('T')[0];
+        return { fi: d, ff: d, label: d };
+    }
+    if (modo === 'week') {
+        var s = new Date(document.getElementById('inputWeekStart').value || getMonday(TODAY));
+        var e = new Date(s); e.setDate(e.getDate()+6);
+        var si = s.toISOString().split('T')[0], ei = e.toISOString().split('T')[0];
+        return { fi: si, ff: ei, label: 'Semana ' + si + ' – ' + ei };
+    }
+    var mes = parseInt(document.getElementById('selMes').value);
+    var ano = parseInt(document.getElementById('selAnio').value);
+    var last = new Date(ano, mes, 0).getDate();
+    var fi = ano+'-'+pad(mes)+'-01', ff = ano+'-'+pad(mes)+'-'+pad(last);
+    return { fi: fi, ff: ff, mes: mes, anio: ano, label: MESES[mes-1]+' '+ano };
+}
+function getPrev() {
+    var r = getRange();
+    if (modo === 'day') {
+        var d = new Date(r.fi); d.setDate(d.getDate()-1);
+        var s = d.toISOString().split('T')[0]; return { fi: s, ff: s };
+    }
+    if (modo === 'week') {
+        var s2 = new Date(r.fi); s2.setDate(s2.getDate()-7);
+        var e2 = new Date(r.ff); e2.setDate(e2.getDate()-7);
+        return { fi: s2.toISOString().split('T')[0], ff: e2.toISOString().split('T')[0] };
+    }
+    var m2 = r.mes-1 || 12, a2 = m2===12 ? r.anio-1 : r.anio;
+    var l2 = new Date(a2, m2, 0).getDate();
+    return { fi: a2+'-'+pad(m2)+'-01', ff: a2+'-'+pad(m2)+'-'+pad(l2), mes: m2, anio: a2 };
+}
+function getYearAgo() {
+    var r = getRange();
+    if (modo === 'day') {
+        var d = new Date(r.fi); d.setFullYear(d.getFullYear()-1);
+        var s = d.toISOString().split('T')[0]; return { fi: s, ff: s };
+    }
+    if (modo === 'week') {
+        var s2 = new Date(r.fi); s2.setFullYear(s2.getFullYear()-1);
+        var e2 = new Date(r.ff); e2.setFullYear(e2.getFullYear()-1);
+        return { fi: s2.toISOString().split('T')[0], ff: e2.toISOString().split('T')[0] };
+    }
+    var a2 = r.anio-1, l2 = new Date(a2, r.mes, 0).getDate();
+    return { fi: a2+'-'+pad(r.mes)+'-01', ff: a2+'-'+pad(r.mes)+'-'+pad(l2), mes: r.mes, anio: a2 };
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+
+// ── FETCH ─────────────────────────────────────────────────────────
+async function fetchStats(fi, ff, mes, anio) {
+    var url = '/profesional/api/estadisticas?profesional_id='+PROF_ID+'&fecha_inicio='+fi+'&fecha_fin='+ff;
+    if (mes)  url += '&mes='+mes;
+    if (anio) url += '&año='+anio;
+    try { var r = await fetch(url); return await r.json(); } catch(e) { return {}; }
+}
+async function fetchCitas(fi, ff) {
+    var url = '/profesional/api/citas?profesional_id='+PROF_ID+'&fecha_inicio='+fi+'&fecha_fin='+ff+'&limit=200';
+    try { var r = await fetch(url); return await r.json(); } catch(e) { return []; }
+}
+async function fetchAvanzadas(mes, anio) {
+    var url = '/profesional/api/estadisticas-avanzadas?profesional_id='+PROF_ID+'&mes='+(mes||TODAY.getMonth()+1)+'&año='+(anio||TODAY.getFullYear());
+    try { var r = await fetch(url); return await r.json(); } catch(e) { return {}; }
+}
+
+// ── MAIN ──────────────────────────────────────────────────────────
+async function cargarTodo() {
+    var rng  = getRange();
+    var prev = getPrev();
+    var yago = getYearAgo();
+
+    document.getElementById('periodoLabel').textContent = rng.label;
+
+    var [curr, prevD, yearD, citas, avanz] = await Promise.all([
+        fetchStats(rng.fi,  rng.ff,  rng.mes,  rng.anio),
+        fetchStats(prev.fi, prev.ff, prev.mes, prev.anio),
+        fetchStats(yago.fi, yago.ff, yago.mes, yago.anio),
+        fetchCitas(rng.fi,  rng.ff),
+        fetchAvanzadas(rng.mes, rng.anio)
+    ]);
+
+    var cr = curr.resumen || curr;
+    var pr = prevD.resumen || prevD;
+    var yr = yearD.resumen || yearD;
+
+    if (!Array.isArray(citas)) citas = [];
+    var met = calcMetricas(citas, cr);
+
+    document.getElementById('noDataBanner').style.display = (cr.total_citas || 0) === 0 ? 'block' : 'none';
+
+    actualizarPerfil(cr, met);
+    actualizarKPIs(cr, pr, met);
+    actualizarCompare(cr, pr, yr, rng, prev, yago);
+    renderCharts(cr, citas);
+    renderRetention(met);
+    renderServsTable(curr.servicios_populares || cr.servicios_populares || []);
+    renderDias(avanz);
+    renderFreq(met.topClientes);
+    renderSuggestions(cr, pr, met, avanz);
+    renderRecentTable(citas);
+    renderAvanzadas(avanz);
+}
+
+// ── MÉTRICAS ──────────────────────────────────────────────────────
+function calcMetricas(citas, cr) {
+    var phones = {};
+    citas.forEach(function(c) {
+        var k = (c.cliente_telefono || c.cliente_nombre || '?').trim().toLowerCase();
+        if (!phones[k]) phones[k] = { nombre: c.cliente_nombre || 'Cliente', citas: 0 };
+        phones[k].citas++;
+    });
+    var clientes = Object.values(phones);
+    var total    = clientes.length;
+    var repiten  = clientes.filter(function(c){ return c.citas > 1; }).length;
+    var pctRet   = total > 0 ? Math.round((repiten/total)*100) : 0;
+
+    return {
+        totalClientes: total,
+        repiten: repiten,
+        soloUna: total - repiten,
+        pctRetorno: pctRet,
+        topClientes: clientes.sort(function(a,b){ return b.citas-a.citas; }).slice(0,8),
+        horasMap: calcHoras(citas),
+        diasMap:  calcDias(citas)
+    };
+}
+function calcHoras(citas) {
+    var m = {};
+    citas.forEach(function(c) {
+        var h = c.hora ? parseInt(c.hora.split(':')[0]) : null;
+        if (h !== null && !isNaN(h)) m[h] = (m[h]||0)+1;
+    });
+    return m;
+}
+function calcDias(citas) {
+    var m = {};
+    citas.forEach(function(c) { if (c.fecha) m[c.fecha] = (m[c.fecha]||0)+1; });
+    return m;
+}
+
+// ── PERFIL STRIP ──────────────────────────────────────────────────
+function actualizarPerfil(cr, met) {
+    var total = cr.total_citas || 0;
+    var ing   = cr.ingresos_totales || 0;
+    document.getElementById('profileSub').textContent = total + ' citas · $' + Number(ing).toLocaleString('es-CO') + ' en el período';
+
+    var chips = [];
+    var tasa = total > 0 ? Math.round(((cr.citas_confirmadas||0)+(cr.citas_completadas||0))/total*100) : 0;
+    if (tasa >= 80) chips.push('<span class="perf-chip chip-green">✅ '+tasa+'% éxito</span>');
+    else if (tasa > 0) chips.push('<span class="perf-chip chip-amber">⚠️ '+tasa+'% éxito</span>');
+    if (met.pctRetorno >= 40) chips.push('<span class="perf-chip chip-violet">🔁 '+met.pctRetorno+'% retención</span>');
+    var cancelRate = total > 0 ? Math.round(((cr.citas_canceladas||0)/total)*100) : 0;
+    if (cancelRate > 20) chips.push('<span class="perf-chip chip-red">❌ '+cancelRate+'% cancelación</span>');
+    document.getElementById('perfChips').innerHTML = chips.join('');
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────
+function delta(c, p) {
+    if (!p || p === 0) return { txt: 'Nuevo', cls: 'delta-flat' };
+    var pct = Math.round(((c-p)/p)*100);
+    if (pct > 0) return { txt: '+'+pct+'%', cls: 'delta-up' };
+    if (pct < 0) return { txt: pct+'%',    cls: 'delta-down' };
+    return { txt: '0%', cls: 'delta-flat' };
+}
+function setKpi(vId, dId, cId, val, prev, fmt, cmp) {
+    document.getElementById(vId).textContent = fmt(val);
+    var d = delta(val, prev);
+    var el = document.getElementById(dId);
+    el.textContent = d.txt; el.className = 'kpi-delta '+d.cls;
+    if (cmp && cId) document.getElementById(cId).textContent = cmp;
+}
+function fmt$(v)  { return '$'+(v||0).toLocaleString('es-CO'); }
+function fmtN(v)  { return (v||0).toLocaleString('es-CO'); }
+function fmtP(v)  { return (v||0)+'%'; }
+
+function actualizarKPIs(cr, pr, met) {
+    var tasa  = cr.total_citas > 0 ? Math.round(((cr.citas_confirmadas||0)+(cr.citas_completadas||0))/cr.total_citas*100) : 0;
+    var tasaP = pr.total_citas > 0 ? Math.round(((pr.citas_confirmadas||0)+(pr.citas_completadas||0))/pr.total_citas*100) : 0;
+
+    setKpi('vCitas',    'dCitas',    'cCitas',    cr.total_citas||0,      pr.total_citas||0,      fmtN, 'vs período anterior');
+    setKpi('vIngresos', 'dIngresos', 'cIngresos', cr.ingresos_totales||0, pr.ingresos_totales||0, fmt$, 'vs período anterior');
+    setKpi('vClientes', 'dClientes', 'cClientes', met.totalClientes,      0,                      fmtN, 'clientes distintos');
+    setKpi('vTasa',     'dTasa',     'cTasa',     tasa,                   tasaP,                  fmtP, 'completadas + confirmadas');
+    setKpi('vCancel',   'dCancel',   'cCancel',   cr.citas_canceladas||0, pr.citas_canceladas||0, fmtN, 'vs período anterior');
+    setKpi('vRetorno',  'dRetorno',  'cRetorno',  met.pctRetorno,         0,                      fmtP, 'clientes que repiten');
+}
+
+// ── COMPARE ───────────────────────────────────────────────────────
+function actualizarCompare(cr, pr, yr, rng, prevRng, yagoRng) {
+    var cC = cr.total_citas||0, cP = pr.total_citas||0, cY = yr.total_citas||0;
+    var iC = cr.ingresos_totales||0, iP = pr.ingresos_totales||0, iY = yr.ingresos_totales||0;
+
+    document.getElementById('cmCurrLabel').textContent  = rng.label || 'Actual';
+    document.getElementById('cmPrevLabel').textContent  = modo === 'month' ? MESES_S[(prevRng.mes||1)-1]+' '+(prevRng.anio||'') : 'Anterior';
+    document.getElementById('cmCurrCitas').textContent  = cC+' citas';
+    document.getElementById('cmCurrCitas').className    = 'compare-col-val '+(cC>=cP?'better':'worse');
+    document.getElementById('cmCurrIng').textContent    = fmt$(iC);
+    document.getElementById('cmPrevCitas').textContent  = cP+' citas';
+    document.getElementById('cmPrevIng').textContent    = fmt$(iP);
+
+    var mx = Math.max(cC,cP,1);
+    document.getElementById('barCurr').style.height = Math.round((cC/mx)*40)+'px';
+    document.getElementById('barPrev').style.height = Math.round((cP/mx)*40)+'px';
+
+    document.getElementById('ycCurrCitas').textContent = cC+' citas';
+    document.getElementById('ycCurrIng').textContent   = fmt$(iC);
+    document.getElementById('ycPrevCitas').textContent = cY+' citas';
+    document.getElementById('ycPrevIng').textContent   = fmt$(iY);
+    document.getElementById('ycPrevLabel').textContent = modo==='month' ? MESES[(rng.mes||1)-1]+' '+(yagoRng.anio||'') : 'Año anterior';
+
+    var d = delta(cC, cY);
+    var el = document.getElementById('ycDelta');
+    el.textContent = d.txt;
+    el.style.color = d.cls==='delta-up' ? 'var(--green)' : d.cls==='delta-down' ? 'var(--red)' : 'var(--ink-3)';
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function renderCharts(cr, citas) {
+    renderTrend(citas);
+    renderEstados(cr);
+    renderHoras(citas);
+}
+
+function renderTrend(citas) {
+    destroyChart('trend');
+    if (!citas.length) return;
+    var map = {};
+    citas.forEach(function(c){ if (c.fecha) map[c.fecha] = (map[c.fecha]||0)+1; });
+    var labels = Object.keys(map).sort(), data = labels.map(function(l){ return map[l]; });
+    document.getElementById('trendTitle').textContent = modo==='day' ? 'Citas por hora' : modo==='week' ? 'Citas por día' : 'Citas por día del mes';
+    charts['trend'] = new Chart(document.getElementById('chartTrend'), {
+        type: 'line',
+        data: {
+            labels: labels.map(function(l){ return l.slice(5); }),
+            datasets: [{
+                data: data, label: 'Citas',
+                borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.08)',
+                fill: true, tension: .3,
+                pointRadius: data.length < 15 ? 4 : 2,
+                pointBackgroundColor: '#7c3aed', borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, color: '#6b7280', font:{size:11} }, grid: { color: 'rgba(0,0,0,.05)' } },
+                x: { ticks: { color: '#6b7280', font:{size:10}, maxRotation: 45, autoSkip: labels.length > 16 }, grid: { display: false } }
             }
-            
-            var ctxServicios = document.getElementById('chartServicios');
-            if (ctxServicios && estadisticas.servicios_populares && estadisticas.servicios_populares.length > 0) {
-                var nombres = [], cantidades = [];
-                for (var i = 0; i < estadisticas.servicios_populares.length; i++) {
-                    nombres.push(estadisticas.servicios_populares[i].nombre || 'Sin nombre');
-                    cantidades.push(estadisticas.servicios_populares[i].cantidad || 0);
-                }
-                chartServiciosInstance = new Chart(ctxServicios, {
-                    type: 'bar',
-                    data: {
-                        labels: nombres,
-                        datasets: [{ label: 'Citas', data: cantidades, backgroundColor: '#6366f1', borderRadius: 6 }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
-                        plugins: { legend: { display: false } }
-                    }
-                });
+        }
+    });
+}
+
+function renderEstados(cr) {
+    destroyChart('estados');
+    var comp = cr.citas_completadas||0, conf = cr.citas_confirmadas||0, canc = cr.citas_canceladas||0;
+    var total = comp+conf+canc; if (!total) return;
+    charts['estados'] = new Chart(document.getElementById('chartEstados'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Completadas','Confirmadas','Canceladas'],
+            datasets: [{ data: [comp,conf,canc], backgroundColor: ['#16a34a','#2563eb','#dc2626'], borderWidth: 0, hoverOffset: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+    });
+    var items = [
+        { label: 'Completadas', val: comp, color: '#16a34a' },
+        { label: 'Confirmadas', val: conf, color: '#2563eb' },
+        { label: 'Canceladas',  val: canc, color: '#dc2626' }
+    ];
+    document.getElementById('estadosLegend').innerHTML = items.map(function(it) {
+        return '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span style="width:10px;height:10px;border-radius:2px;background:'+it.color+';flex-shrink:0;"></span>' +
+            '<span style="font-size:12px;color:var(--ink-2);">'+it.label+'</span>' +
+            '<span style="font-weight:700;font-size:12px;color:var(--ink);margin-left:auto;">'+it.val+' ('+Math.round(it.val/total*100)+'%)</span>' +
+        '</div>';
+    }).join('');
+}
+
+function renderHoras(citas) {
+    destroyChart('horas');
+    if (!citas.length) return;
+    var map = {};
+    citas.forEach(function(c){ var h = c.hora ? parseInt(c.hora.split(':')[0]) : null; if (h !== null && !isNaN(h)) map[h] = (map[h]||0)+1; });
+    if (!Object.keys(map).length) return;
+    var hours = []; for (var i=6; i<=22; i++) hours.push(i);
+    var data = hours.map(function(h){ return map[h]||0; });
+    var maxV = Math.max.apply(null, data);
+    charts['horas'] = new Chart(document.getElementById('chartHoras'), {
+        type: 'bar',
+        data: {
+            labels: hours.map(function(h){ return h+'h'; }),
+            datasets: [{ data: data, label: 'Citas', backgroundColor: data.map(function(v){ return v===maxV&&v>0 ? '#d97706' : 'rgba(124,58,237,.35)'; }), borderRadius: 3, borderSkipped: false }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, color: '#9ca3af', font:{size:10} }, grid: { color: 'rgba(0,0,0,.04)' } },
+                x: { ticks: { color: '#9ca3af', font:{size:9} }, grid: { display: false } }
             }
         }
-        
-        // ==================== ESTADÍSTICAS AVANZADAS ====================
-        async function cargarEstadisticasAvanzadas() {
-            var mesSelect = document.querySelector('select[name="mes"]');
-            var añoSelect = document.querySelector('select[name="año"]');
-            var mes = mesSelect ? parseInt(mesSelect.value) : (estadisticas.mes || new Date().getMonth() + 1);
-            var año = añoSelect ? parseInt(añoSelect.value) : (estadisticas.año || new Date().getFullYear());
-            
-            try {
-                var url = '/profesional/api/estadisticas-avanzadas?profesional_id=' + profesionalId + '&mes=' + mes + '&año=' + año;
-                var response = await fetch(url);
-                var data = await response.json();
-                
-                if (!data.success) return;
-                
-                // ==================== SUGERENCIAS ====================
-                if (data.sugerencias && data.sugerencias.length > 0) {
-                    var sec = document.getElementById('sugerenciasSection');
-                    var list = document.getElementById('sugerenciasList');
-                    if (sec) sec.style.display = 'block';
-                    if (list) {
-                        var html = '';
-                        for (var s = 0; s < data.sugerencias.length; s++) {
-                            var sug = data.sugerencias[s];
-                            html += '<div class="sugerencia-card">';
-                            html += '<span class="sugerencia-text">' + (sug.icono || '💡') + ' ' + escapeHtml(sug.mensaje) + '</span>';
-                            html += '<button class="btn-promo-action" onclick="crearPromoDesdeSugerencia(\'' + escapeHtml(sug.tipo || 'descuento_dia') + '\')">✨ Crear Promo</button>';
-                            html += '</div>';
-                        }
-                        list.innerHTML = html;
-                    }
-                }
-                
-                // ==================== DÍAS OCUPADOS ====================
-                var diasOcupados = document.getElementById('diasOcupadosList');
-                if (diasOcupados) {
-                    if (data.dias_ocupados && data.dias_ocupados.length > 0) {
-                        var html = '';
-                        for (var d = 0; d < Math.min(data.dias_ocupados.length, 5); d++) {
-                            html += '<div class="lista-item"><div class="item-left">📅 ' + escapeHtml(data.dias_ocupados[d].fecha) + '</div><div class="item-right" style="color:var(--success);">' + (data.dias_ocupados[d].total || 0) + ' citas</div></div>';
-                        }
-                        diasOcupados.innerHTML = html;
-                    } else { diasOcupados.innerHTML = '<div class="no-data">Sin datos</div>'; }
-                }
-                
-                // ==================== DÍAS FLOJOS ====================
-                var diasFlujos = document.getElementById('diasFlujosList');
-                if (diasFlujos) {
-                    if (data.dias_flojos && data.dias_flojos.length > 0) {
-                        var html = '';
-                        for (var f = 0; f < Math.min(data.dias_flojos.length, 5); f++) {
-                            html += '<div class="lista-item"><div class="item-left">📅 ' + escapeHtml(data.dias_flojos[f].fecha) + '</div><div class="item-right" style="color:var(--danger);">' + (data.dias_flojos[f].total || 0) + ' citas</div></div>';
-                        }
-                        diasFlujos.innerHTML = html;
-                    } else { diasFlujos.innerHTML = '<div class="no-data">Sin datos</div>'; }
-                }
-                
-                // ==================== PREDICCIÓN + CONFIANZA ====================
-                if (data.prediccion) {
-                    document.getElementById('prediccionCitas').textContent = data.prediccion.citas_estimadas || '0';
-                    document.getElementById('prediccionIngresos').textContent = '💰 ~$' + Number(data.prediccion.ingresos_estimados || 0).toLocaleString() + ' ingresos est.';
-                    
-                    var tendencias = { 'subiendo': '📈 Subiendo 🚀', 'bajando': '📉 Bajando ⚠️', 'estable': '📊 Estable ✅' };
-                    document.getElementById('prediccionTendencia').textContent = tendencias[data.prediccion.tendencia] || '';
-                    
-                    // Calcular confianza basado en meses de datos
-                    var mesesDeDatos = data.meses_de_datos || 1;
-                    var confianza = Math.min(Math.round((mesesDeDatos / 6) * 100), 100);
-                    var fill = document.getElementById('confidenceFill');
-                    var label = document.getElementById('confidenceLabel');
-                    
-                    if (fill) {
-                        fill.style.width = confianza + '%';
-                        fill.className = 'confidence-fill ' + (confianza < 40 ? 'low' : confianza < 75 ? 'medium' : 'high');
-                    }
-                    if (label) {
-                        label.textContent = 'Basado en ' + mesesDeDatos + ' mes(es) de datos';
-                    }
-                }
-                
-                // ==================== CLIENTES FRECUENTES ====================
-                var clientesList = document.getElementById('clientesFrecuentesList');
-                if (clientesList) {
-                    var medallas = ['🥇', '🥈', '🥉'];
-                    if (data.clientes_frecuentes && data.clientes_frecuentes.length > 0) {
-                        var html = '';
-                        for (var c = 0; c < Math.min(data.clientes_frecuentes.length, 5); c++) {
-                            var medalla = medallas[c] || '👤';
-                            html += '<div class="lista-item"><div class="item-left">' + medalla + ' ' + escapeHtml(data.clientes_frecuentes[c].cliente_nombre || 'Cliente') + '</div><div class="item-right">' + (data.clientes_frecuentes[c].visitas || 0) + ' visitas</div></div>';
-                        }
-                        clientesList.innerHTML = html;
-                    } else { clientesList.innerHTML = '<div class="no-data">Sin datos aún</div>'; }
-                }
-                
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        }
-        
-        // ==================== CREAR PROMO DESDE SUGERENCIA ====================
-        function crearPromoDesdeSugerencia(tipo) {
-            window.location.href = '/profesional/promociones?crear=' + tipo;
-        }
-        
-        // ==================== INIT ====================
-        document.addEventListener('DOMContentLoaded', function() {
-            crearGraficosBasicos();
-            cargarEstadisticasAvanzadas();
+    });
+}
+
+// ── RETENCIÓN ─────────────────────────────────────────────────────
+function renderRetention(met) {
+    destroyChart('retention');
+    document.getElementById('retPct').textContent    = met.pctRetorno+'%';
+    document.getElementById('retRepeat').textContent = met.repiten+' clientes';
+    document.getElementById('retOnce').textContent   = met.soloUna+' clientes';
+    if (!met.totalClientes) return;
+    charts['retention'] = new Chart(document.getElementById('chartRetention'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Repiten','Solo una vez'],
+            datasets: [{ data: [met.repiten, met.soloUna], backgroundColor: ['#16a34a','#f59e0b'], borderWidth: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } }
+    });
+}
+
+// ── SERVICIOS TABLE ───────────────────────────────────────────────
+function renderServsTable(servs) {
+    var wrap = document.getElementById('servsTableWrap');
+    if (!servs || servs.length === 0) { wrap.innerHTML = '<div class="empty">Sin datos</div>'; return; }
+    var max = Math.max.apply(null, servs.map(function(s){ return s.cantidad||s.total_citas||0; }));
+    wrap.innerHTML = '<table class="servs-table">' +
+        '<thead><tr><th>Servicio</th><th>Citas</th><th>%</th><th>Popularidad</th></tr></thead><tbody>' +
+        servs.map(function(s) {
+            var cnt  = s.cantidad || s.total_citas || 0;
+            var pct  = max > 0 ? Math.round((cnt/max)*100) : 0;
+            var tot  = servs.reduce(function(a,x){ return a+(x.cantidad||x.total_citas||0); }, 0);
+            var pctT = tot > 0 ? Math.round((cnt/tot)*100) : 0;
+            return '<tr><td style="font-weight:600;color:var(--ink-2);">'+(s.nombre||'—')+'</td>' +
+                '<td style="font-weight:800;color:var(--teal);">'+cnt+'</td>' +
+                '<td style="color:var(--ink-3);">'+pctT+'%</td>' +
+                '<td><div class="serv-bar-bg"><div class="serv-bar-fill" style="width:'+pct+'%;"></div></div></td></tr>';
+        }).join('') +
+        '</tbody></table>';
+}
+
+// ── DÍAS OCUPADOS / FLOJOS ────────────────────────────────────────
+function renderDias(avanz) {
+    renderDiasList('diasOcupList', avanz.dias_ocupados, '#16a34a', true);
+    renderDiasList('diasFlujoList', avanz.dias_flojos,  '#dc2626', false);
+}
+function renderDiasList(elId, dias, color, top) {
+    var el = document.getElementById(elId);
+    if (!dias || dias.length === 0) { el.innerHTML = '<div class="empty">Sin datos</div>'; return; }
+    var max = Math.max.apply(null, dias.map(function(d){ return d.total||0; }));
+    var items = dias.slice(0, 5);
+    el.innerHTML = '<div class="dias-list">' + items.map(function(d) {
+        var pct = max > 0 ? Math.round((d.total/max)*100) : 0;
+        return '<div class="dias-row">' +
+            '<div class="dias-date">'+escH(d.fecha||'—')+'</div>' +
+            '<div class="dias-bar-wrap"><div class="dias-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div>' +
+            '<div class="dias-val" style="color:'+color+'">'+d.total+' citas</div>' +
+        '</div>';
+    }).join('') + '</div>';
+}
+
+// ── CLIENTES FRECUENTES ───────────────────────────────────────────
+function renderFreq(top) {
+    var tbody = document.getElementById('freqBody');
+    if (!top || top.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Sin datos</td></tr>'; return; }
+    var max = top[0].citas||1;
+    tbody.innerHTML = top.map(function(c, i) {
+        var rc = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+        var pct = Math.round((c.citas/max)*100);
+        return '<tr><td><span class="rank-badge '+rc+'">'+(i+1)+'</span></td>' +
+            '<td style="font-weight:600;color:var(--ink-2);">'+escH(c.nombre||'—')+'</td>' +
+            '<td style="font-weight:700;color:var(--violet);">'+c.citas+'</td>' +
+            '<td style="min-width:80px;"><div class="freq-bar-bg"><div class="freq-bar-fill" style="width:'+pct+'%;"></div></div></td></tr>';
+    }).join('');
+}
+
+// ── AVANZADAS (predicción) ────────────────────────────────────────
+function renderAvanzadas(avanz) {
+    if (!avanz || !avanz.success) return;
+    if (avanz.prediccion) {
+        document.getElementById('predNum').textContent = avanz.prediccion.citas_estimadas || '—';
+        document.getElementById('predIng').textContent = avanz.prediccion.ingresos_estimados
+            ? '💰 ~'+fmt$(avanz.prediccion.ingresos_estimados)+' est.'
+            : '';
+        var tendencias = { subiendo: '📈 Tendencia al alza', bajando: '📉 Tendencia a la baja', estable: '📊 Tendencia estable' };
+        var tendCls    = { subiendo: 'tend-up', bajando: 'tend-down', estable: 'tend-flat' };
+        var tend = avanz.prediccion.tendencia || 'estable';
+        var el = document.getElementById('predTend');
+        el.textContent = tendencias[tend] || '';
+        el.className   = 'pred-tend '+(tendCls[tend]||'tend-flat');
+
+        var meses = avanz.meses_de_datos || 1;
+        var conf  = Math.min(Math.round((meses/6)*100), 100);
+        var fill  = document.getElementById('confFill');
+        fill.style.width = conf+'%';
+        fill.className   = 'confidence-fill '+(conf<40?'low':conf<75?'medium':'high');
+        document.getElementById('confLabel').textContent = 'Basado en '+meses+' mes(es) de datos';
+    }
+}
+
+// ── SUGGESTIONS ───────────────────────────────────────────────────
+function renderSuggestions(cr, pr, met, avanz) {
+    var list = [];
+
+    var cancelRate = cr.total_citas > 0 ? (cr.citas_canceladas||0)/cr.total_citas : 0;
+    if (cancelRate > 0.2) list.push({ icon:'⚠️', text:'Alta tasa de cancelación ('+Math.round(cancelRate*100)+'%)', sub:'Considera enviar recordatorios o flexibilizar los horarios.', tipo:'recordatorio' });
+
+    if (met.pctRetorno < 30 && met.totalClientes > 3) list.push({ icon:'🔁', text:'Solo el '+met.pctRetorno+'% de tus clientes repite', sub:'Una promoción de segunda visita puede cambiar este número.', tipo:'retencion' });
+
+    var cC = cr.total_citas||0, cP = pr.total_citas||0;
+    if (cP > 0 && cC < cP*0.8) list.push({ icon:'📉', text:'Caída del '+Math.round((1-(cC/cP))*100)+'% vs período anterior', sub:'Analiza si hubo cambios en tus horarios o disponibilidad.', tipo:'descuento_dia' });
+    if (cP > 0 && cC > cP*1.2) list.push({ icon:'🚀', text:'Creciste '+Math.round(((cC/cP)-1)*100)+'% respecto al período anterior', sub:'Momento ideal para subir tarifas o agregar servicios.', tipo:'expansion' });
+
+    if (avanz && avanz.sugerencias) {
+        avanz.sugerencias.forEach(function(s) {
+            list.push({ icon: s.icono||'💡', text: s.mensaje||'', sub: '', tipo: s.tipo||'descuento_dia' });
         });
-    </script>
+    }
+
+    var sec  = document.getElementById('suggestSection');
+    var lst  = document.getElementById('suggestList');
+    if (!list.length) { sec.style.display = 'none'; return; }
+    sec.style.display = 'block';
+    lst.innerHTML = list.map(function(s) {
+        return '<div class="suggestion">' +
+            '<div class="suggestion-icon">'+s.icon+'</div>' +
+            '<div class="suggestion-body"><div class="suggestion-text">'+escH(s.text)+'</div><div class="suggestion-sub">'+escH(s.sub)+'</div></div>' +
+            '<button class="btn-promo" onclick="window.location.href=\'/profesional/promociones?crear='+s.tipo+'\'">✨ Crear promo</button>' +
+        '</div>';
+    }).join('');
+}
+
+// ── CITAS TABLE ───────────────────────────────────────────────────
+function renderRecentTable(citas) {
+    var tbody = document.getElementById('recentBody');
+    if (!citas.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No hay citas en este período</td></tr>'; return; }
+    var sorted = citas.slice().sort(function(a,b){ return (b.fecha+b.hora)>(a.fecha+a.hora)?1:-1; }).slice(0,50);
+    tbody.innerHTML = sorted.map(function(c) {
+        var bc = c.estado==='completado' ? 'state-completado' : c.estado==='cancelado' ? 'state-cancelado' : 'state-confirmado';
+        return '<tr>' +
+            '<td style="font-weight:600;">'+escH(c.cliente_nombre||'—')+'</td>' +
+            '<td style="color:var(--ink-3);">'+escH(c.cliente_telefono||'—')+'</td>' +
+            '<td>'+escH(c.servicio_nombre||'—')+'</td>' +
+            '<td>'+escH(c.fecha||'—')+'</td>' +
+            '<td>'+escH(c.hora ? c.hora.slice(0,5) : '—')+'</td>' +
+            '<td><span class="state-badge '+bc+'">'+escH(c.estado||'—')+'</span></td>' +
+        '</tr>';
+    }).join('');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────
+function escH(t) {
+    if (!t) return '';
+    var d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() { setPeriodo('month'); });
+</script>
 </body>
 </html>

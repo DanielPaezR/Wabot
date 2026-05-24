@@ -1530,6 +1530,39 @@ def ia_info_profesional(arguments, negocio_id):
     return mensaje
 
 # =============================================================================
+# DETECCIÓN DE WHATSAPP VS PWA
+# =============================================================================
+
+def detectar_y_extraer_whatsapp(session_id):
+    """
+    Detecta si es WhatsApp y extrae el número de teléfono del session_id.
+    Formato WhatsApp: "wa_573001234567_1" (formato: wa_<número>_<índice>)
+    
+    Retorna: (es_whatsapp: bool, telefono: str or None)
+    """
+    if not session_id or not isinstance(session_id, str):
+        return False, None
+    
+    if not session_id.startswith('wa_'):
+        return False, None
+    
+    # Extraer número entre "wa_" y el último "_"
+    try:
+        # Formato: wa_573001234567_1
+        partes = session_id.split('_')
+        if len(partes) >= 3:  # wa, número, índice
+            numero = partes[1]
+            # Validar que sea un número válido
+            if numero.isdigit() and len(numero) >= 10:
+                print(f"✅ [WHATSAPP] Detectado - Número extraído: {numero}")
+                return True, numero
+    except Exception as e:
+        print(f"⚠️ [WHATSAPP] Error extrayendo número de session_id: {e}")
+    
+    print(f"⚠️ [WHATSAPP] Formato de session_id inválido: {session_id}")
+    return False, None
+
+# =============================================================================
 # FUNCIÓN PRINCIPAL PARA PROCESAR MENSAJES DEL CHAT WEB - MODIFICADA
 # =============================================================================
 
@@ -1543,6 +1576,15 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         user_message = user_message.strip()
 
         print(f"🔧 [CHAT WEB] Mensaje recibido: '{user_message}'")
+        
+        # ✅ NUEVO: Detectar si es WhatsApp o PWA
+        es_whatsapp, telefono_whatsapp = detectar_y_extraer_whatsapp(session_id)
+        
+        if es_whatsapp and telefono_whatsapp:
+            print(f"📱 [WHATSAPP] Cliente WhatsApp detectado - Teléfono: {telefono_whatsapp}")
+            # Guardar automáticamente en la sesión para WhatsApp
+            from flask import session as flask_session
+            flask_session['cliente_telefono'] = telefono_whatsapp
         
         # Verificar que el negocio existe y está activo
         negocio = db.obtener_negocio_por_id(negocio_id)
@@ -1562,7 +1604,7 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         numero = session_id  # Para mantener compatibilidad con funciones existentes
         
         # Procesar mensaje usando la lógica existente o IA híbrida
-        respuesta_texto = procesar_mensaje(user_message, numero, negocio_id, session)
+        respuesta_texto = procesar_mensaje(user_message, numero, negocio_id, session, es_whatsapp=es_whatsapp)
         
         # Obtener el paso actual para la respuesta
         clave_conversacion = f"{numero}_{negocio_id}"
@@ -1638,13 +1680,14 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
 # LÓGICA PRINCIPAL DE MENSAJES (MODIFICADA PARA NUEVO FLUJO)
 # =============================================================================
 
-def procesar_mensaje(mensaje, numero, negocio_id, session=None):
+def procesar_mensaje(mensaje, numero, negocio_id, session=None, es_whatsapp=False):
     """Procesar mensajes usando el sistema de plantillas - CON NUEVO FLUJO"""
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
     
     print(f"🔧 [DEBUG] PROCESANDO MENSAJE: '{mensaje}' de {numero}")
     print(f"🔧 [DEBUG] Clave conversación: {clave_conversacion}")
+    print(f"🔧 [DEBUG] Es WhatsApp: {es_whatsapp}")
     print(f"🔧 [DEBUG] Conversación activa: {clave_conversacion in conversaciones_activas}")
 
     if es_mensaje_despedida(mensaje):
@@ -1657,14 +1700,16 @@ def procesar_mensaje(mensaje, numero, negocio_id, session=None):
             del conversaciones_activas[clave_conversacion]
         
         # ✅ Limpiar también la sesión persistente para permitir cambio de número
-        if 'cliente_telefono' in flask_session:
-            flask_session.pop('cliente_telefono')
+        # Para WhatsApp, NO limpiar cliente_telefono (es automático)
+        if not es_whatsapp:
+            if 'cliente_telefono' in flask_session:
+                flask_session.pop('cliente_telefono')
 
-        if 'cliente_nombre' in flask_session:
-            flask_session.pop('cliente_nombre')
+            if 'cliente_nombre' in flask_session:
+                flask_session.pop('cliente_nombre')
         
-        # Mostrar saludo inicial (pedirá teléfono)
-        return saludo_inicial(numero, negocio_id)
+        # Mostrar saludo inicial
+        return saludo_inicial(numero, negocio_id, es_whatsapp=es_whatsapp)
     
     # Reiniciar conversación si ha pasado mucho tiempo
     reiniciar_conversacion_si_es_necesario(numero, negocio_id)
@@ -1695,13 +1740,13 @@ def procesar_mensaje(mensaje, numero, negocio_id, session=None):
     # Si el usuario envía 'hola' y no hay conversación activa
     if mensaje in ['hola', 'hi', 'hello', 'buenas']:
         print(f"🔧 [DEBUG] Saludo detectado - Mostrando saludo inicial")
-        return saludo_inicial(numero, negocio_id)
+        return saludo_inicial(numero, negocio_id, es_whatsapp=es_whatsapp)
     
     # Si el usuario envía un número directamente sin haber iniciado
     if mensaje in ['1', '2', '3', '4']:
         print(f"🔧 [DEBUG] Opción de menú seleccionada directamente: {mensaje}")
-        # Primero pedir teléfono
-        return saludo_inicial(numero, negocio_id)
+        # Primero pedir teléfono (o saltarlo en WhatsApp)
+        return saludo_inicial(numero, negocio_id, es_whatsapp=es_whatsapp)
 
     # Si el mensaje es libre, intentar con IA antes de mostrar el menú
     if not es_mensaje_numerico(mensaje):
@@ -1710,7 +1755,7 @@ def procesar_mensaje(mensaje, numero, negocio_id, session=None):
     
     # Mensaje no reconocido - mostrar saludo inicial
     print(f"🔧 [DEBUG] Mensaje no reconocido - Mostrando saludo inicial")
-    return saludo_inicial(numero, negocio_id)
+    return saludo_inicial(numero, negocio_id, es_whatsapp=es_whatsapp)
 
 def procesar_opcion_menu(numero, opcion, negocio_id):
     """Procesar opción del menú principal - SIN CAMBIOS"""
@@ -1963,12 +2008,61 @@ def generar_opciones_confirmacion():
 # FUNCIONES DE MENSAJES MODIFICADAS PARA USAR PLANTILLAS
 # =============================================================================
 
-def saludo_inicial(numero, negocio_id):
-    """Saludo inicial - USANDO PLANTILLA"""
+def saludo_inicial(numero, negocio_id, es_whatsapp=False):
+    """Saludo inicial - USANDO PLANTILLA
+    
+    Para WhatsApp (es_whatsapp=True):
+    - El teléfono ya está en session['cliente_telefono']
+    - Saltarse el paso de pedir teléfono
+    - Solo pedir nombre si es cliente nuevo
+    
+    Para PWA (es_whatsapp=False):
+    - Mantener flujo actual: pedir teléfono al inicio
+    """
     try:
         # Crear conversación activa en estado de solicitar teléfono inicial
         clave_conversacion = f"{numero}_{negocio_id}"
         
+        # ✅ CASO WHATSAPP: El teléfono ya fue extraído automáticamente
+        if es_whatsapp:
+            telefono_cliente = flask_session.get('cliente_telefono')
+            
+            if not telefono_cliente:
+                print(f"⚠️ [WHATSAPP] No hay teléfono en sesión. Esto no debería pasar.")
+                # Fallback a PWA normal
+                es_whatsapp = False
+            else:
+                print(f"✅ [WHATSAPP] Usando teléfono de sesión: {telefono_cliente}")
+                
+                # Buscar si el cliente ya existe
+                nombre_cliente = buscar_cliente_existente(telefono_cliente, negocio_id)
+                
+                # Guardar en conversación activa
+                conversaciones_activas[clave_conversacion] = {
+                    'telefono_cliente': telefono_cliente,
+                    'timestamp': datetime.now(tz_colombia),
+                    'session_id': numero
+                }
+                
+                if nombre_cliente:
+                    # Cliente existente - ir al menú
+                    print(f"✅ [WHATSAPP] Cliente existente encontrado: {nombre_cliente}")
+                    conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
+                    conversaciones_activas[clave_conversacion]['cliente_nombre'] = nombre_cliente
+                    flask_session['cliente_nombre'] = nombre_cliente
+                    
+                    # Saludar por nombre
+                    return renderizar_plantilla('telefono_validado_existente', negocio_id, {
+                        'nombre_cliente': nombre_cliente
+                    })
+                else:
+                    # Cliente nuevo - pedir nombre
+                    print(f"✅ [WHATSAPP] Cliente nuevo - pedir nombre")
+                    conversaciones_activas[clave_conversacion]['estado'] = 'solicitando_nombre'
+                    
+                    return renderizar_plantilla('solicitar_nombre_nuevo', negocio_id)
+        
+        # ✅ CASO PWA: Mantener flujo actual
         # PERSISTENCIA: Si el cliente ya fue identificado en este navegador
         if flask_session.get('cliente_telefono'):
             conversaciones_activas[clave_conversacion] = {
