@@ -170,15 +170,16 @@
             padding: 1rem 1.1rem;
             box-shadow: var(--sh);
             display: flex; flex-direction: column; gap: 4px;
+            min-width: 0;
         }
-        .kpi-header { display: flex; justify-content: space-between; align-items: center; }
+        .kpi-header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
         .kpi-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
-        .kpi-delta { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 12px; }
+        .kpi-delta { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 12px; max-width: 100%; white-space: nowrap; }
         .delta-up   { background: var(--green-lt); color: var(--green); }
         .delta-down { background: var(--red-lt);   color: var(--red); }
         .delta-flat { background: var(--surface-3); color: var(--ink-3); }
-        .kpi-value  { font-size: 1.6rem; font-weight: 800; color: var(--ink); line-height: 1.1; margin-top: 4px; }
-        .kpi-label  { font-size: 11.5px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; }
+        .kpi-value  { font-size: 1.6rem; font-weight: 800; color: var(--ink); line-height: 1.1; margin-top: 4px; overflow-wrap: anywhere; }
+        .kpi-label  { font-size: 11.5px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; line-height: 1.25; }
         .kpi-compare { font-size: 11px; color: var(--ink-4); margin-top: 2px; }
 
         .kpi-card.accent-violet { border-left: 3px solid var(--violet); }
@@ -349,7 +350,26 @@
 
         /* ─── RESPONSIVE ─────────────────────────────── */
         @media(max-width:700px) {
-            .kpi-grid         { grid-template-columns: 1fr 1fr 1fr; }
+            .kpi-grid         {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: .65rem;
+            }
+            .kpi-card         {
+                padding: .85rem;
+                border-left-width: 4px;
+            }
+            .kpi-card.kpi-wide {
+                grid-column: 1 / -1;
+            }
+            .kpi-icon         {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+            }
+            .kpi-value        { font-size: 1.45rem; }
+            .kpi-card.kpi-wide .kpi-value { font-size: 1.6rem; }
+            .kpi-label        { font-size: 10.5px; }
+            .kpi-compare      { font-size: 10.5px; line-height: 1.25; }
             .charts-grid-2    { grid-template-columns: 1fr; }
             .charts-grid-half { grid-template-columns: 1fr; }
             .compare-row      { grid-template-columns: 1fr; }
@@ -358,6 +378,11 @@
             .nav-tabs         { padding: 0 .75rem; }
             .retention-row    { flex-direction: column; align-items: flex-start; }
             .estados-wrap     { flex-direction: column; align-items: flex-start; }
+        }
+        @media(max-width:360px) {
+            .kpi-grid { gap: .55rem; }
+            .kpi-card { padding: .75rem; }
+            .kpi-value { font-size: 1.35rem; }
         }
     </style>
 </head>
@@ -450,7 +475,7 @@
             <div class="kpi-label">Total Citas</div>
             <div class="kpi-compare" id="cCitas">vs período anterior</div>
         </div>
-        <div class="kpi-card accent-green">
+        <div class="kpi-card kpi-wide accent-green">
             <div class="kpi-header">
                 <div class="kpi-icon" style="background:var(--green-lt)">💰</div>
                 <span class="kpi-delta delta-flat" id="dIngresos">—</span>
