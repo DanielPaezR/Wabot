@@ -6191,6 +6191,126 @@ def profesional_api_estadisticas_avanzadas():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/profesional/api/estadisticas', methods=['GET'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_api_estadisticas():
+    """API para estadísticas del profesional con rango de fechas"""
+    try:
+        profesional_id = request.args.get('profesional_id', type=int)
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        mes = request.args.get('mes', type=int)
+        año = request.args.get('año', type=int)
+        
+        if not profesional_id:
+            return jsonify({'error': 'profesional_id requerido'}), 400
+        
+        # Si no hay fechas, usar el mes y año
+        if not fecha_inicio and mes and año:
+            from calendar import monthrange
+            _, ultimo_dia = monthrange(año, mes)
+            fecha_inicio = f"{año}-{mes:02d}-01"
+            fecha_fin = f"{año}-{mes:02d}-{ultimo_dia}"
+        
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({'error': 'Se requiere fecha_inicio y fecha_fin o mes/año'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Estadísticas del período
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_citas,
+                SUM(CASE WHEN estado = 'confirmado' THEN 1 ELSE 0 END) as citas_confirmadas,
+                SUM(CASE WHEN estado = 'completado' THEN 1 ELSE 0 END) as citas_completadas,
+                SUM(CASE WHEN estado = 'cancelado' THEN 1 ELSE 0 END) as citas_canceladas,
+                COALESCE(SUM(CASE WHEN estado IN ('confirmado', 'completado') THEN s.precio ELSE 0 END), 0) as ingresos_totales
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.profesional_id = %s 
+            AND c.fecha BETWEEN %s AND %s
+        ''', (profesional_id, fecha_inicio, fecha_fin))
+        
+        resumen = cursor.fetchone()
+        
+        # Servicios populares
+        cursor.execute('''
+            SELECT s.nombre, COUNT(*) as cantidad
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.profesional_id = %s 
+            AND c.fecha BETWEEN %s AND %s
+            AND c.estado != 'cancelado'
+            GROUP BY s.id, s.nombre
+            ORDER BY cantidad DESC
+            LIMIT 5
+        ''', (profesional_id, fecha_inicio, fecha_fin))
+        
+        servicios_populares = cursor.fetchall()
+        
+        conn.close()
+        
+        return jsonify({
+            'resumen': dict(resumen) if resumen else {},
+            'servicios_populares': servicios_populares
+        })
+        
+    except Exception as e:
+        print(f"❌ Error en profesional_api_estadisticas: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/profesional/api/citas', methods=['GET'])
+@role_required(['profesional', 'propietario', 'superadmin'])
+def profesional_api_citas():
+    """API para obtener citas del profesional por rango de fechas"""
+    try:
+        profesional_id = request.args.get('profesional_id', type=int)
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        limit = request.args.get('limit', 100, type=int)
+        
+        if not profesional_id:
+            return jsonify({'error': 'profesional_id requerido'}), 400
+        
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({'error': 'Se requiere fecha_inicio y fecha_fin'}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute('''
+            SELECT 
+                c.id, c.cliente_nombre, c.cliente_telefono, 
+                c.fecha, c.hora, c.estado,
+                s.nombre as servicio_nombre, s.precio,
+                p.nombre as profesional_nombre
+            FROM citas c
+            JOIN servicios s ON c.servicio_id = s.id
+            JOIN profesionales p ON c.profesional_id = p.id
+            WHERE c.profesional_id = %s 
+            AND c.fecha BETWEEN %s AND %s
+            ORDER BY c.fecha DESC, c.hora DESC
+            LIMIT %s
+        ''', (profesional_id, fecha_inicio, fecha_fin, limit))
+        
+        citas = cursor.fetchall()
+        conn.close()
+        
+        # Formatear fechas para el frontend
+        for cita in citas:
+            if cita.get('fecha'):
+                cita['fecha'] = str(cita['fecha'])
+            if cita.get('hora'):
+                cita['hora'] = str(cita['hora'])[:5]
+        
+        return jsonify(citas)
+        
+    except Exception as e:
+        print(f"❌ Error en profesional_api_citas: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 def generar_sugerencias(semanas, dias_flojos, horas_pico):
     """Generar sugerencias basadas en los datos"""
