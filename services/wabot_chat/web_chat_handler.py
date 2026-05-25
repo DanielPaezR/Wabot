@@ -2065,14 +2065,19 @@ def saludo_inicial(numero, negocio_id, es_whatsapp=False):
         # ✅ CASO PWA: Mantener flujo actual
         # PERSISTENCIA: Si el cliente ya fue identificado en este navegador
         if flask_session.get('cliente_telefono'):
+            nombre_cliente = flask_session.get('cliente_nombre')
+            if not nombre_cliente:
+                nombre_cliente = buscar_cliente_existente(flask_session['cliente_telefono'], negocio_id) or 'Cliente'
+                flask_session['cliente_nombre'] = nombre_cliente
+
             conversaciones_activas[clave_conversacion] = {
                 'estado': 'menu_principal',
                 'telefono_cliente': flask_session['cliente_telefono'],
-                'cliente_nombre': flask_session.get('cliente_nombre', 'Cliente'),
+                'cliente_nombre': nombre_cliente,
                 'timestamp': datetime.now(tz_colombia)
             }
             return renderizar_plantilla('telefono_validado_existente', negocio_id, {
-                'nombre_cliente': flask_session.get('cliente_nombre')
+                'nombre_cliente': nombre_cliente
             })
 
         
