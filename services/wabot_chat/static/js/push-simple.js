@@ -105,7 +105,7 @@ function inicializarPush() {
             const profesionalId = document.body.dataset.profesionalId;
             console.log('👤 Profesional ID:', profesionalId);
             
-            const response = await fetch('/api/push/subscribe', {
+            const response = await fetch('/push/api/push/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -165,7 +165,7 @@ async function suscribirCliente(telefono, negocioId) {
         }
         
         // Obtener clave pública
-        const vapidResponse = await fetch('/api/push/public-key');
+        const vapidResponse = await fetch('/push/api/push/public-key');
         const vapidData = await vapidResponse.json();
         
         if (!vapidData.success) {
@@ -183,7 +183,7 @@ async function suscribirCliente(telefono, negocioId) {
         console.log('✅ Suscripción creada');
         
         // Guardar en BD como cliente
-        const response = await fetch('/api/push/subscribe-cliente', {
+        const response = await fetch('/push/api/push/subscribe-cliente', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

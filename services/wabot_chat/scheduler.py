@@ -3,8 +3,12 @@ import schedule
 import time
 import threading
 from datetime import datetime, timedelta
+import pytz
 import database as db
 from notification_system import notification_system
+
+# Usar hora local de Colombia para recordatorios
+tz_colombia = pytz.timezone('America/Bogota')
 
 class AppointmentScheduler:
     """Scheduler para recordatorios de citas (profesional + cliente)"""
@@ -20,7 +24,7 @@ class AppointmentScheduler:
     def verificar_recordatorios(self):
         """Verificar y enviar recordatorios a profesionales y clientes"""
         try:
-            ahora = datetime.now()
+            ahora = datetime.now(tz_colombia)
             
             # Solo log cada 10 minutos para no saturar
             if not hasattr(self, 'ultimo_log') or self.ultimo_log is None or \
@@ -49,9 +53,14 @@ class AppointmentScheduler:
                     if isinstance(cita_fecha, str):
                         cita_fecha = datetime.strptime(cita_fecha, '%Y-%m-%d').date()
                     if isinstance(cita_hora, str):
-                        cita_hora = datetime.strptime(cita_hora, '%H:%M').time()
+                        try:
+                            cita_hora = datetime.strptime(cita_hora, '%H:%M').time()
+                        except ValueError:
+                            cita_hora = datetime.strptime(cita_hora, '%H:%M:%S').time()
                     
                     cita_datetime = datetime.combine(cita_fecha, cita_hora)
+                    if cita_datetime.tzinfo is None:
+                        cita_datetime = tz_colombia.localize(cita_datetime)
                     
                     # Calcular tiempo restante
                     tiempo_restante = cita_datetime - ahora
@@ -105,9 +114,10 @@ class AppointmentScheduler:
         
         cursor = conn.cursor()
         try:
-            fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-            fecha_manana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-            fecha_pasadomanana = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+            ahora = datetime.now(tz_colombia)
+            fecha_hoy = ahora.strftime('%Y-%m-%d')
+            fecha_manana = (ahora + timedelta(days=1)).strftime('%Y-%m-%d')
+            fecha_pasadomanana = (ahora + timedelta(days=2)).strftime('%Y-%m-%d')
             
             sql = '''
                 SELECT c.id, c.negocio_id, c.profesional_id, c.cliente_telefono,
