@@ -4207,6 +4207,15 @@ def profesional_dashboard():
         total_citas = len(citas)
         ganancia_estimada = sum(cita.get('precio', 0) for cita in citas if cita.get('estado') != 'cancelado')
         usuario_nombre = session.get('usuario_nombre', 'Profesional')
+
+        # Obtener horario real del negocio para la fecha seleccionada
+        horario_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
+        if horario_dia and horario_dia.get('activo'):
+            hora_inicio = horario_dia.get('hora_inicio', '08:00')
+            hora_fin = horario_dia.get('hora_fin', '18:00')
+        else:
+            hora_inicio = '08:00'
+            hora_fin = '18:00'
         
         return render_template('profesional/dashboard.html',
                             citas=citas,
@@ -4215,7 +4224,9 @@ def profesional_dashboard():
                             ganancia_estimada=ganancia_estimada,
                             profesional_nombre=usuario_nombre,
                             fecha=fecha,
-                            profesional_id=profesional_id)
+                            profesional_id=profesional_id,
+                            hora_inicio=hora_inicio,
+                            hora_fin=hora_fin)
                             
     except Exception as e:
         print(f"❌ Error en profesional_dashboard: {e}")
