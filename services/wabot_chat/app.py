@@ -3125,7 +3125,7 @@ def negocio_api_citas_recientes():
 @app.route('/negocio/configuracion', methods=['GET', 'POST'])
 @login_required
 def negocio_configuracion():
-    """Configuración del negocio - HORARIOS + INFORMACIÓN - VERSIÓN CORREGIDA"""
+    """Configuración del negocio - HORARIOS + INFORMACIÓN - VERSIÓN DEFINITIVA CORREGIDA"""
     negocio_id = session['negocio_id']
     
     # Obtener datos actuales del negocio
@@ -3140,7 +3140,6 @@ def negocio_configuracion():
         except:
             config_actual = {}
     
-    # ✅ CORRECCIÓN MEJORADA: Obtener datos REALES de la base de datos
     dias_semana = []
     nombres_dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     
@@ -3166,31 +3165,33 @@ def negocio_configuracion():
             conn.close()
             
             if resultado:
-                # ✅ CORRECCIÓN: Acceder correctamente a los valores según el tipo de cursor
-                if hasattr(resultado, 'keys'):  # Es un diccionario (RealDictCursor)
-                    dia_config = {
-                        'activo': bool(resultado['activo']),
-                        'hora_inicio': resultado['hora_inicio'] or '09:00',
-                        'hora_fin': resultado['hora_fin'] or '19:00',
-                        'almuerzo_inicio': resultado['almuerzo_inicio'] or '13:00',  # ✅ Valor por defecto
-                        'almuerzo_fin': resultado['almuerzo_fin'] or '14:00'         # ✅ Valor por defecto
-                    }
-                else:  # Es una tupla
-                    dia_config = {
-                        'activo': bool(resultado[0]),
-                        'hora_inicio': resultado[1] or '09:00',
-                        'hora_fin': resultado[2] or '19:00',
-                        'almuerzo_inicio': resultado[3] or '13:00',  # ✅ Valor por defecto
-                        'almuerzo_fin': resultado[4] or '14:00'      # ✅ Valor por defecto
-                    }
-            else:
-                # ✅ CORRECCIÓN: Valores por defecto más realistas
+                if hasattr(resultado, 'keys'):  # dict
+                    activo = bool(resultado['activo'])
+                    hora_inicio = resultado['hora_inicio'] if resultado['hora_inicio'] is not None else ''
+                    hora_fin = resultado['hora_fin'] if resultado['hora_fin'] is not None else ''
+                    almuerzo_inicio = resultado['almuerzo_inicio'] if resultado['almuerzo_inicio'] is not None else ''
+                    almuerzo_fin = resultado['almuerzo_fin'] if resultado['almuerzo_fin'] is not None else ''
+                else:  # tuple
+                    activo = bool(resultado[0])
+                    hora_inicio = resultado[1] if resultado[1] is not None else ''
+                    hora_fin = resultado[2] if resultado[2] is not None else ''
+                    almuerzo_inicio = resultado[3] if resultado[3] is not None else ''
+                    almuerzo_fin = resultado[4] if resultado[4] is not None else ''
+                
                 dia_config = {
-                    'activo': dia_id <= 6,  # ✅ Lunes a Sábado activos por defecto
+                    'activo': activo,
+                    'hora_inicio': hora_inicio,
+                    'hora_fin': hora_fin,
+                    'almuerzo_inicio': almuerzo_inicio,
+                    'almuerzo_fin': almuerzo_fin
+                }
+            else:
+                dia_config = {
+                    'activo': dia_id <= 6,
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
-                    'almuerzo_inicio': '13:00',  # ✅ Valor por defecto
-                    'almuerzo_fin': '14:00'      # ✅ Valor por defecto
+                    'almuerzo_inicio': '',
+                    'almuerzo_fin': ''
                 }
                 
             dias_semana.append({
@@ -3201,16 +3202,15 @@ def negocio_configuracion():
             
         except Exception as e:
             print(f"⚠️ Error cargando día {dia_id}: {e}")
-            # ✅ CORRECCIÓN: Valores por defecto en caso de error
             dias_semana.append({
                 'id': dia_id,
                 'nombre': nombres_dias[dia_id-1],
                 'config': {
-                    'activo': dia_id <= 6,  # ✅ Lunes a Sábado activos por defecto
+                    'activo': dia_id <= 6,
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
-                    'almuerzo_inicio': '13:00',  # ✅ Valor por defecto
-                    'almuerzo_fin': '14:00'      # ✅ Valor por defecto
+                    'almuerzo_inicio': '',
+                    'almuerzo_fin': ''
                 }
             })
 
@@ -3245,35 +3245,48 @@ def negocio_configuracion():
             # ===== PROCESAR HORARIOS =====
             horarios_actualizados = []
             for dia_id in range(1, 8):
-                # ✅ CORRECCIÓN: Los checkboxes solo se envían cuando están CHECKED
                 activo = f'dia_{dia_id}_activo' in request.form
                 hora_inicio = request.form.get(f'dia_{dia_id}_inicio', '09:00')
                 hora_fin = request.form.get(f'dia_{dia_id}_fin', '19:00')
-                almuerzo_inicio = request.form.get(f'dia_{dia_id}_descanso_inicio', '13:00')  # ✅ Valor por defecto
-                almuerzo_fin = request.form.get(f'dia_{dia_id}_descanso_fin', '14:00')        # ✅ Valor por defecto
                 
-                print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
+                # Obtener valores de almuerzo (pueden venir vacíos)
+                almuerzo_inicio = request.form.get(f'dia_{dia_id}_almuerzo_inicio', '').strip()
+                almuerzo_fin = request.form.get(f'dia_{dia_id}_almuerzo_fin', '').strip()
                 
-                # ✅ CORRECCIÓN: Validar horarios solo si el día está activo
+                # Si ambos están vacíos, no hay descanso → guardar NULL
+                if not almuerzo_inicio or not almuerzo_fin:
+                    almuerzo_inicio = None
+                    almuerzo_fin = None
+                
+                # Validación de horario principal
                 if activo:
                     if not hora_inicio or not hora_fin:
                         flash(f'❌ El {nombres_dias[dia_id-1]} necesita horario de inicio y fin', 'error')
                         return redirect(url_for('negocio_configuracion'))
-                    
                     if hora_inicio >= hora_fin:
                         flash(f'❌ En {nombres_dias[dia_id-1]}, la hora de inicio debe ser anterior a la hora de fin', 'error')
                         return redirect(url_for('negocio_configuracion'))
+                    
+                    # Validación opcional de almuerzo (si se enviaron valores)
+                    if almuerzo_inicio and almuerzo_fin:
+                        if almuerzo_inicio >= almuerzo_fin:
+                            flash(f'❌ En {nombres_dias[dia_id-1]}, el inicio del descanso debe ser anterior al fin', 'error')
+                            return redirect(url_for('negocio_configuracion'))
+                        if almuerzo_inicio < hora_inicio or almuerzo_fin > hora_fin:
+                            flash(f'❌ En {nombres_dias[dia_id-1]}, el descanso debe estar dentro de la jornada laboral', 'error')
+                            return redirect(url_for('negocio_configuracion'))
+                
+                print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
                 
                 horarios_actualizados.append({
                     'dia_id': dia_id,
-                    'activo': activo,  # ✅ Esto ahora refleja correctamente el estado
+                    'activo': activo,
                     'hora_inicio': hora_inicio,
                     'hora_fin': hora_fin,
                     'almuerzo_inicio': almuerzo_inicio,
                     'almuerzo_fin': almuerzo_fin
                 })
             
-            # ✅ CORRECCIÓN: Verificar que al menos un día esté activo
             dias_activos = sum(1 for h in horarios_actualizados if h['activo'])
             if dias_activos == 0:
                 flash('❌ Debe haber al menos un día activo para atención', 'error')
@@ -3283,31 +3296,30 @@ def negocio_configuracion():
             for h in horarios_actualizados:
                 print(f"  Día {h['dia_id']} ({nombres_dias[h['dia_id']-1]}): {h['activo']} - {h['hora_inicio']} a {h['hora_fin']} - Descanso: {h['almuerzo_inicio']} a {h['almuerzo_fin']}")
             
-            # Guardar TODO en la base de datos
+            # Guardar en la base de datos usando la función de database.py
             if db.actualizar_configuracion_completa(
                 negocio_id, nombre, tipo_negocio, emoji, nueva_configuracion, horarios_actualizados
             ):
-                # Guardar o eliminar número de API de WhatsApp
+                # ===== GUARDAR NÚMERO DE API DE WHATSAPP =====
                 numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
+                conn = db.get_db_connection()
+                cursor = conn.cursor()
+                
                 if numero_api_whatsapp:
-                    # Validar que solo contenga dígitos
                     if not numero_api_whatsapp.isdigit():
+                        conn.close()
                         flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     
-                    # Validar unicidad (no esté en otro negocio)
-                    from database import get_db_connection
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    
+                    # Verificar unicidad
                     if db.is_postgresql():
                         cursor.execute('''
-                            SELECT id FROM numeros_whatsapp_negocio 
+                            SELECT negocio_id FROM numeros_whatsapp_negocio 
                             WHERE numero_whatsapp = %s AND negocio_id != %s
                         ''', (numero_api_whatsapp, negocio_id))
                     else:
                         cursor.execute('''
-                            SELECT id FROM numeros_whatsapp_negocio 
+                            SELECT negocio_id FROM numeros_whatsapp_negocio 
                             WHERE numero_whatsapp = ? AND negocio_id != ?
                         ''', (numero_api_whatsapp, negocio_id))
                     
@@ -3319,10 +3331,15 @@ def negocio_configuracion():
                     # Guardar o actualizar
                     if db.is_postgresql():
                         cursor.execute('''
-                            INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                            VALUES (%s, %s)
-                            ON CONFLICT (negocio_id) DO UPDATE SET numero_whatsapp = %s
-                        ''', (negocio_id, numero_api_whatsapp, numero_api_whatsapp))
+                            UPDATE numeros_whatsapp_negocio 
+                            SET numero_whatsapp = %s
+                            WHERE negocio_id = %s
+                        ''', (numero_api_whatsapp, negocio_id))
+                        if cursor.rowcount == 0:
+                            cursor.execute('''
+                                INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
+                                VALUES (%s, %s)
+                            ''', (negocio_id, numero_api_whatsapp))
                     else:
                         cursor.execute('''
                             INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
@@ -3331,21 +3348,16 @@ def negocio_configuracion():
                     
                     conn.commit()
                     conn.close()
-                    print(f'✅ Número de API WhatsApp actualizado en configuración: {numero_api_whatsapp}')
+                    print(f'✅ Número de API WhatsApp guardado: {numero_api_whatsapp}')
                 else:
-                    # Si se vacío el campo, eliminar el registro
-                    from database import get_db_connection
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    
+                    # Eliminar si el campo está vacío
                     if db.is_postgresql():
                         cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
                     else:
                         cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
-                    
                     conn.commit()
                     conn.close()
-                    print(f'✅ Número de API WhatsApp eliminado en configuración')
+                    print('✅ Número de API WhatsApp eliminado')
                 
                 flash('✅ Configuración actualizada exitosamente', 'success')
             else:
@@ -3360,18 +3372,14 @@ def negocio_configuracion():
     # Obtener número de API de WhatsApp actual
     numero_api_whatsapp = None
     try:
-        from database import get_db_connection
-        conn = get_db_connection()
+        conn = db.get_db_connection()
         cursor = conn.cursor()
-        
         if db.is_postgresql():
             cursor.execute('SELECT numero_whatsapp FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
         else:
             cursor.execute('SELECT numero_whatsapp FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
-        
         resultado = cursor.fetchone()
         conn.close()
-        
         if resultado:
             numero_api_whatsapp = resultado[0] if isinstance(resultado, tuple) else resultado.get('numero_whatsapp')
     except Exception as e:

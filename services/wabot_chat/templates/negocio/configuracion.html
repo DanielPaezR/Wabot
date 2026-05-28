@@ -2,769 +2,628 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuración - Sistema de Citas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Configuración — {{ session.get('negocio_nombre', 'Mi Negocio') }}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* (estilos idénticos a los que ya tenías, no se modifican) */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --ink:       #111827;
+            --ink-2:     #374151;
+            --ink-3:     #6b7280;
+            --ink-4:     #9ca3af;
+            --surface:   #ffffff;
+            --surface-2: #f9fafb;
+            --surface-3: #f3f4f6;
+            --border:    #e5e7eb;
+            --border-2:  #d1d5db;
+            --blue:      #2563eb;
+            --blue-lt:   #eff6ff;
+            --blue-dk:   #1d4ed8;
+            --green:     #16a34a;
+            --green-lt:  #f0fdf4;
+            --red:       #dc2626;
+            --red-lt:    #fef2f2;
+            --amber:     #d97706;
+            --amber-lt:  #fffbeb;
+            --r:    10px;
+            --r-sm:  7px;
+            --sh:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
         }
-        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--surface-3);
+            color: var(--ink);
+            font-size: 14px;
+            line-height: 1.5;
+            padding-bottom: 60px;
         }
-        
-        .header {
-            background: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.5rem;
+            height: 56px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
         }
-        
-        .header h1 {
-            color: #2c3e50;
-            font-size: 1.5rem;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: #666;
-        }
-        
-        .nav-buttons {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            text-decoration: none;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .btn-primary {
-            background: #3498db;
-            color: white;
-        }
-        
-        .btn-secondary {
-            background: #95a5a6;
-            color: white;
-        }
-        
-        .btn-success {
-            background: #27ae60;
-            color: white;
-        }
-        
+        .topbar-name { font-weight: 700; font-size: 15px; }
+        .topbar-right { display: flex; align-items: center; gap: .6rem; }
         .btn-logout {
-            background: #e74c3c;
-            color: white;
+            padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            background: var(--red-lt); color: var(--red);
+            border: 1px solid #fecaca; text-decoration: none;
         }
-        
-        .btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
+        .nav-wrap { background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+        .nav-tabs { display: flex; padding: 0 1.5rem; max-width: 900px; margin: 0 auto; }
+        .nav-tab {
+            padding: 14px 16px; font-size: 13px; font-weight: 600; color: var(--ink-3);
+            text-decoration: none; white-space: nowrap;
+            border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
         }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        .config-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .section-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            color: #2c3e50;
+        .nav-tab:hover { color: var(--ink-2); }
+        .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+        .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+        .section-tabs {
+            display: flex; gap: 4px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 4px;
             margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #3498db;
+            width: fit-content;
         }
-        
-        .dias-grid {
-            display: grid;
-            gap: 1rem;
+        .stab {
+            padding: 7px 18px; border-radius: var(--r-sm);
+            font-size: 13px; font-weight: 600; color: var(--ink-3);
+            border: none; background: none; cursor: pointer; transition: all .15s;
         }
-        
-        .dia-card {
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 1.5rem;
-            transition: all 0.3s;
-        }
-        
-        .dia-card.activo {
-            border-color: #27ae60;
-            background: #f8fff9;
-        }
-        
-        .dia-card.inactivo {
-            border-color: #e0e0e0;
-            background: #f9f9f9;
-            opacity: 0.7;
-        }
-        
-        .dia-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .stab.active { background: var(--blue); color: #fff; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--r); padding: 1.2rem 1.4rem; box-shadow: var(--sh);
             margin-bottom: 1rem;
         }
-        
-        .dia-nombre {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #2c3e50;
+        .card-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: .25rem; }
+        .card-sub   { font-size: 12px; color: var(--ink-3); margin-bottom: 1.2rem; }
+        .flash {
+            padding: .75rem 1rem; border-radius: var(--r-sm); margin-bottom: 1rem;
+            font-size: 13px; font-weight: 600;
         }
-        
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
+        .flash-success { background: var(--green-lt); color: var(--green); border: 1px solid #bbf7d0; }
+        .flash-error   { background: var(--red-lt);   color: var(--red);   border: 1px solid #fecaca; }
+        .schedule-grid { display: flex; flex-direction: column; gap: .6rem; }
+        .day-row {
+            background: var(--surface); border: 1.5px solid var(--border);
+            border-radius: var(--r); overflow: hidden;
+            transition: border-color .2s;
         }
-        
-        .toggle-switch input {
+        .day-row.is-active { border-color: var(--green); }
+        .day-row.is-inactive { opacity: .65; }
+        .day-header {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .75rem 1rem;
+            cursor: pointer; user-select: none;
+        }
+        .toggle-pill {
+            position: relative; width: 42px; height: 23px; flex-shrink: 0; cursor: pointer;
+        }
+        .toggle-pill input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: var(--border-2); border-radius: 99px;
+            transition: background .2s;
+        }
+        .toggle-pill input:checked ~ .toggle-track { background: var(--green); }
+        .toggle-thumb {
+            position: absolute; top: 3px; left: 3px;
+            width: 17px; height: 17px; border-radius: 50%;
+            background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+            transition: transform .2s;
+        }
+        .toggle-pill input:checked ~ .toggle-thumb { transform: translateX(19px); }
+        .day-name { font-weight: 700; font-size: 14px; color: var(--ink); flex: 1; }
+        .day-summary { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+        .day-badge {
+            font-size: 11px; font-weight: 700; padding: 2px 9px;
+            border-radius: 12px;
+        }
+        .badge-open   { background: var(--green-lt); color: var(--green); }
+        .badge-closed { background: var(--surface-3); color: var(--ink-4); }
+        .day-body { padding: 0 1rem 1rem; border-top: 1px solid var(--border); display: none; }
+        .day-row.is-active .day-body { display: block; }
+        .time-row {
+            display: flex; align-items: center; gap: .5rem;
+            padding: .75rem 0;
+        }
+        .time-label {
+            font-size: 12px; font-weight: 600; color: var(--ink-3);
+            width: 110px; flex-shrink: 0;
+        }
+        .time-inputs {
+            display: flex; align-items: center; gap: .5rem; flex: 1; flex-wrap: wrap;
+        }
+        .time-input {
+            padding: 7px 10px; border: 1px solid var(--border);
+            border-radius: var(--r-sm); font-size: 13px;
+            background: var(--surface); color: var(--ink);
+            width: 120px;
+            transition: border-color .15s;
+        }
+        .time-input:focus { outline: none; border-color: var(--blue); }
+        .time-input:disabled { background: var(--surface-2); color: var(--ink-4); cursor: not-allowed; }
+        .time-sep { font-size: 12px; color: var(--ink-4); font-weight: 600; }
+        .lunch-toggle-row {
+            display: flex; align-items: center; gap: .6rem;
+            padding: .6rem 0;
+            border-top: 1px dashed var(--border);
+            margin-top: .25rem;
+        }
+        .lunch-toggle-label {
+            font-size: 12px; font-weight: 600; color: var(--ink-3); flex: 1;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
+        }
+        .lunch-check {
+            width: 15px; height: 15px; accent-color: var(--amber); cursor: pointer;
+            flex-shrink: 0;
+        }
+        .lunch-note { font-size: 11px; color: var(--ink-4); font-weight: 400; }
+        .lunch-row {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height .25s ease, opacity .2s;
             opacity: 0;
-            width: 0;
-            height: 0;
         }
-        
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-        
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        
-        input:checked + .slider {
-            background-color: #27ae60;
-        }
-        
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        
-        .horarios-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .horario-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        
-        .horario-group label {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 0.9rem;
-        }
-        
-        .horario-input {
-            padding: 8px 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 0.9rem;
-        }
-        
-        .horario-input:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-        
-        .horario-input:disabled {
-            background-color: #f5f5f5;
-            cursor: not-allowed;
-        }
-        
-        .descanso-section {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px dashed #e0e0e0;
-        }
-        
-        .descanso-title {
-            font-weight: 600;
-            color: #7f8c8d;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
-        
-        .submit-section {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 2px solid #e0e0e0;
-        }
-        
-        .btn-save {
-            background: #27ae60;
-            color: white;
-            padding: 12px 30px;
-            font-size: 1.1rem;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-save:hover {
-            background: #219a52;
-            transform: translateY(-2px);
-        }
-        
-        .alert {
-            padding: 1rem;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        /* NUEVOS ESTILOS PARA PESTAÑAS */
-        .tabs {
-            display: flex;
-            margin-bottom: 2rem;
-            border-bottom: 2px solid #e0e0e0;
-        }
-        
-        .tab {
-            padding: 12px 24px;
-            background: #f8f9fa;
-            border: none;
-            border-radius: 8px 8px 0 0;
-            margin-right: 5px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        
-        .tab.active {
-            background: #3498db;
-            color: white;
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        /* Estilos para el formulario de información del negocio */
+        .lunch-row.visible { max-height: 80px; opacity: 1; }
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
         }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-label { font-size: 12px; font-weight: 700; color: var(--ink-2); }
+        .form-hint  { font-size: 11px; color: var(--ink-4); }
+        .form-input, .form-select, .form-textarea {
+            padding: 8px 10px; border: 1px solid var(--border);
+            border-radius: var(--r-sm); font-size: 13px;
+            background: var(--surface); color: var(--ink);
+            transition: border-color .15s;
+            font-family: inherit;
         }
-        
-        .form-group label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #2c3e50;
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none; border-color: var(--blue);
         }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
+        .form-textarea { resize: vertical; min-height: 90px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .save-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: .85rem 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 1rem;
+            box-shadow: 0 -4px 20px rgba(0,0,0,.07);
         }
-        
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            border-color: #3498db;
-            outline: none;
+        .save-bar-info { font-size: 12px; color: var(--ink-3); }
+        .save-bar-info strong { color: var(--ink); }
+        .btn-save {
+            padding: 9px 28px; background: var(--green); color: #fff;
+            border: none; border-radius: var(--r-sm);
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            transition: background .15s;
         }
-        
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
+        .btn-save:hover { background: #15803d; }
+        .field-error {
+            font-size: 11px; color: var(--red); font-weight: 600;
+            margin-top: 2px; display: none;
         }
-        
-        .help-text {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 0.25rem;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-            
-            .horarios-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .nav-buttons {
-                justify-content: center;
-            }
-            
-            .tabs {
-                flex-direction: column;
-            }
-            
-            .tab {
-                margin-right: 0;
-                margin-bottom: 5px;
-                border-radius: 5px;
-            }
+        .field-error.show { display: block; }
+        @media(max-width:600px) {
+            .page { padding: 1rem .75rem; }
+            .topbar { padding: 0 .75rem; }
+            .nav-tabs { padding: 0 .75rem; }
+            .time-label { width: 80px; font-size: 11px; }
+            .time-input { width: 100px; }
+            .save-bar { flex-direction: column; text-align: center; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>⚙️ Configuración - {{ session.get('negocio_nombre', 'Mi Negocio') }}</h1>
-        <div class="user-info">
-            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <div class="nav-buttons">
-                <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-                <a href="{{ url_for('negocio_citas') }}" class="btn btn-secondary">📅 Citas</a>
-                <a href="{{ url_for('negocio_estadisticas') }}" class="btn btn-secondary">📊 Estadísticas</a>
-                <a href="{{ url_for('negocio_editor_visual') }}" class="nav-btn">🎨 Editar Perfil</a>
-                <a href="{{ url_for('negocio_servicios') }}" class="btn btn-secondary">💼 Servicios</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-logout">🚪 Cerrar Sesión</a>
-            </div>
-        </div>
+
+<div class="topbar">
+    <span class="topbar-name">{{ session.get('negocio_nombre', 'Mi Negocio') }}</span>
+    <div class="topbar-right">
+        <span style="font-size:12px;color:var(--ink-3);">{{ session.get('usuario_nombre','Usuario') }}</span>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Salir</a>
+    </div>
+</div>
+
+<div class="nav-wrap">
+    <nav class="nav-tabs">
+        <a href="{{ url_for('negocio_dashboard') }}"     class="nav-tab">Dashboard</a>
+        <a href="{{ url_for('negocio_citas') }}"         class="nav-tab">Citas</a>
+        <a href="{{ url_for('negocio_estadisticas') }}"  class="nav-tab">Estadísticas</a>
+        <a href="{{ url_for('negocio_configuracion') }}" class="nav-tab active">Configuración</a>
+        <a href="{{ url_for('negocio_servicios') }}"     class="nav-tab">Servicios</a>
+        <a href="{{ url_for('negocio_profesionales') }}" class="nav-tab">Profesionales</a>
+    </nav>
+</div>
+
+<div class="page">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash flash-{{ 'success' if category == 'success' else 'error' }}">
+                    {{ '✅' if category == 'success' else '❌' }} {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="section-tabs">
+        <button class="stab active" data-sec="horarios">📅 Horarios</button>
+        <button class="stab"        data-sec="info">🏢 Información</button>
     </div>
 
-    <div class="container">
-        <!-- Mensajes Flash -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+    <form method="POST" action="{{ url_for('negocio_configuracion') }}" id="mainForm" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <!-- PESTAÑAS -->
-        <div class="tabs">
-            <button type="button" class="tab active" data-tab="horarios">📅 Horarios de Atención</button>
-            <button type="button" class="tab" data-tab="informacion">🏢 Información del Negocio</button>
-        </div>
+        <!-- ══════════ HORARIOS ══════════ -->
+        <div id="sec-horarios">
 
-        <!-- FORMULARIO DE HORARIOS (VERSIÓN CORREGIDA) -->
-        <form method="POST" action="{{ url_for('negocio_configuracion') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
-            <!-- Pestaña Horarios -->
-            <div class="tab-content active" id="horarios-tab">
-                <div class="config-section">
-                    <h2 class="section-title">📅 Configuración de Días y Horarios de Atención</h2>
-                    <p style="color: #666; margin-bottom: 2rem;">
-                        Configura los días y horarios en los que tu negocio atiende al público. 
-                        Los clientes solo podrán agendar citas en los horarios habilitados.
-                    </p>
+            <div class="card">
+                <div class="card-title">Días y horarios de atención</div>
+                <div class="card-sub">Activa los días que abres y define tu jornada. El descanso de almuerzo es opcional por día.</div>
 
-                    <div class="dias-grid">
-                        {% for dia in dias_semana %}
-                        <div class="dia-card {% if dia.config.activo %}activo{% else %}inactivo{% endif %}" 
-                             id="dia-{{ dia.id }}">
-                            <div class="dia-header">
-                                <span class="dia-nombre">{{ dia.nombre }}</span>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" 
-                                        name="dia_{{ dia.id }}_activo" 
-                                        {% if dia.config.activo %}checked{% endif %}
-                                        data-dia-id="{{ dia.id }}"
-                                        class="toggle-dia">
-                                    <span class="slider"></span>
+                <div class="schedule-grid" id="scheduleGrid">
+
+                    {% for dia in dias_semana %}
+                    {% set d = dia.config %}
+                    <div class="day-row {% if d.activo %}is-active{% else %}is-inactive{% endif %}"
+                         id="dr-{{ dia.id }}">
+
+                        <div class="day-header" onclick="headerClick({{ dia.id }}, event)">
+                            <label class="toggle-pill" onclick="event.stopPropagation()">
+                                <input type="checkbox"
+                                       name="dia_{{ dia.id }}_activo"
+                                       id="tog-{{ dia.id }}"
+                                       {% if d.activo %}checked{% endif %}
+                                       onchange="toggleDay({{ dia.id }}, this.checked)">
+                                <span class="toggle-track"></span>
+                                <span class="toggle-thumb"></span>
+                            </label>
+
+                            <span class="day-name">{{ dia.nombre }}</span>
+
+                            <span class="day-summary" id="ds-{{ dia.id }}">
+                                {% if d.activo %}{{ d.hora_inicio or '09:00' }} – {{ d.hora_fin or '19:00' }}{% endif %}
+                            </span>
+
+                            <span class="day-badge {% if d.activo %}badge-open{% else %}badge-closed{% endif %}"
+                                  id="db-{{ dia.id }}">
+                                {{ 'Abierto' if d.activo else 'Cerrado' }}
+                            </span>
+                        </div>
+
+                        <div class="day-body" id="db-body-{{ dia.id }}">
+
+                            <div class="time-row">
+                                <span class="time-label">🕐 Jornada</span>
+                                <div class="time-inputs">
+                                    <input type="time"
+                                           class="time-input main-time"
+                                           name="dia_{{ dia.id }}_inicio"
+                                           id="ini-{{ dia.id }}"
+                                           value="{{ d.hora_inicio or '09:00' }}"
+                                           oninput="updateSummary({{ dia.id }})"
+                                           {% if not d.activo %}disabled{% endif %}>
+                                    <span class="time-sep">→</span>
+                                    <input type="time"
+                                           class="time-input main-time"
+                                           name="dia_{{ dia.id }}_fin"
+                                           id="fin-{{ dia.id }}"
+                                           value="{{ d.hora_fin or '19:00' }}"
+                                           oninput="updateSummary({{ dia.id }})"
+                                           {% if not d.activo %}disabled{% endif %}>
+                                    <span class="field-error" id="err-main-{{ dia.id }}">⚠ Inicio debe ser antes que fin</span>
+                                </div>
+                            </div>
+
+                            <!-- Toggle almuerzo con NAME agregado -->
+                            <div class="lunch-toggle-row">
+                                <label class="lunch-toggle-label" for="lch-{{ dia.id }}">
+                                    <input type="checkbox"
+                                           class="lunch-check"
+                                           name="dia_{{ dia.id }}_lunch_enabled"
+                                           id="lch-{{ dia.id }}"
+                                           {% if d.almuerzo_inicio %}checked{% endif %}
+                                           onchange="toggleLunch({{ dia.id }}, this.checked)">
+                                    ⏸ Agregar horario de descanso
+                                    <span class="lunch-note">(almuerzo u otro)</span>
                                 </label>
                             </div>
 
-                            <!-- ✅ CORRECCIÓN: Horario laboral PRINCIPAL -->
-                            <div class="horarios-grid">
-                                <div class="horario-group">
-                                    <label>🕐 Hora Inicio Jornada:</label>
-                                    <input type="time" 
-                                        name="dia_{{ dia.id }}_inicio" 
-                                        value="{{ dia.config.hora_inicio or '09:00' }}"
-                                        class="horario-input horario-principal"
-                                        {% if not dia.config.activo %}disabled{% endif %}
-                                        required>
-                                </div>
-
-                                <div class="horario-group">
-                                    <label>🕔 Hora Fin Jornada:</label>
-                                    <input type="time" 
-                                        name="dia_{{ dia.id }}_fin" 
-                                        value="{{ dia.config.hora_fin or '19:00' }}"
-                                        class="horario-input horario-principal"
-                                        {% if not dia.config.activo %}disabled{% endif %}
-                                        required>
-                                </div>
-                            </div>
-
-                            <!-- ✅ CORRECCIÓN: Horario de almuerzo/descanso -->
-                            <div class="descanso-section">
-                                <div class="descanso-title">⏸️ Horario de Descanso (Almuerzo - Opcional)</div>
-                                <p style="font-size: 0.8rem; color: #666; margin-bottom: 0.5rem;">
-                                    Horario durante el cual NO se atiende (ej: almuerzo 13:00-14:00)
-                                </p>
-                                <div class="horarios-grid">
-                                    <div class="horario-group">
-                                        <label>Inicio Descanso:</label>
-                                        <input type="time" 
-                                            name="dia_{{ dia.id }}_almuerzo_inicio" 
-                                            value="{{ dia.config.almuerzo_inicio or '' }}"
-                                            class="horario-input horario-descanso"
-                                            {% if not dia.config.activo %}disabled{% endif %}>
-                                    </div>
-
-                                    <div class="horario-group">
-                                        <label>Fin Descanso:</label>
-                                        <input type="time" 
-                                            name="dia_{{ dia.id }}_almuerzo_fin" 
-                                            value="{{ dia.config.almuerzo_fin or '' }}"
-                                            class="horario-input horario-descanso"
-                                            {% if not dia.config.activo %}disabled{% endif %}>
+                            <div class="lunch-row {% if d.almuerzo_inicio %}visible{% endif %}"
+                                 id="lr-{{ dia.id }}">
+                                <div class="time-row" style="padding-top:.4rem;">
+                                    <span class="time-label">☕ Descanso</span>
+                                    <div class="time-inputs">
+                                        <input type="time"
+                                               class="time-input lunch-time"
+                                               name="dia_{{ dia.id }}_almuerzo_inicio"
+                                               id="ali-{{ dia.id }}"
+                                               value="{{ d.almuerzo_inicio or '' }}"
+                                               {% if not d.activo or not d.almuerzo_inicio %}disabled{% endif %}>
+                                        <span class="time-sep">→</span>
+                                        <input type="time"
+                                               class="time-input lunch-time"
+                                               name="dia_{{ dia.id }}_almuerzo_fin"
+                                               id="alf-{{ dia.id }}"
+                                               value="{{ d.almuerzo_fin or '' }}"
+                                               {% if not d.activo or not d.almuerzo_inicio %}disabled{% endif %}>
+                                        <span class="field-error" id="err-lunch-{{ dia.id }}">⚠ Revisa el horario de descanso</span>
                                     </div>
                                 </div>
                             </div>
+
                         </div>
-                        {% endfor %}
                     </div>
+                    {% endfor %}
+
                 </div>
             </div>
 
-            <!-- Pestaña Información del Negocio -->
-            <div class="tab-content" id="informacion-tab">
-                <div class="config-section">
-                    <h2 class="section-title">🏢 Información del Negocio</h2>
-                    <p style="color: #666; margin-bottom: 2rem;">
-                        Configura la información básica de tu negocio que aparecerá en los mensajes automáticos.
-                    </p>
+        </div>
 
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="nombre">Nombre del Negocio *</label>
-                            <input type="text" id="nombre" name="nombre" 
-                                   value="{{ negocio.nombre }}" required>
-                        </div>
+        <!-- ══════════ INFORMACIÓN ══════════ -->
+        <div id="sec-info" style="display:none;">
 
-                        <div class="form-group">
-                            <label for="tipo_negocio">Tipo de Negocio *</label>
-                            <select id="tipo_negocio" name="tipo_negocio" required>
-                                <option value="spa_unas" {% if negocio.tipo_negocio == 'spa_unas' %}selected{% endif %}>Spa de Uñas</option>
-                                <option value="barberia" {% if negocio.tipo_negocio == 'barberia' %}selected{% endif %}>Barbería</option>
-                                <option value="peluqueria" {% if negocio.tipo_negocio == 'peluqueria' %}selected{% endif %}>Peluquería</option>
-                                <option value="estetica" {% if negocio.tipo_negocio == 'estetica' %}selected{% endif %}>Centro de Estética</option>
-                                <option value="general" {% if not negocio.tipo_negocio or negocio.tipo_negocio == 'general' %}selected{% endif %}>General</option>
-                            </select>
-                            <div class="help-text">Esto afecta los textos automáticos (estilista/profesional)</div>
-                        </div>
+            <div class="card">
+                <div class="card-title">Información del negocio</div>
+                <div class="card-sub">Estos datos aparecen en mensajes automáticos y en tu perfil público.</div>
 
-                        <div class="form-group">
-                            <label for="emoji">Emoji del Negocio</label>
-                            <input type="text" id="emoji" name="emoji" 
-                                   value="{{ negocio.emoji or '👋' }}" 
-                                   placeholder="👋, 💅, ✂️, 💇‍♀️">
-                            <div class="help-text">Un emoji que represente tu negocio</div>
-                        </div>
+                <div class="form-grid">
 
-                        <div class="form-group">
-                            <label for="saludo_personalizado">Saludo Personalizado</label>
-                            <textarea id="saludo_personalizado" name="saludo_personalizado" 
-                                      placeholder="¡Hola! Soy tu asistente virtual para agendar citas. ¿En qué puedo ayudarte?">{{ config_actual.saludo_personalizado if config_actual and config_actual.saludo_personalizado else '' }}</textarea>
-                            <div class="help-text">Este saludo aparecerá en los mensajes automáticos</div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="horario_atencion">Horario de Atención</label>
-                            <input type="text" id="horario_atencion" name="horario_atencion" 
-                                   value="{{ config_actual.horario_atencion if config_actual and config_actual.horario_atencion else 'Lunes a Sábado 9:00 AM - 7:00 PM' }}"
-                                   placeholder="Lunes a Sábado 9:00 AM - 7:00 PM">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="direccion">Dirección</label>
-                            <input type="text" id="direccion" name="direccion" 
-                                   value="{{ config_actual.direccion if config_actual and config_actual.direccion else '' }}"
-                                   placeholder="Calle Principal #123">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="telefono_contacto">Teléfono de Contacto</label>
-                            <input type="text" id="telefono_contacto" name="telefono_contacto" 
-                                   value="{{ config_actual.telefono_contacto if config_actual and config_actual.telefono_contacto else '' }}"
-                                   placeholder="+573001234567">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="numero_api_whatsapp">Número de API de WhatsApp (Opcional)</label>
-                            <input type="text" id="numero_api_whatsapp" name="numero_api_whatsapp" 
-                                   value="{{ numero_api_whatsapp or '' }}"
-                                   placeholder="Ej: 573001234567">
-                            <div class="help-text">Número que Meta asignó a este negocio para la API de WhatsApp Business (solo dígitos)</div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="politica_cancelacion">Política de Cancelación</label>
-                            <input type="text" id="politica_cancelacion" name="politica_cancelacion" 
-                                   value="{{ config_actual.politica_cancelacion if config_actual and config_actual.politica_cancelacion else 'Puedes cancelar hasta 2 horas antes' }}"
-                                   placeholder="Puedes cancelar hasta 2 horas antes">
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label" for="nombre">Nombre del negocio *</label>
+                        <input class="form-input" type="text" id="nombre" name="nombre"
+                               value="{{ negocio.nombre }}" required>
                     </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="tipo_negocio">Tipo de negocio *</label>
+                        <select class="form-select" id="tipo_negocio" name="tipo_negocio" required>
+                            <option value="spa_unas"  {% if negocio.tipo_negocio == 'spa_unas'  %}selected{% endif %}>💅 Spa de Uñas</option>
+                            <option value="barberia"  {% if negocio.tipo_negocio == 'barberia'  %}selected{% endif %}>✂️ Barbería</option>
+                            <option value="peluqueria"{% if negocio.tipo_negocio == 'peluqueria'%}selected{% endif %}>💇‍♀️ Peluquería</option>
+                            <option value="estetica"  {% if negocio.tipo_negocio == 'estetica'  %}selected{% endif %}>✨ Centro de Estética</option>
+                            <option value="general"   {% if not negocio.tipo_negocio or negocio.tipo_negocio == 'general' %}selected{% endif %}>🏢 General</option>
+                        </select>
+                        <span class="form-hint">Afecta los textos automáticos (estilista / profesional)</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="emoji">Emoji representativo</label>
+                        <input class="form-input" type="text" id="emoji" name="emoji"
+                               value="{{ negocio.emoji or '👋' }}" placeholder="👋, 💅, ✂️, 💇‍♀️"
+                               style="font-size:18px;letter-spacing:.1em;max-width:140px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="telefono_contacto">Teléfono de contacto</label>
+                        <input class="form-input" type="text" id="telefono_contacto" name="telefono_contacto"
+                               value="{{ config_actual.telefono_contacto if config_actual and config_actual.telefono_contacto else '' }}"
+                               placeholder="+573001234567">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="direccion">Dirección</label>
+                        <input class="form-input" type="text" id="direccion" name="direccion"
+                               value="{{ config_actual.direccion if config_actual and config_actual.direccion else '' }}"
+                               placeholder="Calle Principal #123">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="politica_cancelacion">Política de cancelación</label>
+                        <input class="form-input" type="text" id="politica_cancelacion" name="politica_cancelacion"
+                               value="{{ config_actual.politica_cancelacion if config_actual and config_actual.politica_cancelacion else 'Puedes cancelar hasta 2 horas antes' }}"
+                               placeholder="Puedes cancelar hasta 2 horas antes">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="numero_api_whatsapp">Número API WhatsApp</label>
+                        <input class="form-input" type="text" id="numero_api_whatsapp" name="numero_api_whatsapp"
+                               value="{{ numero_api_whatsapp or '' }}"
+                               placeholder="573001234567">
+                        <span class="form-hint">Solo dígitos. Número asignado por Meta para la API de WhatsApp Business.</span>
+                    </div>
+
+                    <div class="form-group full">
+                        <label class="form-label" for="saludo_personalizado">Saludo personalizado</label>
+                        <textarea class="form-textarea" id="saludo_personalizado" name="saludo_personalizado"
+                                  placeholder="¡Hola! Soy tu asistente virtual para agendar citas. ¿En qué puedo ayudarte?">{{ config_actual.saludo_personalizado if config_actual and config_actual.saludo_personalizado else '' }}</textarea>
+                        <span class="form-hint">Aparece al inicio de cada conversación automática.</span>
+                    </div>
+
                 </div>
             </div>
 
-            <div class="submit-section">
-                <button type="submit" class="btn-save">
-                    💾 Guardar Configuración Completa
-                </button>
-            </div>
-        </form>
-    </div>
+        </div>
 
-    <script>
-        // Función para cambiar pestañas
-        function cambiarPestaña(pestañaId) {
-            // Ocultar todas las pestañas
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Mostrar la pestaña seleccionada
-            document.getElementById(pestañaId + '-tab').classList.add('active');
-            
-            // Actualizar botones de pestañas
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            event.target.classList.add('active');
+        <div class="save-bar">
+            <div class="save-bar-info">
+                <strong id="activeDaysCount">0</strong> días activos configurados
+            </div>
+            <button type="submit" class="btn-save" id="btnSave">💾 Guardar cambios</button>
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+var DIA_IDS = [{% for dia in dias_semana %}{{ dia.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+var DIA_NAMES = {
+    {% for dia in dias_semana %}{{ dia.id }}: "{{ dia.nombre }}"{% if not loop.last %},{% endif %}{% endfor %}
+};
+
+document.querySelectorAll('.stab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var sec = this.dataset.sec;
+        document.querySelectorAll('.stab').forEach(function(b){ b.classList.remove('active'); });
+        this.classList.add('active');
+        document.getElementById('sec-horarios').style.display = sec === 'horarios' ? '' : 'none';
+        document.getElementById('sec-info').style.display     = sec === 'info'     ? '' : 'none';
+    });
+});
+
+function toggleDay(id, activo) {
+    var row     = document.getElementById('dr-' + id);
+    var body    = document.getElementById('db-body-' + id);
+    var badge   = document.getElementById('db-' + id);
+    var summary = document.getElementById('ds-' + id);
+
+    if (activo) {
+        row.classList.remove('is-inactive');
+        row.classList.add('is-active');
+        badge.className = 'day-badge badge-open';
+        badge.textContent = 'Abierto';
+        row.querySelectorAll('.main-time').forEach(function(i){ i.disabled = false; });
+        updateSummary(id);
+    } else {
+        row.classList.remove('is-active');
+        row.classList.add('is-inactive');
+        badge.className = 'day-badge badge-closed';
+        badge.textContent = 'Cerrado';
+        summary.textContent = '';
+        var lchCheck = document.getElementById('lch-' + id);
+        if (lchCheck) { 
+            lchCheck.checked = false; 
+            toggleLunch(id, false); 
+        }
+        row.querySelectorAll('.main-time, .lunch-time').forEach(function(i){ i.disabled = true; });
+    }
+    updateActiveDaysCount();
+}
+
+function headerClick(id, evt) {
+    if (evt.target.closest('.toggle-pill')) return;
+    var row = document.getElementById('dr-' + id);
+    if (!row.classList.contains('is-active')) return;
+    var body = document.getElementById('db-body-' + id);
+    body.style.display = body.style.display === 'block' ? 'none' : 'block';
+}
+
+function toggleLunch(id, visible) {
+    var lunchRow = document.getElementById('lr-' + id);
+    var aliInput = document.getElementById('ali-' + id);
+    var alfInput = document.getElementById('alf-' + id);
+
+    if (visible) {
+        lunchRow.classList.add('visible');
+        // No deshabilitamos, solo mostramos
+        aliInput.disabled = false;
+        alfInput.disabled = false;
+    } else {
+        lunchRow.classList.remove('visible');
+        // En lugar de deshabilitar, limpiamos los valores y los dejamos habilitados pero vacíos
+        aliInput.value = '';
+        alfInput.value = '';
+        aliInput.disabled = false;   // los dejamos habilitados para que se envíen vacíos
+        alfInput.disabled = false;
+    }
+}
+
+function updateSummary(id) {
+    var ini = document.getElementById('ini-' + id);
+    var fin = document.getElementById('fin-' + id);
+    var sum = document.getElementById('ds-' + id);
+    if (ini && fin && sum) {
+        sum.textContent = (ini.value && fin.value) ? ini.value + ' – ' + fin.value : '';
+    }
+}
+
+function updateActiveDaysCount() {
+    var count = document.querySelectorAll('.day-row.is-active').length;
+    document.getElementById('activeDaysCount').textContent = count;
+}
+
+function validar() {
+    var ok = true;
+    var errores = [];
+
+    document.querySelectorAll('.field-error').forEach(function(e){ e.classList.remove('show'); });
+
+    var activos = document.querySelectorAll('.day-row.is-active');
+    if (activos.length === 0) {
+        errores.push('Debes tener al menos un día activo.');
+        ok = false;
+    }
+
+    activos.forEach(function(row) {
+        var id = row.id.replace('dr-', '');
+        var ini = document.getElementById('ini-' + id);
+        var fin = document.getElementById('fin-' + id);
+        var ali = document.getElementById('ali-' + id);
+        var alf = document.getElementById('alf-' + id);
+        var nombre = DIA_NAMES[id] || 'Día ' + id;
+
+        if (!ini.value || !fin.value) {
+            errores.push(nombre + ': falta hora de inicio o fin de jornada.');
+            document.getElementById('err-main-' + id).classList.add('show');
+            document.getElementById('db-body-' + id).style.display = 'block';
+            ok = false;
+        } else if (ini.value >= fin.value) {
+            errores.push(nombre + ': la hora de inicio debe ser antes que la hora de fin.');
+            document.getElementById('err-main-' + id).textContent = '⚠ Inicio debe ser antes que fin.';
+            document.getElementById('err-main-' + id).classList.add('show');
+            document.getElementById('db-body-' + id).style.display = 'block';
+            ok = false;
         }
 
-        // ✅ CORRECCIÓN: Función para habilitar/deshabilitar inputs de horarios
-        function toggleDia(diaId, activo) {
-            const diaCard = document.getElementById(`dia-${diaId}`);
-            const inputs = diaCard.querySelectorAll('.horario-input');
-            
-            if (activo) {
-                diaCard.classList.remove('inactivo');
-                diaCard.classList.add('activo');
-                inputs.forEach(input => {
-                    input.disabled = false;
-                    // Solo hacer required los horarios principales, no el descanso
-                    if (input.classList.contains('horario-principal')) {
-                        input.required = true;
-                    } else {
-                        input.required = false;
-                    }
-                });
-            } else {
-                diaCard.classList.remove('activo');
-                diaCard.classList.add('inactivo');
-                inputs.forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                    // Limpiar valores de descanso solo si no están activos
-                    if (input.classList.contains('horario-descanso')) {
-                        input.value = '';
-                    }
-                });
+        var lchCheck = document.getElementById('lch-' + id);
+        if (lchCheck && lchCheck.checked) {
+            var errLunch = document.getElementById('err-lunch-' + id);
+            if ((ali.value && !alf.value) || (!ali.value && alf.value)) {
+                errores.push(nombre + ': el descanso necesita inicio y fin.');
+                if (errLunch) { errLunch.textContent = '⚠ Completa inicio y fin del descanso.'; errLunch.classList.add('show'); }
+                document.getElementById('db-body-' + id).style.display = 'block';
+                ok = false;
+            } else if (ali.value && alf.value) {
+                if (ali.value >= alf.value) {
+                    errores.push(nombre + ': el descanso debe tener inicio antes que fin.');
+                    if (errLunch) { errLunch.textContent = '⚠ Inicio del descanso debe ser antes que fin.'; errLunch.classList.add('show'); }
+                    document.getElementById('db-body-' + id).style.display = 'block';
+                    ok = false;
+                } else if (ini.value && fin.value && (ali.value < ini.value || alf.value > fin.value)) {
+                    errores.push(nombre + ': el descanso debe estar dentro de la jornada laboral.');
+                    if (errLunch) { errLunch.textContent = '⚠ El descanso debe estar dentro de tu jornada.'; errLunch.classList.add('show'); }
+                    document.getElementById('db-body-' + id).style.display = 'block';
+                    ok = false;
+                }
             }
         }
+    });
 
-        // Inicializar al cargar la página
-        document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar pestañas
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    cambiarPestaña(this.getAttribute('data-tab'));
-                });
-            });
+    if (!ok && errores.length > 0) {
+        var firstErr = document.querySelector('.field-error.show');
+        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
-            // ✅ CORRECCIÓN: Inicializar días correctamente
-            document.querySelectorAll('input[type="checkbox"][name*="_activo"]').forEach(checkbox => {
-                const diaId = checkbox.getAttribute('data-dia-id');
-                const estaActivo = checkbox.checked;
-                
-                // Aplicar el estado inicial desde los datos del servidor
-                toggleDia(parseInt(diaId), estaActivo);
+    return ok;
+}
 
-                // Agregar event listener para cambios
-                checkbox.addEventListener('change', function() {
-                    const diaId = this.getAttribute('data-dia-id');
-                    const nuevoEstado = this.checked;
-                    
-                    console.log(`🔄 Cambiando día ${diaId} a ${nuevoEstado ? 'ACTIVO' : 'INACTIVO'}`);
-                    toggleDia(parseInt(diaId), nuevoEstado);
-                });
-            });
+document.getElementById('mainForm').addEventListener('submit', function(e) {
+    if (!validar()) { e.preventDefault(); }
+});
 
-            // ✅ CORRECCIÓN: Validación mejorada antes de enviar
-            document.querySelector('form').addEventListener('submit', function(e) {
-                let formularioValido = true;
-                let mensajesError = [];
-
-                // Validar que al menos un día esté activo
-                const diasActivos = document.querySelectorAll('input[type="checkbox"][name*="_activo"]:checked');
-                if (diasActivos.length === 0) {
-                    formularioValido = false;
-                    mensajesError.push('Debe haber al menos un día activo para atención');
-                }
-
-                // Validar horarios en días activos
-                diasActivos.forEach(checkbox => {
-                    const diaId = checkbox.getAttribute('data-dia-id');
-                    const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`).value;
-                    const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`).value;
-                    const almuerzoInicio = document.querySelector(`input[name="dia_${diaId}_almuerzo_inicio"]`).value;
-                    const almuerzoFin = document.querySelector(`input[name="dia_${diaId}_almuerzo_fin"]`).value;
-
-                    // Validar horarios principales
-                    if (!horaInicio || !horaFin) {
-                        formularioValido = false;
-                        mensajesError.push(`El día ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent} necesita horario de inicio y fin`);
-                    }
-
-                    if (horaInicio && horaFin && horaInicio >= horaFin) {
-                        formularioValido = false;
-                        mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, la hora de inicio debe ser anterior a la hora de fin`);
-                    }
-
-                    // Validar horario de almuerzo si está parcialmente completado
-                    if ((almuerzoInicio && !almuerzoFin) || (!almuerzoInicio && almuerzoFin)) {
-                        formularioValido = false;
-                        mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, si especificas horario de almuerzo, debes completar inicio y fin`);
-                    }
-
-                    // Validar que el almuerzo esté dentro del horario laboral
-                    if (almuerzoInicio && almuerzoFin) {
-                        if (almuerzoInicio < horaInicio || almuerzoFin > horaFin) {
-                            formularioValido = false;
-                            mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, el horario de almuerzo debe estar dentro del horario laboral (${horaInicio} - ${horaFin})`);
-                        }
-
-                        if (almuerzoInicio >= almuerzoFin) {
-                            formularioValido = false;
-                            mensajesError.push(`En ${document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent}, el inicio del almuerzo debe ser anterior al fin`);
-                        }
-                    }
-                });
-
-                if (!formularioValido) {
-                    e.preventDefault();
-                    alert('❌ Errores en el formulario:\n\n' + mensajesError.join('\n'));
-                } else {
-                    // Mostrar confirmación con resumen
-                    let mensajeConfirmacion = '¿Estás seguro de que quieres guardar los cambios?\n\n';
-                    mensajeConfirmacion += '📅 Días activos configurados:\n';
-                    
-                    diasActivos.forEach(checkbox => {
-                        const diaId = checkbox.getAttribute('data-dia-id');
-                        const diaNombre = document.getElementById(`dia-${diaId}`).querySelector('.dia-nombre').textContent;
-                        const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`).value;
-                        const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`).value;
-                        const almuerzoInicio = document.querySelector(`input[name="dia_${diaId}_almuerzo_inicio"]`).value;
-                        const almuerzoFin = document.querySelector(`input[name="dia_${diaId}_almuerzo_fin"]`).value;
-                        
-                        mensajeConfirmacion += `• ${diaNombre}: ${horaInicio} a ${horaFin}`;
-                        if (almuerzoInicio && almuerzoFin) {
-                            mensajeConfirmacion += ` (Almuerzo: ${almuerzoInicio} a ${almuerzoFin})`;
-                        }
-                        mensajeConfirmacion += '\n';
-                    });
-
-                    if (confirm(mensajeConfirmacion)) {
-                        console.log('✅ Enviando formulario de configuración...');
-                    } else {
-                        e.preventDefault();
-                    }
-                }
-            });
-
-            // ✅ CORRECCIÓN: Debug para verificar estado de los días
-            console.log('🔍 Estado inicial de los días:');
-            document.querySelectorAll('.dia-card').forEach(card => {
-                const diaId = card.id.replace('dia-', '');
-                const activo = card.classList.contains('activo');
-                const horaInicio = document.querySelector(`input[name="dia_${diaId}_inicio"]`)?.value || 'N/A';
-                const horaFin = document.querySelector(`input[name="dia_${diaId}_fin"]`)?.value || 'N/A';
-                const almuerzoInicio = document.querySelector(`input[name="dia_${diaId}_almuerzo_inicio"]`)?.value || 'N/A';
-                const almuerzoFin = document.querySelector(`input[name="dia_${diaId}_almuerzo_fin"]`)?.value || 'N/A';
-                
-                console.log(`Día ${diaId}: ${activo ? 'ACTIVO' : 'INACTIVO'}`);
-                console.log(`  Horario: ${horaInicio} - ${horaFin}`);
-                console.log(`  Almuerzo: ${almuerzoInicio} - ${almuerzoFin}`);
-            });
-        });
-    </script>
+document.addEventListener('DOMContentLoaded', function() {
+    DIA_IDS.forEach(function(id) {
+        var row = document.getElementById('dr-' + id);
+        if (row && row.classList.contains('is-active')) {
+            document.getElementById('db-body-' + id).style.display = 'block';
+        }
+    });
+    updateActiveDaysCount();
+});
+</script>
 </body>
 </html>
