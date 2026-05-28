@@ -870,9 +870,15 @@
 
         {# Usamos el diccionario que ya viene procesado de Python #}
 
-        {# Ajusta estos valores según el horario de tu negocio #}
+        {# Horario dinámico del negocio: apertura y cierre para la fecha seleccionada #}
         {% set horas_inicio = 8 %}
         {% set horas_fin = 18 %}
+        {% if hora_inicio %}
+            {% set horas_inicio = hora_inicio.split(':')[0] | int %}
+        {% endif %}
+        {% if hora_fin %}
+            {% set horas_fin = hora_fin.split(':')[0] | int %}
+        {% endif %}
 
         <div class="timeline-header">
             <span class="timeline-title">Agenda del día</span>
