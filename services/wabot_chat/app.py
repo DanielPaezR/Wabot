@@ -3165,29 +3165,35 @@ def negocio_configuracion():
             conn.close()
             
             if resultado:
+                # Extraer valores, permitiendo que sean None (NULL en BD)
                 if hasattr(resultado, 'keys'):  # dict
-                    dia_config = {
-                        'activo': bool(resultado['activo']),
-                        'hora_inicio': resultado['hora_inicio'] or '09:00',
-                        'hora_fin': resultado['hora_fin'] or '19:00',
-                        'almuerzo_inicio': resultado['almuerzo_inicio'] or '13:00',
-                        'almuerzo_fin': resultado['almuerzo_fin'] or '14:00'
-                    }
+                    activo = bool(resultado['activo'])
+                    hora_inicio = resultado['hora_inicio'] if resultado['hora_inicio'] is not None else ''
+                    hora_fin = resultado['hora_fin'] if resultado['hora_fin'] is not None else ''
+                    almuerzo_inicio = resultado['almuerzo_inicio'] if resultado['almuerzo_inicio'] is not None else ''
+                    almuerzo_fin = resultado['almuerzo_fin'] if resultado['almuerzo_fin'] is not None else ''
                 else:  # tuple
-                    dia_config = {
-                        'activo': bool(resultado[0]),
-                        'hora_inicio': resultado[1] or '09:00',
-                        'hora_fin': resultado[2] or '19:00',
-                        'almuerzo_inicio': resultado[3] or '13:00',
-                        'almuerzo_fin': resultado[4] or '14:00'
-                    }
-            else:
+                    activo = bool(resultado[0])
+                    hora_inicio = resultado[1] if resultado[1] is not None else ''
+                    hora_fin = resultado[2] if resultado[2] is not None else ''
+                    almuerzo_inicio = resultado[3] if resultado[3] is not None else ''
+                    almuerzo_fin = resultado[4] if resultado[4] is not None else ''
+                
                 dia_config = {
-                    'activo': dia_id <= 6,
+                    'activo': activo,
+                    'hora_inicio': hora_inicio,
+                    'hora_fin': hora_fin,
+                    'almuerzo_inicio': almuerzo_inicio,
+                    'almuerzo_fin': almuerzo_fin
+                }
+            else:
+                # No existe registro: valores por defecto (pero almuerzo vacío)
+                dia_config = {
+                    'activo': dia_id <= 6,   # Lunes a Sábado activos por defecto
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
-                    'almuerzo_inicio': '13:00',
-                    'almuerzo_fin': '14:00'
+                    'almuerzo_inicio': '',
+                    'almuerzo_fin': ''
                 }
                 
             dias_semana.append({
@@ -3198,6 +3204,7 @@ def negocio_configuracion():
             
         except Exception as e:
             print(f"⚠️ Error cargando día {dia_id}: {e}")
+            # Fallback seguro (almuerzo vacío)
             dias_semana.append({
                 'id': dia_id,
                 'nombre': nombres_dias[dia_id-1],
@@ -3205,8 +3212,8 @@ def negocio_configuracion():
                     'activo': dia_id <= 6,
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
-                    'almuerzo_inicio': '13:00',
-                    'almuerzo_fin': '14:00'
+                    'almuerzo_inicio': '',
+                    'almuerzo_fin': ''
                 }
             })
 

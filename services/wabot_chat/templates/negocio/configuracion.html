@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Configuración — {{ session.get('negocio_nombre', 'Mi Negocio') }}</title>
     <style>
+        /* (estilos idénticos a los que ya tenías, no se modifican) */
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
         :root {
             --ink:       #111827;
             --ink-2:     #374151;
@@ -17,7 +17,6 @@
             --surface-3: #f3f4f6;
             --border:    #e5e7eb;
             --border-2:  #d1d5db;
-
             --blue:      #2563eb;
             --blue-lt:   #eff6ff;
             --blue-dk:   #1d4ed8;
@@ -27,12 +26,10 @@
             --red-lt:    #fef2f2;
             --amber:     #d97706;
             --amber-lt:  #fffbeb;
-
             --r:    10px;
             --r-sm:  7px;
             --sh:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
         }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--surface-3);
@@ -41,8 +38,6 @@
             line-height: 1.5;
             padding-bottom: 60px;
         }
-
-        /* ── TOPBAR ── */
         .topbar {
             background: var(--surface);
             border-bottom: 1px solid var(--border);
@@ -58,8 +53,6 @@
             background: var(--red-lt); color: var(--red);
             border: 1px solid #fecaca; text-decoration: none;
         }
-
-        /* ── NAV ── */
         .nav-wrap { background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
         .nav-tabs { display: flex; padding: 0 1.5rem; max-width: 900px; margin: 0 auto; }
         .nav-tab {
@@ -69,11 +62,7 @@
         }
         .nav-tab:hover { color: var(--ink-2); }
         .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
-
-        /* ── PAGE ── */
         .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
-
-        /* ── SECTION TABS ── */
         .section-tabs {
             display: flex; gap: 4px;
             background: var(--surface); border: 1px solid var(--border);
@@ -87,8 +76,6 @@
             border: none; background: none; cursor: pointer; transition: all .15s;
         }
         .stab.active { background: var(--blue); color: #fff; }
-
-        /* ── CARDS ── */
         .card {
             background: var(--surface); border: 1px solid var(--border);
             border-radius: var(--r); padding: 1.2rem 1.4rem; box-shadow: var(--sh);
@@ -96,23 +83,13 @@
         }
         .card-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: .25rem; }
         .card-sub   { font-size: 12px; color: var(--ink-3); margin-bottom: 1.2rem; }
-
-        /* ── FLASH ── */
         .flash {
             padding: .75rem 1rem; border-radius: var(--r-sm); margin-bottom: 1rem;
             font-size: 13px; font-weight: 600;
         }
         .flash-success { background: var(--green-lt); color: var(--green); border: 1px solid #bbf7d0; }
         .flash-error   { background: var(--red-lt);   color: var(--red);   border: 1px solid #fecaca; }
-
-        /* ══════════════════════════════════════
-           SCHEDULE GRID
-        ══════════════════════════════════════ */
-        .schedule-grid {
-            display: flex; flex-direction: column; gap: .6rem;
-        }
-
-        /* ── Día row ── */
+        .schedule-grid { display: flex; flex-direction: column; gap: .6rem; }
         .day-row {
             background: var(--surface); border: 1.5px solid var(--border);
             border-radius: var(--r); overflow: hidden;
@@ -120,15 +97,11 @@
         }
         .day-row.is-active { border-color: var(--green); }
         .day-row.is-inactive { opacity: .65; }
-
-        /* Header del día */
         .day-header {
             display: flex; align-items: center; gap: .75rem;
             padding: .75rem 1rem;
             cursor: pointer; user-select: none;
         }
-
-        /* Toggle pill */
         .toggle-pill {
             position: relative; width: 42px; height: 23px; flex-shrink: 0; cursor: pointer;
         }
@@ -146,29 +119,16 @@
             transition: transform .2s;
         }
         .toggle-pill input:checked ~ .toggle-thumb { transform: translateX(19px); }
-
-        .day-name {
-            font-weight: 700; font-size: 14px; color: var(--ink); flex: 1;
-        }
-        .day-summary {
-            font-size: 12px; color: var(--ink-3); font-weight: 500;
-        }
+        .day-name { font-weight: 700; font-size: 14px; color: var(--ink); flex: 1; }
+        .day-summary { font-size: 12px; color: var(--ink-3); font-weight: 500; }
         .day-badge {
             font-size: 11px; font-weight: 700; padding: 2px 9px;
             border-radius: 12px;
         }
         .badge-open   { background: var(--green-lt); color: var(--green); }
         .badge-closed { background: var(--surface-3); color: var(--ink-4); }
-
-        /* Body expandible del día */
-        .day-body {
-            padding: 0 1rem 1rem;
-            border-top: 1px solid var(--border);
-            display: none;
-        }
+        .day-body { padding: 0 1rem 1rem; border-top: 1px solid var(--border); display: none; }
         .day-row.is-active .day-body { display: block; }
-
-        /* Fila de horario principal */
         .time-row {
             display: flex; align-items: center; gap: .5rem;
             padding: .75rem 0;
@@ -190,8 +150,6 @@
         .time-input:focus { outline: none; border-color: var(--blue); }
         .time-input:disabled { background: var(--surface-2); color: var(--ink-4); cursor: not-allowed; }
         .time-sep { font-size: 12px; color: var(--ink-4); font-weight: 600; }
-
-        /* Sección almuerzo toggle */
         .lunch-toggle-row {
             display: flex; align-items: center; gap: .6rem;
             padding: .6rem 0;
@@ -206,25 +164,14 @@
             width: 15px; height: 15px; accent-color: var(--amber); cursor: pointer;
             flex-shrink: 0;
         }
-        .lunch-note {
-            font-size: 11px; color: var(--ink-4); font-weight: 400;
-        }
-
-        /* Animación almuerzo */
+        .lunch-note { font-size: 11px; color: var(--ink-4); font-weight: 400; }
         .lunch-row {
             overflow: hidden;
             max-height: 0;
             transition: max-height .25s ease, opacity .2s;
             opacity: 0;
         }
-        .lunch-row.visible {
-            max-height: 80px;
-            opacity: 1;
-        }
-
-        /* ══════════════════════════════════════
-           INFO FORM
-        ══════════════════════════════════════ */
+        .lunch-row.visible { max-height: 80px; opacity: 1; }
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -245,10 +192,6 @@
         }
         .form-textarea { resize: vertical; min-height: 90px; }
         .form-group.full { grid-column: 1 / -1; }
-
-        /* ══════════════════════════════════════
-           SAVE BAR (sticky bottom)
-        ══════════════════════════════════════ */
         .save-bar {
             position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
             background: var(--surface);
@@ -267,15 +210,11 @@
             transition: background .15s;
         }
         .btn-save:hover { background: #15803d; }
-
-        /* ── Error inline ── */
         .field-error {
             font-size: 11px; color: var(--red); font-weight: 600;
             margin-top: 2px; display: none;
         }
         .field-error.show { display: block; }
-
-        /* ── Responsive ── */
         @media(max-width:600px) {
             .page { padding: 1rem .75rem; }
             .topbar { padding: 0 .75rem; }
@@ -288,7 +227,6 @@
 </head>
 <body>
 
-<!-- TOPBAR -->
 <div class="topbar">
     <span class="topbar-name">{{ session.get('negocio_nombre', 'Mi Negocio') }}</span>
     <div class="topbar-right">
@@ -297,7 +235,6 @@
     </div>
 </div>
 
-<!-- NAV -->
 <div class="nav-wrap">
     <nav class="nav-tabs">
         <a href="{{ url_for('negocio_dashboard') }}"     class="nav-tab">Dashboard</a>
@@ -311,7 +248,6 @@
 
 <div class="page">
 
-    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -322,7 +258,6 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Section tabs -->
     <div class="section-tabs">
         <button class="stab active" data-sec="horarios">📅 Horarios</button>
         <button class="stab"        data-sec="info">🏢 Información</button>
@@ -345,9 +280,7 @@
                     <div class="day-row {% if d.activo %}is-active{% else %}is-inactive{% endif %}"
                          id="dr-{{ dia.id }}">
 
-                        <!-- Cabecera clickeable -->
                         <div class="day-header" onclick="headerClick({{ dia.id }}, event)">
-                            <!-- Toggle -->
                             <label class="toggle-pill" onclick="event.stopPropagation()">
                                 <input type="checkbox"
                                        name="dia_{{ dia.id }}_activo"
@@ -360,7 +293,6 @@
 
                             <span class="day-name">{{ dia.nombre }}</span>
 
-                            <!-- Resumen horario (solo cuando activo) -->
                             <span class="day-summary" id="ds-{{ dia.id }}">
                                 {% if d.activo %}{{ d.hora_inicio or '09:00' }} – {{ d.hora_fin or '19:00' }}{% endif %}
                             </span>
@@ -371,10 +303,8 @@
                             </span>
                         </div>
 
-                        <!-- Cuerpo expandible -->
                         <div class="day-body" id="db-body-{{ dia.id }}">
 
-                            <!-- Jornada principal -->
                             <div class="time-row">
                                 <span class="time-label">🕐 Jornada</span>
                                 <div class="time-inputs">
@@ -397,11 +327,12 @@
                                 </div>
                             </div>
 
-                            <!-- Toggle almuerzo -->
+                            <!-- Toggle almuerzo con NAME agregado -->
                             <div class="lunch-toggle-row">
                                 <label class="lunch-toggle-label" for="lch-{{ dia.id }}">
                                     <input type="checkbox"
                                            class="lunch-check"
+                                           name="dia_{{ dia.id }}_lunch_enabled"
                                            id="lch-{{ dia.id }}"
                                            {% if d.almuerzo_inicio %}checked{% endif %}
                                            onchange="toggleLunch({{ dia.id }}, this.checked)">
@@ -410,7 +341,6 @@
                                 </label>
                             </div>
 
-                            <!-- Fila almuerzo colapsable -->
                             <div class="lunch-row {% if d.almuerzo_inicio %}visible{% endif %}"
                                  id="lr-{{ dia.id }}">
                                 <div class="time-row" style="padding-top:.4rem;">
@@ -434,14 +364,14 @@
                                 </div>
                             </div>
 
-                        </div><!-- /day-body -->
-                    </div><!-- /day-row -->
+                        </div>
+                    </div>
                     {% endfor %}
 
-                </div><!-- /schedule-grid -->
-            </div><!-- /card -->
+                </div>
+            </div>
 
-        </div><!-- /sec-horarios -->
+        </div>
 
         <!-- ══════════ INFORMACIÓN ══════════ -->
         <div id="sec-info" style="display:none;">
@@ -516,9 +446,8 @@
                 </div>
             </div>
 
-        </div><!-- /sec-info -->
+        </div>
 
-        <!-- SAVE BAR -->
         <div class="save-bar">
             <div class="save-bar-info">
                 <strong id="activeDaysCount">0</strong> días activos configurados
@@ -528,17 +457,14 @@
 
     </form>
 
-</div><!-- /page -->
+</div>
 
 <script>
-    
-// ── IDs de días disponibles (generados por Jinja)
 var DIA_IDS = [{% for dia in dias_semana %}{{ dia.id }}{% if not loop.last %},{% endif %}{% endfor %}];
 var DIA_NAMES = {
     {% for dia in dias_semana %}{{ dia.id }}: "{{ dia.nombre }}"{% if not loop.last %},{% endif %}{% endfor %}
 };
 
-// ── Section tabs ─────────────────────────────────────────────
 document.querySelectorAll('.stab').forEach(function(btn) {
     btn.addEventListener('click', function() {
         var sec = this.dataset.sec;
@@ -549,7 +475,6 @@ document.querySelectorAll('.stab').forEach(function(btn) {
     });
 });
 
-// ── Toggle día (activo/inactivo) ─────────────────────────────
 function toggleDay(id, activo) {
     var row     = document.getElementById('dr-' + id);
     var body    = document.getElementById('db-body-' + id);
@@ -561,7 +486,6 @@ function toggleDay(id, activo) {
         row.classList.add('is-active');
         badge.className = 'day-badge badge-open';
         badge.textContent = 'Abierto';
-        // Habilitar inputs principales
         row.querySelectorAll('.main-time').forEach(function(i){ i.disabled = false; });
         updateSummary(id);
     } else {
@@ -570,26 +494,24 @@ function toggleDay(id, activo) {
         badge.className = 'day-badge badge-closed';
         badge.textContent = 'Cerrado';
         summary.textContent = '';
-        // Cerrar almuerzo y deseshabilitar todo
         var lchCheck = document.getElementById('lch-' + id);
-        if (lchCheck) { lchCheck.checked = false; toggleLunch(id, false); }
+        if (lchCheck) { 
+            lchCheck.checked = false; 
+            toggleLunch(id, false); 
+        }
         row.querySelectorAll('.main-time, .lunch-time').forEach(function(i){ i.disabled = true; });
     }
     updateActiveDaysCount();
 }
 
-// ── Click en cabecera (abre/cierra body si está activo) ──────
 function headerClick(id, evt) {
-    // No toggle si el click viene del área del toggle pill
     if (evt.target.closest('.toggle-pill')) return;
     var row = document.getElementById('dr-' + id);
-    if (!row.classList.contains('is-active')) return; // inactivo: no abrir
+    if (!row.classList.contains('is-active')) return;
     var body = document.getElementById('db-body-' + id);
-    // Abrir el clicked, dejar los demás como están (no acordeón forzado)
     body.style.display = body.style.display === 'block' ? 'none' : 'block';
 }
 
-// ── Toggle horario de almuerzo ────────────────────────────────
 function toggleLunch(id, visible) {
     var lunchRow = document.getElementById('lr-' + id);
     var aliInput = document.getElementById('ali-' + id);
@@ -603,15 +525,14 @@ function toggleLunch(id, visible) {
         lunchRow.classList.remove('visible');
         aliInput.disabled = true;
         alfInput.disabled = true;
-        aliInput.value = '';
-        alfInput.value = '';
+        // NO LIMPIAMOS LOS VALORES, solo deshabilitamos
+        // El backend leerá el checkbox y guardará NULL si no está marcado
         // Limpiar errores
         var err = document.getElementById('err-lunch-' + id);
         if (err) err.classList.remove('show');
     }
 }
 
-// ── Actualizar resumen horario en la cabecera ─────────────────
 function updateSummary(id) {
     var ini = document.getElementById('ini-' + id);
     var fin = document.getElementById('fin-' + id);
@@ -621,18 +542,15 @@ function updateSummary(id) {
     }
 }
 
-// ── Contador de días activos ──────────────────────────────────
 function updateActiveDaysCount() {
     var count = document.querySelectorAll('.day-row.is-active').length;
     document.getElementById('activeDaysCount').textContent = count;
 }
 
-// ── VALIDACIÓN ───────────────────────────────────────────────
 function validar() {
     var ok = true;
     var errores = [];
 
-    // Limpiar errores previos
     document.querySelectorAll('.field-error').forEach(function(e){ e.classList.remove('show'); });
 
     var activos = document.querySelectorAll('.day-row.is-active');
@@ -649,11 +567,9 @@ function validar() {
         var alf = document.getElementById('alf-' + id);
         var nombre = DIA_NAMES[id] || 'Día ' + id;
 
-        // Validar jornada principal
         if (!ini.value || !fin.value) {
             errores.push(nombre + ': falta hora de inicio o fin de jornada.');
             document.getElementById('err-main-' + id).classList.add('show');
-            // Abrir el body para que se vea el error
             document.getElementById('db-body-' + id).style.display = 'block';
             ok = false;
         } else if (ini.value >= fin.value) {
@@ -664,7 +580,6 @@ function validar() {
             ok = false;
         }
 
-        // Validar almuerzo si está activado
         var lchCheck = document.getElementById('lch-' + id);
         if (lchCheck && lchCheck.checked) {
             var errLunch = document.getElementById('err-lunch-' + id);
@@ -690,7 +605,6 @@ function validar() {
     });
 
     if (!ok && errores.length > 0) {
-        // Scroll al primer error
         var firstErr = document.querySelector('.field-error.show');
         if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -698,14 +612,11 @@ function validar() {
     return ok;
 }
 
-// ── SUBMIT ───────────────────────────────────────────────────
 document.getElementById('mainForm').addEventListener('submit', function(e) {
     if (!validar()) { e.preventDefault(); }
 });
 
-// ── INIT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-    // Abrir días activos por defecto para que se vean los horarios
     DIA_IDS.forEach(function(id) {
         var row = document.getElementById('dr-' + id);
         if (row && row.classList.contains('is-active')) {
