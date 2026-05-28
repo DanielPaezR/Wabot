@@ -3125,7 +3125,7 @@ def negocio_api_citas_recientes():
 @app.route('/negocio/configuracion', methods=['GET', 'POST'])
 @login_required
 def negocio_configuracion():
-    """Configuración del negocio - HORARIOS + INFORMACIÓN - VERSIÓN CORREGIDA"""
+    """Configuración del negocio - HORARIOS + INFORMACIÓN - VERSIÓN DEFINITIVA CORREGIDA"""
     negocio_id = session['negocio_id']
     
     # Obtener datos actuales del negocio
@@ -3165,7 +3165,6 @@ def negocio_configuracion():
             conn.close()
             
             if resultado:
-                # Extraer valores, permitiendo que sean None (NULL en BD)
                 if hasattr(resultado, 'keys'):  # dict
                     activo = bool(resultado['activo'])
                     hora_inicio = resultado['hora_inicio'] if resultado['hora_inicio'] is not None else ''
@@ -3187,9 +3186,8 @@ def negocio_configuracion():
                     'almuerzo_fin': almuerzo_fin
                 }
             else:
-                # No existe registro: valores por defecto (pero almuerzo vacío)
                 dia_config = {
-                    'activo': dia_id <= 6,   # Lunes a Sábado activos por defecto
+                    'activo': dia_id <= 6,
                     'hora_inicio': '09:00',
                     'hora_fin': '19:00',
                     'almuerzo_inicio': '',
@@ -3204,7 +3202,6 @@ def negocio_configuracion():
             
         except Exception as e:
             print(f"⚠️ Error cargando día {dia_id}: {e}")
-            # Fallback seguro (almuerzo vacío)
             dias_semana.append({
                 'id': dia_id,
                 'nombre': nombres_dias[dia_id-1],
@@ -3251,11 +3248,17 @@ def negocio_configuracion():
                 activo = f'dia_{dia_id}_activo' in request.form
                 hora_inicio = request.form.get(f'dia_{dia_id}_inicio', '09:00')
                 hora_fin = request.form.get(f'dia_{dia_id}_fin', '19:00')
-                almuerzo_inicio = request.form.get(f'dia_{dia_id}_descanso_inicio', '13:00')
-                almuerzo_fin = request.form.get(f'dia_{dia_id}_descanso_fin', '14:00')
                 
-                print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
+                # Obtener valores de almuerzo (pueden venir vacíos)
+                almuerzo_inicio = request.form.get(f'dia_{dia_id}_almuerzo_inicio', '').strip()
+                almuerzo_fin = request.form.get(f'dia_{dia_id}_almuerzo_fin', '').strip()
                 
+                # Si ambos están vacíos, no hay descanso → guardar NULL
+                if not almuerzo_inicio or not almuerzo_fin:
+                    almuerzo_inicio = None
+                    almuerzo_fin = None
+                
+                # Validación de horario principal
                 if activo:
                     if not hora_inicio or not hora_fin:
                         flash(f'❌ El {nombres_dias[dia_id-1]} necesita horario de inicio y fin', 'error')
@@ -3263,6 +3266,17 @@ def negocio_configuracion():
                     if hora_inicio >= hora_fin:
                         flash(f'❌ En {nombres_dias[dia_id-1]}, la hora de inicio debe ser anterior a la hora de fin', 'error')
                         return redirect(url_for('negocio_configuracion'))
+                    
+                    # Validación opcional de almuerzo (si se enviaron valores)
+                    if almuerzo_inicio and almuerzo_fin:
+                        if almuerzo_inicio >= almuerzo_fin:
+                            flash(f'❌ En {nombres_dias[dia_id-1]}, el inicio del descanso debe ser anterior al fin', 'error')
+                            return redirect(url_for('negocio_configuracion'))
+                        if almuerzo_inicio < hora_inicio or almuerzo_fin > hora_fin:
+                            flash(f'❌ En {nombres_dias[dia_id-1]}, el descanso debe estar dentro de la jornada laboral', 'error')
+                            return redirect(url_for('negocio_configuracion'))
+                
+                print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
                 
                 horarios_actualizados.append({
                     'dia_id': dia_id,
@@ -3282,25 +3296,22 @@ def negocio_configuracion():
             for h in horarios_actualizados:
                 print(f"  Día {h['dia_id']} ({nombres_dias[h['dia_id']-1]}): {h['activo']} - {h['hora_inicio']} a {h['hora_fin']} - Descanso: {h['almuerzo_inicio']} a {h['almuerzo_fin']}")
             
-            # ⚠️ IMPORTANTE: Esta función (actualizar_configuracion_completa) debe estar corregida en database.py
-            # Debes cambiar el ON CONFLICT por ON CONFLICT ON CONSTRAINT unique_negocio_dia
-            # O usar UPDATE/INSERT separado. Si no, seguirá dando error.
+            # Guardar en la base de datos usando la función de database.py
             if db.actualizar_configuracion_completa(
                 negocio_id, nombre, tipo_negocio, emoji, nueva_configuracion, horarios_actualizados
             ):
-                # ===== GUARDAR NÚMERO DE API DE WHATSAPP (CORREGIDO) =====
+                # ===== GUARDAR NÚMERO DE API DE WHATSAPP =====
                 numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
                 conn = db.get_db_connection()
                 cursor = conn.cursor()
                 
                 if numero_api_whatsapp:
-                    # Validar dígitos
                     if not numero_api_whatsapp.isdigit():
                         conn.close()
                         flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     
-                    # Verificar unicidad (no usado por otro negocio)
+                    # Verificar unicidad
                     if db.is_postgresql():
                         cursor.execute('''
                             SELECT negocio_id FROM numeros_whatsapp_negocio 
@@ -3317,9 +3328,8 @@ def negocio_configuracion():
                         flash('❌ Este número de API ya está registrado para otro negocio', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     
-                    # Guardar o actualizar sin usar ON CONFLICT (por si no hay restricción UNIQUE)
+                    # Guardar o actualizar
                     if db.is_postgresql():
-                        # Primero intentar actualizar
                         cursor.execute('''
                             UPDATE numeros_whatsapp_negocio 
                             SET numero_whatsapp = %s

@@ -519,17 +519,16 @@ function toggleLunch(id, visible) {
 
     if (visible) {
         lunchRow.classList.add('visible');
+        // No deshabilitamos, solo mostramos
         aliInput.disabled = false;
         alfInput.disabled = false;
     } else {
         lunchRow.classList.remove('visible');
-        aliInput.disabled = true;
-        alfInput.disabled = true;
-        // NO LIMPIAMOS LOS VALORES, solo deshabilitamos
-        // El backend leerá el checkbox y guardará NULL si no está marcado
-        // Limpiar errores
-        var err = document.getElementById('err-lunch-' + id);
-        if (err) err.classList.remove('show');
+        // En lugar de deshabilitar, limpiamos los valores y los dejamos habilitados pero vacíos
+        aliInput.value = '';
+        alfInput.value = '';
+        aliInput.disabled = false;   // los dejamos habilitados para que se envíen vacíos
+        alfInput.disabled = false;
     }
 }
 
