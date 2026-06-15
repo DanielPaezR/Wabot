@@ -1311,7 +1311,7 @@ def ia_consultar_horarios(arguments, negocio_id):
             hora_str = hora_actual.strftime('%H:%M')
             if not any(cita.get('hora') == hora_str for cita in citas):
                 horarios_disponibles.append(hora_str)
-            hora_actual += timedelta(minutes=30)
+            hora_actual += timedelta(minutes=15)  # ✅ CAMBIADO a 15 minutos
     except Exception as e:
         print(f"⚠️ [IA] Error generando horarios disponibles: {e}")
 
@@ -1946,8 +1946,8 @@ def generar_opciones_horarios(numero, negocio_id):
     horarios_disponibles = conversaciones_activas[clave_conversacion]['todos_horarios']
     pagina = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
     
-    # Paginación
-    horarios_por_pagina = 6
+    # Paginación - Aumentada a 12 horarios por página (equivalente a 3 horas con slots de 15 min)
+    horarios_por_pagina = 12
     inicio = pagina * horarios_por_pagina
     fin = inicio + horarios_por_pagina
     horarios_pagina = horarios_disponibles[inicio:fin]
@@ -3599,7 +3599,7 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     # Obtener horarios de la página actual
     pagina_actual = conversaciones_activas[clave_conversacion].get('pagina_horarios', 0)
     horarios_disponibles = conversaciones_activas[clave_conversacion]['todos_horarios']
-    horarios_por_pagina = 6
+    horarios_por_pagina = 12  # ✅ Cambiado de 6 a 12
     inicio = pagina_actual * horarios_por_pagina
     fin = inicio + horarios_por_pagina
     horarios_pagina = horarios_disponibles[inicio:fin]
@@ -3963,7 +3963,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
             # Verificar que el servicio no se pase de la hora de cierre
             if hora_fin_servicio.time() > hora_fin.time():
                 print(f"⏰ {hora_str} - Servicio terminaría después del cierre ({hora_fin_servicio.strftime('%H:%M')} > {horarios_dia['hora_fin']})")
-                hora_actual += timedelta(minutes=30)
+                hora_actual += timedelta(minutes=15)
                 continue
             
             # Si es hoy, verificar horarios futuros con margen
@@ -3978,19 +3978,19 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
                 if tiempo_hasta_horario.total_seconds() <= 0:
                     print(f"⏰ {hora_str} - Ya pasó esta hora")
                     horarios_omitidos += 1
-                    hora_actual += timedelta(minutes=30)
+                    hora_actual += timedelta(minutes=15)
                     continue
                 elif tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
                     print(f"⏰ {hora_str} - Muy cerca (faltan {int(tiempo_hasta_horario.total_seconds()/60)} min, mínimo {margen_minimo_minutos})")
                     horarios_omitidos += 1
-                    hora_actual += timedelta(minutes=30)
+                    hora_actual += timedelta(minutes=15)
                     continue
             
             # Verificar si está en horario de almuerzo
             if es_horario_almuerzo(hora_actual, horarios_dia):
                 print(f"⏰ {hora_str} - Horario de almuerzo")
                 horarios_omitidos += 1
-                hora_actual += timedelta(minutes=30)
+                hora_actual += timedelta(minutes=15)
                 continue
             
             # ✅ VERIFICAR BLOQUEO RECURRENTE
@@ -4000,7 +4000,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
                     hora_fin_servicio.time() > hora_inicio_bloqueo.time()):
                     print(f"🚫 {hora_str} - Bloqueado por recurrente: {bloqueo_recurrente_activo['motivo']}")
                     horarios_omitidos += 1
-                    hora_actual += timedelta(minutes=30)
+                    hora_actual += timedelta(minutes=15)
                     continue
             
             # ✅ VERIFICAR DISPONIBILIDAD COMPLETA con citas existentes
@@ -4014,8 +4014,8 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
                 print(f"❌ {hora_str} NO DISPONIBLE - Conflicto con otra cita o bloqueo puntual")
                 horarios_omitidos += 1
             
-            # Avanzar al siguiente slot (30 minutos)
-            hora_actual += timedelta(minutes=30)
+            # Avanzar al siguiente slot (15 minutos)
+            hora_actual += timedelta(minutes=15)
         
         # Mostrar resumen
         print(f"🎯 Horarios generados:")
@@ -4145,7 +4145,7 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
                 if tiempo_hasta_horario.total_seconds() > 0 and tiempo_hasta_horario.total_seconds() >= (30 * 60):
                     return True  # Hay al menos un horario futuro con margen suficiente
                 
-                hora_actual += timedelta(minutes=30)
+                hora_actual += timedelta(minutes=15)
             return False  # No hay horarios futuros con margen suficiente para hoy
         
         return True  # Para días futuros, solo con que el día esté activo es suficiente
