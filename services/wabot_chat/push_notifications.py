@@ -17,6 +17,23 @@ def get_db_connection():
     from database import get_db_connection as db_conn
     return db_conn()
 
+def _es_suscripcion_muerta(webpush_exception):
+    """404/410 significa que el navegador invalidó la suscripción: ya no sirve reintentar"""
+    response = getattr(webpush_exception, 'response', None)
+    return bool(response) and response.status_code in (404, 410)
+
+def _desactivar_suscripcion(tabla, suscripcion_id):
+    """Marcar una suscripción push como inactiva para dejar de reintentarle envíos muertos"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(f'UPDATE {tabla} SET activa = FALSE WHERE id = %s', (suscripcion_id,))
+        conn.commit()
+        conn.close()
+        print(f"🗑️ Suscripción {suscripcion_id} de {tabla} desactivada (expirada/inválida)")
+    except Exception as e:
+        print(f"⚠️ Error desactivando suscripción {suscripcion_id}: {e}")
+
 # ==================== FUNCIONES PARA PROFESIONALES ====================
 
 def obtener_suscripciones_profesional(profesional_id):
@@ -162,11 +179,15 @@ def enviar_notificacion_cliente(telefono, negocio_id, titulo, mensaje, cita_id=N
                     vapid_claims=vapid_claims
                 )
                 enviados += 1
+            except WebPushException as e:
+                print(f"❌ Error enviando push a cliente: {e}")
+                if _es_suscripcion_muerta(e):
+                    _desactivar_suscripcion('suscripciones_push_clientes', suscripcion.get('id'))
             except Exception as e:
                 print(f"❌ Error enviando push a cliente: {e}")
-        
+
         return enviados > 0
-        
+
     except Exception as e:
         print(f"❌ Error en enviar_notificacion_cliente: {e}")
         return False
@@ -248,6 +269,10 @@ def enviar_notificacion_profesional_cita_creada(profesional_id, cliente_nombre, 
                     vapid_claims=vapid_claims
                 )
                 enviados += 1
+            except WebPushException as e:
+                print(f"❌ Error enviando push a profesional: {e}")
+                if _es_suscripcion_muerta(e):
+                    _desactivar_suscripcion('suscripciones_push', suscripcion.get('id'))
             except Exception as e:
                 print(f"❌ Error enviando push a profesional: {e}")
         
@@ -443,6 +468,11 @@ def send_push_notification():
                     vapid_claims=vapid_claims
                 )
                 resultados.append({'success': True, 'dispositivo': suscripcion.get('dispositivo_info', '')})
+            except WebPushException as e:
+                print(f"❌ Error enviando push: {e}")
+                if _es_suscripcion_muerta(e):
+                    _desactivar_suscripcion('suscripciones_push', suscripcion.get('id'))
+                resultados.append({'success': False, 'error': str(e)})
             except Exception as e:
                 print(f"❌ Error enviando push: {e}")
                 resultados.append({'success': False, 'error': str(e)})
@@ -519,7 +549,10 @@ def test_push_simple():
 
 @push_bp.route('/api/push/debug-info')
 def debug_info():
-    """Información de debug de las claves"""
+    """Información de debug de las claves (solo superadmin: expone metadatos de las claves VAPID)"""
+    if session.get('usuario_rol') != 'superadmin':
+        return jsonify({'error': 'No autorizado'}), 403
+
     return jsonify({
         'VAPID_PUBLIC_KEY': VAPID_PUBLIC_KEY[:50] + '...' if VAPID_PUBLIC_KEY else None,
         'VAPID_PUBLIC_KEY_length': len(VAPID_PUBLIC_KEY) if VAPID_PUBLIC_KEY else 0,

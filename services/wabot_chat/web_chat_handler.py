@@ -1251,6 +1251,32 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
 
     cita_id = db.agregar_cita(negocio_id, profesional.get('id'), cliente_telefono, fecha, hora, servicio.get('id'), cliente_nombre)
     if cita_id:
+        # ✅ Notificar al profesional y al cliente (el flujo por IA no lo hacía,
+        # a diferencia del flujo por menú numérico)
+        try:
+            mensaje_push = f"{cliente_nombre} - {fecha} {hora} - {servicio.get('nombre')}"
+            enviar_notificacion_push_local(
+                profesional_id=profesional.get('id'),
+                titulo="📅 Nueva Cita Agendada",
+                mensaje=mensaje_push,
+                cita_id=cita_id
+            )
+        except Exception as e:
+            print(f"❌ [IA-PUSH-ERROR] Error enviando push al profesional: {e}")
+
+        try:
+            from push_notifications import enviar_notificacion_cliente
+            enviar_notificacion_cliente(
+                telefono=cliente_telefono,
+                negocio_id=negocio_id,
+                titulo="✅ ¡Cita Confirmada!",
+                mensaje=f"Hola {cliente_nombre}, tu cita ha sido agendada para el {fecha} a las {hora} con {profesional.get('nombre')} para {servicio.get('nombre')}",
+                cita_id=cita_id,
+                url=f"/cliente/{negocio_id}?cita={cita_id}"
+            )
+        except Exception as e:
+            print(f"❌ [IA-PUSH-ERROR] Error enviando push al cliente: {e}")
+
         mensaje_confirmacion = (
             f"✅ ¡Perfecto {cliente_nombre}!\n\n"
             f"Tu cita ha sido agendada exitosamente:\n\n"
@@ -2810,36 +2836,47 @@ def mostrar_mis_citas(numero, negocio_id):
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 JOIN profesionales p ON c.profesional_id = p.id
-                WHERE c.cliente_telefono = ? 
-                AND c.negocio_id = ? 
-                AND c.estado = 'confirmado'
+                WHERE c.cliente_telefono = ?
+                AND c.negocio_id = ?
+                AND c.estado IN ('confirmado', 'confirmada')
                 ORDER BY c.fecha DESC, c.hora DESC
             ''', (telefono_real, negocio_id))
-        
+
         todas_citas = cursor.fetchall()
         print(f"🔧 [DEBUG] TOTAL de citas encontradas (sin filtrar): {len(todas_citas)}")
-        
-        # PASO 3: Filtrar solo citas futuras
-        fecha_actual = datetime.now(tz_colombia).date()
+
+        # PASO 3: Filtrar solo citas futuras (fecha Y hora, para que una cita
+        # de hoy que ya pasó de hora no siga apareciendo como próxima)
+        ahora_colombia = datetime.now(tz_colombia)
+        fecha_actual = ahora_colombia.date()
         citas_futuras = []
-        
+
         for cita in todas_citas:
             try:
                 if isinstance(cita, dict):
                     fecha_cita = cita.get('fecha')
-                    if isinstance(fecha_cita, str):
-                        fecha_cita_obj = datetime.strptime(fecha_cita, '%Y-%m-%d').date()
-                    else:
-                        fecha_cita_obj = fecha_cita.date() if hasattr(fecha_cita, 'date') else fecha_cita
+                    hora_cita = cita.get('hora')
                 else:
                     fecha_cita = cita[1]  # índice de fecha
-                    if isinstance(fecha_cita, str):
-                        fecha_cita_obj = datetime.strptime(fecha_cita, '%Y-%m-%d').date()
-                    else:
-                        fecha_cita_obj = fecha_cita.date() if hasattr(fecha_cita, 'date') else fecha_cita
-                
-                if fecha_cita_obj >= fecha_actual:
+                    hora_cita = cita[2]   # índice de hora
+
+                if isinstance(fecha_cita, str):
+                    fecha_cita_obj = datetime.strptime(fecha_cita, '%Y-%m-%d').date()
+                else:
+                    fecha_cita_obj = fecha_cita.date() if hasattr(fecha_cita, 'date') else fecha_cita
+
+                if fecha_cita_obj > fecha_actual:
                     citas_futuras.append(cita)
+                elif fecha_cita_obj == fecha_actual:
+                    # Es hoy: solo incluirla si su hora todavía no pasó
+                    try:
+                        hora_str = str(hora_cita)[:5]
+                        hora_cita_obj = datetime.strptime(hora_str, '%H:%M').time()
+                        if hora_cita_obj >= ahora_colombia.time():
+                            citas_futuras.append(cita)
+                    except Exception:
+                        # Si no se puede parsear la hora, no descartar la cita
+                        citas_futuras.append(cita)
             except Exception as e:
                 print(f"⚠️ Error procesando fecha de cita: {e}")
                 continue
@@ -2943,20 +2980,26 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         from database import get_db_connection
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
+        # ✅ Usar la fecha de HOY en hora de Colombia (no CURRENT_DATE de Postgres,
+        # que refleja la zona horaria del servidor de BD y puede ir un día
+        # adelantado respecto a Bogotá, ocultando citas de hoy en la lista para
+        # cancelar aunque sí aparezcan en "mis citas").
+        fecha_hoy_colombia = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+
         # ✅ Buscar citas confirmadas
         cursor.execute('''
-            SELECT c.id, c.fecha, c.hora, p.nombre as profesional_nombre, 
+            SELECT c.id, c.fecha, c.hora, p.nombre as profesional_nombre,
                    s.nombre as servicio_nombre, c.cliente_nombre
             FROM citas c
             JOIN profesionales p ON c.profesional_id = p.id
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.cliente_telefono = %s 
-            AND c.negocio_id = %s 
-            AND (c.fecha)::date >= CURRENT_DATE 
-            AND c.estado = 'confirmado'
+            WHERE c.cliente_telefono = %s
+            AND c.negocio_id = %s
+            AND (c.fecha)::date >= %s::date
+            AND c.estado IN ('confirmado', 'confirmada')
             ORDER BY (c.fecha)::date, c.hora
-        ''', (telefono_real, negocio_id))
+        ''', (telefono_real, negocio_id, fecha_hoy_colombia))
         
         citas = cursor.fetchall()
         conn.close()
