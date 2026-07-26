@@ -5110,12 +5110,18 @@ def obtener_citas():
     """Obtener todas las citas para una fecha y profesional"""
     fecha = request.args.get('fecha', '')
     profesional_id = request.args.get('profesional_id', '')
-    negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
     limit = request.args.get('limit', '')
-    
+
+    # ✅ Solo superadmin puede consultar otro negocio vía query string;
+    # propietario/profesional quedan fijos a su propio negocio de sesión.
+    if session.get('usuario_rol') == 'superadmin':
+        negocio_id = request.args.get('negocio_id', session.get('negocio_id', 1))
+    else:
+        negocio_id = session.get('negocio_id', 1)
+
     if not fecha:
         fecha = datetime.now(tz_colombia).strftime('%Y-%m-%d')
-    
+
     if session.get('usuario_rol') == 'profesional':
         profesional_id = session.get('profesional_id')
     
@@ -5501,7 +5507,12 @@ def get_professional_notifications():
 @app.route('/api/profesional/notificaciones/<int:notif_id>/leer', methods=['POST'])
 def mark_notification_read(notif_id):
     """API para marcar notificación como leída"""
-    if notification_system.mark_as_read(notif_id):
+    if 'profesional_id' not in session:
+        return jsonify({'error': 'No autenticado'}), 401
+
+    profesional_id = session['profesional_id']
+
+    if notification_system.mark_as_read(notif_id, profesional_id):
         return jsonify({'success': True})
     return jsonify({'success': False}), 400
 
@@ -6292,23 +6303,40 @@ def profesional_api_citas():
         
         if not profesional_id:
             return jsonify({'error': 'profesional_id requerido'}), 400
-        
+
         if not fecha_inicio or not fecha_fin:
             return jsonify({'error': 'Se requiere fecha_inicio y fecha_fin'}), 400
-        
+
+        # ✅ Verificar que el usuario tiene permiso para ver las citas de este profesional
+        usuario_rol = session.get('usuario_rol')
+
+        if usuario_rol == 'profesional':
+            if profesional_id != session.get('profesional_id'):
+                return jsonify({'error': 'No autorizado'}), 403
+        elif usuario_rol == 'propietario':
+            conn_check = get_db_connection()
+            cursor_check = conn_check.cursor()
+            cursor_check.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
+            row_check = cursor_check.fetchone()
+            conn_check.close()
+            negocio_del_profesional = row_check[0] if row_check else None
+            if negocio_del_profesional != session.get('negocio_id'):
+                return jsonify({'error': 'No autorizado'}), 403
+        # superadmin puede consultar cualquier profesional
+
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         cursor.execute('''
-            SELECT 
-                c.id, c.cliente_nombre, c.cliente_telefono, 
+            SELECT
+                c.id, c.cliente_nombre, c.cliente_telefono,
                 c.fecha, c.hora, c.estado,
                 s.nombre as servicio_nombre, s.precio,
                 p.nombre as profesional_nombre
             FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
             JOIN profesionales p ON c.profesional_id = p.id
-            WHERE c.profesional_id = %s 
+            WHERE c.profesional_id = %s
             AND c.fecha BETWEEN %s AND %s
             ORDER BY c.fecha DESC, c.hora DESC
             LIMIT %s
@@ -8253,11 +8281,15 @@ def subscribe_cliente_push_direct():
 def api_cliente_citas():
     """API para obtener las citas del cliente"""
     try:
-        telefono = request.args.get('telefono', '')
+        # ✅ El teléfono se toma de la sesión del servidor (establecida al
+        # identificarse en el chat), nunca del query string: de lo contrario
+        # cualquiera podría consultar el historial de citas de cualquier
+        # cliente con solo adivinar/probar su número de teléfono.
+        telefono = session.get('cliente_telefono', '')
         negocio_id = request.args.get('negocio_id', 1, type=int)
-        
+
         if not telefono or len(telefono) < 10:
-            return jsonify({'success': False, 'error': 'Teléfono requerido'}), 400
+            return jsonify({'success': False, 'error': 'Debes identificarte en el chat antes de consultar tus citas'}), 401
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -8317,8 +8349,11 @@ def api_cliente_citas():
             elif estado == 'cancelado':
                 estado_icono = '❌'
                 estado_texto = 'Cancelada'
-            else:
+            elif estado in ('confirmado', 'confirmada'):
                 estado_icono = '📅'
+                estado_texto = 'Confirmada'
+            else:
+                estado_icono = '⏳'
                 estado_texto = 'Pendiente'
             
             citas_formateadas.append({
@@ -8747,14 +8782,11 @@ except Exception as e:
 
 if __name__ == '__main__':
     print("🏠 MODO DESARROLLO LOCAL")
-    
-    # Para desarrollo local: Iniciar scheduler
-    try:
-        scheduler.iniciar_scheduler_en_segundo_plano()
-        print("✅ Scheduler iniciado para desarrollo local")
-    except Exception as e:
-        print(f"⚠️ Error iniciando scheduler local: {e}")
-    
+
+    # ✅ El scheduler ya se inició arriba a nivel de módulo (línea ~8773);
+    # iniciarlo de nuevo aquí duplicaba el hilo y causaba recordatorios
+    # duplicados/carreras al ejecutar `python app.py` directamente.
+
     # Iniciar Flask
     port = int(os.environ.get('PORT', 5000))
     print(f"🎯 INICIANDO SERVIDOR EN PUERTO {port}...")

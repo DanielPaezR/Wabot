@@ -1638,20 +1638,65 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
     
     cursor = conn.cursor()
     cita_id = 0
-    
+
     try:
+        if is_postgresql():
+            # ✅ Lock de asesoramiento por profesional+fecha: serializa el
+            # chequeo de solapamiento y el INSERT para esa combinación, evitando
+            # que dos solicitudes casi simultáneas (p. ej. flujo IA y flujo de
+            # menú, o dos clientes) pasen ambas la verificación de disponibilidad
+            # antes de que cualquiera confirme su cita (doble-reserva).
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                (f"cita_slot_{profesional_id}_{fecha}",)
+            )
+
+            cursor.execute('''
+                SELECT c.hora, COALESCE(s.duracion, 0) as duracion
+                FROM citas c
+                JOIN servicios s ON c.servicio_id = s.id
+                WHERE c.profesional_id = %s AND c.fecha = %s
+                AND c.estado NOT IN ('cancelado', 'cancelada')
+            ''', (profesional_id, fecha))
+            citas_existentes = cursor.fetchall()
+
+            cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
+            fila_duracion = cursor.fetchone()
+            if fila_duracion:
+                duracion_nueva = fila_duracion['duracion'] if isinstance(fila_duracion, dict) else fila_duracion[0]
+            else:
+                duracion_nueva = 0
+
+            hora_inicio_nueva = datetime.strptime(hora_normalizada, '%H:%M')
+            hora_fin_nueva = hora_inicio_nueva + timedelta(minutes=int(duracion_nueva or 0))
+
+            for cita_existente in citas_existentes:
+                if isinstance(cita_existente, dict):
+                    cita_hora_str, cita_duracion = cita_existente['hora'], cita_existente['duracion']
+                else:
+                    cita_hora_str, cita_duracion = cita_existente[0], cita_existente[1]
+                try:
+                    cita_hora = datetime.strptime(str(cita_hora_str)[:5], '%H:%M')
+                    cita_fin = cita_hora + timedelta(minutes=int(cita_duracion or 0))
+                    if hora_inicio_nueva.time() < cita_fin.time() and hora_fin_nueva.time() > cita_hora.time():
+                        print(f"❌ [DEBUG] Conflicto detectado al confirmar (carrera evitada): {hora_normalizada} solapa con {cita_hora_str}")
+                        conn.rollback()
+                        return 0
+                except Exception:
+                    continue
+
         print("🔍 [DEBUG] Intentando INSERT...")
-        
+
         sql = '''
-            INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
+            INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre,
                              fecha, hora, servicio_id, estado)
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmado')
             RETURNING id
         '''
-        
-        cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre, 
+
+        cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre,
                            fecha, hora_normalizada, servicio_id))
-        
+
         result = cursor.fetchone()
         
         if hasattr(result, '__getitem__') and isinstance(result, dict):

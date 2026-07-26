@@ -173,17 +173,25 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
         
         try:
             cursor = conn.cursor(cursor_factory=RealDictCursor)  # ✅ Usar RealDictCursor
-            
-            # QUERY SIMPLIFICADO Y SEGURO
+
+            # ✅ El filtro de no leídas debe ir en el WHERE, no aplicarse después
+            # del LIMIT: si no, notificaciones sin leer más antiguas que las
+            # últimas `limit` notificaciones (leídas) del profesional quedaban
+            # fuera del resultado aunque get_unread_count() sí las contara.
             query = """
                 SELECT id, titulo, mensaje, tipo, fecha_creacion, metadata, leida
                 FROM notificaciones_profesional
                 WHERE profesional_id = %s
-                ORDER BY id DESC
-                LIMIT %s
             """
-            
-            cursor.execute(query, (profesional_id, limit))
+            params = [profesional_id]
+
+            if unread_only:
+                query += " AND leida = FALSE"
+
+            query += " ORDER BY id DESC LIMIT %s"
+            params.append(limit)
+
+            cursor.execute(query, params)
             rows = cursor.fetchall()
             
             notifications = []
@@ -224,11 +232,8 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
                     except:
                         notif['_timestamp'] = datetime.min
                     
-                    # Filtrar no leídas si se solicita
-                    if unread_only and not notif['leida']:
-                        notifications.append(notif)
-                    elif not unread_only:
-                        notifications.append(notif)
+                    # El filtro de no leídas ya se aplicó en la consulta SQL
+                    notifications.append(notif)
                         
                 except Exception as e:
                     print(f"⚠️ Error procesando fila: {e}")
@@ -281,22 +286,26 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             print(f"⚠️ Error formateando fecha {fecha_str}: {str(e)}")
             return fecha_str
     
-    def mark_as_read(self, notification_id):
-        """Marcar notificación como leída"""
+    def mark_as_read(self, notification_id, profesional_id):
+        """Marcar notificación como leída (solo si pertenece al profesional)"""
+        if not profesional_id or profesional_id <= 0:
+            print(f"⚠️ Profesional ID inválido: {profesional_id}")
+            return False
+
         conn = db.get_db_connection()
         if not conn:
             return False
-        
+
         try:
             cursor = conn.cursor()
             query = """
                 UPDATE notificaciones_profesional
                 SET leida = TRUE, fecha_leida = CURRENT_DATE
-                WHERE id = %s
+                WHERE id = %s AND profesional_id = %s
             """
-            cursor.execute(query, (notification_id,))
+            cursor.execute(query, (notification_id, profesional_id))
             conn.commit()
-            
+
             return cursor.rowcount > 0
             
         except Exception as e:

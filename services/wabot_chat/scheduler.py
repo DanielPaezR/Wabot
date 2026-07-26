@@ -39,7 +39,8 @@ class AppointmentScheduler:
                 return
             
             recordatorios_enviados = 0
-            
+            manana = ahora.date() + timedelta(days=1)
+
             for cita in citas_pendientes:
                 try:
                     cita_id = cita['id']
@@ -67,34 +68,56 @@ class AppointmentScheduler:
                     horas_restantes = tiempo_restante.total_seconds() / 3600
                     
                     # ============================================
-                    # RECORDATORIO 24 HORAS
+                    # RECORDATORIO 1 HORA (se revisa primero por ser más urgente)
                     # ============================================
-                    if 23 <= horas_restantes <= 25 and not cita.get('recordatorio_24h_enviado'):
-                        # 1. Notificar al profesional (BD)
-                        notif_id = notification_system.notify_appointment_reminder(
-                            cita['profesional_id'], cita, hours_before=24
-                        )
-                        # 2. Enviar push al cliente
-                        self.enviar_recordatorio_push_cliente(cita, 24)
-                        # 3. Marcar como enviado
-                        self.marcar_recordatorio_enviado(cita_id, '24h')
-                        recordatorios_enviados += 1
-                        print(f"📨 Recordatorio 24h enviado para cita #{cita_id}")
-                    
+                    # ✅ Solo el límite superior es estricto (<=1.5h); no exige un
+                    # mínimo de horas restantes, así que si el scheduler estuvo
+                    # caído y vuelve a arrancar 20 minutos antes de la cita, igual
+                    # envía el recordatorio en vez de perderlo para siempre.
+                    if 0 < horas_restantes <= 1.5 and not cita.get('recordatorio_1h_enviado'):
+                        if not self.marcar_recordatorio_enviado(cita_id, '1h'):
+                            continue
+                        try:
+                            notif_id = notification_system.notify_appointment_reminder(
+                                cita['profesional_id'], cita, hours_before=1
+                            )
+                            self.enviar_recordatorio_push_cliente(cita, 1)
+                            if not notif_id:
+                                raise RuntimeError("no se pudo guardar la notificación del profesional")
+                            recordatorios_enviados += 1
+                            print(f"📨 Recordatorio 1h enviado para cita #{cita_id}")
+                        except Exception as e:
+                            print(f"⚠️ Falló envío de recordatorio 1h para cita #{cita_id}, reintentará: {e}")
+                            self.revertir_recordatorio_enviado(cita_id, '1h')
+
                     # ============================================
-                    # RECORDATORIO 1 HORA
+                    # RECORDATORIO 24 HORAS ("tu cita es mañana")
                     # ============================================
-                    elif 0.5 <= horas_restantes <= 1.5 and not cita.get('recordatorio_1h_enviado'):
-                        # 1. Notificar al profesional (BD)
-                        notif_id = notification_system.notify_appointment_reminder(
-                            cita['profesional_id'], cita, hours_before=1
-                        )
-                        # 2. Enviar push al cliente
-                        self.enviar_recordatorio_push_cliente(cita, 1)
-                        # 3. Marcar como enviado
-                        self.marcar_recordatorio_enviado(cita_id, '1h')
-                        recordatorios_enviados += 1
-                        print(f"📨 Recordatorio 1h enviado para cita #{cita_id}")
+                    # ✅ Basado en la FECHA (¿la cita es mañana?) en vez de en una
+                    # ventana estrecha de horas (23-25h): así, si el scheduler
+                    # estuvo caído durante esa ventana puntual, cualquier ejecución
+                    # posterior durante ese mismo día sigue detectando que la cita
+                    # es "mañana" y envía el recordatorio (una sola vez, gracias al
+                    # marcado atómico).
+                    elif cita_fecha == manana and horas_restantes > 1.5 and not cita.get('recordatorio_24h_enviado'):
+                        if not self.marcar_recordatorio_enviado(cita_id, '24h'):
+                            continue
+                        try:
+                            notif_id = notification_system.notify_appointment_reminder(
+                                cita['profesional_id'], cita, hours_before=24
+                            )
+                            self.enviar_recordatorio_push_cliente(cita, 24)
+                            if not notif_id:
+                                # El push al cliente es "best effort" (puede no tener
+                                # suscripción y eso es normal), pero si ni siquiera se
+                                # pudo guardar la notificación del profesional en BD,
+                                # reintentar en el siguiente ciclo.
+                                raise RuntimeError("no se pudo guardar la notificación del profesional")
+                            recordatorios_enviados += 1
+                            print(f"📨 Recordatorio 24h enviado para cita #{cita_id}")
+                        except Exception as e:
+                            print(f"⚠️ Falló envío de recordatorio 24h para cita #{cita_id}, reintentará: {e}")
+                            self.revertir_recordatorio_enviado(cita_id, '24h')
                             
                 except Exception as e:
                     print(f"⚠️ Error procesando cita #{cita.get('id', '?')}: {e}")
@@ -222,8 +245,8 @@ class AppointmentScheduler:
                 return
             
             cursor = conn.cursor()
-            fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-            
+            fecha_hoy = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+
             cursor.execute('''
                 SELECT DISTINCT c.profesional_id, p.nombre as profesional_nombre,
                     COUNT(c.id) as total_citas_hoy
@@ -287,25 +310,54 @@ class AppointmentScheduler:
             print(f"❌ Error enviando notificaciones profesionales: {e}")
     
     def marcar_recordatorio_enviado(self, cita_id, tipo_recordatorio):
-        """Marcar que se envió un recordatorio"""
+        """
+        Reclamar atómicamente el envío de un recordatorio.
+        Solo devuelve True si esta llamada fue la que puso el flag en TRUE
+        (WHERE ...= FALSE), lo que evita que dos hilos/procesos del scheduler
+        envíen el mismo recordatorio dos veces (condición de carrera).
+        """
         conn = db.get_db_connection()
         if not conn:
             return False
-        
+
         try:
             cursor = conn.cursor()
-            
+
             if tipo_recordatorio == '24h':
-                sql = "UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = %s"
+                sql = "UPDATE citas SET recordatorio_24h_enviado = TRUE WHERE id = %s AND recordatorio_24h_enviado = FALSE"
             else:
-                sql = "UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = %s"
-            
+                sql = "UPDATE citas SET recordatorio_1h_enviado = TRUE WHERE id = %s AND recordatorio_1h_enviado = FALSE"
+
+            cursor.execute(sql, (cita_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+        except Exception as e:
+            print(f"❌ Error marcando recordatorio: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def revertir_recordatorio_enviado(self, cita_id, tipo_recordatorio):
+        """Revertir la marca de 'enviado' cuando el envío falló, para reintentar en el siguiente ciclo"""
+        conn = db.get_db_connection()
+        if not conn:
+            return False
+
+        try:
+            cursor = conn.cursor()
+
+            if tipo_recordatorio == '24h':
+                sql = "UPDATE citas SET recordatorio_24h_enviado = FALSE WHERE id = %s"
+            else:
+                sql = "UPDATE citas SET recordatorio_1h_enviado = FALSE WHERE id = %s"
+
             cursor.execute(sql, (cita_id,))
             conn.commit()
             return True
-            
+
         except Exception as e:
-            print(f"❌ Error marcando recordatorio: {e}")
+            print(f"❌ Error revirtiendo recordatorio: {e}")
             return False
         finally:
             conn.close()
@@ -362,9 +414,9 @@ class AppointmentScheduler:
     # ==================== FUNCIÓN DE RESUMEN DIARIO ====================
     
     def enviar_resumen_diario_profesionales(self):
-        """Enviar resumen diario de citas a cada profesional (8:00 AM)"""
+        """Enviar resumen diario de citas a cada profesional (8:00 AM hora Colombia)"""
         try:
-            ahora = datetime.now()
+            ahora = datetime.now(tz_colombia)
             print(f"📋 [{ahora.strftime('%H:%M')}] Enviando resumen diario...")
             
             conn = db.get_db_connection()
@@ -433,16 +485,28 @@ class AppointmentScheduler:
     
     # ==================== INICIAR SCHEDULER ====================
     
+    def verificar_resumen_diario(self):
+        """
+        Disparar el resumen diario a las 8:00 AM hora de Colombia.
+        No se usa schedule.every().day.at("08:00") porque esa API usa la hora
+        LOCAL del servidor (típicamente UTC en hosting cloud), no America/Bogota,
+        lo que haría que el resumen se enviara a las 3:00 a.m. Colombia.
+        """
+        ahora = datetime.now(tz_colombia)
+        if ahora.strftime('%H:%M') == '08:00':
+            hoy = ahora.date()
+            if getattr(self, 'ultimo_resumen_fecha', None) != hoy:
+                self.ultimo_resumen_fecha = hoy
+                self.enviar_resumen_diario_profesionales()
+
     def iniciar(self):
         """Iniciar el scheduler principal"""
         print("🔄 Iniciando scheduler...")
-        
+
         # Programar verificaciones cada minuto
         schedule.every(1).minutes.do(self.verificar_recordatorios)
-        
-        # Programar resumen diario a las 8:00 AM
-        schedule.every().day.at("08:00").do(self.enviar_resumen_diario_profesionales)
-        
+        schedule.every(1).minutes.do(self.verificar_resumen_diario)
+
         # Ejecutar inmediatamente
         self.verificar_recordatorios()
         
