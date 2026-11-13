@@ -7896,13 +7896,14 @@ def api_cliente_citas():
             WHERE c.cliente_telefono = %s 
             AND c.negocio_id = %s
             ORDER BY c.fecha DESC, c.hora DESC
-            LIMIT 20
+            LIMIT 60
         ''', (telefono, telefono, negocio_id))
         
         citas = cursor.fetchall()
         conn.close()
         
-        # Formatear citas
+        # Formatear citas ("próxima" se decide aquí, con la hora local del negocio, no en el navegador)
+        ahora_negocio = datetime.now(tz_negocio).replace(tzinfo=None)
         citas_formateadas = []
         for cita in citas:
             # Formatear hora
@@ -7912,7 +7913,6 @@ def api_cliente_citas():
             fecha_str = str(cita['fecha']) if cita['fecha'] else ''
             if fecha_str and len(fecha_str) >= 10:
                 try:
-                    from datetime import datetime
                     fecha_obj = datetime.strptime(fecha_str[:10], '%Y-%m-%d')
                     fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
                 except:
@@ -7920,9 +7920,20 @@ def api_cliente_citas():
             else:
                 fecha_formateada = fecha_str
             
-            # Determinar estado visual
+            # ¿Es una cita pendiente que todavía no ocurre?
             estado = cita['estado'] or 'confirmado'
-            if estado == 'completado':
+            es_proxima = False
+            if estado in ('confirmado', 'confirmada', 'pendiente') and fecha_str and hora_str:
+                try:
+                    es_proxima = datetime.strptime(f"{fecha_str[:10]} {hora_str}", '%Y-%m-%d %H:%M') >= ahora_negocio
+                except ValueError:
+                    es_proxima = False
+
+            # Determinar estado visual
+            if estado in ('confirmado', 'confirmada', 'pendiente') and not es_proxima:
+                estado_icono = '🕘'
+                estado_texto = 'Pasada'
+            elif estado == 'completado':
                 estado_icono = '✅'
                 estado_texto = 'Completada'
             elif estado == 'cancelado':
@@ -7940,6 +7951,7 @@ def api_cliente_citas():
                 'fecha': fecha_formateada,
                 'hora': hora_str,
                 'estado': estado,
+                'es_proxima': es_proxima,
                 'estado_icono': estado_icono,
                 'estado_texto': estado_texto,
                 'servicio': cita['servicio_nombre'],

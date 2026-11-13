@@ -724,6 +724,16 @@
         .cita-card-estado.completada { background: var(--success-soft); color: #065f46; }
         .cita-card-estado.pendiente { background: var(--primary-soft); color: var(--primary-dark); }
         .cita-card-estado.cancelada { background: var(--danger-soft); color: #991b1b; }
+        .cita-card-estado.pasada { background: var(--bg); color: var(--text-light); }
+
+        /* Filtro de la lista de citas */
+        .citas-filtros { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .citas-filtro {
+            border: 1px solid var(--border); background: transparent; color: var(--text-light);
+            font: inherit; font-size: 0.82rem; font-weight: 600; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+        }
+        .citas-filtro[aria-pressed="true"] { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+        .citas-filtro .n { opacity: 0.7; font-weight: 500; margin-left: 4px; }
 
         .cita-card-body {
             font-size: 0.82rem;
@@ -1512,73 +1522,72 @@
                     return;
                 }
                 
-                // Separar pendientes y pasadas
-                const pendientes = data.citas.filter(c => c.estado === 'confirmado');
-                const pasadas = data.citas.filter(c => c.estado !== 'confirmado');
-                
-                let html = '';
-                
-                // Sección pendientes
-                if (pendientes.length > 0) {
-                    html += `<div style="margin-bottom:16px;">
-                        <div style="font-weight:700;font-size:0.8rem;color:var(--primary);margin-bottom:8px;">PRÓXIMAS ${txtCitas.toUpperCase()}</div>`;
-                    html += pendientes.map(c => `
-                        <div class="cita-card">
-                            <div class="cita-card-header">
-                                <span class="cita-card-estado pendiente">${c.estado_texto}</span>
-                                <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
-                            </div>
-                            <div class="cita-card-body">
-                                <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
-                                <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
-                                <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
-                            </div>
-                        </div>
-                    `).join('');
-                    html += `</div>`;
-                }
-                
-                // Sección pasadas
-                if (pasadas.length > 0) {
-                    html += `<div>
-                        <div style="font-weight:700;font-size:0.8rem;color:var(--text-light);margin-bottom:8px;">HISTORIAL</div>`;
-                    html += pasadas.map(c => {
-                        const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
-                        return `
-                        <div class="cita-card">
-                            <div class="cita-card-header">
-                                <span class="cita-card-estado ${c.estado === 'completado' ? 'completada' : 'cancelada'}">${c.estado_texto}</span>
-                                <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
-                            </div>
-                            <div class="cita-card-body">
-                                <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
-                                <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
-                                <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
-                            </div>
-                            ${puedeCalificar ? `
-                            <div class="cita-card-footer">
-                                <button class="btn-calificar" onclick="calificarCita(${c.id})">
-                                    Calificar
-                                </button>
-                            </div>
-                            ` : (c.ya_calificada ? `
-                            <div class="cita-card-footer">
-                                <button class="btn-calificar calificado" disabled>
-                                    Ya calificada
-                                </button>
-                            </div>
-                            ` : '')}
-                        </div>
-                        `;
-                    }).join('');
-                    html += `</div>`;
-                }
-                
-                container.innerHTML = html;
-                
+                window._misCitas = data.citas;
+                window._misCitasCtx = { esAutos, txtCitas, iconoServicio, iconoProfesional };
+                if (!window._filtroCitas) window._filtroCitas = 'proximas';
+                renderMisCitas();
+
             } catch (e) {
                 container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('x', 'ic')}</div><h4>Error</h4><p>No se pudo conectar</p></div>`;
             }
+        }
+
+        function setFiltroCitas(f) {
+            window._filtroCitas = f;
+            renderMisCitas();
+        }
+
+        // Muestra solo las próximas por defecto; las anteriores (completadas, canceladas, pasadas) se ven con el filtro
+        function renderMisCitas() {
+            const container = document.getElementById('misCitasList');
+            const { esAutos, txtCitas, iconoServicio, iconoProfesional } = window._misCitasCtx;
+            const todas = window._misCitas || [];
+            const proximas = todas.filter(c => c.es_proxima).reverse();   // la API las envía de la más reciente a la más antigua
+            const anteriores = todas.filter(c => !c.es_proxima);
+            const filtro = window._filtroCitas || 'proximas';
+            const lista = filtro === 'proximas' ? proximas : (filtro === 'anteriores' ? anteriores : [...proximas, ...anteriores]);
+
+            const chip = (clave, texto, n) =>
+                `<button type="button" class="citas-filtro" aria-pressed="${filtro === clave}" onclick="setFiltroCitas('${clave}')">${texto}<span class="n">${n}</span></button>`;
+            let html = `<div class="citas-filtros" role="group" aria-label="Filtrar ${txtCitas}">
+                ${chip('proximas', 'Próximas', proximas.length)}${chip('anteriores', 'Anteriores', anteriores.length)}${chip('todas', 'Todas', todas.length)}
+            </div>`;
+
+            if (lista.length === 0) {
+                const vacio = filtro === 'proximas'
+                    ? { t: `No tienes ${txtCitas} próximas`, p: esAutos ? 'Haz una reserva desde el chat' : 'Agenda una cita desde el chat' }
+                    : { t: `Sin ${txtCitas} anteriores`, p: 'Aquí aparecerá tu historial' };
+                html += `<div class="empty-state">
+                    <div class="empty-state-icon">${ic('inbox', 'ic')}</div>
+                    <h4>${vacio.t}</h4><p>${vacio.p}</p>
+                    ${filtro === 'proximas' ? `<button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">${esAutos ? 'Reservar Vehículo' : 'Agendar Cita'}</button>` : ''}
+                </div>`;
+                container.innerHTML = html;
+                return;
+            }
+
+            html += lista.map(c => {
+                const claseEstado = c.es_proxima ? 'pendiente' : (c.estado === 'completado' ? 'completada' : (c.estado === 'cancelado' ? 'cancelada' : 'pasada'));
+                const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
+                const pie = puedeCalificar
+                    ? `<div class="cita-card-footer"><button class="btn-calificar" onclick="calificarCita(${c.id})">Calificar</button></div>`
+                    : (c.ya_calificada && c.estado === 'completado'
+                        ? `<div class="cita-card-footer"><button class="btn-calificar calificado" disabled>Ya calificada</button></div>` : '');
+                return `
+                <div class="cita-card">
+                    <div class="cita-card-header">
+                        <span class="cita-card-estado ${claseEstado}">${c.estado_texto}</span>
+                        <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
+                    </div>
+                    <div class="cita-card-body">
+                        <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
+                        <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
+                        <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
+                    </div>
+                    ${pie}
+                </div>`;
+            }).join('');
+            container.innerHTML = html;
         }
 
         function calificarCita(citaId) {
