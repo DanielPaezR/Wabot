@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
+            background: var(--wb-bg);
         }
         
         .container { 
@@ -35,7 +35,7 @@
         }
         
         h1 {
-            color: #2c3e50;
+            color: var(--wb-text);
             margin-bottom: 1.5rem;
             text-align: center;
             font-size: 1.5rem;
@@ -49,13 +49,13 @@
             display: block; 
             margin-bottom: 0.5rem; 
             font-weight: 600; 
-            color: #2c3e50;
+            color: var(--wb-text);
         }
         
         input, select { 
             width: 100%; 
             padding: 0.75rem; 
-            border: 2px solid #e0e0e0; 
+            border: 2px solid var(--wb-line-strong); 
             border-radius: 8px; 
             font-size: 1rem; 
             transition: border-color 0.3s;
@@ -63,7 +63,7 @@
 
         input:focus, select:focus {
             outline: none;
-            border-color: #3498db;
+            border-color: var(--wb-accent);
         }
         
         /* ✅ CORRECCIÓN: Botones responsive */
@@ -75,8 +75,8 @@
         }
 
         .btn { 
-            background: #3498db; 
-            color: white; 
+            background: var(--wb-accent); 
+            color: var(--wb-accent-ink); 
             padding: 0.75rem 1.5rem; 
             border: none; 
             border-radius: 8px; 
@@ -111,19 +111,19 @@
         }
         
         .btn-success { 
-            background: #27ae60; 
+            background: var(--wb-ok-solid); 
         }
 
         .btn-success:hover {
-            background: #219653;
+            background: var(--wb-ok-solid);
         }
         
         .btn-secondary {
-            background: #95a5a6;
+            background: var(--wb-surface-3);
         }
 
         .btn-secondary:hover {
-            background: #7f8c8d;
+            background: var(--wb-surface-3);
         }
         
         .horarios-grid { 
@@ -142,9 +142,9 @@
         
         .hora-btn { 
             padding: 0.75rem 0.5rem; 
-            border: 2px solid #e0e0e0; 
+            border: 2px solid var(--wb-line-strong); 
             border-radius: 8px; 
-            background: white; 
+            background: var(--wb-surface); 
             cursor: pointer; 
             text-align: center; 
             font-size: 0.9rem;
@@ -153,15 +153,15 @@
         }
 
         .hora-btn:hover {
-            border-color: #3498db;
+            border-color: var(--wb-accent);
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .hora-btn.selected { 
-            background: #3498db; 
-            color: white; 
-            border-color: #3498db;
+            background: var(--wb-accent); 
+            color: var(--wb-accent-ink); 
+            border-color: var(--wb-accent);
             transform: scale(1.05);
             box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
         }
@@ -174,31 +174,31 @@
         }
         
         .flash.success { 
-            background: #d4edda; 
-            color: #155724; 
-            border-color: #c3e6cb; 
+            background: var(--wb-ok-soft); 
+            color: var(--wb-ok-text); 
+            border-color: var(--wb-ok-line); 
         }
         
         .flash.error { 
-            background: #f8d7da; 
-            color: #721c24; 
-            border-color: #f5c6cb; 
+            background: var(--wb-bad-soft); 
+            color: var(--wb-bad-text); 
+            border-color: var(--wb-bad-line); 
         }
         
         .text-muted { 
-            color: #7f8c8d; 
+            color: var(--wb-text-3); 
             font-style: italic;
         }
         
         .text-danger { 
-            color: #e74c3c; 
+            color: var(--wb-bad); 
             font-weight: 500;
         }
 
         .loading {
             text-align: center;
             padding: 1rem;
-            color: #7f8c8d;
+            color: var(--wb-text-3);
             font-style: italic;
         }
 
@@ -210,7 +210,7 @@
         }
 
         .form-card {
-            background: white;
+            background: var(--wb-surface);
             padding: 2rem;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -228,8 +228,15 @@
             }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <div class="container">
         <div class="form-card">
             <h1>📅 Agendar Cita Directa</h1>

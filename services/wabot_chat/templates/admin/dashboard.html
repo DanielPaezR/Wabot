@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,11 +13,11 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
+            background: var(--wb-bg);
         }
         
         .header {
-            background: white;
+            background: var(--wb-surface);
             padding: 1rem 2rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
@@ -26,18 +26,18 @@
         }
         
         .header h1 {
-            color: #333;
+            color: var(--wb-text);
         }
 
         .user-info {
             display: flex;
             align-items: center;
             gap: 1rem;
-            color: #666;
+            color: var(--wb-text-2);
         }
         
         .logout-btn {
-            background: #e74c3c;
+            background: var(--wb-bad-solid);
             color: white;
             padding: 8px 16px;
             border: none;
@@ -60,14 +60,14 @@
         }
         
         .stat-card {
-            background: white;
+            background: var(--wb-surface);
             padding: 1.5rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .stat-card h3 {
-            color: #666;
+            color: var(--wb-text-2);
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
         }
@@ -75,7 +75,7 @@
         .stat-number {
             font-size: 2rem;
             font-weight: bold;
-            color: #333;
+            color: var(--wb-text);
         }
         
         .nav-grid {
@@ -85,7 +85,7 @@
         }
         
         .nav-card {
-            background: white;
+            background: var(--wb-surface);
             padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -100,7 +100,7 @@
         }
         
         .nav-card h2 {
-            color: #333;
+            color: var(--wb-text);
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
@@ -108,13 +108,13 @@
         }
         
         .nav-card p {
-            color: #666;
+            color: var(--wb-text-2);
             line-height: 1.5;
         }
 
         /* Estilos específicos para cada card */
         .nav-card-negocios {
-            border-left-color: #3498db;
+            border-left-color: var(--wb-accent);
         }
         
         .nav-card-negocios:hover {
@@ -122,7 +122,7 @@
         }
         
         .nav-card-usuarios {
-            border-left-color: #9b59b6;
+            border-left-color: var(--wb-accent);
         }
         
         .nav-card-usuarios:hover {
@@ -130,7 +130,7 @@
         }
         
         .nav-card-plantillas {
-            border-left-color: #2ecc71;
+            border-left-color: var(--wb-ok-solid);
         }
         
         .nav-card-plantillas:hover {
@@ -138,7 +138,7 @@
         }
         
         .nav-card-base-datos {
-            border-left-color: #e74c3c;
+            border-left-color: var(--wb-bad-solid);
         }
         
         .nav-card-base-datos:hover {
@@ -146,7 +146,7 @@
         }
         
         .nav-card-sistema {
-            border-left-color: #f39c12;
+            border-left-color: var(--wb-warn);
         }
         
         .nav-card-sistema:hover {
@@ -169,7 +169,7 @@
         }
         
         .modal-content {
-            background: white;
+            background: var(--wb-surface);
             border-radius: 10px;
             max-width: 600px;
             width: 100%;
@@ -180,7 +180,7 @@
         
         .modal-header {
             padding: 1.5rem;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--wb-line-strong);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -189,14 +189,14 @@
         .modal-title {
             font-size: 1.2rem;
             font-weight: 600;
-            color: #333;
+            color: var(--wb-text);
         }
         
         .modal-close {
             background: none;
             border: none;
             font-size: 1.5rem;
-            color: #666;
+            color: var(--wb-text-2);
             cursor: pointer;
             width: 40px;
             height: 40px;
@@ -207,7 +207,7 @@
         }
         
         .modal-close:hover {
-            background: #f5f5f5;
+            background: var(--wb-surface-2);
         }
         
         .modal-body {
@@ -216,7 +216,7 @@
         
         .modal-footer {
             padding: 1rem 1.5rem;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--wb-line-strong);
             display: flex;
             gap: 0.5rem;
             justify-content: flex-end;
@@ -233,52 +233,52 @@
         }
         
         .btn-primary {
-            background: #3498db;
-            color: white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
         }
         
         .btn-primary:hover {
-            background: #2980b9;
+            background: var(--wb-accent-hover);
         }
         
         .btn-danger {
-            background: #e74c3c;
+            background: var(--wb-bad-solid);
             color: white;
         }
         
         .btn-danger:hover {
-            background: #c0392b;
+            background: var(--wb-bad-solid);
         }
         
         .btn-success {
-            background: #2ecc71;
+            background: var(--wb-ok-solid);
             color: white;
         }
         
         .btn-success:hover {
-            background: #27ae60;
+            background: var(--wb-ok-solid);
         }
         
         .btn-warning {
-            background: #f39c12;
-            color: white;
+            background: var(--wb-warn);
+            color: var(--wb-accent-ink);
         }
         
         .btn-warning:hover {
-            background: #e67e22;
+            background: var(--wb-warn);
         }
         
         .warning-box {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
+            background: var(--wb-warn-soft);
+            border: 2px solid var(--wb-warn);
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1.5rem;
-            color: #856404;
+            color: var(--wb-warn-text);
         }
         
         .warning-box h3 {
-            color: #856404;
+            color: var(--wb-warn-text);
             margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
@@ -293,17 +293,17 @@
         }
         
         .db-action-card {
-            background: #f8f9fa;
+            background: var(--wb-surface-2);
             border-radius: 8px;
             padding: 1.5rem;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--wb-line-strong);
             cursor: pointer;
             transition: all 0.2s;
         }
         
         .db-action-card:hover {
-            border-color: #3498db;
-            background: white;
+            border-color: var(--wb-accent);
+            background: var(--wb-surface);
             transform: translateY(-2px);
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
@@ -311,14 +311,14 @@
         .db-action-title {
             font-weight: 600;
             margin-bottom: 0.5rem;
-            color: #333;
+            color: var(--wb-text);
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
         
         .db-action-desc {
-            color: #666;
+            color: var(--wb-text-2);
             font-size: 0.9rem;
             line-height: 1.4;
         }
@@ -327,7 +327,7 @@
             width: 100%;
             min-height: 200px;
             padding: 1rem;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--wb-line-strong);
             border-radius: 5px;
             font-family: 'Courier New', monospace;
             font-size: 0.9rem;
@@ -336,11 +336,11 @@
         
         .sql-editor:focus {
             outline: none;
-            border-color: #3498db;
+            border-color: var(--wb-accent);
         }
         
         .result-box {
-            background: #f8f9fa;
+            background: var(--wb-surface-2);
             border-radius: 5px;
             padding: 1rem;
             margin-top: 1rem;
@@ -350,15 +350,15 @@
         }
         
         .result-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
+            background: var(--wb-ok-soft);
+            border: 1px solid var(--wb-ok-line);
+            color: var(--wb-ok-text);
         }
         
         .result-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
+            background: var(--wb-bad-soft);
+            border: 1px solid var(--wb-bad-line);
+            color: var(--wb-bad-text);
         }
         
         @keyframes modalSlideIn {
@@ -377,25 +377,25 @@
         }
         
         .flash-success {
-            background: #d4edda;
-            color: #155724;
+            background: var(--wb-ok-soft);
+            color: var(--wb-ok-text);
             padding: 12px;
             border-radius: 5px;
-            border: 1px solid #c3e6cb;
+            border: 1px solid var(--wb-ok-line);
             margin-bottom: 1rem;
         }
         
         .flash-error {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--wb-bad-soft);
+            color: var(--wb-bad-text);
             padding: 12px;
             border-radius: 5px;
-            border: 1px solid #f5c6cb;
+            border: 1px solid var(--wb-bad-line);
             margin-bottom: 1rem;
         }
 
         .system-status {
-            background: white;
+            background: var(--wb-surface);
             padding: 1.5rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -407,7 +407,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 0.5rem 0;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--wb-line-strong);
         }
 
         .status-item:last-child {
@@ -416,7 +416,7 @@
 
         .status-name {
             flex: 1;
-            color: #666;
+            color: var(--wb-text-2);
         }
 
         .status-value {
@@ -424,19 +424,26 @@
         }
 
         .status-online {
-            color: #28a745;
+            color: var(--wb-ok-text);
         }
 
         .status-offline {
-            color: #dc3545;
+            color: var(--wb-bad-text);
         }
 
         .status-warning {
-            color: #ffc107;
+            color: var(--wb-warn-text);
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <div class="header">
         <h1>🏠 Dashboard - Sistema de Citas</h1>
         <div class="user-info">
@@ -471,7 +478,7 @@
             </div>
             <div class="stat-card">
                 <h3>📊 Sistema</h3>
-                <div class="stat-number" style="color: #28a745;">🟢 Activo</div>
+                <div class="stat-number" style="color: var(--wb-ok-text);">🟢 Activo</div>
             </div>
         </div>
         
@@ -506,7 +513,7 @@
 
         <!-- Estado del Sistema - VERSIÓN SIMPLIFICADA -->
         <div class="system-status">
-            <h2 style="color: #333; margin-bottom: 1rem;">⚙️ Estado del Sistema</h2>
+            <h2 style="color: var(--wb-text); margin-bottom: 1rem;">⚙️ Estado del Sistema</h2>
             <div class="status-item">
                 <span class="status-name">Base de Datos</span>
                 <span class="status-value status-online">🟢 Conectada</span>
@@ -530,17 +537,17 @@
         <!-- Usuarios Recientes -->
         {% if usuarios_recientes %}
         <div style="margin-top: 2rem;">
-            <h2 style="color: #333; margin-bottom: 1rem;">👥 Usuarios Recientes</h2>
-            <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: var(--wb-text); margin-bottom: 1rem;">👥 Usuarios Recientes</h2>
+            <div style="background: var(--wb-surface); padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
                     {% for usuario in usuarios_recientes %}
-                    <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 5px;">
-                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #3498db; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--wb-surface-2); border-radius: 5px;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--wb-accent); color: var(--wb-accent-ink); display: flex; align-items: center; justify-content: center; font-weight: bold;">
                             {{ usuario.nombre[0] }}
                         </div>
                         <div>
                             <div style="font-weight: bold; font-size: 0.9rem;">{{ usuario.nombre }}</div>
-                            <div style="font-size: 0.7rem; color: #666;">
+                            <div style="font-size: 0.7rem; color: var(--wb-text-2);">
                                 {% if usuario.rol == 'superadmin' %}
                                     🔧 Super Admin
                                 {% elif usuario.rol == 'propietario' %}
@@ -629,7 +636,7 @@
                 <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                     <button class="btn btn-primary" onclick="ejecutarSQL()">▶ Ejecutar</button>
                     <button class="btn btn-warning" onclick="limpiarSQL()">🗑️ Limpiar</button>
-                    <button class="btn" onclick="cargarEjemplos()" style="background: #95a5a6; color: white;">📋 Ejemplos</button>
+                    <button class="btn" onclick="cargarEjemplos()" style="background: var(--wb-surface-3); color: white;">📋 Ejemplos</button>
                 </div>
                 
                 <div id="sqlResult" class="result-box"></div>
@@ -648,7 +655,7 @@
                 <button class="modal-close" onclick="closeSystemModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <h4 style="margin-bottom: 1rem; color: #333;">📊 Estadísticas del Sistema</h4>
+                <h4 style="margin-bottom: 1rem; color: var(--wb-text);">📊 Estadísticas del Sistema</h4>
                 
                 <div id="systemStats">
                     <p>Cargando información del sistema...</p>
@@ -812,14 +819,14 @@
                     if (result.tables && result.tables.length > 0) {
                         result.tables.forEach(table => {
                             html += `
-                                <div style="margin: 1rem 0; padding: 1rem; background: white; border-radius: 5px; border-left: 3px solid #3498db;">
-                                    <strong style="color: #333;">📊 ${table.name}</strong>
-                                    <div style="font-size: 0.9rem; color: #666; margin: 0.5rem 0;">
+                                <div style="margin: 1rem 0; padding: 1rem; background: var(--wb-surface); border-radius: 5px; border-left: 3px solid var(--wb-accent);">
+                                    <strong style="color: var(--wb-text);">📊 ${table.name}</strong>
+                                    <div style="font-size: 0.9rem; color: var(--wb-text-2); margin: 0.5rem 0;">
                                         ${table.column_count} columnas
                                     </div>
                                     ${table.columns.map(col => `
-                                        <div style="font-size: 0.8rem; color: #666; margin-left: 1rem; font-family: monospace;">
-                                            ${col[0]} <span style="color: #e74c3c;">${col[1]}</span>
+                                        <div style="font-size: 0.8rem; color: var(--wb-text-2); margin-left: 1rem; font-family: monospace;">
+                                            ${col[0]} <span style="color: var(--wb-bad);">${col[1]}</span>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -959,18 +966,18 @@ LIMIT 10;`;
                     
                     if (result.results) {
                         result.results.forEach((r, i) => {
-                            html += `<hr style="margin: 1rem 0; border-color: #ddd;">`;
+                            html += `<hr style="margin: 1rem 0; border-color: var(--wb-line-strong);">`;
                             html += `<p><strong>Sentencia ${i + 1}:</strong> ${r.type}</p>`;
                             
                             if (r.type === 'SELECT') {
                                 html += `<p>Filas encontradas: ${r.rowcount}</p>`;
                                 if (r.data && r.data.length > 0) {
-                                    html += `<pre style="background: white; padding: 10px; border-radius: 5px; overflow: auto; max-height: 200px; font-size: 0.8rem;">`;
+                                    html += `<pre style="background: var(--wb-surface); padding: 10px; border-radius: 5px; overflow: auto; max-height: 200px; font-size: 0.8rem;">`;
                                     html += JSON.stringify(r.data, null, 2);
                                     html += `</pre>`;
                                 }
                             } else if (r.type === 'ERROR') {
-                                html += `<p style="color: #dc3545;">❌ Error: ${r.error}</p>`;
+                                html += `<p style="color: var(--wb-bad-text);">❌ Error: ${r.error}</p>`;
                             } else {
                                 html += `<p>📊 ${r.message}</p>`;
                             }
@@ -983,11 +990,11 @@ LIMIT 10;`;
                     let html = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
                     
                     if (result.results) {
-                        html += `<hr style="margin: 1rem 0; border-color: #ddd;">`;
+                        html += `<hr style="margin: 1rem 0; border-color: var(--wb-line-strong);">`;
                         result.results.forEach((r, i) => {
                             if (r.type === 'ERROR') {
                                 html += `<p><strong>Sentencia ${i + 1}:</strong></p>`;
-                                html += `<p style="color: #dc3545;">❌ ${r.error}</p>`;
+                                html += `<p style="color: var(--wb-bad-text);">❌ ${r.error}</p>`;
                             }
                         });
                     }
@@ -1019,13 +1026,13 @@ LIMIT 10;`;
                 
                 let html = `
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px;">
-                            <div style="font-size: 0.9rem; color: #666;">Tablas Totales</div>
-                            <div style="font-size: 1.5rem; font-weight: bold; color: #333;">${tablesResult.total_tables || 0}</div>
+                        <div style="background: var(--wb-surface-2); padding: 1rem; border-radius: 5px;">
+                            <div style="font-size: 0.9rem; color: var(--wb-text-2);">Tablas Totales</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--wb-text);">${tablesResult.total_tables || 0}</div>
                         </div>
-                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 5px;">
-                            <div style="font-size: 0.9rem; color: #666;">Sistema Imágenes</div>
-                            <div style="font-size: 1.5rem; font-weight: bold; ${checkResult.table_exists ? 'color: #28a745;' : 'color: #dc3545;'}">
+                        <div style="background: var(--wb-surface-2); padding: 1rem; border-radius: 5px;">
+                            <div style="font-size: 0.9rem; color: var(--wb-text-2);">Sistema Imágenes</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; ${checkResult.table_exists ? 'color: var(--wb-ok-text);' : 'color: var(--wb-bad-text);'}">
                                 ${checkResult.table_exists ? '✅ Activo' : '❌ Inactivo'}
                             </div>
                         </div>
@@ -1034,7 +1041,7 @@ LIMIT 10;`;
                 
                 if (checkResult.table_exists) {
                     html += `
-                        <div style="background: #d4edda; padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
+                        <div style="background: var(--wb-ok-soft); padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
                             <strong>🖼️ Sistema de Imágenes</strong>
                             <div style="margin-top: 0.5rem;">
                                 <div>Imágenes almacenadas: <strong>${checkResult.image_count}</strong></div>
@@ -1053,9 +1060,9 @@ LIMIT 10;`;
                     tablasImportantes.forEach(tabla => {
                         const tablaInfo = tablesResult.tables.find(t => t.name === tabla);
                         html += `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--wb-line-strong);">
                                 <span>${tabla}</span>
-                                <span style="font-weight: bold; ${tablaInfo ? 'color: #28a745;' : 'color: #dc3545;'}">
+                                <span style="font-weight: bold; ${tablaInfo ? 'color: var(--wb-ok-text);' : 'color: var(--wb-bad-text);'}">
                                     ${tablaInfo ? '✅ ' + tablaInfo.column_count + ' columnas' : '❌ No existe'}
                                 </span>
                             </div>
@@ -1067,7 +1074,7 @@ LIMIT 10;`;
                 
             } catch (error) {
                 console.error('Error:', error);
-                statsDiv.innerHTML = `<p style="color: #dc3545;">❌ Error al cargar información: ${error.message}</p>`;
+                statsDiv.innerHTML = `<p style="color: var(--wb-bad-text);">❌ Error al cargar información: ${error.message}</p>`;
             }
         }
         

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=yes">
@@ -15,16 +15,16 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f8fafc;
-            color: #1e293b;
+            background: var(--wb-bg);
+            color: var(--wb-text);
             padding-bottom: 20px;
         }
         
         /* Header simplificado */
         .header {
-            background: white;
+            background: var(--wb-surface);
             padding: 16px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--wb-line-strong);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -41,7 +41,7 @@
         .business-info h1 {
             font-size: 1.3rem;
             font-weight: 600;
-            color: #0f172a;
+            color: var(--wb-text);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -49,7 +49,7 @@
         
         .business-info p {
             font-size: 0.75rem;
-            color: #64748b;
+            color: var(--wb-text-3);
             margin-top: 2px;
         }
         
@@ -61,11 +61,11 @@
         
         .user-name {
             font-size: 0.85rem;
-            color: #475569;
+            color: var(--wb-text-2);
         }
         
         .btn-logout {
-            background: #ef4444;
+            background: var(--wb-bad-solid);
             color: white;
             border: none;
             padding: 8px 14px;
@@ -80,7 +80,7 @@
         }
         
         .btn-logout:hover {
-            background: #dc2626;
+            background: var(--wb-bad-solid);
         }
         
         /* Container */
@@ -92,8 +92,8 @@
         
         /* Tarjeta de resumen */
         .summary-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--wb-accent) 0%, color-mix(in srgb, var(--wb-accent) 55%, #000) 100%);
+            color: var(--wb-accent-ink);
             border-radius: 20px;
             padding: 20px;
             margin-bottom: 20px;
@@ -116,7 +116,7 @@
             justify-content: space-between;
             margin-top: 16px;
             padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.2);
+            border-top: 1px solid var(--wb-line-strong);
         }
         
         .summary-stat {
@@ -143,7 +143,7 @@
         }
         
         .stat-card {
-            background: white;
+            background: var(--wb-surface);
             padding: 16px;
             border-radius: 16px;
             text-align: center;
@@ -153,18 +153,18 @@
         .stat-number {
             font-size: 1.6rem;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--wb-text);
         }
         
         .stat-label {
             font-size: 0.7rem;
-            color: #64748b;
+            color: var(--wb-text-3);
             margin-top: 4px;
         }
         
         /* Citas de hoy */
         .section {
-            background: white;
+            background: var(--wb-surface);
             border-radius: 20px;
             padding: 16px;
             margin-bottom: 20px;
@@ -177,35 +177,35 @@
             align-items: center;
             margin-bottom: 12px;
             padding-bottom: 8px;
-            border-bottom: 2px solid #eef2ff;
+            border-bottom: 2px solid var(--wb-line-strong);
         }
         
         .section-title {
             font-size: 1rem;
             font-weight: 600;
-            color: #0f172a;
+            color: var(--wb-text);
             display: flex;
             align-items: center;
             gap: 8px;
         }
         
         .section-title i {
-            color: #667eea;
+            color: var(--wb-accent);
         }
         
         .btn-outline {
             background: transparent;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--wb-line-strong);
             padding: 6px 12px;
             border-radius: 30px;
             font-size: 0.7rem;
-            color: #475569;
+            color: var(--wb-text-2);
             text-decoration: none;
             transition: all 0.2s;
         }
         
         .btn-outline:hover {
-            background: #f1f5f9;
+            background: var(--wb-surface-2);
         }
         
         /* Lista de citas */
@@ -220,7 +220,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px;
-            background: #f8fafc;
+            background: var(--wb-surface-2);
             border-radius: 14px;
         }
         
@@ -235,11 +235,11 @@
             flex-wrap: wrap;
             gap: 12px;
             font-size: 0.7rem;
-            color: #64748b;
+            color: var(--wb-text-3);
         }
         
         .turno-time {
-            color: #667eea;
+            color: var(--wb-accent);
             font-weight: 500;
         }
         
@@ -251,29 +251,29 @@
         }
         
         .status-confirmado {
-            background: #d4edda;
-            color: #155724;
+            background: var(--wb-ok-soft);
+            color: var(--wb-ok-text);
         }
         
         .status-completado {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--wb-info-soft);
+            color: var(--wb-info-text);
         }
         
         .status-pendiente {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--wb-warn-soft);
+            color: var(--wb-warn-text);
         }
         
         .status-cancelado {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--wb-bad-soft);
+            color: var(--wb-bad-text);
         }
         
         .empty-state {
             text-align: center;
             padding: 24px;
-            color: #94a3b8;
+            color: var(--wb-text-3);
         }
         
         .empty-state i {
@@ -295,7 +295,7 @@
             align-items: center;
             text-align: center;
             padding: 14px 8px;
-            background: #f8fafc;
+            background: var(--wb-surface-2);
             border-radius: 16px;
             text-decoration: none;
             color: inherit;
@@ -304,7 +304,7 @@
         
         .nav-card:active {
             transform: scale(0.97);
-            background: #eef2ff;
+            background: var(--wb-surface-2);
         }
         
         .nav-icon {
@@ -320,7 +320,7 @@
         
         .nav-text p {
             font-size: 0.65rem;
-            color: #64748b;
+            color: var(--wb-text-3);
         }
         
         @media (min-width: 768px) {
@@ -347,8 +347,15 @@
             }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <div class="header">
         <div class="header-content">
             <div class="business-info">

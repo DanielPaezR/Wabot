@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .sidebar {
-            background: linear-gradient(135deg, #2c3e50, #34495e);
+            background: linear-gradient(135deg, var(--wb-surface-2), var(--wb-surface-2));
             min-height: 100vh;
         }
         .card {
@@ -18,8 +18,8 @@
             margin-bottom: 1rem;
         }
         .card-header {
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
+            background: var(--wb-surface-2);
+            border-bottom: 1px solid var(--wb-line-strong);
         }
         .stat-card {
             transition: transform 0.2s;
@@ -34,8 +34,15 @@
             justify-content: center;
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
@@ -368,7 +375,7 @@
             const totalEstados = estadosData.completadas + estadosData.confirmadas + estadosData.canceladas;
             
             if (totalEstados > 0) {
-                chartEstados = new Chart(ctxEstados, {
+                chartEstados = (Chart.defaults.color = '#b4b4bc', Chart.defaults.borderColor = 'rgba(255,255,255,.08)', 0) || new Chart(ctxEstados, {
                     type: 'doughnut',
                     data: {
                         labels: ['Completadas', 'Confirmadas', 'Canceladas'],

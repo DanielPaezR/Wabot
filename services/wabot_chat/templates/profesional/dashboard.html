@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#667eea">
@@ -49,7 +49,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
+            background: var(--wb-bg);
             color: var(--text);
             line-height: 1.5;
             min-height: 100%;
@@ -62,7 +62,7 @@
             position: fixed;
             bottom: calc(var(--bar-h) + var(--safe-bottom) + 12px);
             left: 1rem; right: 1rem;
-            background: var(--dark);
+            background: var(--wb-surface-3);
             color: #fff;
             padding: 0.75rem 1rem;
             border-radius: 40px;
@@ -78,7 +78,7 @@
 
         /* ==================== HEADER COMPACTO ==================== */
         .header {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             padding: 0.85rem 1rem 0;
             box-shadow: 0 1px 0 var(--border);
             position: sticky;
@@ -133,7 +133,7 @@
             font-size: 10px;
             display: flex; align-items: center; justify-content: center;
             font-weight: 700;
-            border: 2px solid var(--white);
+            border: 2px solid var(--var(--wb-surface));
         }
 
         /* ==================== STATS PILLS ==================== */
@@ -217,7 +217,7 @@
             font-size: 0.75rem;
             font-weight: 600;
             border: 1px solid var(--border);
-            background: var(--white);
+            background: var(--var(--wb-surface));
             color: var(--text-light);
             cursor: pointer;
             transition: all 0.15s;
@@ -226,7 +226,7 @@
         .hour-tab.active {
             background: var(--primary);
             border-color: var(--primary);
-            color: #fff;
+            color: var(--wb-accent-ink);
         }
         .hour-tab.has-cita {
             border-color: var(--primary);
@@ -236,7 +236,7 @@
 
         /* ==================== PANEL NOTIFICACIONES ==================== */
         .notif-panel {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-bottom: 1px solid var(--border);
             overflow: hidden;
             max-height: 0;
@@ -257,7 +257,7 @@
         }
 
         .notif-item {
-            background: #eff6ff;
+            background: var(--wb-surface-2);
             border-left: 3px solid var(--primary);
             border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
             padding: 8px 10px;
@@ -267,9 +267,9 @@
 
         .notif-item-title   { font-weight: 600; color: var(--dark); }
         .notif-item-msg     { color: var(--text-light); margin: 2px 0; }
-        .notif-item-time    { font-size: 0.7rem; color: #94a3b8; }
+        .notif-item-time    { font-size: 0.7rem; color: var(--wb-text-3); }
         .notif-item-read    {
-            background: var(--primary); color: #fff;
+            background: var(--primary); color: var(--wb-accent-ink);
             border: none; border-radius: 20px;
             padding: 2px 10px; font-size: 0.7rem;
             cursor: pointer; margin-top: 4px;
@@ -313,7 +313,7 @@
 
         /* Contenedor principal del timeline */
         .timeline-wrap {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: var(--radius);
             border: 1px solid var(--border);
             overflow: hidden;
@@ -323,13 +323,13 @@
         .timeline-row {
             display: flex;
             min-height: 48px;
-            border-bottom: 1px solid #f8fafc;
+            border-bottom: 1px solid var(--wb-line-strong);
             transition: background 0.15s;
         }
         .timeline-row:last-child { border-bottom: none; }
         .timeline-row.is-half {
             min-height: 36px;
-            border-bottom: 1px dashed #f1f5f9;
+            border-bottom: 1px dashed var(--wb-line-strong);
         }
         .timeline-row.is-half:last-child { border-bottom: none; }
 
@@ -356,11 +356,11 @@
         .tl-dot {
             width: 6px; height: 6px;
             border-radius: 50%;
-            background: #cbd5e1;
+            background: var(--wb-surface-3);
             position: absolute;
             top: 8px; left: -2.5px;
         }
-        .tl-dot.half { top: 6px; width: 4px; height: 4px; left: -1.5px; background: #e2e8f0; }
+        .tl-dot.half { top: 6px; width: 4px; height: 4px; left: -1.5px; background: var(--wb-surface-2); }
 
         .tl-slot {
             flex: 1;
@@ -372,12 +372,12 @@
         /* Slot vacío */
         .slot-free {
             font-size: 11px;
-            color: #94a3b8;
+            color: var(--wb-text-3);
             align-self: center;
             padding: 2px 8px;
-            border: 1px dashed #e2e8f0;
+            border: 1px dashed var(--wb-line-strong);
             border-radius: 20px;
-            background: #fafbfc;
+            background: var(--wb-info-soft);
         }
 
         /* Bloque de cita */
@@ -399,8 +399,8 @@
             opacity: 0.8;
         }
         .cita-block.cancelado {
-            border-left-color: #cbd5e1;
-            background: #f8fafc;
+            border-left-color: var(--wb-line-strong);
+            background: var(--wb-surface-2);
             opacity: 0.65;
         }
 
@@ -433,8 +433,8 @@
 
         .badge-personalizada {
             display: inline-block;
-            background: #f3e8ff;
-            color: #9333ea;
+            background: var(--wb-accent-soft);
+            color: var(--wb-accent);
             font-size: 0.6rem;
             padding: 1px 6px;
             border-radius: 20px;
@@ -450,8 +450,8 @@
             font-weight: 600;
             white-space: nowrap;
         }
-        .tag-completado { background: var(--success-soft); color: #065f46; }
-        .tag-cancelado  { background: var(--danger-soft);  color: #991b1b; }
+        .tag-completado { background: var(--success-soft); color: var(--wb-ok-text); }
+        .tag-cancelado  { background: var(--danger-soft);  color: var(--wb-bad-text); }
 
         /* Botones de acción dentro del bloque expandido */
         .cita-acciones {
@@ -479,9 +479,9 @@
             text-decoration: none;
         }
         .btn-cita:active { transform: scale(0.95); }
-        .btn-cita-ok     { background: var(--success-soft); color: #065f46; }
-        .btn-cita-cancel { background: var(--danger-soft);  color: #991b1b; }
-        .btn-cita-edit   { background: #f1f5f9; color: var(--dark); }
+        .btn-cita-ok     { background: var(--success-soft); color: var(--wb-ok-text); }
+        .btn-cita-cancel { background: var(--danger-soft);  color: var(--wb-bad-text); }
+        .btn-cita-edit   { background: var(--wb-surface-2); color: var(--dark); }
 
         /* Estado colapsado: acciones ocultas */
         .cita-acciones { display: none; }
@@ -517,7 +517,7 @@
         .modal-overlay.flex { display: flex; }
 
         .modal-sheet {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             width: 100%;
             max-width: 540px;
@@ -569,7 +569,7 @@
             color: var(--dark);
             transition: border-color 0.15s;
         }
-        .form-control:focus { outline: none; border-color: var(--primary); background: var(--white); }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--var(--wb-surface)); }
 
         .modal-footer {
             padding: 0.75rem 1rem 1rem;
@@ -585,14 +585,14 @@
             border: none;
             cursor: pointer;
         }
-        .btn-sheet-primary   { background: var(--primary); color: #fff; }
+        .btn-sheet-primary   { background: var(--primary); color: var(--wb-accent-ink); }
         .btn-sheet-secondary { background: var(--bg); color: var(--dark); }
 
         /* ==================== BOTTOM NAV BAR ==================== */
         .bottom-bar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-top: 1px solid var(--border);
             padding: 8px 0 calc(8px + var(--safe-bottom));
             z-index: 500;
@@ -677,7 +677,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border: 1px solid var(--border);
             border-radius: 40px;
             padding: 8px 16px 8px 12px;
@@ -735,20 +735,27 @@
                 --success-soft: #0d2e22;
                 --danger-soft: #2e1515;
             }
-            .slot-free      { background: #1e293b; border-color: #334155; }
-            .cita-block     { background: #243450; }
-            .cita-block.completado { background: #0d2e22; }
-            .cita-block.cancelado  { background: #2a2a30; }
-            .bottom-bar     { background: #1e293b; }
-            .form-control   { background: #0f172a; color: #f1f5f9; }
-            .fab-item       { background: #1e293b; }
-            .fab-icon       { background: #0f172a; }
-            .notif-item     { background: #1a2540; }
+            .slot-free      { background: var(--wb-surface-2); border-color: var(--wb-line); }
+            .cita-block     { background: var(--wb-accent); }
+            .cita-block.completado { background: var(--wb-ok-solid); }
+            .cita-block.cancelado  { background: var(--wb-surface-2); }
+            .bottom-bar     { background: var(--wb-surface-2); }
+            .form-control   { background: var(--wb-surface-2); color: #f1f5f9; }
+            .fab-item       { background: var(--wb-surface-2); }
+            .fab-icon       { background: var(--wb-surface-2); }
+            .notif-item     { background: var(--wb-accent); }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
 
-<body data-profesional-id="{{ session.profesional_id }}">
+<body class="wb-panel" data-profesional-id="{{ session.profesional_id }}">
 
     <!-- TOAST -->
     <div id="toast"></div>
@@ -839,9 +846,9 @@
                 <div class="stat-pill-num">{{ total_citas }}</div>
                 <div class="stat-pill-label">Citas<br>hoy</div>
             </div>
-            <div class="stat-pill" style="background:#d1fae5;">
+            <div class="stat-pill" style="background:var(--wb-ok-soft);">
                 <div class="stat-pill-num" style="color:var(--success);">${{ ganancia_estimada }}</div>
-                <div class="stat-pill-label" style="color:#065f46;">Ganancia<br>estimada</div>
+                <div class="stat-pill-label" style="color:var(--wb-ok-text);">Ganancia<br>estimada</div>
             </div>
         </div>
 
@@ -850,7 +857,7 @@
                 <input type="date" value="{{ fecha }}" onchange="cambiarFecha(this.value)">
             </div>
             <button id="pushButton" class="icon-btn" title="Activar notificaciones"
-                    style="background:#f3e8ff; color:#9333ea; flex-shrink:0; font-size:1rem;">🔔</button>
+                    style="background:var(--wb-accent-soft); color:var(--wb-accent); flex-shrink:0; font-size:1rem;">🔔</button>
         </div>
     </div>
 
@@ -885,7 +892,7 @@
             <div class="timeline-legend">
                 <span><span class="legend-dot" style="background:var(--primary);"></span> Pendiente</span>
                 <span><span class="legend-dot" style="background:var(--success);"></span> Completada</span>
-                <span><span class="legend-dot" style="background:#cbd5e1;"></span> Cancelada</span>
+                <span><span class="legend-dot" style="background:var(--wb-surface-3);"></span> Cancelada</span>
             </div>
         </div>
 
@@ -1114,13 +1121,13 @@
 
         async function loadNotifications() {
             const list = document.getElementById('notifList');
-            list.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0;">Cargando...</div>';
+            list.innerHTML = '<div style="font-size:0.8rem;color:var(--wb-text-3);padding:4px 0;">Cargando...</div>';
             try {
                 const res  = await fetch('/api/profesional/notificaciones');
                 const data = await res.json();
                 if (data.success) {
                     if (!data.notificaciones.length) {
-                        list.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;padding:4px 0;">📭 Sin notificaciones</div>';
+                        list.innerHTML = '<div style="font-size:0.8rem;color:var(--wb-text-3);padding:4px 0;">📭 Sin notificaciones</div>';
                         return;
                     }
                     list.innerHTML = data.notificaciones.map(n => `
@@ -1139,7 +1146,7 @@
                     }
                 }
             } catch(e) {
-                list.innerHTML = '<div style="font-size:0.8rem;color:#ef4444;">Error al cargar</div>';
+                list.innerHTML = '<div style="font-size:0.8rem;color:var(--wb-bad-text);">Error al cargar</div>';
             }
         }
 

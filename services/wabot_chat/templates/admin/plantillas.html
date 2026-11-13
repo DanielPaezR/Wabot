@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,11 +13,11 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
+            background: var(--wb-bg);
         }
         
         .header {
-            background: white;
+            background: var(--wb-surface);
             padding: 1rem 2rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
@@ -26,18 +26,18 @@
         }
         
         .header h1 {
-            color: #333;
+            color: var(--wb-text);
         }
 
         .user-info {
             display: flex;
             align-items: center;
             gap: 1rem;
-            color: #666;
+            color: var(--wb-text-2);
         }
         
         .logout-btn {
-            background: #e74c3c;
+            background: var(--wb-bad-solid);
             color: white;
             padding: 8px 16px;
             border: none;
@@ -73,38 +73,38 @@
         }
         
         .btn-primary {
-            background: #3498db;
-            color: white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
         }
         
         .btn-primary:hover {
-            background: #2980b9;
+            background: var(--wb-accent-hover);
             transform: translateY(-2px);
         }
         
         .btn-outline-primary {
-            background: white;
-            color: #3498db;
-            border: 2px solid #3498db;
+            background: var(--wb-surface);
+            color: var(--wb-accent);
+            border: 2px solid var(--wb-accent);
         }
         
         .btn-outline-primary:hover {
-            background: #3498db;
-            color: white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
             transform: translateY(-2px);
         }
         
         .plantilla-card {
             transition: transform 0.2s;
-            border-left: 4px solid #007bff;
+            border-left: 4px solid var(--wb-accent);
         }
         .plantilla-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         .plantilla-previa {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--wb-surface-2);
+            border: 1px solid var(--wb-line-strong);
             border-radius: 4px;
             padding: 10px;
             font-size: 0.85rem;
@@ -118,25 +118,32 @@
         }
         
         .flash-success {
-            background: #d4edda;
-            color: #155724;
+            background: var(--wb-ok-soft);
+            color: var(--wb-ok-text);
             padding: 12px;
             border-radius: 5px;
-            border: 1px solid #c3e6cb;
+            border: 1px solid var(--wb-ok-line);
             margin-bottom: 1rem;
         }
         
         .flash-error {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--wb-bad-soft);
+            color: var(--wb-bad-text);
             padding: 12px;
             border-radius: 5px;
-            border: 1px solid #f5c6cb;
+            border: 1px solid var(--wb-bad-line);
             margin-bottom: 1rem;
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <!-- Header -->
     <div class="header">
         <h1 class="h3 mb-0">
@@ -176,11 +183,11 @@
         {% endwith %}
 
         <!-- Info Card -->
-        <div style="background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 2rem;">
-            <h5 style="color: #333; margin-bottom: 0.5rem;">
-                <i class="fas fa-info-circle" style="color: #3498db;"></i> Plantillas Base del Sistema
+        <div style="background: var(--wb-surface); padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+            <h5 style="color: var(--wb-text); margin-bottom: 0.5rem;">
+                <i class="fas fa-info-circle" style="color: var(--wb-accent);"></i> Plantillas Base del Sistema
             </h5>
-            <p style="color: #666; margin: 0;">
+            <p style="color: var(--wb-text-2); margin: 0;">
                 Estas son las plantillas base que utilizan todos los negocios. 
                 Los propietarios pueden personalizar estas plantillas para su negocio específico.
             </p>
@@ -189,45 +196,45 @@
         <!-- Plantillas Grid -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem;">
             {% for plantilla in plantillas %}
-            <div style="background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #3498db; transition: transform 0.2s;">
-                <div style="padding: 1.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-                    <h6 style="margin: 0; color: #333; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fas fa-template" style="color: #3498db;"></i>
+            <div style="background: var(--wb-surface); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid var(--wb-accent); transition: transform 0.2s;">
+                <div style="padding: 1.5rem; border-bottom: 1px solid var(--wb-line-strong); display: flex; justify-content: space-between; align-items: center;">
+                    <h6 style="margin: 0; color: var(--wb-text); display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-template" style="color: var(--wb-accent);"></i>
                         {{ plantilla.nombre|replace('_', ' ')|title }}
                     </h6>
-                    <span style="background: #2ecc71; color: white; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem;">Base</span>
+                    <span style="background: var(--wb-ok-solid); color: white; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem;">Base</span>
                 </div>
                 <div style="padding: 1.5rem;">
-                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+                    <p style="color: var(--wb-text-2); font-size: 0.9rem; margin-bottom: 1rem;">
                         <strong>Descripción:</strong> {{ plantilla.descripcion }}
                     </p>
                     
                     <div style="margin-bottom: 1rem;">
-                        <strong style="color: #333;">Variables disponibles:</strong>
+                        <strong style="color: var(--wb-text);">Variables disponibles:</strong>
                         <div style="margin-top: 0.5rem;">
                             {% set variables = plantilla.variables_disponibles|fromjson %}
                             {% for variable in variables %}
-                                <span style="background: white; color: #333; border: 1px solid #ddd; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; display: inline-block; margin: 0 0.25rem 0.25rem 0;">{{ variable }}</span>
+                                <span style="background: var(--wb-surface); color: var(--wb-text); border: 1px solid var(--wb-line-strong); padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; display: inline-block; margin: 0 0.25rem 0.25rem 0;">{{ variable }}</span>
                             {% endfor %}
                         </div>
                     </div>
                     
                     <div style="margin-bottom: 1.5rem;">
-                        <strong style="color: #333;">Vista previa:</strong>
-                        <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-size: 0.85rem; max-height: 100px; overflow: hidden; white-space: pre-wrap; margin-top: 0.5rem;">
+                        <strong style="color: var(--wb-text);">Vista previa:</strong>
+                        <div style="background: var(--wb-surface-2); border: 1px solid var(--wb-line-strong); border-radius: 4px; padding: 10px; font-size: 0.85rem; max-height: 100px; overflow: hidden; white-space: pre-wrap; margin-top: 0.5rem;">
                             {{ plantilla.plantilla|truncate(150) }}
                         </div>
                     </div>
                 </div>
-                <div style="padding: 1rem; background: #f8f9fa; border-radius: 0 0 10px 10px;">
+                <div style="padding: 1rem; background: var(--wb-surface-2); border-radius: 0 0 10px 10px;">
                     <a href="{{ url_for('admin_editar_plantilla', nombre_plantilla=plantilla.nombre) }}" 
-                       style="background: #3498db; color: white; padding: 8px 16px; border: none; border-radius: 5px; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+                       style="background: var(--wb-accent); color: var(--wb-accent-ink); padding: 8px 16px; border: none; border-radius: 5px; text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.5rem;">
                         <i class="fas fa-edit"></i> Editar
                     </a>
                 </div>
             </div>
             {% else %}
-            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #666;">
+            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--wb-text-2);">
                 <h2 style="margin-bottom: 1rem;">📭 No hay plantillas base configuradas</h2>
                 <p>No se encontraron plantillas base en el sistema.</p>
             </div>
@@ -235,9 +242,9 @@
         </div>
 
         <!-- Variables Help -->
-        <div style="background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 2rem;">
-            <div style="padding: 1.5rem; border-bottom: 1px solid #eee;">
-                <h5 style="margin: 0; color: #333;">
+        <div style="background: var(--wb-surface); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 2rem;">
+            <div style="padding: 1.5rem; border-bottom: 1px solid var(--wb-line-strong);">
+                <h5 style="margin: 0; color: var(--wb-text);">
                     <i class="fas fa-question-circle"></i>
                     Variables Disponibles
                 </h5>
@@ -245,8 +252,8 @@
             <div style="padding: 1.5rem;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
                     <div>
-                        <h6 style="color: #333; margin-bottom: 1rem;">Información del Negocio:</h6>
-                        <ul style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                        <h6 style="color: var(--wb-text); margin-bottom: 1rem;">Información del Negocio:</h6>
+                        <ul style="color: var(--wb-text-2); font-size: 0.9rem; line-height: 1.6;">
                             <li><code>{nombre_negocio}</code> - Nombre del negocio</li>
                             <li><code>{emoji_negocio}</code> - Emoji representativo</li>
                             <li><code>{saludo_personalizado}</code> - Saludo personalizado</li>
@@ -255,8 +262,8 @@
                         </ul>
                     </div>
                     <div>
-                        <h6 style="color: #333; margin-bottom: 1rem;">Información de la Cita:</h6>
-                        <ul style="color: #666; font-size: 0.9rem; line-height: 1.6;">
+                        <h6 style="color: var(--wb-text); margin-bottom: 1rem;">Información de la Cita:</h6>
+                        <ul style="color: var(--wb-text-2); font-size: 0.9rem; line-height: 1.6;">
                             <li><code>{cliente_nombre}</code> - Nombre del cliente</li>
                             <li><code>{profesional_nombre}</code> - Nombre del profesional</li>
                             <li><code>{servicio_nombre}</code> - Nombre del servicio</li>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -17,13 +17,13 @@
         :root {
             --primary: #4361ee;
             --primary-dark: #3a56d4;
-            --secondary: #4cc9f0;
+            --secondary: var(--wb-accent);
             --danger: #f72585;
             --success: #2ecc71;
             --warning: #f39c12;
-            --light: #f8f9fa;
+            --light: var(--wb-surface-2);
             --dark: #343a40;
-            --gray: #6c757d;
+            --gray: var(--wb-text-2);
             --border: #e0e0e0;
             --shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
@@ -34,7 +34,7 @@
         }
         
         body {
-            background-color: var(--light);
+            background-color: var(--wb-bg);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             padding: 0;
             margin: 0;
@@ -48,7 +48,7 @@
         
         /* ==================== HEADER MÓVIL ==================== */
         .mobile-header {
-            background: white;
+            background: var(--wb-surface);
             padding: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             position: sticky;
@@ -119,13 +119,13 @@
         
         .btn-mobile-primary {
             background: var(--primary);
-            color: white;
+            color: var(--wb-accent-ink);
         }
         
         .btn-mobile-primary:hover,
         .btn-mobile-primary:active {
             background: var(--primary-dark);
-            color: white;
+            color: var(--wb-accent-ink);
         }
         
         .btn-mobile-secondary {
@@ -136,7 +136,7 @@
         
         .btn-mobile-success {
             background: var(--secondary);
-            color: white;
+            color: var(--wb-accent-ink);
         }
         
         .btn-mobile-danger {
@@ -146,7 +146,7 @@
         
         .btn-mobile-warning {
             background: var(--warning);
-            color: white;
+            color: var(--wb-accent-ink);
         }
         
         .btn-mobile-sm {
@@ -170,7 +170,7 @@
         
         /* ==================== CARD MÓVIL ==================== */
         .mobile-card {
-            background: white;
+            background: var(--wb-surface);
             border-radius: 12px;
             box-shadow: var(--shadow);
             margin-bottom: 15px;
@@ -180,7 +180,7 @@
         
         .card-header-mobile {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
+            color: var(--wb-accent-ink);
             padding: 15px;
             font-weight: 600;
             font-size: 1rem;
@@ -192,7 +192,7 @@
         
         /* ==================== FILTROS MÓVIL ==================== */
         .filter-section {
-            background: white;
+            background: var(--wb-surface);
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 15px;
@@ -229,7 +229,7 @@
             border: 2px solid var(--border);
             border-radius: 8px;
             font-size: 1rem;
-            background: white;
+            background: var(--wb-surface);
             min-height: 44px;
             -webkit-appearance: none;
         }
@@ -257,7 +257,7 @@
         }
         
         .table-mobile th {
-            background: #f8f9fa;
+            background: var(--wb-surface-2);
             padding: 12px;
             text-align: left;
             font-weight: 600;
@@ -329,7 +329,7 @@
         }
         
         .modal-mobile-content {
-            background: white;
+            background: var(--wb-surface);
             border-radius: 16px 16px 0 0;
             width: 100%;
             max-height: 90vh;
@@ -374,7 +374,7 @@
             border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
-            background: white;
+            background: var(--wb-surface);
             z-index: 10;
         }
         
@@ -398,7 +398,7 @@
         .modal-mobile-footer {
             padding: 15px 20px;
             border-top: 1px solid var(--border);
-            background: white;
+            background: var(--wb-surface);
             display: flex;
             gap: 10px;
             position: sticky;
@@ -412,7 +412,7 @@
             bottom: 20px;
             left: 20px;
             right: 20px;
-            background: var(--dark);
+            background: var(--wb-surface-3);
             color: white;
             padding: 15px;
             border-radius: 12px;
@@ -465,27 +465,27 @@
         }
         
         .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
+            background: var(--wb-ok-soft);
+            color: var(--wb-ok-text);
+            border-color: var(--wb-ok-line);
         }
         
         .alert-danger {
-            background: #f8d7da;
-            color: #721c24;
-            border-color: #f5c6cb;
+            background: var(--wb-bad-soft);
+            color: var(--wb-bad-text);
+            border-color: var(--wb-bad-line);
         }
         
         .alert-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border-color: #bee5eb;
+            background: var(--wb-info-soft);
+            color: var(--wb-info-text);
+            border-color: var(--wb-info-line);
         }
         
         .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border-color: #ffeeba;
+            background: var(--wb-warn-soft);
+            color: var(--wb-warn-text);
+            border-color: var(--wb-warn-line);
         }
         
         /* ==================== UTILIDADES ==================== */
@@ -507,32 +507,32 @@
         }
         
         .badge-success {
-            background: #d4edda;
-            color: #155724;
+            background: var(--wb-ok-soft);
+            color: var(--wb-ok-text);
         }
         
         .badge-danger {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--wb-bad-soft);
+            color: var(--wb-bad-text);
         }
         
         .badge-warning {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--wb-warn-soft);
+            color: var(--wb-warn-text);
         }
         
         .badge-info {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--wb-info-soft);
+            color: var(--wb-info-text);
         }
         
         .spinner {
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid var(--wb-line-strong);
             border-radius: 50%;
-            border-top-color: white;
+            border-top-color: var(--wb-surface);
             animation: spin 1s ease-in-out infinite;
         }
         
@@ -607,55 +607,55 @@
         /* ==================== DARK MODE ==================== */
         @media (prefers-color-scheme: dark) {
             :root {
-                --light: #1a1a1a;
+                --light: var(--wb-surface-2);
                 --dark: #ffffff;
-                --gray: #cccccc;
+                --gray: var(--wb-text-3);
                 --border: #444444;
             }
             
             body {
-                background-color: #121212;
+                background-color: var(--wb-bg);
             }
             
             .mobile-card,
             .filter-section {
-                background: #2d2d2d;
+                background: var(--wb-surface-3);
             }
             
             .form-control-mobile {
-                background: #3d3d3d;
-                border-color: #555;
+                background: var(--wb-surface-2);
+                border-color: var(--wb-line);
                 color: white;
             }
             
             .table-mobile th {
-                background: #3d3d3d;
+                background: var(--wb-surface-2);
                 color: white;
             }
             
             .table-mobile td {
-                border-color: #444;
+                border-color: var(--wb-line-strong);
             }
             
             .alert-success {
-                background: #155724;
-                color: #d4edda;
-                border-color: #0c3616;
+                background: var(--wb-ok-solid);
+                color: var(--wb-ok-text);
+                border-color: var(--wb-ok-solid);
             }
             
             .alert-danger {
-                background: #721c24;
-                color: #f8d7da;
-                border-color: #54141b;
+                background: var(--wb-bad-solid);
+                color: var(--wb-bad-text);
+                border-color: var(--wb-bad-solid);
             }
             
             .modal-mobile-content {
-                background: #2d2d2d;
+                background: var(--wb-surface-3);
             }
             
             .modal-mobile-header {
-                background: #2d2d2d;
-                border-color: #444;
+                background: var(--wb-surface-3);
+                border-color: var(--wb-line-strong);
             }
         }
         
@@ -670,8 +670,15 @@
             }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <!-- Toast para notificaciones -->
     <div id="toast" class="toast-mobile" role="alert" aria-live="assertive" aria-atomic="true">
         <div id="toastContent"></div>
@@ -933,7 +940,7 @@
         </div>
 
         <!-- Pestañas de navegación (NUEVO) -->
-        <div style="display: flex; gap: 10px; margin-bottom: 15px; background: white; border-radius: 10px; padding: 10px; box-shadow: var(--shadow);">
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; background: var(--wb-surface); border-radius: 10px; padding: 10px; box-shadow: var(--shadow);">
             <button id="tabPuntuales" class="btn-mobile btn-mobile-primary" style="flex: 1;" onclick="cambiarTabs('puntuales')">
                 <i class="fas fa-clock"></i> Puntuales
             </button>
@@ -1006,7 +1013,7 @@
                         </div>
                         
                         <!-- Resumen -->
-                        <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="margin-top: 15px; padding: 12px; background: var(--wb-surface-2); border-radius: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-weight: 500;">
                                     <i class="fas fa-clock me-1"></i> Total puntuales:
@@ -1033,7 +1040,7 @@
         <!-- Sección de bloqueos recurrentes -->
         <div id="seccionRecurrentes" style="display: none;">
             <div class="mobile-card">
-                <div class="card-header-mobile" style="background: linear-gradient(135deg, var(--warning), #e67e22);">
+                <div class="card-header-mobile" style="background: linear-gradient(135deg, var(--warning), var(--wb-warn));">
                     <i class="fas fa-calendar-week me-2"></i> Bloqueos Recurrentes (Semanales)
                 </div>
                 
@@ -1088,7 +1095,7 @@
                         </div>
                         
                         <!-- Resumen -->
-                        <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="margin-top: 15px; padding: 12px; background: var(--wb-surface-2); border-radius: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <span style="font-weight: 500;">
                                     <i class="fas fa-calendar-week me-1"></i> Total recurrentes:

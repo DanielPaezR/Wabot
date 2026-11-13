@@ -1,0 +1,171 @@
+/* Wabot - paneles (negocio, profesional, admin y páginas internas)
+   Se carga después del CSS propio de cada plantilla y de wabot-ui.css.
+   Los colores fijos de cada plantilla ya se reemplazaron por tokens --wb-*. */
+
+body.wb-panel {
+  background: var(--wb-bg);
+  color: var(--wb-text);
+  font-family: var(--wb-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wb-panel h1,
+.wb-panel h2 {
+  font-family: var(--wb-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.wb-panel button,
+.wb-panel input,
+.wb-panel select,
+.wb-panel textarea { font-family: inherit; }
+
+/* ---------- Formularios ---------- */
+.wb-panel input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+.wb-panel select,
+.wb-panel textarea {
+  background: var(--wb-surface-2);
+  color: var(--wb-text);
+  border-color: var(--wb-line-strong);
+}
+.wb-panel input::placeholder,
+.wb-panel textarea::placeholder { color: var(--wb-text-3); }
+.wb-panel input:focus,
+.wb-panel select:focus,
+.wb-panel textarea:focus {
+  outline: none;
+  border-color: var(--wb-accent) !important;
+  box-shadow: 0 0 0 3px var(--wb-accent-soft);
+}
+.wb-panel select option { background: var(--wb-surface-2); color: var(--wb-text); }
+.wb-panel input[type="checkbox"],
+.wb-panel input[type="radio"] { accent-color: var(--wb-accent); }
+.wb-panel input[type="file"] { color: var(--wb-text-2); }
+.wb-panel input[type="date"],
+.wb-panel input[type="time"],
+.wb-panel input[type="month"] { color-scheme: dark; }
+
+/* ---------- Botones: efecto común ---------- */
+.wb-panel .btn,
+.wb-panel button.btn-primary,
+.wb-panel [class^="btn-"],
+.wb-panel [class*=" btn-"] { transition: filter 0.15s, transform 0.1s, border-color 0.15s; }
+.wb-panel .btn:hover,
+.wb-panel [class^="btn-"]:hover,
+.wb-panel [class*=" btn-"]:hover { filter: brightness(1.08); }
+.wb-panel .btn:active { transform: scale(0.98); }
+
+/* ---------- Tablas ---------- */
+.wb-panel table { color: var(--wb-text); border-color: var(--wb-line); }
+.wb-panel th {
+  background: var(--wb-surface-2);
+  color: var(--wb-text-2);
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.wb-panel th,
+.wb-panel td { border-color: var(--wb-line); }
+.wb-panel tbody tr:hover td { background: var(--wb-surface-2); }
+
+/* ---------- Enlaces y utilidades ---------- */
+.wb-panel a:not([class]) { color: var(--wb-accent); }
+.wb-panel hr { border-color: var(--wb-line); opacity: 1; }
+.wb-panel ::-webkit-scrollbar { width: 10px; height: 10px; }
+.wb-panel ::-webkit-scrollbar-thumb { background: var(--wb-surface-3); border-radius: 8px; border: 2px solid var(--wb-bg); }
+.wb-panel ::selection { background: var(--wb-accent-soft); }
+
+/* ---------- Bootstrap (5.1 - 5.3) ---------- */
+[data-bs-theme="dark"] {
+  --bs-body-bg: var(--wb-bg);
+  --bs-body-color: var(--wb-text);
+  --bs-border-color: var(--wb-line);
+  --bs-secondary-color: var(--wb-text-2);
+  --bs-tertiary-bg: var(--wb-surface-2);
+  --bs-emphasis-color: var(--wb-text);
+}
+.wb-panel .card,
+.wb-panel .modal-content,
+.wb-panel .dropdown-menu,
+.wb-panel .list-group-item {
+  background: var(--wb-surface);
+  color: var(--wb-text);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r);
+}
+.wb-panel .card-header { background: var(--wb-surface-2); border-bottom: 1px solid var(--wb-line); color: var(--wb-text); }
+.wb-panel .card-footer { background: var(--wb-surface-2); border-top: 1px solid var(--wb-line); }
+.wb-panel .bg-primary { background: var(--wb-accent) !important; color: var(--wb-accent-ink) !important; }
+.wb-panel .bg-dark { background: var(--wb-surface) !important; }
+.wb-panel .bg-light { background: var(--wb-surface-2) !important; color: var(--wb-text) !important; }
+.wb-panel .text-white { color: var(--wb-text) !important; }
+.wb-panel .bg-primary.text-white,
+.wb-panel .bg-primary .text-white { color: var(--wb-accent-ink) !important; }
+.wb-panel .text-muted { color: var(--wb-text-3) !important; }
+.wb-panel .text-primary { color: var(--wb-accent) !important; }
+.wb-panel .navbar { background: color-mix(in srgb, var(--wb-surface) 88%, transparent) !important; border-bottom: 1px solid var(--wb-line); backdrop-filter: blur(12px); }
+.wb-panel .navbar-brand { font-family: var(--wb-display); font-weight: 600; color: var(--wb-text); }
+.wb-panel .nav-link { color: var(--wb-text-2); }
+.wb-panel .nav-link:hover { color: var(--wb-accent); }
+.wb-panel .border-bottom, .wb-panel .border-top { border-color: var(--wb-line) !important; }
+
+.wb-panel .form-control,
+.wb-panel .form-select {
+  background: var(--wb-surface-2);
+  color: var(--wb-text);
+  border: 1px solid var(--wb-line-strong);
+}
+.wb-panel .form-control:focus,
+.wb-panel .form-select:focus { background: var(--wb-surface-2); color: var(--wb-text); }
+
+.wb-panel .btn-primary {
+  --bs-btn-color: var(--wb-accent-ink);
+  --bs-btn-bg: var(--wb-accent);
+  --bs-btn-border-color: var(--wb-accent);
+  --bs-btn-hover-color: var(--wb-accent-ink);
+  --bs-btn-hover-bg: var(--wb-accent-hover);
+  --bs-btn-hover-border-color: var(--wb-accent-hover);
+  --bs-btn-active-color: var(--wb-accent-ink);
+  --bs-btn-active-bg: var(--wb-accent-hover);
+  --bs-btn-active-border-color: var(--wb-accent-hover);
+  font-weight: 600;
+}
+.wb-panel .btn-outline-primary {
+  --bs-btn-color: var(--wb-accent);
+  --bs-btn-border-color: var(--wb-accent-line);
+  --bs-btn-hover-color: var(--wb-accent-ink);
+  --bs-btn-hover-bg: var(--wb-accent);
+  --bs-btn-hover-border-color: var(--wb-accent);
+  --bs-btn-active-color: var(--wb-accent-ink);
+  --bs-btn-active-bg: var(--wb-accent);
+}
+.wb-panel .btn-outline-secondary,
+.wb-panel .btn-outline-danger { --bs-btn-border-color: var(--wb-line-strong); }
+.wb-panel .btn-outline-secondary { --bs-btn-color: var(--wb-text-2); --bs-btn-hover-bg: var(--wb-surface-3); --bs-btn-hover-color: var(--wb-text); }
+.wb-panel .btn-outline-danger { --bs-btn-color: var(--wb-bad-text); --bs-btn-hover-bg: var(--wb-bad-solid); --bs-btn-hover-border-color: var(--wb-bad-solid); }
+.wb-panel .btn-secondary { --bs-btn-bg: var(--wb-surface-3); --bs-btn-border-color: var(--wb-line-strong); --bs-btn-color: var(--wb-text); --bs-btn-hover-bg: var(--wb-surface-3); --bs-btn-hover-color: var(--wb-text); }
+
+/* ---------- Tarjetas y botones de color de Bootstrap en tema oscuro ---------- */
+.wb-panel .bg-warning,
+.wb-panel .bg-info,
+.wb-panel .bg-success,
+.wb-panel .bg-danger,
+.wb-panel .bg-secondary {
+  border: 1px solid transparent;
+}
+.wb-panel .bg-warning { background: var(--wb-warn-soft) !important; color: var(--wb-warn-text) !important; border-color: var(--wb-warn-line); }
+.wb-panel .bg-info { background: var(--wb-info-soft) !important; color: var(--wb-info-text) !important; border-color: var(--wb-info-line); }
+.wb-panel .bg-success { background: var(--wb-ok-soft) !important; color: var(--wb-ok-text) !important; border-color: var(--wb-ok-line); }
+.wb-panel .bg-danger { background: var(--wb-bad-soft) !important; color: var(--wb-bad-text) !important; border-color: var(--wb-bad-line); }
+.wb-panel .bg-secondary { background: var(--wb-surface-3) !important; color: var(--wb-text) !important; }
+.wb-panel .bg-warning .text-white, .wb-panel .bg-info .text-white,
+.wb-panel .bg-success .text-white, .wb-panel .bg-danger .text-white,
+.wb-panel .bg-warning .card-title, .wb-panel .bg-info .card-title,
+.wb-panel .bg-success .card-title, .wb-panel .bg-danger .card-title { color: inherit !important; }
+
+.wb-panel .btn-secondary,
+.wb-panel a.btn-secondary,
+.wb-panel button.btn-secondary { background: var(--wb-surface-3) !important; color: var(--wb-text) !important; border: 1px solid var(--wb-line-strong) !important; }
+
+.wb-panel .badge.bg-warning { color: var(--wb-warn-text) !important; }
