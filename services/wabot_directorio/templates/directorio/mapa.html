@@ -441,11 +441,12 @@
         function initMap() {
             map = L.map('map').setView([6.24420, -75.58121], 13); // Vista temporal Medellín
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
-                subdomains: 'abcd',
+            // CARTO ahora exige API key para sus mapas base (mostraba "API KEY REQUIRED"):
+            // se usa el mapa estándar de OpenStreetMap.
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 maxZoom: 19,
-                minZoom: 10
+                minZoom: 3
             }).addTo(map);
             
             cargarNegocios();
