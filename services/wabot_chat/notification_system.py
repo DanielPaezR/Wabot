@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime, timedelta
 import database as db
+import localizacion
 from psycopg2.extras import RealDictCursor
 
 class ProfessionalNotificationSystem:
@@ -264,7 +265,7 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
         
         try:
             fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-            hoy = datetime.now().date()
+            hoy = localizacion.ahora_en().date()
             
             if fecha == hoy:
                 return "Hoy"

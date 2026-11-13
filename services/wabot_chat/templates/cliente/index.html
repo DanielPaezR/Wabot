@@ -844,7 +844,7 @@
                 <div class="negocio-avatar">💬</div>
                 <div>
                     <div class="negocio-name">{{ negocio.nombre }}</div>
-                    <div class="negocio-sub">Agenda tu cita en segundos</div>
+                    <div class="negocio-sub">{{ 'Reserva tu vehículo en segundos' if negocio.tipo_negocio == 'renta_autos' else 'Agenda tu cita en segundos' }}</div>
                 </div>
             </div>
             <div class="header-right">
@@ -877,7 +877,7 @@
             <!-- PANEL MIS CITAS -->
             <div id="panelMisCitas" class="panel">
                 <div class="panel-scroll" id="misCitasScroll">
-                    <div class="panel-title">Mis Citas</div>
+                    <div class="panel-title">{{ 'Mis Reservas' if negocio.tipo_negocio == 'renta_autos' else 'Mis Citas' }}</div>
                     <div id="misCitasList">
                         <div class="empty-state">
                             <div class="empty-state-icon">📋</div>
@@ -920,7 +920,7 @@
         </button>
         <button class="nav-item" id="navCitas" onclick="irASeccion('citas')">
             <span class="nav-icon">📋</span>
-            <span class="nav-label">Citas</span>
+            <span class="nav-label">{{ 'Reservas' if negocio.tipo_negocio == 'renta_autos' else 'Citas' }}</span>
         </button>
         <button class="nav-item" id="navPromos" onclick="irASeccion('promociones')">
             <span class="nav-icon">🎁</span>
@@ -1160,6 +1160,18 @@
 
         // ==================== DETECCIÓN TELÉFONO ====================
         let telefonoGuardado = false;
+        const TEL_CFG = {{ {'regex': tel_cfg.regex, 'prefijo': tel_cfg.prefijo} | tojson | safe }};
+
+        function normalizarTelefono(texto) {
+            const digitos = (texto || '').replace(/\D/g, '').replace(/^00/, '');
+            const patron = new RegExp('^' + TEL_CFG.regex + '$');
+            if (patron.test(digitos)) return digitos;
+            if (TEL_CFG.prefijo && digitos.startsWith(TEL_CFG.prefijo)) {
+                const resto = digitos.slice(TEL_CFG.prefijo.length);
+                if (patron.test(resto)) return resto;
+            }
+            return null;
+        }
 
         function iniciarDetectorTelefono() {
             const observer = new MutationObserver(() => {
@@ -1167,9 +1179,9 @@
                 const msgs = document.querySelectorAll('.msg-user');
                 const last = msgs[msgs.length - 1];
                 if (!last) return;
-                const match = last.textContent.match(/\b(3\d{9})\b/);
-                if (match) {
-                    localStorage.setItem('telefono_cliente', match[1]);
+                const tel = normalizarTelefono(last.textContent);
+                if (tel) {
+                    localStorage.setItem('telefono_cliente', tel);
                     telefonoGuardado = true;
                     if (seccionActiva === 'promociones') cargarPromociones();
                 }
@@ -1327,7 +1339,7 @@
                                     ` : elegible ? `
                                         <button class="btn-promo btn-promo-primary" onclick="abrirSheetParticipar(${promo.id})">📸 Participar</button>
                                     ` : `
-                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">📅 Agendar cita</button>
+                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">{{ '🚗 Reservar vehículo' if negocio.tipo_negocio == 'renta_autos' else '📅 Agendar cita' }}</button>
                                     `}
                                 </div>
                             </div>
@@ -1445,13 +1457,17 @@
             const container = document.getElementById('misCitasList');
             const tel = localStorage.getItem('telefono_cliente');
             const negocioId = document.getElementById('negocioId').value;
-            
+            const esAutos = {{ 'true' if negocio.tipo_negocio == 'renta_autos' else 'false' }};
+            const txtCitas = esAutos ? 'reservas' : 'citas';
+            const iconoServicio = esAutos ? '📋' : '💈';
+            const iconoProfesional = esAutos ? '🚗' : '👨‍💼';
+
             if (!tel) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">🔒</div>
                         <h4>Identifícate primero</h4>
-                        <p>Ve al chat y escribe tu número de teléfono para ver tus citas</p>
+                        <p>Ve al chat y escribe tu número de teléfono para ver tus ${txtCitas}</p>
                         <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">
                             💬 Ir al Chat
                         </button>
@@ -1474,10 +1490,10 @@
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">📭</div>
-                            <h4>Sin citas aún</h4>
-                            <p>Agenda tu primera cita desde el chat</p>
+                            <h4>Sin ${txtCitas} aún</h4>
+                            <p>${esAutos ? 'Haz tu primera reserva desde el chat' : 'Agenda tu primera cita desde el chat'}</p>
                             <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">
-                                💬 Agendar Cita
+                                💬 ${esAutos ? 'Reservar Vehículo' : 'Agendar Cita'}
                             </button>
                         </div>`;
                     return;
@@ -1492,7 +1508,7 @@
                 // Sección pendientes
                 if (pendientes.length > 0) {
                     html += `<div style="margin-bottom:16px;">
-                        <div style="font-weight:700;font-size:0.8rem;color:var(--primary);margin-bottom:8px;">📅 PRÓXIMAS CITAS</div>`;
+                        <div style="font-weight:700;font-size:0.8rem;color:var(--primary);margin-bottom:8px;">📅 PRÓXIMAS ${txtCitas.toUpperCase()}</div>`;
                     html += pendientes.map(c => `
                         <div class="cita-card">
                             <div class="cita-card-header">
@@ -1501,8 +1517,8 @@
                             </div>
                             <div class="cita-card-body">
                                 <div class="cita-info-row">📅 <strong>${c.fecha}</strong> · ⏰ ${c.hora}</div>
-                                <div class="cita-info-row">💈 ${c.servicio}</div>
-                                <div class="cita-info-row">👨‍💼 ${c.profesional}</div>
+                                <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
+                                <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
                             </div>
                         </div>
                     `).join('');
@@ -1523,8 +1539,8 @@
                             </div>
                             <div class="cita-card-body">
                                 <div class="cita-info-row">📅 <strong>${c.fecha}</strong> · ⏰ ${c.hora}</div>
-                                <div class="cita-info-row">💈 ${c.servicio}</div>
-                                <div class="cita-info-row">👨‍💼 ${c.profesional}</div>
+                                <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
+                                <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
                             </div>
                             ${puedeCalificar ? `
                             <div class="cita-card-footer">

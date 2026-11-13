@@ -319,6 +319,32 @@
                     </div>
                 </div>
 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pais">País del negocio *</label>
+                        <select id="pais" name="pais" required>
+                            <option value="CO" {% if localizacion.pais == 'CO' %}selected{% endif %}>🇨🇴 Colombia (celular de 10 dígitos)</option>
+                            <option value="AW" {% if localizacion.pais == 'AW' %}selected{% endif %}>🇦🇼 Aruba (teléfono de 7 dígitos)</option>
+                            <option value="OTRO" {% if localizacion.pais == 'OTRO' %}selected{% endif %}>🌎 Otro país (7 a 15 dígitos)</option>
+                        </select>
+                        <small>Define el formato de teléfono de los clientes y la hora local de las citas</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="zona_horaria">Zona horaria</label>
+                        <input type="text" id="zona_horaria" name="zona_horaria" list="zonas"
+                               value="{{ localizacion.zona_horaria }}">
+                        <datalist id="zonas">
+                            <option value="America/Bogota">
+                            <option value="America/Aruba">
+                            <option value="America/Curacao">
+                            <option value="America/Mexico_City">
+                            <option value="America/Panama">
+                            <option value="America/Santo_Domingo">
+                        </datalist>
+                        <small>Vacío = la del país (Colombia: America/Bogota, Aruba: America/Aruba)</small>
+                    </div>
+                </div>
+
                 <!-- NUEVO: Coordenadas para el mapa -->
                 <div class="coordinates-group">
                     <h4>📍 Ubicación en el Mapa</h4>

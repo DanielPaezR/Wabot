@@ -59,7 +59,8 @@ cloudinary.config(
     api_secret=os.environ.get('CLOUDINARY_API_SECRET')
 )
 
-tz_colombia = pytz.timezone('America/Bogota')
+from localizacion import tz_negocio, fijar_negocio, limpiar_negocio, normalizar_telefono, configuracion_pais
+import localizacion
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 _secret_key = os.getenv('SECRET_KEY')
@@ -82,6 +83,26 @@ app.permanent_session_lifetime = timedelta(hours=24)
 @app.before_request
 def make_session_permanent():
     session.permanent = True
+
+@app.before_request
+def fijar_localizacion_negocio():
+    """Fija el negocio de la solicitud para usar su zona horaria y formato de teléfono."""
+    if request.endpoint == 'static':
+        return
+    negocio_id = (request.view_args or {}).get('negocio_id')
+    if negocio_id is None and request.method in ('POST', 'PUT', 'DELETE') and request.is_json:
+        cuerpo = request.get_json(silent=True)
+        if isinstance(cuerpo, dict):
+            negocio_id = cuerpo.get('negocio_id')
+    if negocio_id is None:
+        negocio_id = request.args.get('negocio_id')
+    if negocio_id is None:
+        negocio_id = session.get('negocio_id')
+    fijar_negocio(negocio_id)
+
+@app.teardown_request
+def liberar_localizacion_negocio(error=None):
+    limpiar_negocio()
 
 # Configuración para subir imágenes
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -371,7 +392,7 @@ def tojson_filter(value):
 def utility_processor():
     """Agregar funciones útiles a todos los templates"""
     def now():
-        return datetime.now(tz_colombia)
+        return datetime.now(tz_negocio)
     return dict(now=now);
 
 # =============================================================================
@@ -455,7 +476,7 @@ def crear_promocion():
         # Validar fechas
         from datetime import date
         if not fecha_inicio:
-            fecha_inicio = date.today()
+            fecha_inicio = datetime.now(tz_negocio).date()
             print(f"📅 fecha_inicio por defecto: {fecha_inicio}")
         
         print("🔌 Conectando a la base de datos...")
@@ -828,7 +849,7 @@ def participar_concurso(profesional_id):
         # Use CURRENT_DATE for PostgreSQL, 'date('now')' for SQLite if needed, but schema says DATE
 
         # ✅ Usar la fecha local de Colombia para evitar errores de servidor UTC
-        fecha_hoy = datetime.now(tz_colombia).date()
+        fecha_hoy = datetime.now(tz_negocio).date()
         
         cursor.execute('''
             SELECT id FROM citas 
@@ -896,8 +917,7 @@ def profesional_promociones():
     conn.close()
     print("🔌 Conexión cerrada")
     
-    from datetime import date
-    today = date.today()
+    today = datetime.now(tz_negocio).date()
     print(f"📅 Fecha actual: {today}")
     
     print("➡️ Renderizando template")
@@ -1123,7 +1143,7 @@ def index():
 @app.route('/health')
 def health_check():
     """Health check para Railway"""
-    return jsonify({"status": "healthy", "timestamp": datetime.now(tz_colombia).isoformat()})
+    return jsonify({"status": "healthy", "timestamp": datetime.now(tz_negocio).isoformat()})
 
 
 # =============================================================================
@@ -1147,6 +1167,7 @@ def chat_index(negocio_id):
     
     return render_template('cliente/index.html', 
                           negocio=negocio,
+                          tel_cfg=configuracion_pais(negocio_id),
                           session_id=session['chat_session_id'])
 
 @app.route('/cliente/send', methods=['POST'])
@@ -1743,6 +1764,13 @@ def admin_nuevo_negocio():
                 flash('❌ La longitud debe ser un número válido (ej: -75.58121)', 'error')
                 return redirect(url_for('admin_nuevo_negocio'))
         
+        pais_ok, pais_msg, pais_codigo, zona_horaria = localizacion.validar(
+            request.form.get('pais'), request.form.get('zona_horaria')
+        )
+        if not pais_ok:
+            flash(f'❌ {pais_msg}', 'error')
+            return redirect(url_for('admin_nuevo_negocio'))
+
         # Configuración por defecto
         configuracion = {
             "saludo_personalizado": request.form.get('saludo_personalizado', f"¡Hola! Soy tu asistente virtual para agendar citas"),
@@ -1768,6 +1796,8 @@ def admin_nuevo_negocio():
         )
         
         if negocio_id:
+            localizacion.guardar(negocio_id, pais_codigo, zona_horaria)
+
             # Guardar número de API de WhatsApp si se proporcionó
             numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
             if numero_api_whatsapp:
@@ -1864,6 +1894,13 @@ def admin_editar_negocio(negocio_id):
                 flash('❌ La longitud debe ser un número válido (ej: -75.58121)', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
         
+        pais_ok, pais_msg, pais_codigo, zona_horaria = localizacion.validar(
+            request.form.get('pais'), request.form.get('zona_horaria')
+        )
+        if not pais_ok:
+            flash(f'❌ {pais_msg}', 'error')
+            return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
+
         configuracion = {
             "saludo_personalizado": request.form.get('saludo_personalizado', ''),
             "horario_atencion": request.form.get('horario_atencion', ''),
@@ -1888,7 +1925,8 @@ def admin_editar_negocio(negocio_id):
             longitud=longitud_float,
             direccion=direccion
         )
-        
+        localizacion.guardar(negocio_id, pais_codigo, zona_horaria)
+
         # Guardar o eliminar número de API de WhatsApp
         numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
         if numero_api_whatsapp:
@@ -1973,7 +2011,8 @@ def admin_editar_negocio(negocio_id):
         print(f"⚠️ Error obteniendo número API: {e}")
     
     config = json.loads(negocio['configuracion'] if negocio['configuracion'] else '{}')
-    return render_template('admin/editar_negocio.html', negocio=negocio, config=config, numero_api_whatsapp=numero_api_whatsapp)
+    return render_template('admin/editar_negocio.html', negocio=negocio, config=config, numero_api_whatsapp=numero_api_whatsapp,
+                           localizacion=localizacion.obtener(negocio_id))
 
 # =============================================================================
 # RUTAS PARA ELIMINAR NEGOCIOS
@@ -2639,14 +2678,14 @@ def negocio_dashboard():
     negocio_id = session.get('negocio_id', 1)
     
     # Formatear fecha para mostrar
-    fecha_hoy_str = datetime.now(tz_colombia).strftime('%d/%m/%Y')
-    fecha_hoy_db = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+    fecha_hoy_str = datetime.now(tz_negocio).strftime('%d/%m/%Y')
+    fecha_hoy_db = datetime.now(tz_negocio).strftime('%Y-%m-%d')
     
     # Obtener estadísticas del mes actual
     stats = db.obtener_estadisticas_mensuales(
         negocio_id, 
-        mes=datetime.now(tz_colombia).month, 
-        año=datetime.now(tz_colombia).year
+        mes=datetime.now(tz_negocio).month, 
+        año=datetime.now(tz_negocio).year
     )
     
     # Obtener citas de hoy
@@ -2731,14 +2770,14 @@ def negocio_dashboard():
                          stats=stats_formateadas,
                          citas_hoy=citas_procesadas,
                          fecha_hoy=fecha_hoy_str,
-                         mes_actual=datetime.now(tz_colombia).strftime('%B %Y'))
+                         mes_actual=datetime.now(tz_negocio).strftime('%B %Y'))
 
 @app.route('/negocio/citas')
 @role_required(['propietario', 'superadmin'])
 def negocio_citas():
     """Gestión de citas del negocio"""
     negocio_id = session.get('negocio_id', 1)
-    fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+    fecha = request.args.get('fecha', datetime.now(tz_negocio).strftime('%Y-%m-%d'))
     profesional_id = request.args.get('profesional_id', '')
     
     profesionales = db.obtener_profesionales(negocio_id)
@@ -2759,7 +2798,7 @@ def negocio_api_citas():
         estado = request.args.get('estado', '')
         
         if not fecha:
-            fecha = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+            fecha = datetime.now(tz_negocio).strftime('%Y-%m-%d')
         
         negocio_id = session.get('negocio_id', 1)
         
@@ -2842,8 +2881,8 @@ def negocio_api_estadisticas():
     """API para obtener estadísticas del negocio - VERSIÓN SIMPLIFICADA SIN TENDENCIA"""
     try:
         profesional_id = request.args.get('profesional_id', '')
-        mes = request.args.get('mes', datetime.now(tz_colombia).month)
-        año = request.args.get('año', datetime.now(tz_colombia).year)
+        mes = request.args.get('mes', datetime.now(tz_negocio).month)
+        año = request.args.get('año', datetime.now(tz_negocio).year)
         
         negocio_id = session.get('negocio_id', 1)
         
@@ -4179,7 +4218,7 @@ def profesional_dashboard():
         print("🚨 [DEBUG] CARGANDO DASHBOARD")
         
         negocio_id = session.get('negocio_id', 1)
-        fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        fecha = request.args.get('fecha', datetime.now(tz_negocio).strftime('%Y-%m-%d'))
         profesional_id = session.get('profesional_id')
         
         if not profesional_id:
@@ -4246,7 +4285,7 @@ def profesional_dashboard():
                             total_citas=0, 
                             ganancia_estimada=0,
                             profesional_id=None,
-                            fecha=datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+                            fecha=datetime.now(tz_negocio).strftime('%Y-%m-%d'))
     
 @app.route('/profesional/estadisticas')
 @role_required(['profesional', 'propietario', 'superadmin'])
@@ -4257,8 +4296,8 @@ def profesional_estadisticas():
         profesional_id = request.args.get('profesional_id', session.get('profesional_id'))
         
         # Obtener mes y año de los parámetros o usar actual
-        mes = request.args.get('mes', datetime.now(tz_colombia).month, type=int)
-        año = request.args.get('año', datetime.now(tz_colombia).year, type=int)
+        mes = request.args.get('mes', datetime.now(tz_negocio).month, type=int)
+        año = request.args.get('año', datetime.now(tz_negocio).year, type=int)
         
         if not profesional_id:
             flash('No se pudo identificar al profesional', 'error')
@@ -4490,9 +4529,10 @@ def profesional_agendar():
         conn.close()
         
         # Fecha de hoy para el mínimo del datepicker
-        fecha_hoy = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+        fecha_hoy = datetime.now(tz_negocio).strftime('%Y-%m-%d')
         
         return render_template('profesional/agendar_cita.html',
+                            tel_cfg=configuracion_pais(negocio_id),
                             servicios=servicios,
                             profesional_id=profesional_id,
                             fecha_hoy=fecha_hoy)
@@ -5120,7 +5160,7 @@ def obtener_citas():
         negocio_id = session.get('negocio_id', 1)
 
     if not fecha:
-        fecha = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+        fecha = datetime.now(tz_negocio).strftime('%Y-%m-%d')
 
     if session.get('usuario_rol') == 'profesional':
         profesional_id = session.get('profesional_id')
@@ -5177,8 +5217,8 @@ def obtener_estadisticas_mensuales():
     """Obtener estadísticas mensuales avanzadas"""
     try:
         profesional_id = request.args.get('profesional_id')
-        mes = request.args.get('mes', datetime.now(tz_colombia).month)
-        año = request.args.get('año', datetime.now(tz_colombia).year)
+        mes = request.args.get('mes', datetime.now(tz_negocio).month)
+        año = request.args.get('año', datetime.now(tz_negocio).year)
         
         if session.get('usuario_rol') == 'superadmin':
             negocio_id = request.args.get('negocio_id', 1)
@@ -5264,9 +5304,8 @@ def api_horarios_disponibles():
         if not all([profesional_id, fecha, servicio_id]):
             return jsonify({'error': 'Parámetros incompletos'}), 400
         
-        # Configurar zona horaria de Colombia
-        tz_colombia = pytz.timezone('America/Bogota')
-        fecha_actual_colombia = datetime.now(tz_colombia)
+        # Hora local del negocio (se fija por solicitud en before_request)
+        fecha_actual_colombia = datetime.now(tz_negocio)
         
         # Obtener negocio_id del profesional
         conn = get_db_connection()
@@ -5852,7 +5891,7 @@ def profesional_bloqueos():
             return redirect(url_for('profesional_dashboard'))
         
         # Fecha por defecto: hoy
-        fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        fecha = request.args.get('fecha', datetime.now(tz_negocio).strftime('%Y-%m-%d'))
         tab = request.args.get('tab', 'puntuales')  # Para saber qué pestaña mostrar
         
         # Obtener bloqueos PUNTUALES del profesional
@@ -6072,8 +6111,8 @@ def profesional_api_estadisticas_avanzadas():
     """API para obtener estadísticas avanzadas del profesional"""
     try:
         profesional_id = request.args.get('profesional_id', session.get('profesional_id'))
-        mes = request.args.get('mes', datetime.now(tz_colombia).month, type=int)
-        año = request.args.get('año', datetime.now(tz_colombia).year, type=int)
+        mes = request.args.get('mes', datetime.now(tz_negocio).month, type=int)
+        año = request.args.get('año', datetime.now(tz_negocio).year, type=int)
         
         if not profesional_id:
             return jsonify({'success': False, 'error': 'Profesional no encontrado'})
@@ -6152,7 +6191,7 @@ def profesional_api_estadisticas_avanzadas():
         
         # 6. Promedio móvil para predicción (últimas 4 semanas)
         from datetime import timedelta
-        hoy = datetime.now(tz_colombia).date()
+        hoy = datetime.now(tz_negocio).date()
         semanas_data = []
         
         for i in range(4, 0, -1):
@@ -6411,7 +6450,7 @@ def profesional_api_horarios_disponibles():
     try:
         profesional_id = session.get('profesional_id')
         negocio_id = session.get('negocio_id')
-        fecha = request.args.get('fecha', datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+        fecha = request.args.get('fecha', datetime.now(tz_negocio).strftime('%Y-%m-%d'))
         
         # Reutilizar la misma lógica que usan los clientes
         from web_chat_handler import generar_horarios_disponibles_actualizado
@@ -6469,7 +6508,7 @@ def obtener_configuracion_horarios():
     """Obtener configuración de horarios para una fecha específica"""
     fecha = request.args.get('fecha', '')
     if not fecha:
-        fecha = datetime.now().strftime('%Y-%m-%d')
+        fecha = datetime.now(tz_negocio).strftime('%Y-%m-%d')
     
     negocio_id = session.get('negocio_id', 1)
     
@@ -8510,11 +8549,6 @@ def whatsapp_webhook():
         
         # Limpiar número de teléfono (eliminar +, espacios, etc.)
         cliente_telefono_limpio = re.sub(r'[^0-9]', '', cliente_telefono)
-        if len(cliente_telefono_limpio) > 10:
-            # Si tiene código de país (ej: 573001234567), tomar últimos 10 dígitos
-            cliente_telefono_limpio = cliente_telefono_limpio[-10:]
-        
-        print(f"📱 [WHATSAPP] Teléfono limpio: {cliente_telefono_limpio}")
         
         # 1. IDENTIFICAR QUÉ NEGOCIO ES según el número de WhatsApp
         negocio_id = obtener_negocio_por_numero_whatsapp(numero_negocio)
@@ -8524,6 +8558,19 @@ def whatsapp_webhook():
             return jsonify({'error': 'Número no registrado'}), 404
         
         print(f"🏢 [WHATSAPP] Negocio ID: {negocio_id}")
+        fijar_negocio(negocio_id)
+
+        # Formato de teléfono según el país del negocio
+        if configuracion_pais(negocio_id)['codigo'] == 'CO':
+            if len(cliente_telefono_limpio) > 10:
+                # Si tiene código de país (ej: 573001234567), tomar últimos 10 dígitos
+                cliente_telefono_limpio = cliente_telefono_limpio[-10:]
+        else:
+            cliente_telefono_limpio = normalizar_telefono(
+                cliente_telefono, negocio_id, permisivo=True
+            ) or cliente_telefono_limpio
+        
+        print(f"📱 [WHATSAPP] Teléfono limpio: {cliente_telefono_limpio}")
         
         # 2. CREAR O RECUPERAR SESIÓN (igual que en chat web)
         session_id = f"wa_{cliente_telefono_limpio}_{negocio_id}"

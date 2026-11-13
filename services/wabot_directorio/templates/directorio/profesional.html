@@ -466,8 +466,8 @@
         <!-- Galería de trabajos -->
         <div class="section">
             <div class="section-title">
-                <i class="fas fa-scissors"></i>
-                Trabajos realizados
+                <i class="fas {{ 'fa-car' if negocio_tipo == 'renta_autos' else 'fa-scissors' }}"></i>
+                {{ 'Fotos del vehículo' if negocio_tipo == 'renta_autos' else 'Trabajos realizados' }}
             </div>
             
             {% if fotos_trabajo %}
@@ -483,7 +483,7 @@
             {% else %}
             <div class="empty-message">
                 <i class="fas fa-camera"></i>
-                <p>Este profesional aún no ha subido fotos de sus trabajos</p>
+                <p>{{ 'Este vehículo aún no tiene fotos' if negocio_tipo == 'renta_autos' else 'Este profesional aún no ha subido fotos de sus trabajos' }}</p>
             </div>
             {% endif %}
         </div>
@@ -495,7 +495,7 @@
        target="_blank"
        rel="noopener noreferrer">
         <i class="fas fa-calendar-check"></i>
-        Agendar cita
+        {{ 'Reservar vehículo' if negocio_tipo == 'renta_autos' else 'Agendar cita' }}
     </a>
     
     <!-- Botón volver atrás -->

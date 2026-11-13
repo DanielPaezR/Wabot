@@ -288,6 +288,7 @@ def perfil_profesional(profesional_id):
                          fotos_trabajo=fotos_trabajo,
                          negocio_nombre=negocio_nombre,
                          negocio_emoji=negocio_emoji,
+                         negocio_tipo=negocio.tipo_negocio if negocio else None,
                          negocio_portada_url=negocio_portada_url,
                          promocion=promocion_data)
 

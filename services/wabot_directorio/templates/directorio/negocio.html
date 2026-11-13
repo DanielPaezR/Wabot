@@ -713,7 +713,7 @@
         {% if profesionales %}
         <div class="section">
             <div class="section-title">
-                <div class="section-title-left"><i class="fas fa-users"></i> Nuestros profesionales</div>
+                <div class="section-title-left"><i class="fas {{ 'fa-car' if negocio.tipo_negocio == 'renta_autos' else 'fa-users' }}"></i> {{ 'Nuestra flota' if negocio.tipo_negocio == 'renta_autos' else 'Nuestros profesionales' }}</div>
             </div>
             {% for prof in profesionales %}
             <a href="/profesional/{{ prof.id }}/publico" class="profesional-card">
@@ -780,7 +780,7 @@
     <!-- BOTÓN FLOTANTE -->
     <a href="https://wabot-deployment.up.railway.app/cliente/{{ negocio.id }}"
        class="btn-flotante" target="_blank" rel="noopener noreferrer">
-        <i class="fas fa-calendar-check"></i> Agendar cita
+        <i class="fas fa-calendar-check"></i> {{ 'Reservar vehículo' if negocio.tipo_negocio == 'renta_autos' else 'Agendar cita' }}
     </a>
 
     <script>

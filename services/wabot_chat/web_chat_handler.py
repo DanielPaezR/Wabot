@@ -36,17 +36,81 @@ elif openai:
 print(f"🔑 [ENV-CHECK] VAPID_PUBLIC_KEY exists: {bool(os.getenv('VAPID_PUBLIC_KEY'))}")
 print(f"🔑 [ENV-CHECK] VAPID_PRIVATE_KEY exists: {bool(os.getenv('VAPID_PRIVATE_KEY'))}")
 
-tz_colombia = pytz.timezone('America/Bogota')
+from localizacion import (
+    tz_negocio, tz_reloj, fijar_negocio, normalizar_telefono,
+    configuracion_pais, adaptar_texto_telefono,
+)
 
 web_chat_bp = Blueprint('web_chat', __name__)
 
 # Estados de conversación para sesiones web (en memoria — se pierde al reiniciar)
 conversaciones_activas = {}
 _CONVERSACION_TTL_MINUTOS = 30
+MENSAJE_HORARIO_OCUPADO = (
+    "😕 Lo siento, ese horario ya no está disponible para {profesional}. "
+    "Escribe *hola* para empezar de nuevo y elegir otro horario."
+)
+
+# Vocabulario por tipo de negocio: los textos fijos del flujo hablan de
+# "profesional/servicio/cita"; para renta de autos se adaptan al final.
+_VOCABULARIO_POR_TIPO = {
+    'renta_autos': {
+        'reemplazos_especiales': [
+            (r'\bagendar (?:una )?cita\b', 'reservar vehículo'),
+            (r'comun[ií]cate con el profesional v[ií]a whatsapp', 'comunícate con nuestro equipo por WhatsApp'),
+            (r'💈|👨‍💼', '🚗'),
+        ],
+        'reemplazos': [
+            ('profesionales', 'vehículos'),
+            ('profesional', 'vehículo'),
+            ('servicios', 'planes de renta'),
+            ('servicio', 'plan de renta'),
+            ('citas', 'reservas'),
+            ('cita', 'reserva'),
+        ],
+        'palabras_profesional': ['vehículo', 'vehiculo', 'carro', 'auto '],
+        'palabras_servicio': ['plan de renta', 'planes de renta', 'plan '],
+    },
+}
+
+
+def _vocabulario_negocio(tipo_negocio):
+    return _VOCABULARIO_POR_TIPO.get(tipo_negocio)
+
+
+def _aplicar_caso(original, nuevo):
+    if len(original) > 1 and original.isupper():
+        return nuevo.upper()
+    if original[:1].isupper():
+        return nuevo[:1].upper() + nuevo[1:]
+    return nuevo
+
+
+def adaptar_texto_negocio(texto, tipo_negocio):
+    """Adapta el vocabulario del texto al tipo de negocio (no-op para los demás)."""
+    vocab = _vocabulario_negocio(tipo_negocio)
+    if not vocab or not texto:
+        return texto
+    for patron, reemplazo in vocab['reemplazos_especiales']:
+        texto = re.sub(
+            patron,
+            lambda m, r=reemplazo: _aplicar_caso(m.group(0), r),
+            texto,
+            flags=re.IGNORECASE,
+        )
+    for palabra, reemplazo in vocab['reemplazos']:
+        texto = re.sub(
+            rf'\b{palabra}\b',
+            lambda m, r=reemplazo: _aplicar_caso(m.group(0), r),
+            texto,
+            flags=re.IGNORECASE,
+        )
+    return texto
+
 
 def _limpiar_conversaciones_viejas():
     """Elimina conversaciones inactivas por más de _CONVERSACION_TTL_MINUTOS."""
-    ahora = datetime.now(tz_colombia)
+    ahora = datetime.now(tz_reloj)
     claves_viejas = [
         clave for clave, conv in conversaciones_activas.items()
         if ahora - conv.get('timestamp', ahora) > timedelta(minutes=_CONVERSACION_TTL_MINUTOS)
@@ -331,8 +395,8 @@ def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
             'politica_cancelacion': config.get('politica_cancelacion', 'Puedes cancelar hasta 2 horas antes'),
             
             # Fecha y hora actual
-            'fecha_actual': datetime.now(tz_colombia).strftime('%d/%m/%Y'),
-            'hora_actual': datetime.now(tz_colombia).strftime('%H:%M')
+            'fecha_actual': datetime.now(tz_negocio).strftime('%d/%m/%Y'),
+            'hora_actual': datetime.now(tz_negocio).strftime('%H:%M')
         }
         
         # Combinar con variables adicionales
@@ -384,7 +448,7 @@ OPENAI_TOOLS = [
                 },
                 "cliente_telefono": {
                     "type": "string",
-                    "description": "Teléfono del cliente de 10 dígitos."
+                    "description": "Teléfono local del cliente (solo dígitos)."
                 }
             },
             "required": ["profesional_nombre", "servicio_nombre", "fecha", "hora", "cliente_telefono"]
@@ -398,7 +462,7 @@ OPENAI_TOOLS = [
             "properties": {
                 "telefono": {
                     "type": "string",
-                    "description": "Teléfono de 10 dígitos del cliente."
+                    "description": "Teléfono local del cliente (solo dígitos)."
                 }
             },
             "required": ["telefono"]
@@ -541,7 +605,7 @@ def normalizar_fecha_usuario(fecha_text):
         return None
 
     texto = fecha_text.strip().lower()
-    hoy = datetime.now(tz_colombia).date()
+    hoy = datetime.now(tz_negocio).date()
 
     if texto in ['hoy']:
         return hoy.strftime('%Y-%m-%d')
@@ -656,7 +720,7 @@ def obtener_contexto_de_negocio(negocio_id):
     nombre_servicios = [s.get('nombre') for s in servicios if s.get('nombre')]
 
     horarios = []
-    hoy = datetime.now(tz_colombia).date()
+    hoy = datetime.now(tz_negocio).date()
     for i in range(7):
         fecha = hoy + timedelta(days=i)
         fecha_str = fecha.strftime('%Y-%m-%d')
@@ -801,10 +865,10 @@ def guardar_historial_ia(clave_conversacion, role, contenido):
     if clave_conversacion not in conversaciones_activas:
         conversaciones_activas[clave_conversacion] = {
             'estado': 'ia_libre',
-            'timestamp': datetime.now(tz_colombia),
+            'timestamp': datetime.now(tz_reloj),
             'historial': []
         }
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     conversaciones_activas[clave_conversacion].setdefault('historial', []).append({
         'role': role,
         'content': contenido
@@ -983,7 +1047,7 @@ def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cli
         })
 
     # ✅ NUEVO: Informar a la IA la fecha actual
-    hoy = datetime.now(tz_colombia)
+    hoy = datetime.now(tz_negocio)
     messages.append({
         'role': 'system',
         'content': f'FECHA ACTUAL: Hoy es {hoy.strftime("%d/%m/%Y")} (año {hoy.year}). Usa SIEMPRE el año {hoy.year} para las fechas.'
@@ -1119,7 +1183,16 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     fecha = arguments.get('fecha', '').strip()
     hora = arguments.get('hora', '').strip()
     precio = arguments.get('precio', 0)
-    
+
+    # El precio que envía la IA no es confiable: usar el del servicio en BD
+    servicio_bd = buscar_servicio_por_nombre_estricto(servicio_nombre, db.obtener_servicios(negocio_id))
+    if servicio_bd and servicio_bd.get('precio'):
+        precio = servicio_bd['precio']
+    try:
+        precio = float(precio or 0)
+    except (TypeError, ValueError):
+        precio = 0
+
     # ✅ BUSCAR la clave de conversación correcta (no construirla)
     clave_conversacion = None
     
@@ -1206,7 +1279,10 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
 
     print(f"🔍 [IA] ia_agendar_cita recibir: profesional={profesional_nombre}, servicio={servicio_nombre}, fecha={fecha_raw}, hora={hora_raw}, telefono={cliente_telefono}, nombre={cliente_nombre}")
 
-    if not cliente_telefono or not cliente_telefono.isdigit() or len(cliente_telefono) != 10:
+    cliente_telefono = normalizar_telefono(
+        cliente_telefono, negocio_id, permisivo=(cliente_telefono == telefono_cliente)
+    )
+    if not cliente_telefono:
         return 'Necesito un teléfono válido de 10 dígitos para agendar la cita.'
 
     profesionales = db.obtener_profesionales(negocio_id)
@@ -1227,7 +1303,7 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
     if fecha:
         try:
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
-            hoy = datetime.now(tz_colombia).date()
+            hoy = datetime.now(tz_negocio).date()
             # Si el año es anterior al actual, usar año actual
             if fecha_obj.year < hoy.year:
                 fecha_obj = fecha_obj.replace(year=hoy.year)
@@ -1295,7 +1371,8 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
 def ia_ver_mis_citas(arguments, negocio_id, telefono_cliente):
     telefono = arguments.get('telefono', '') or telefono_cliente
     print(f"🔍 [IA] ia_ver_mis_citas - teléfono: {telefono}")
-    if not telefono or not telefono.isdigit() or len(telefono) != 10:
+    telefono = normalizar_telefono(telefono, negocio_id, permisivo=(telefono == telefono_cliente))
+    if not telefono:
         return 'Necesito un teléfono válido de 10 dígitos para consultar tus citas.'
     return mostrar_mis_citas(telefono, negocio_id)
 
@@ -1390,7 +1467,7 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
     guardar_historial_ia(clave_conversacion, 'user', mensaje)
     conversacion = conversaciones_activas.setdefault(clave_conversacion, {
         'estado': 'ia_libre',
-        'timestamp': datetime.now(tz_colombia),
+        'timestamp': datetime.now(tz_reloj),
         'historial': []
     })
     if telefono_cliente:
@@ -1402,9 +1479,13 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
     guardar_historial_ia(clave_conversacion, 'assistant', respuesta)
     
     respuesta_lower = respuesta.lower()
-    
+
+    vocab_negocio = _vocabulario_negocio((db.obtener_negocio_por_id(negocio_id) or {}).get('tipo_negocio'))
+    palabras_profesional = ['profesional'] + (vocab_negocio['palabras_profesional'] if vocab_negocio else [])
+    palabras_servicio = ['servicio'] + (vocab_negocio['palabras_servicio'] if vocab_negocio else [])
+
     # ⚠️ ORDEN IMPORTANTE: Detectar primero lo más específico
-    
+
     if 'confirmas' in respuesta_lower or '¿confirmas' in respuesta_lower:
         conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
         print(f"🔧 [IA] Detectada solicitud de confirmación, cambiando estado")
@@ -1418,14 +1499,14 @@ def procesar_mensaje_con_ia(mensaje, numero, negocio_id, session):
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
         print(f"🔧 [IA] Detectada selección de fecha, cambiando estado")
         
-    elif 'profesional' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower):
+    elif any(p in respuesta_lower for p in palabras_profesional) and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower):
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_profesional'
         profesionales = db.obtener_profesionales(negocio_id)
         if profesionales:
             conversaciones_activas[clave_conversacion]['profesionales'] = profesionales
             print(f"🔧 [IA] Detectada selección de profesional, cambiando estado")
         
-    elif 'servicio' in respuesta_lower and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower or 'cuál' in respuesta_lower):
+    elif any(p in respuesta_lower for p in palabras_servicio) and ('elegir' in respuesta_lower or 'elige' in respuesta_lower or 'escoge' in respuesta_lower or 'botones' in respuesta_lower or 'cuál' in respuesta_lower):
         # ✅ DESPUÉS: Detectar servicio (si no es hora)
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
         servicios = db.obtener_servicios(negocio_id)
@@ -1512,7 +1593,7 @@ def ia_info_negocio(negocio_id):
     
     # Agregar horarios de los próximos días
     from datetime import datetime, timedelta
-    hoy = datetime.now(tz_colombia).date()
+    hoy = datetime.now(tz_negocio).date()
     mensaje += "\n📅 *Horarios esta semana:*\n"
     
     for i in range(7):
@@ -1579,7 +1660,7 @@ def detectar_y_extraer_whatsapp(session_id):
         if len(partes) >= 3:  # wa, número, índice
             numero = partes[1]
             # Validar que sea un número válido
-            if numero.isdigit() and len(numero) >= 10:
+            if numero.isdigit() and len(numero) >= 7:
                 print(f"✅ [WHATSAPP] Detectado - Número extraído: {numero}")
                 return True, numero
     except Exception as e:
@@ -1598,6 +1679,7 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
     Reemplaza la función webhook_whatsapp
     """
     try:
+        fijar_negocio(negocio_id)
         _limpiar_conversaciones_viejas()
         user_message = user_message.strip()
 
@@ -1639,8 +1721,11 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
             paso_actual = conversaciones_activas[clave_conversacion].get('estado', 'inicio')
         
         # Inicializar respuesta
+        tipo_negocio = dict(negocio).get('tipo_negocio')
         respuesta = {
-            'message': limpiar_formato_whatsapp(respuesta_texto),
+            'message': limpiar_formato_whatsapp(
+                adaptar_texto_telefono(adaptar_texto_negocio(respuesta_texto, tipo_negocio), negocio_id)
+            ),
             'step': paso_actual
         }
         
@@ -1685,9 +1770,17 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         elif paso_actual == 'ia_libre':
             opciones_extra = generar_opciones_menu_principal()
 
+        if opciones_extra and paso_actual in (
+            'menu_principal', 'ia_libre', 'confirmando_cita', 'seleccionando_servicio_personalizado'
+        ):
+            opciones_extra = [
+                {**opcion, 'text': adaptar_texto_negocio(opcion.get('text', ''), tipo_negocio)}
+                for opcion in opciones_extra
+            ]
+
         if opciones_extra:
             respuesta['options'] = opciones_extra
-        
+
         print(f"🔧 [CHAT WEB] Respuesta generada - Paso: {paso_actual}, Opciones: {opciones_extra}")
         
         return respuesta
@@ -2066,7 +2159,7 @@ def saludo_inicial(numero, negocio_id, es_whatsapp=False):
                 # Guardar en conversación activa
                 conversaciones_activas[clave_conversacion] = {
                     'telefono_cliente': telefono_cliente,
-                    'timestamp': datetime.now(tz_colombia),
+                    'timestamp': datetime.now(tz_reloj),
                     'session_id': numero
                 }
                 
@@ -2100,7 +2193,7 @@ def saludo_inicial(numero, negocio_id, es_whatsapp=False):
                 'estado': 'menu_principal',
                 'telefono_cliente': flask_session['cliente_telefono'],
                 'cliente_nombre': nombre_cliente,
-                'timestamp': datetime.now(tz_colombia)
+                'timestamp': datetime.now(tz_reloj)
             }
             return renderizar_plantilla('telefono_validado_existente', negocio_id, {
                 'nombre_cliente': nombre_cliente
@@ -2114,7 +2207,7 @@ def saludo_inicial(numero, negocio_id, es_whatsapp=False):
         # Crear nueva conversación para pedir teléfono
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_inicial',
-            'timestamp': datetime.now(tz_colombia),
+            'timestamp': datetime.now(tz_reloj),
             'session_id': numero
         }
         
@@ -2130,7 +2223,7 @@ def saludo_inicial(numero, negocio_id, es_whatsapp=False):
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion] = {
             'estado': 'solicitando_telefono_inicial',
-            'timestamp': datetime.now(tz_colombia)
+            'timestamp': datetime.now(tz_reloj)
         }
         return "¡Hola! 👋 Para comenzar, ingresa tu número de teléfono de 10 dígitos (debe empezar con 3, ej: 3101234567):"
 
@@ -2144,9 +2237,9 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
         return saludo_inicial(numero, negocio_id)
     
     # Validar teléfono
-    telefono = mensaje.strip()
+    telefono = normalizar_telefono(mensaje, negocio_id)
     
-    if not telefono.isdigit() or len(telefono) != 10 or not telefono.startswith('3'):
+    if not telefono:
         return "❌ Número inválido. Por favor ingresa 10 dígitos (debe empezar con 3, ejemplo: 3101234567):"
     
     print(f"🔧 [DEBUG] Teléfono válido ingresado: {telefono}")
@@ -2177,7 +2270,7 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
         
         # Ir directamente al menú principal
         conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
         
         # ✅ USAR PLANTILLA PARA CLIENTE EXISTENTE
         return renderizar_plantilla('telefono_validado_existente', negocio_id, {
@@ -2188,7 +2281,7 @@ def procesar_telefono_inicial(numero, mensaje, negocio_id):
         print(f"🔧 [DEBUG] Cliente nuevo - pedir nombre")
         
         conversaciones_activas[clave_conversacion]['estado'] = 'solicitando_nombre'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
         
         # ✅ USAR PLANTILLA PARA SOLICITAR NOMBRE
         return renderizar_plantilla('solicitar_nombre_nuevo', negocio_id)
@@ -2310,7 +2403,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     # Intentar guardar cliente en BD
     try:
         telefono = conversaciones_activas[clave_conversacion]['telefono_cliente']
-        fecha_actual = datetime.now(tz_colombia).strftime('%Y-%m-%d %H:%M:%S')
+        fecha_actual = datetime.now(tz_negocio).strftime('%Y-%m-%d %H:%M:%S')
         
         from database import get_db_connection
         conn = get_db_connection()
@@ -2347,7 +2440,7 @@ def procesar_nombre_cliente(numero, mensaje, negocio_id):
     
     # Ir al menú principal
     conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     
     print(f"✅ [DEBUG] Nombre '{nombre_cliente}' guardado y listo para menú principal")
     
@@ -2389,7 +2482,7 @@ def mostrar_profesionales(numero, negocio_id):
         conversaciones_activas[clave_conversacion].update({
             'estado': 'seleccionando_profesional',
             'profesionales': profesionales,
-            'timestamp': datetime.now(tz_colombia)
+            'timestamp': datetime.now(tz_reloj)
         })
         
         print(f"✅ [WEB CHAT] {len(profesionales)} profesionales guardados")
@@ -2443,7 +2536,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
             conversaciones_activas[clave_conversacion]['tiene_personalizado'] = True
             conversaciones_activas[clave_conversacion]['servicio_personalizado'] = servicio_personalizado
             conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio_personalizado'
-            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
             
             return mensaje
         
@@ -2469,7 +2562,7 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
             
         conversaciones_activas[clave_conversacion]['servicios'] = servicios
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_servicio'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
         conversaciones_activas[clave_conversacion]['tiene_personalizado'] = False
         
         # ✅ MENSAJE SIMPLIFICADO - SIN LISTA DE SERVICIOS
@@ -2521,7 +2614,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
             conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
             conversaciones_activas[clave_conversacion]['servicios_adicionales'] = servicio_personalizado.get('servicios_adicionales', [])
             conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
             
             # Limpiar el flag de servicio personalizado para continuar normal
             if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
@@ -2571,7 +2664,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
     conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
     conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     
     return mostrar_fechas_disponibles(numero, negocio_id)
 
@@ -2602,7 +2695,7 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
         conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
         conversaciones_activas[clave_conversacion]['servicios_adicionales'] = servicio_personalizado.get('servicios_adicionales', [])
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
         
         # Limpiar el flag de servicio personalizado para continuar normal
         if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
@@ -2693,7 +2786,7 @@ def mostrar_fechas_disponibles(numero, negocio_id):
         clave_conversacion = f"{numero}_{negocio_id}"
         conversaciones_activas[clave_conversacion]['fechas_disponibles'] = fechas_disponibles
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
         
         # ✅ USAR PLANTILLA PARA SELECCIÓN DE FECHA
         return renderizar_plantilla('seleccion_fecha', negocio_id)
@@ -2721,7 +2814,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         
         if not fecha_seleccionada:
             fecha_seleccionada = conversaciones_activas[clave_conversacion].get('fecha_seleccionada', 
-                                                                                 datetime.now(tz_colombia).strftime('%Y-%m-%d'))
+                                                                                 datetime.now(tz_negocio).strftime('%Y-%m-%d'))
             print(f"📅 Fecha obtenida de conversación: {fecha_seleccionada}")
         
         # Verificar disponibilidad básica
@@ -2764,7 +2857,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         conversaciones_activas[clave_conversacion]['todos_horarios'] = horarios_disponibles
         conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
         conversaciones_activas[clave_conversacion]['estado'] = 'agendando_hora'
-        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+        conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
         
         # Tomar los primeros 3 horarios como ejemplo y convertirlos a 12h
         ejemplos_horarios = []
@@ -2847,7 +2940,7 @@ def mostrar_mis_citas(numero, negocio_id):
 
         # PASO 3: Filtrar solo citas futuras (fecha Y hora, para que una cita
         # de hoy que ya pasó de hora no siga apareciendo como próxima)
-        ahora_colombia = datetime.now(tz_colombia)
+        ahora_colombia = datetime.now(tz_negocio)
         fecha_actual = ahora_colombia.date()
         citas_futuras = []
 
@@ -2985,7 +3078,7 @@ def mostrar_citas_para_cancelar(numero, negocio_id):
         # que refleja la zona horaria del servidor de BD y puede ir un día
         # adelantado respecto a Bogotá, ocultando citas de hoy en la lista para
         # cancelar aunque sí aparezcan en "mis citas").
-        fecha_hoy_colombia = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+        fecha_hoy_colombia = datetime.now(tz_negocio).strftime('%Y-%m-%d')
 
         # ✅ Buscar citas confirmadas
         cursor.execute('''
@@ -3203,7 +3296,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         # ✅ CORREGIR AÑO: Si la fecha es del pasado, usar año actual
         try:
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
-            hoy = datetime.now(tz_colombia).date()
+            hoy = datetime.now(tz_negocio).date()
             if fecha_obj.year < hoy.year:
                 fecha_obj = fecha_obj.replace(year=hoy.year)
                 fecha = fecha_obj.strftime('%Y-%m-%d')
@@ -3227,7 +3320,8 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         
         if cita_existente:
             print(f"🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
-            return renderizar_plantilla('error_generico', negocio_id)
+            del conversaciones_activas[clave_conversacion]
+            return MENSAJE_HORARIO_OCUPADO.format(profesional=profesional_nombre)
         
         # Obtener nombre del cliente
         if 'cliente_nombre' not in conversacion:
@@ -3336,7 +3430,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         else:
             print(f"❌ [DEBUG] Error al crear la cita. ID retornado: {cita_id}")
             del conversaciones_activas[clave_conversacion]
-            return renderizar_plantilla('error_generico', negocio_id)
+            return MENSAJE_HORARIO_OCUPADO.format(profesional=profesional_nombre)
             
     except Exception as e:
         print(f"❌ [DEBUG] Error general al crear cita: {e}")
@@ -3505,7 +3599,7 @@ def procesar_seleccion_profesional(numero, mensaje, negocio_id):
     
     conversaciones_activas[clave_conversacion]['profesional_id'] = profesional_seleccionado['id']
     conversaciones_activas[clave_conversacion]['profesional_nombre'] = profesional_seleccionado['nombre']
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     
     # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó este profesional
     guardar_historial_ia(clave_conversacion, 'user', f'Quiero agendar con el profesional {profesional_seleccionado["nombre"]}')
@@ -3548,7 +3642,7 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
     conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
     conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     
     # Limpiar servicio personalizado si existe
     if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
@@ -3591,7 +3685,7 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     conversaciones_activas[clave_conversacion]['fecha_seleccionada'] = fecha_seleccionada
     # ✅ NO CAMBIAR EL ESTADO AÚN - mantener 'seleccionando_fecha'
     conversaciones_activas[clave_conversacion]['pagina_horarios'] = 0
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     
     # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó esta fecha
     guardar_historial_ia(clave_conversacion, 'user', f'Quiero la fecha {fecha_seleccionada}')
@@ -3656,7 +3750,7 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     
     conversaciones_activas[clave_conversacion]['hora_seleccionada'] = hora_seleccionada
     conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_colombia)
+    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
     
     # ✅ NUEVO: Guardar en historial de IA que el usuario seleccionó esta hora
     guardar_historial_ia(clave_conversacion, 'user', f'Quiero la hora {hora_seleccionada}')
@@ -3863,7 +3957,7 @@ Esperamos verte pronto en otra ocasión.'''
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     """Obtener las próximas fechas donde el negocio está activo - SIN CAMBIOS"""
     fechas_disponibles = []
-    fecha_actual = datetime.now(tz_colombia)
+    fecha_actual = datetime.now(tz_negocio)
     
     print(f"🔧 [DEBUG] OBTENER_FECHAS_DISPONIBLES - Negocio: {negocio_id}")
     
@@ -3972,7 +4066,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
         print(f"⏱️ Duración del servicio a agendar: {duracion_servicio} minutos")
         
         # Si es hoy, considerar margen mínimo
-        fecha_actual = datetime.now(tz_colombia)
+        fecha_actual = datetime.now(tz_negocio)
         fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
         es_hoy = fecha_cita.date() == fecha_actual.date()
         
@@ -4012,7 +4106,7 @@ def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, 
             # Si es hoy, verificar horarios futuros con margen
             if es_hoy:
                 hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-                hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_colombia)
+                hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_negocio)
                 tiempo_hasta_horario = hora_actual_completa - fecha_actual
                 
                 # MARGEN MÍNIMO: 30 minutos de anticipación
@@ -4168,7 +4262,7 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
             return False
         
         # Si es hoy, verificar que queden horarios futuros con margen mínimo
-        fecha_actual = datetime.now(tz_colombia)
+        fecha_actual = datetime.now(tz_negocio)
         fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
         
         if fecha_cita.date() == fecha_actual.date():
@@ -4179,7 +4273,7 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
             while hora_actual < hora_fin:
                 # ✅ FIX: Asegurar timezone
                 hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-                hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_colombia)
+                hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_negocio)
                 
                 # ✅ CORRECCIÓN: Solo considerar horarios FUTUROS con margen
                 tiempo_hasta_horario = hora_actual_completa - fecha_actual
@@ -4314,7 +4408,7 @@ def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
     clave_conversacion = f"{numero}_{negocio_id}"
     if clave_conversacion in conversaciones_activas:
         if 'timestamp' in conversaciones_activas[clave_conversacion]:
-            tiempo_transcurrido = datetime.now(tz_colombia) - conversaciones_activas[clave_conversacion]['timestamp']
+            tiempo_transcurrido = datetime.now(tz_reloj) - conversaciones_activas[clave_conversacion]['timestamp']
             if tiempo_transcurrido.total_seconds() > 600:  # 10 minutos
                 del conversaciones_activas[clave_conversacion]
 

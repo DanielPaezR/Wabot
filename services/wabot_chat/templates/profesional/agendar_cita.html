@@ -253,7 +253,7 @@
                 <div class="form-group">
                     <label for="cliente_telefono">📞 Teléfono:</label>
                     <input type="tel" id="cliente_telefono" name="cliente_telefono" required 
-                           placeholder="Ej: 3101234567">
+                           placeholder="Ej: {{ tel_cfg.ejemplo }}">
                 </div>
                 
                 <div class="form-group">
@@ -445,11 +445,11 @@
                     return false;
                 }
                 
-                // Validar teléfono (10 dígitos, empieza con 3)
+                // Validar teléfono según el país del negocio
                 const telefono = document.getElementById('cliente_telefono').value.trim();
-                if (!/^3\d{9}$/.test(telefono)) {
+                if (!new RegExp('^' + {{ tel_cfg.regex | tojson | safe }} + '$').test(telefono)) {
                     e.preventDefault();
-                    alert('⚠️ El teléfono debe tener 10 dígitos y empezar con 3');
+                    alert('⚠️ El teléfono debe tener {{ tel_cfg.digitos }} dígitos (ejemplo: {{ tel_cfg.ejemplo }})');
                     return false;
                 }
             });
