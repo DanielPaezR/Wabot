@@ -332,24 +332,12 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <h1>📋 Gestión de Citas - {{ session.negocio_nombre }}</h1>
-        <div class="user-info">
-            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', 'citas', 'Citas') }}
     
     <div class="container">
         <!-- ✅ CORRECCIÓN 2: Navegación mejorada -->
-        <div class="nav-buttons">
-            <a href="{{ url_for('negocio_dashboard') }}" class="nav-btn">📋 Dashboard</a>
-            <a href="{{ url_for('negocio_profesionales') }}" class="nav-btn">👨‍💼 Profesionales</a>
-            <a href="{{ url_for('negocio_estadisticas') }}" class="nav-btn">📊 Estadísticas</a>
-            <a href="{{ url_for('negocio_configuracion') }}" class="nav-btn">⚙️ Configuración</a>
-            <a href="{{ url_for('negocio_editor_visual') }}" class="nav-btn">🎨 Editar Perfil</a>
-            <a href="{{ url_for('negocio_servicios') }}" class="nav-btn">💼 Servicios</a>
-        </div>
+        
 
         <!-- Filtros -->
         <div class="filters">

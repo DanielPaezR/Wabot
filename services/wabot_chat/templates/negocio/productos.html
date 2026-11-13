@@ -248,29 +248,13 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <h1><i class="fas fa-shopping-bag"></i> Productos</h1>
-        <div class="user-info">
-            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {% call panel_header('negocio', 'productos', 'Productos') %}
+        <a class="wb-btn wb-btn-primary" href="{{ url_for('negocio_productos_nuevo') }}">Nuevo Producto</a>
+    {% endcall %}
     
     <div class="container">
-        <div class="nav-buttons">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="{{ url_for('negocio_servicios') }}" class="btn btn-secondary">
-                <i class="fas fa-cut"></i> Servicios
-            </a>
-            <a href="{{ url_for('negocio_productos_nuevo') }}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Nuevo Producto
-            </a>
-            <a href="{{ url_for('negocio_editor_visual') }}" class="btn btn-secondary">
-                <i class="fas fa-edit"></i> Editar Perfil
-            </a>
-        </div>
+        
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

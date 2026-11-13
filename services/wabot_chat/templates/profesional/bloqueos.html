@@ -679,6 +679,8 @@
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+{{ panel_header('profesional', 'bloqueos', '') }}
     <!-- Toast para notificaciones -->
     <div id="toast" class="toast-mobile" role="alert" aria-live="assertive" aria-atomic="true">
         <div id="toastContent"></div>

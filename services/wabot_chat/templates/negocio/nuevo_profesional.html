@@ -226,18 +226,11 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <h1>👨‍💼 Nuevo Profesional</h1>
-        <div class="user-info">
-            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', 'profesionales', 'Nuevo profesional', volver=url_for('negocio_profesionales')) }}
     
     <div class="container">
-        <div class="nav-buttons">
-            <a href="{{ url_for('negocio_profesionales') }}" class="btn btn-secondary">← Volver a Profesionales</a>
-        </div>
+        
 
         <div class="flash-messages">
             {% with messages = get_flashed_messages(with_categories=true) %}

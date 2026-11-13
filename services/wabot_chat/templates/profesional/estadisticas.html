@@ -394,32 +394,13 @@
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
 
 <!-- TOPBAR -->
-<div class="topbar">
-    <div class="topbar-left">
-        <div class="prof-avatar" id="topAvatar">?</div>
-        <div>
-            <div class="prof-name">{{ profesional_nombre }}</div>
-        </div>
-        <span class="prof-tag">Mis Estadísticas</span>
-    </div>
-    <div class="topbar-right">
-        <div class="user-chip">
-            <span>{{ session.get('usuario_nombre', 'Usuario') }}</span>
-        </div>
-        <a href="{{ url_for('logout') }}" class="btn-logout">Salir</a>
-    </div>
-</div>
+{{ panel_header('profesional', 'estadisticas', 'Mis estadísticas') }}
 
 <!-- NAV -->
-<div class="nav-wrap">
-    <nav class="nav-tabs">
-        <a href="{{ url_for('profesional_dashboard') }}"                                       class="nav-tab">Dashboard</a>
-        <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-tab active">Estadísticas</a>
-        <a href="{{ url_for('profesional_promociones') }}"                                      class="nav-tab">Promociones</a>
-    </nav>
-</div>
+
 
 <div class="page">
 

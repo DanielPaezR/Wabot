@@ -88,53 +88,15 @@
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('admin', 'usuarios', 'Editar usuario', subtitulo=usuario.nombre, volver=url_for('admin_usuarios')) }}
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
-                <div class="position-sticky pt-3">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="{{ url_for('admin_dashboard') }}">
-                                <i class="fas fa-tachometer-alt"></i>
-                                Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="{{ url_for('admin_negocios') }}">
-                                <i class="fas fa-store"></i>
-                                Negocios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active text-white" href="{{ url_for('admin_usuarios') }}">
-                                <i class="fas fa-users"></i>
-                                Usuarios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="{{ url_for('admin_plantillas') }}">
-                                <i class="fas fa-envelope"></i>
-                                Plantillas
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
+            
 
             <!-- Main content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">
-                        <i class="fas fa-user-edit"></i>
-                        Editar Usuario: {{ usuario.nombre }}
-                    </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <a href="{{ url_for('admin_usuarios') }}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Volver
-                        </a>
-                    </div>
-                </div>
+            <main class="col-12 px-md-4">
 
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}

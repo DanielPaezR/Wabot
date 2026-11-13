@@ -356,26 +356,8 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <div class="header-content">
-            <div class="business-info">
-                <h1>
-                    <i class="fas fa-store"></i> 
-                    {{ session.negocio_nombre|truncate(25) }}
-                </h1>
-                <p>{{ fecha_hoy }}</p>
-            </div>
-            <div class="user-info">
-                <span class="user-name">
-                    <i class="fas fa-user-circle"></i> 
-                    {{ session.usuario_nombre }}
-                </span>
-                <a href="{{ url_for('logout') }}" class="btn-logout">
-                    <i class="fas fa-sign-out-alt"></i>
-                </a>
-            </div>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', 'dashboard', 'Inicio', subtitulo=fecha_hoy) }}
     
     <div class="container">
         <!-- Tarjeta de resumen del mes -->

@@ -437,37 +437,15 @@
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
     <!-- Header -->
-    <div class="header">
-        <h1 class="h3 mb-0">
-            <i class="fas fa-users"></i>
-            Gestión de Usuarios
-        </h1>
-        <div class="user-info">
-            <span>👤 {{ session.usuario_nombre }} (Super Admin)</span>
-            <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar Sesión</a>
-        </div>
-    </div>
+    {% call panel_header('admin', 'usuarios', 'Usuarios') %}
+        <a class="wb-btn wb-btn-primary" href="{{ url_for('admin_nuevo_usuario') }}">Nuevo Usuario</a>
+    {% endcall %}
 
     <div class="container">
         <!-- Navigation Buttons -->
-        <div class="nav-buttons">
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="{{ url_for('admin_negocios') }}" class="btn btn-outline-primary">
-                <i class="fas fa-store"></i> Negocios
-            </a>
-            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-primary">
-                <i class="fas fa-users"></i> Usuarios
-            </a>
-            <a href="{{ url_for('admin_plantillas') }}" class="btn btn-outline-primary">
-                <i class="fas fa-envelope"></i> Plantillas Base
-            </a>
-            <a href="{{ url_for('admin_nuevo_usuario') }}" class="btn btn-primary" style="background: var(--wb-ok-solid);">
-                <i class="fas fa-plus"></i> Nuevo Usuario
-            </a>
-        </div>
+        
 
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}

@@ -318,26 +318,11 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <h1><i class="fas fa-plus-circle"></i> Nuevo Servicio</h1>
-        <div class="user-info">
-            <span>👤 {{ session.usuario_nombre }} ({{ session.usuario_rol }})</span>
-            <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar Sesión</a>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', 'servicios', 'Nuevo servicio', volver=url_for('negocio_servicios')) }}
 
     <div class="container">
-        <div class="nav-buttons">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-outline-primary">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="{{ url_for('negocio_servicios') }}" class="btn btn-outline-primary">
-                <i class="fas fa-concierge-bell"></i> Servicios
-            </a>
-            <a href="{{ url_for('negocio_nuevo_servicio') }}" class="btn btn-primary">
-                <i class="fas fa-plus-circle"></i> Nuevo Servicio
-            </a>
-        </div>
+        
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

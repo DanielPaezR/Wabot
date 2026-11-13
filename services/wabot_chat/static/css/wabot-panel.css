@@ -169,3 +169,77 @@ body.wb-panel {
 .wb-panel button.btn-secondary { background: var(--wb-surface-3) !important; color: var(--wb-text) !important; border: 1px solid var(--wb-line-strong) !important; }
 
 .wb-panel .badge.bg-warning { color: var(--wb-warn-text) !important; }
+
+/* =====================================================================
+   Cabecera unificada de los paneles (templates/_panel_header.html)
+   ===================================================================== */
+.wb-top {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  background: color-mix(in srgb, var(--wb-bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--wb-line);
+}
+.wb-top-in {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.wb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--wb-text); flex-shrink: 0; }
+.wb-brand-mark {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(145deg, var(--wb-accent), color-mix(in srgb, var(--wb-accent) 55%, #000));
+  color: var(--wb-accent-ink);
+  font-family: var(--wb-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.wb-brand-name { font-family: var(--wb-display); font-weight: 600; font-size: 1.05rem; max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.wb-tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.wb-tabs::-webkit-scrollbar { display: none; }
+.wb-tab {
+  padding: 8px 13px;
+  border-radius: 999px;
+  color: var(--wb-text-2);
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.wb-tab:hover { color: var(--wb-text); background: var(--wb-surface-2); }
+.wb-tab.active { color: var(--wb-accent); background: var(--wb-accent-soft); font-weight: 600; }
+
+.wb-user { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wb-user-chip { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--wb-surface-2); border: 1px solid var(--wb-line); color: var(--wb-text-2); font-size: 0.82rem; }
+.wb-user-ini { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--wb-accent-soft); color: var(--wb-accent); font-weight: 700; font-size: 0.75rem; }
+.wb-user-nombre { max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wb-logout { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--wb-text-2); border: 1px solid var(--wb-line); text-decoration: none; transition: color 0.15s, border-color 0.15s; }
+.wb-logout:hover { color: var(--wb-bad-text); border-color: var(--wb-bad-line); }
+
+.wb-pagehead { border-bottom: 1px solid var(--wb-line); }
+.wb-pagehead-in { max-width: 1200px; margin: 0 auto; padding: 26px 20px 20px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.wb-title { font-family: var(--wb-display); font-weight: 600; font-size: 1.7rem; letter-spacing: -0.01em; color: var(--wb-text); margin: 0; }
+.wb-subtitle { color: var(--wb-text-3); font-size: 0.88rem; margin-top: 4px; }
+.wb-back { display: inline-flex; align-items: center; gap: 4px; color: var(--wb-text-3); text-decoration: none; font-size: 0.82rem; margin-bottom: 8px; }
+.wb-back:hover { color: var(--wb-accent); }
+.wb-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.wb-actions:empty { display: none; }
+
+@media (max-width: 860px) {
+  .wb-top-in { flex-wrap: wrap; gap: 10px 12px; padding: 10px 14px; }
+  .wb-tabs { order: 3; flex-basis: 100%; }
+  .wb-user { margin-left: auto; }
+  .wb-user-nombre { display: none; }
+  .wb-user-chip { padding: 4px; }
+  .wb-title { font-size: 1.4rem; }
+  .wb-pagehead-in { padding: 18px 14px 14px; }
+}

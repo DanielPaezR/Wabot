@@ -162,10 +162,8 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <h1>📋 Todas mis Citas</h1>
-        <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">← Volver al Dashboard</a>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('profesional', 'citas', 'Todas mis citas', volver=url_for('profesional_dashboard')) }}
     
     <div class="container">
         <!-- Filtros -->

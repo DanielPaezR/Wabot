@@ -336,19 +336,11 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <h1>✏️ Editar Servicio</h1>
-        <div class="user-info">
-            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', 'servicios', 'Editar servicio', volver=url_for('negocio_servicios')) }}
     
     <div class="container">
-        <div class="nav-buttons">
-            <a href="{{ url_for('negocio_servicios') }}" class="btn btn-secondary">← Volver a Servicios</a>
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-        </div>
+        
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

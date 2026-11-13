@@ -26,17 +26,8 @@
 
 </head>
 <body class="wb-panel">
-    <div class="header">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h4 class="mb-0"><i class="fas fa-users text-primary"></i> Participaciones</h4>
-                <small class="text-muted">{{ promocion.titulo }} - Premio: {{ promocion.premio }}</small>
-            </div>
-            <a href="/profesional/promociones" class="btn btn-outline-secondary btn-sm">
-                <i class="fas fa-arrow-left"></i> Volver
-            </a>
-        </div>
-    </div>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('profesional', 'promociones', 'Participaciones', subtitulo=promocion.titulo, volver=url_for('profesional_promociones')) }}
     
     <div class="container">
         {% if participaciones %}

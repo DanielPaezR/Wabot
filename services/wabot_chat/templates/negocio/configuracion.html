@@ -233,25 +233,11 @@
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
 
-<div class="topbar">
-    <span class="topbar-name">{{ session.get('negocio_nombre', 'Mi Negocio') }}</span>
-    <div class="topbar-right">
-        <span style="font-size:12px;color:var(--ink-3);">{{ session.get('usuario_nombre','Usuario') }}</span>
-        <a href="{{ url_for('logout') }}" class="btn-logout">Salir</a>
-    </div>
-</div>
+{{ panel_header('negocio', 'configuracion', 'Horarios y configuración') }}
 
-<div class="nav-wrap">
-    <nav class="nav-tabs">
-        <a href="{{ url_for('negocio_dashboard') }}"     class="nav-tab">Dashboard</a>
-        <a href="{{ url_for('negocio_citas') }}"         class="nav-tab">Citas</a>
-        <a href="{{ url_for('negocio_estadisticas') }}"  class="nav-tab">Estadísticas</a>
-        <a href="{{ url_for('negocio_configuracion') }}" class="nav-tab active">Configuración</a>
-        <a href="{{ url_for('negocio_servicios') }}"     class="nav-tab">Servicios</a>
-        <a href="{{ url_for('negocio_profesionales') }}" class="nav-tab">Profesionales</a>
-    </nav>
-</div>
+
 
 <div class="page">
 

@@ -144,34 +144,13 @@
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
     <!-- Header -->
-    <div class="header">
-        <h1 class="h3 mb-0">
-            <i class="fas fa-envelope"></i>
-            Plantillas Base del Sistema
-        </h1>
-        <div class="user-info">
-            <span>👤 {{ session.usuario_nombre }} (Super Admin)</span>
-            <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar Sesión</a>
-        </div>
-    </div>
+    {{ panel_header('admin', 'plantillas', 'Plantillas base del sistema') }}
 
     <div class="container">
         <!-- Navigation Buttons -->
-        <div class="nav-buttons">
-            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-primary">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="{{ url_for('admin_negocios') }}" class="btn btn-outline-primary">
-                <i class="fas fa-store"></i> Negocios
-            </a>
-            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-outline-primary">
-                <i class="fas fa-users"></i> Usuarios
-            </a>
-            <a href="{{ url_for('admin_plantillas') }}" class="btn btn-primary">
-                <i class="fas fa-envelope"></i> Plantillas Base
-            </a>
-        </div>
+        
 
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
