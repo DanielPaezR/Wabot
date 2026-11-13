@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -15,14 +15,14 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f8fafc;
-            color: #1e293b;
+            background: var(--wb-bg);
+            color: var(--wb-text);
             padding-bottom: 20px;
         }
         
         /* Header con degradado */
         .profile-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--wb-accent) 0%, color-mix(in srgb, var(--wb-accent) 55%, #000) 100%);
             padding: 2rem 1.5rem 4rem 1.5rem;
             position: relative;
         }
@@ -35,7 +35,7 @@
         }
         
         .back-btn {
-            background: rgba(255,255,255,0.2);
+            background: color-mix(in srgb, var(--wb-surface) 20%, transparent);
             border: none;
             color: white;
             width: 44px;
@@ -51,7 +51,7 @@
         }
         
         .back-btn:hover {
-            background: rgba(255,255,255,0.3);
+            background: color-mix(in srgb, var(--wb-surface) 30%, transparent);
             transform: scale(1.02);
         }
         
@@ -74,9 +74,9 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            border: 4px solid white;
+            border: 4px solid var(--wb-surface);
             object-fit: cover;
-            background: #e2e8f0;
+            background: var(--wb-surface-2);
             box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
         
@@ -84,9 +84,9 @@
             position: absolute;
             bottom: 4px;
             right: 4px;
-            background: #3498db;
-            color: white;
-            border: 2px solid white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
+            border: 2px solid var(--wb-surface);
             border-radius: 50%;
             width: 36px;
             height: 36px;
@@ -100,13 +100,13 @@
         }
         
         .avatar-upload-btn:hover {
-            background: #2980b9;
+            background: var(--wb-accent-hover);
             transform: scale(1.05);
         }
         
         /* Tarjeta de información */
         .info-card {
-            background: white;
+            background: var(--wb-surface);
             margin: 1rem 1rem 0 1rem;
             padding: 1.5rem;
             border-radius: 24px;
@@ -116,15 +116,15 @@
         .profesional-name {
             font-size: 1.8rem;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--wb-text);
             text-align: center;
             margin-bottom: 0.5rem;
         }
         
         .specialty-badge {
             display: inline-block;
-            background: #eef2ff;
-            color: #4f46e5;
+            background: var(--wb-surface-2);
+            color: var(--wb-info-text);
             padding: 6px 16px;
             border-radius: 30px;
             font-size: 0.85rem;
@@ -139,8 +139,8 @@
             gap: 1rem;
             margin: 1.5rem 0;
             padding: 1rem 0;
-            border-top: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
+            border-top: 1px solid var(--wb-line-strong);
+            border-bottom: 1px solid var(--wb-line-strong);
         }
         
         .stat-item {
@@ -150,12 +150,12 @@
         .stat-value {
             font-size: 1.5rem;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--wb-text);
         }
         
         .stat-label {
             font-size: 0.75rem;
-            color: #64748b;
+            color: var(--wb-text-3);
             margin-top: 4px;
         }
         
@@ -164,9 +164,9 @@
             align-items: center;
             gap: 12px;
             padding: 10px 0;
-            color: #475569;
+            color: var(--wb-text-2);
             font-size: 0.9rem;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--wb-line-strong);
         }
         
         .info-row:last-child {
@@ -175,13 +175,13 @@
         
         .info-row i {
             width: 24px;
-            color: #667eea;
+            color: var(--wb-accent);
             font-size: 1rem;
         }
         
         /* Secciones */
         .section {
-            background: white;
+            background: var(--wb-surface);
             margin: 1rem;
             border-radius: 24px;
             padding: 1.25rem;
@@ -194,24 +194,24 @@
             align-items: center;
             margin-bottom: 1rem;
             padding-bottom: 0.75rem;
-            border-bottom: 2px solid #eef2ff;
+            border-bottom: 2px solid var(--wb-line-strong);
         }
         
         .section-title {
             font-size: 1.1rem;
             font-weight: 600;
-            color: #0f172a;
+            color: var(--wb-text);
             display: flex;
             align-items: center;
             gap: 8px;
         }
         
         .section-title i {
-            color: #667eea;
+            color: var(--wb-accent);
         }
         
         .add-btn {
-            background: #10b981;
+            background: var(--wb-ok-solid);
             color: white;
             border: none;
             padding: 6px 14px;
@@ -225,7 +225,7 @@
         }
         
         .add-btn:hover {
-            background: #059669;
+            background: var(--wb-ok-solid);
             transform: scale(1.02);
         }
         
@@ -239,13 +239,13 @@
             margin-bottom: 0.5rem;
             font-weight: 500;
             font-size: 0.85rem;
-            color: #334155;
+            color: var(--wb-text);
         }
         
         .form-control {
             width: 100%;
             padding: 12px 14px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid var(--wb-line-strong);
             border-radius: 14px;
             font-size: 0.95rem;
             transition: all 0.2s;
@@ -254,7 +254,7 @@
         
         .form-control:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--wb-accent);
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
@@ -270,7 +270,7 @@
             aspect-ratio: 1;
             border-radius: 16px;
             overflow: hidden;
-            background: #e2e8f0;
+            background: var(--wb-surface-2);
             cursor: pointer;
         }
         
@@ -310,47 +310,47 @@
         }
         
         .delete-btn:hover {
-            background: #c0392b;
+            background: var(--wb-bad-solid);
             transform: scale(1.05);
         }
         
         .add-trabajo-card {
             aspect-ratio: 1;
             border-radius: 16px;
-            background: #f8fafc;
+            background: var(--wb-surface-2);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: 2px dashed #cbd5e1;
+            border: 2px dashed var(--wb-line-strong);
             transition: all 0.2s;
         }
         
         .add-trabajo-card:hover {
-            border-color: #667eea;
-            background: #eef2ff;
+            border-color: var(--wb-accent);
+            background: var(--wb-surface-2);
         }
         
         .add-trabajo-card i {
             font-size: 28px;
-            color: #94a3b8;
+            color: var(--wb-text-3);
             margin-bottom: 8px;
         }
         
         .add-trabajo-card:hover i {
-            color: #667eea;
+            color: var(--wb-accent);
         }
         
         .add-trabajo-card span {
             font-size: 11px;
-            color: #64748b;
+            color: var(--wb-text-3);
         }
         
         .empty-gallery {
             text-align: center;
             padding: 2rem;
-            color: #94a3b8;
+            color: var(--wb-text-3);
             grid-column: 1 / -1;
         }
         
@@ -358,8 +358,8 @@
         .save-btn {
             width: calc(100% - 2rem);
             margin: 0 1rem 1rem 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--wb-accent) 0%, color-mix(in srgb, var(--wb-accent) 55%, #000) 100%);
+            color: var(--wb-accent-ink);
             border: none;
             padding: 14px;
             border-radius: 40px;
@@ -393,7 +393,7 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: #1e293b;
+            background: var(--wb-surface-2);
             color: white;
             padding: 12px 24px;
             border-radius: 50px;
@@ -477,8 +477,8 @@
         }
         
         .retry-btn {
-            background: #667eea;
-            color: white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
             border: none;
             padding: 10px 20px;
             border-radius: 40px;
@@ -486,15 +486,22 @@
             margin-top: 1rem;
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     {% if not profesional %}
     <div class="error-container">
         <div class="error-icon">❌</div>
         <h2>Error al cargar el perfil</h2>
         <p>No se pudo cargar la información de tu perfil.</p>
         <button class="retry-btn" onclick="window.location.reload()">Reintentar</button>
-        <button class="retry-btn" onclick="window.history.back()" style="background: #64748b; margin-left: 10px;">Volver</button>
+        <button class="retry-btn" onclick="window.history.back()" style="background: var(--wb-surface-3); margin-left: 10px;">Volver</button>
     </div>
     {% else %}
     

@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="container-fluid px-4">
-    <div class="row">
-        <div class="col-12">
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
             <div class="card">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">
@@ -15,178 +15,157 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted">
-                        Escribe las instrucciones para la IA. Usa los botones para insertar información de tu negocio.
+                        Aquí escribes lo que el bot debe saber para responder las dudas de tus clientes
+                        (requisitos, formas de pago, políticas, preguntas frecuentes…). Si lo dejas vacío,
+                        el bot usa automáticamente los datos que ya configuraste (servicios, precios, horarios, dirección y política de cancelación).
                     </p>
-                    
+
                     <form method="POST" id="promptForm">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        
-                        <!-- Editor de texto -->
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">
                                 <i class="fas fa-comment-dots me-1"></i>
-                                Instrucciones:
+                                Instrucciones e información del negocio:
                             </label>
-                            
-                            <!-- Botones de variables (arriba del editor) -->
+
                             <div class="mb-2 pb-2 border-bottom">
-                                <span class="text-muted small me-2">Insertar:</span>
-                                <button type="button" class="btn btn-sm btn-outline-primary var-btn" data-valor="{{ negocio.nombre }}">
-                                    <i class="fas fa-store"></i> Nombre del negocio
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-primary var-btn" data-valor="{{ negocio.direccion or 'No especificada' }}">
-                                    <i class="fas fa-map-marker-alt"></i> Dirección
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-primary var-btn" data-valor="{{ negocio.telefono or 'No especificado' }}">
-                                    <i class="fas fa-phone"></i> Teléfono
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-success var-btn" data-valor="{{ contexto.servicios|map(attribute='nombre')|join(', ') or 'Sin servicios' }}">
-                                    <i class="fas fa-cut"></i> Servicios
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-info var-btn" data-valor="{{ contexto.profesionales|map(attribute='nombre')|join(', ') or 'Sin profesionales' }}">
-                                    <i class="fas fa-users"></i> Profesionales
-                                </button>
+                                <span class="text-muted small me-2">Insertar dato automático (se actualiza solo si lo cambias en tu negocio):</span>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    {% for v in variables %}
+                                    <button type="button" class="btn btn-sm btn-outline-primary var-btn"
+                                            data-variable="{{ v.variable }}"
+                                            title="Ahora vale: {{ v.valor }}">
+                                        {{ v.etiqueta }}
+                                    </button>
+                                    {% endfor %}
+                                </div>
                             </div>
-                            
-                            <!-- Campo de texto -->
-                            <textarea 
+
+                            <textarea
                                 id="promptTextarea"
-                                class="form-control" 
-                                name="prompt_ia" 
-                                rows="10"
-                                placeholder="Ejemplo: Eres el asistente de [Nombre del negocio]. Atiende a los clientes de forma cordial. Ayúdales a agendar citas y consultar precios. Si no sabes algo, diles que hablarán con el dueño."
+                                class="form-control"
+                                name="prompt_ia"
+                                rows="16"
+                                maxlength="{{ max_caracteres }}"
+                                placeholder="Ejemplo: Eres el asistente de {nombre_negocio}. Atiende con cordialidad. Aceptamos efectivo y tarjeta. Si no sabes algo, di que no tienes ese dato y ofrece el teléfono {telefono}."
                                 style="font-size: 14px; line-height: 1.6; font-family: monospace;"
                             >{{ prompt_actual }}</textarea>
+                            <div class="d-flex justify-content-between mt-1">
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-keyboard"></i> Ctrl+Enter para guardar
+                                </small>
+                                <small class="text-muted"><span id="contador">0</span> / {{ max_caracteres }}</small>
+                            </div>
                         </div>
-                        
-                        <!-- Botones de acción -->
-                        <div class="d-flex gap-2">
+
+                        <div class="d-flex gap-2 flex-wrap">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-1"></i> Guardar
                             </button>
                             <button type="button" class="btn btn-outline-danger" id="btnCancelar">
-                                <i class="fas fa-times me-1"></i> Cancelar
+                                <i class="fas fa-times me-1"></i> Cancelar cambios
                             </button>
-                            <button type="button" class="btn btn-outline-secondary" id="btnRestaurar">
-                                <i class="fas fa-undo me-1"></i> Restaurar predeterminado
+                            <button type="button" class="btn btn-outline-secondary" id="btnPlantilla">
+                                <i class="fas fa-file-alt me-1"></i> Usar plantilla de ejemplo
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
+
+        <div class="col-12 col-xl-5">
+            <div class="card mb-3">
+                <div class="card-header"><strong><i class="fas fa-eye me-1"></i> Así lo ve la IA ahora</strong></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        Es el texto guardado con los datos actuales ya reemplazados. Si cambias algo, guarda y recarga para verlo.
+                    </p>
+                    <pre id="vistaPrevia" style="white-space: pre-wrap; max-height: 420px; overflow:auto; font-size: 12.5px;">{{ prompt_renderizado }}</pre>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><strong><i class="fas fa-lightbulb me-1"></i> Qué conviene incluir</strong></div>
+                <div class="card-body small">
+                    <ul class="mb-0">
+                        <li>Formas de pago y si atienden sin cita.</li>
+                        <li>Qué incluye cada servicio y reglas (niños, retrasos, cancelaciones).</li>
+                        <li>Parqueo y cómo llegar.</li>
+                        <li>Tono (cercano, formal) e idiomas en que debe responder.</li>
+                        <li>Qué hacer cuando no sabe algo (por ejemplo, dar tu teléfono).</li>
+                    </ul>
+                    <p class="mt-2 mb-0 text-muted">
+                        No pongas precios a mano: usa <strong>Servicios con precio y duración</strong> para que siempre estén al día.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<style>
-    #promptTextarea {
-        resize: vertical;
-        font-family: 'Segoe UI', monospace;
-    }
-    
-    .var-btn {
-        transition: all 0.2s;
-    }
-    
-    .var-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .var-btn:active {
-        transform: translateY(1px);
-    }
-</style>
-
 <script>
-// Obtener elementos
 const textarea = document.getElementById('promptTextarea');
-const varBtns = document.querySelectorAll('.var-btn');
-const btnCancelar = document.getElementById('btnCancelar');
-const btnRestaurar = document.getElementById('btnRestaurar');
+const contador = document.getElementById('contador');
 const form = document.getElementById('promptForm');
-
-// Guardar el valor original para cancelar
 const valorOriginal = textarea.value;
 
-// Función para insertar texto en la posición del cursor
+function actualizarContador() { contador.textContent = textarea.value.length; }
+textarea.addEventListener('input', actualizarContador);
+actualizarContador();
+
 function insertarEnCursor(texto) {
-    if (!textarea) return;
-    
-    // Obtener posición del cursor
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const contenido = textarea.value;
-    
-    // Insertar texto
-    const nuevoContenido = contenido.substring(0, start) + texto + contenido.substring(end);
-    textarea.value = nuevoContenido;
-    
-    // Mover cursor después del texto insertado
+    textarea.value = textarea.value.substring(0, start) + texto + textarea.value.substring(end);
     textarea.selectionStart = textarea.selectionEnd = start + texto.length;
-    
-    // Enfocar el textarea
     textarea.focus();
+    actualizarContador();
 }
 
-// Configurar botones de variables
-varBtns.forEach(btn => {
-    btn.addEventListener('click', function(e) {
+document.querySelectorAll('.var-btn').forEach(btn => {
+    btn.addEventListener('click', function (e) {
         e.preventDefault();
-        const valor = this.dataset.valor;
-        insertarEnCursor(valor);
-        
-        // Efecto visual de feedback
-        const originalText = this.innerHTML;
-        this.innerHTML = '<i class="fas fa-check"></i> Insertado!';
-        setTimeout(() => {
-            this.innerHTML = originalText;
-        }, 800);
+        insertarEnCursor(this.dataset.variable);
     });
 });
 
-// Botón cancelar - volver al valor original
-btnCancelar.addEventListener('click', function() {
-    if (textarea.value !== valorOriginal) {
-        if (confirm('¿Cancelar los cambios? Se perderán las modificaciones no guardadas.')) {
-            textarea.value = valorOriginal;
-        }
-    } else {
-        alert('No hay cambios para cancelar.');
+document.getElementById('btnCancelar').addEventListener('click', function () {
+    if (textarea.value === valorOriginal) { alert('No hay cambios para cancelar.'); return; }
+    if (confirm('¿Cancelar los cambios? Se perderán las modificaciones no guardadas.')) {
+        textarea.value = valorOriginal;
+        actualizarContador();
     }
 });
 
-// Botón restaurar valores predeterminados
-btnRestaurar.addEventListener('click', function() {
-    if (confirm('¿Restaurar el prompt a su valor predeterminado?')) {
-        const defaultPrompt = `Eres el asistente virtual de [Nombre del negocio].
+document.getElementById('btnPlantilla').addEventListener('click', function () {
+    if (textarea.value.trim() && !confirm('Esto reemplazará lo que has escrito en el cuadro (no se guarda hasta que pulses Guardar). ¿Continuar?')) return;
+    textarea.value = `Eres el asistente virtual de {nombre_negocio}. {descripcion}
 
-Instrucciones:
-- Atiende a los clientes de forma cordial y natural
-- Ayuda a agendar citas (pregunta fecha, hora y servicio)
-- Consulta precios de servicios
-- Informa sobre horarios de atención
-- Si no sabes algo, diles que se comunicarán con el dueño
+Datos del negocio:
+- Dirección: {direccion}
+- Teléfono de contacto: {telefono}
+- Horario: {horario_atencion}
+- Política de cancelación: {politica_cancelacion}
 
-Siempre confirma los datos antes de agendar una cita.`;
-        
-        textarea.value = defaultPrompt;
-        textarea.focus();
-    }
+Servicios y precios: {servicios_precios}
+Equipo: {profesionales}
+
+Información adicional (escribe aquí lo que tus clientes suelen preguntar):
+- Formas de pago:
+- ¿Atienden sin cita?:
+- Parqueo / cómo llegar:
+- Otras reglas:
+
+Cómo atender:
+- Responde de forma cordial y breve, en el idioma del cliente.
+- Si no tienes un dato, dilo con honestidad y ofrece el teléfono de contacto. No inventes información.`;
+    textarea.focus();
+    actualizarContador();
 });
 
-// Atajo de teclado: Ctrl+Enter para guardar
-textarea.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.key === 'Enter') {
-        e.preventDefault();
-        form.submit();
-    }
+textarea.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); form.submit(); }
 });
-
-// Mostrar notificación de atajo
-const helpText = document.createElement('small');
-helpText.className = 'form-text text-muted mt-1';
-helpText.innerHTML = '<i class="fas fa-keyboard"></i> Tip: Presiona Ctrl+Enter para guardar rápidamente';
-document.querySelector('.mb-3').appendChild(helpText);
 </script>
 {% endblock %}

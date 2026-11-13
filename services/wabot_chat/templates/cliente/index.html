@@ -7,6 +7,10 @@
 
     <link rel="manifest" href="/manifest.json?n={{ negocio.id }}">
     <link rel="icon" href="/static/favicon.ico">
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         *, *::before, *::after {
@@ -692,30 +696,6 @@
             scroll-behavior: smooth;
         }
 
-        /* ==================== DARK MODE ==================== */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #0f172a;
-                --white: #1e293b;
-                --border: #334155;
-                --dark: #f1f5f9;
-                --mid: #94a3b8;
-                --text: #cbd5e1;
-                --text-light: #64748b;
-                --primary-soft: #1e2a4a;
-                --success-soft: #0d2e22;
-                --danger-soft: #2e1515;
-            }
-            .msg-bot     { background: #243450; border-color: #334155; }
-            .option-chip { background: #1e293b; }
-            .professional-card { background: #1e293b; }
-            .form-control { background: #0f172a; color: #f1f5f9; }
-            .fab-item    { background: #1e293b; }
-            .fab-ic      { background: #0f172a; }
-            .promo-card  { background: #1e293b; border-color: #334155; }
-            .bottom-sheet { background: #1e293b; }
-        }
-
         /* ==================== PANEL MIS CITAS ==================== */
         .cita-card {
             background: var(--white);
@@ -784,8 +764,33 @@
         .btn-calificar:active { transform: scale(0.97); }
         .btn-calificar.calificado { background: var(--success-soft); color: #065f46; }
     </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=1">
+    <style>:root { --wb-accent: {{ acento }}; --wb-accent-ink: {{ acento_tinta }}; }</style>
 </head>
-<body>
+<body class="wb-client">
+
+    <!-- Íconos -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+            <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M9 16l2 2 4-4"/></symbol>
+            <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></symbol>
+            <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+            <symbol id="i-store" viewBox="0 0 24 24"><path d="m2 7 4.4-4.4A2 2 0 0 1 7.8 2h8.4a2 2 0 0 1 1.4.6L22 7M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.6-.6.7.7 0 0 0-.8 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.6-.6.7.7 0 0 0-.8 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.6-.6.7.7 0 0 0-.8 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.6-.6.7.7 0 0 0-.8 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></symbol>
+            <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+            <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+            <symbol id="i-bell-ok" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m9.5 10.5 1.8 1.8 3.2-3.4"/></symbol>
+            <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4ZM22 2 11 13"/></symbol>
+            <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></symbol>
+            <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+            <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+            <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z"/></symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+            <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.1 8.1 12 12M20 4 8.1 15.9"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
+            <symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2a1 1 0 0 0 1-1v-3a2 2 0 0 0-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3A2.4 2.4 0 0 0 12 7H5a1.4 1.4 0 0 0-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4a1 1 0 0 0 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></symbol>
+        </defs>
+    </svg>
 
     <!-- TOAST -->
     <div id="toast"></div>
@@ -796,7 +801,7 @@
     <!-- FAB MENÚ -->
     <div class="fab-menu" id="fabMenu">
         <button class="fab-item" onclick="resetConversacion(); closeFab();">
-            <div class="fab-ic">🔄</div>
+            <div class="fab-ic"><svg class="ic ic-sm"><use href="#i-refresh"/></svg></div>
             <span class="fab-text">Reiniciar chat</span>
         </button>
     </div>
@@ -808,8 +813,8 @@
     <div class="bottom-sheet" id="sheetParticipar">
         <div class="sheet-handle"></div>
         <div class="sheet-head">
-            <span class="sheet-title">🎁 Participar en Concurso</span>
-            <button class="sheet-close" onclick="cerrarSheet()">×</button>
+            <span class="sheet-title">Participar en concurso</span>
+            <button class="sheet-close" onclick="cerrarSheet()" aria-label="Cerrar"><svg class="ic ic-sm"><use href="#i-x"/></svg></button>
         </div>
         <form id="formParticipar" enctype="multipart/form-data">
             <div class="sheet-body">
@@ -830,7 +835,7 @@
             </div>
             <div class="sheet-footer">
                 <button type="button" class="btn-sheet btn-sheet-secondary" onclick="cerrarSheet()">Cancelar</button>
-                <button type="submit" class="btn-sheet btn-sheet-primary" id="btnEnviarPart">📤 Enviar</button>
+                <button type="submit" class="btn-sheet btn-sheet-primary" id="btnEnviarPart">Enviar</button>
             </div>
         </form>
     </div>
@@ -841,15 +846,15 @@
         <!-- HEADER -->
         <div class="header">
             <div class="header-left">
-                <div class="negocio-avatar">💬</div>
+                <div class="negocio-avatar">{{ (negocio.nombre or 'W')[:1]|upper }}</div>
                 <div>
                     <div class="negocio-name">{{ negocio.nombre }}</div>
-                    <div class="negocio-sub">Agenda tu cita en segundos</div>
+                    <div class="negocio-sub">{{ 'Reserva tu vehículo en segundos' if negocio.tipo_negocio == 'renta_autos' else 'Agenda tu cita en segundos' }}</div>
                 </div>
             </div>
             <div class="header-right">
-                <button class="icon-btn" id="btnNotificaciones" onclick="activarNotificacionesCliente()" title="Activar notificaciones">🔔</button>
-                <button class="icon-btn" onclick="verPerfilNegocio()" title="Ver negocio">🏪</button>
+                <button class="icon-btn" id="btnNotificaciones" onclick="activarNotificacionesCliente()" title="Activar notificaciones" aria-label="Activar notificaciones"><svg class="ic"><use href="#i-bell"/></svg></button>
+                <button class="icon-btn" onclick="verPerfilNegocio()" title="Ver negocio" aria-label="Ver negocio"><svg class="ic"><use href="#i-store"/></svg></button>
             </div>
         </div>
 
@@ -867,7 +872,7 @@
                     <div class="panel-title">Promociones activas</div>
                     <div id="promocionesList">
                         <div class="empty-state">
-                            <div class="empty-state-icon">🎁</div>
+                            <div class="empty-state-icon"><svg class="ic"><use href="#i-gift"/></svg></div>
                             <h4>Cargando promociones...</h4>
                         </div>
                     </div>
@@ -877,10 +882,10 @@
             <!-- PANEL MIS CITAS -->
             <div id="panelMisCitas" class="panel">
                 <div class="panel-scroll" id="misCitasScroll">
-                    <div class="panel-title">Mis Citas</div>
+                    <div class="panel-title">{{ 'Mis Reservas' if negocio.tipo_negocio == 'renta_autos' else 'Mis Citas' }}</div>
                     <div id="misCitasList">
                         <div class="empty-state">
-                            <div class="empty-state-icon">📋</div>
+                            <div class="empty-state-icon"><svg class="ic"><use href="#i-calendar"/></svg></div>
                             <h4>Cargando tus citas...</h4>
                         </div>
                     </div>
@@ -891,12 +896,12 @@
             <div id="panelDirectorio" class="panel">
                 <div class="panel-scroll">
                     <div class="directorio-hero">
-                        <div class="directorio-icon">🏪</div>
-                        <h3>Directorio de Negocios</h3>
+                        <div class="directorio-icon"><svg class="ic ic-lg"><use href="#i-store"/></svg></div>
+                        <h3>Directorio de negocios</h3>
                         <p>Explora todos los negocios disponibles en nuestra plataforma, con fotos, servicios y mucho más.</p>
                         <a href="https://wabot-directorio-production.up.railway.app/directorio"
                            target="_blank" class="btn-directorio">
-                            📍 Ver Directorio
+                            <svg class="ic ic-sm"><use href="#i-pin"/></svg> Ver directorio
                         </a>
                     </div>
                 </div>
@@ -909,33 +914,33 @@
     <!-- INPUT DE CHAT (fijo sobre la bottom bar) -->
     <div class="chat-input-bar" id="chatInputBar">
         <input type="text" class="chat-input" id="userInput" placeholder="Escribe tu mensaje..." autocomplete="off">
-        <button class="send-btn" id="sendBtn">➤</button>
+        <button class="send-btn" id="sendBtn" aria-label="Enviar"><svg class="ic"><use href="#i-send"/></svg></button>
     </div>
 
     <!-- BOTTOM NAV -->
     <nav class="bottom-bar">
         <button class="nav-item active" id="navChat" onclick="irASeccion('chat')">
-            <span class="nav-icon">💬</span>
+            <span class="nav-icon"><svg class="ic"><use href="#i-chat"/></svg></span>
             <span class="nav-label">Chat</span>
         </button>
         <button class="nav-item" id="navCitas" onclick="irASeccion('citas')">
-            <span class="nav-icon">📋</span>
-            <span class="nav-label">Citas</span>
+            <span class="nav-icon"><svg class="ic"><use href="#i-calendar"/></svg></span>
+            <span class="nav-label">{{ 'Reservas' if negocio.tipo_negocio == 'renta_autos' else 'Citas' }}</span>
         </button>
         <button class="nav-item" id="navPromos" onclick="irASeccion('promociones')">
-            <span class="nav-icon">🎁</span>
+            <span class="nav-icon"><svg class="ic"><use href="#i-gift"/></svg></span>
             <span class="nav-label">Promos</span>
         </button>
         <!-- FAB central -->
-        <button class="nav-item nav-fab" id="fabBtn" onclick="toggleFab()">
-            <span class="nav-icon" id="fabIcon">☰</span>
+        <button class="nav-item nav-fab" id="fabBtn" onclick="toggleFab()" aria-label="Más opciones">
+            <span class="nav-icon" id="fabIcon"><svg class="ic"><use href="#i-menu"/></svg></span>
         </button>
         <button class="nav-item" id="navDirectorio" onclick="irASeccion('directorio')">
-            <span class="nav-icon">🏪</span>
+            <span class="nav-icon"><svg class="ic"><use href="#i-store"/></svg></span>
             <span class="nav-label">Directorio</span>
         </button>
         <button class="nav-item" onclick="verPerfilNegocio()">
-            <span class="nav-icon">👤</span>
+            <span class="nav-icon"><svg class="ic"><use href="#i-user"/></svg></span>
             <span class="nav-label">Perfil</span>
         </button>
     </nav>
@@ -984,7 +989,7 @@
             
             const btn = document.getElementById('btnNotificaciones');
             btn.disabled = true;
-            btn.textContent = '⏳';
+            btn.classList.add('cargando');
             
             try {
                 // ✅ FORZAR registro del Service Worker
@@ -1009,7 +1014,7 @@
                 if (permiso !== 'granted') {
                     toast('❌ Debes permitir notificaciones en la configuración del sitio', 'error');
                     btn.disabled = false;
-                    btn.textContent = '🔔';
+                    setBell(btn, false);
                     return;
                 }
                 
@@ -1040,22 +1045,27 @@
                 console.log('📥 Respuesta:', data);
                 
                 if (data.success) {
-                    btn.textContent = '🔔✓';
-                    btn.style.background = '#d1fae5';
+                    setBell(btn, true);
                     localStorage.setItem('notificaciones_activadas', 'true');
                     toast('✅ Notificaciones activadas');
                 } else {
                     toast('❌ Error: ' + (data.error || 'desconocido'), 'error');
-                    btn.textContent = '🔔';
+                    setBell(btn, false);
                 }
-                
+
             } catch (error) {
                 console.error('❌ Error:', error);
                 toast('❌ ' + error.message, 'error');
-                btn.textContent = '🔔';
+                setBell(btn, false);
             } finally {
                 btn.disabled = false;
+                btn.classList.remove('cargando');
             }
+        }
+
+        function setBell(btn, activa) {
+            btn.classList.toggle('on', activa);
+            btn.innerHTML = `<svg class="ic"><use href="#i-${activa ? 'bell-ok' : 'bell'}"/></svg>`;
         }
 
         // Helper para convertir clave VAPID
@@ -1074,10 +1084,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('notificaciones_activadas') === 'true') {
                 const btn = document.getElementById('btnNotificaciones');
-                if (btn) {
-                    btn.style.background = '#d1fae5';
-                    btn.textContent = '🔔✓';
-                }
+                if (btn) setBell(btn, true);
             }
         });
 
@@ -1127,19 +1134,25 @@
             }
         }
 
+        const ICONO_USUARIO = '<svg class="ic"><use href="#i-user"/></svg>';
+        const ic = (nombre, clase = 'ic ic-sm') => `<svg class="${clase}"><use href="#i-${nombre}"/></svg>`;
+
         // ==================== FAB ====================
         let fabOpen = false;
         function toggleFab() {
             fabOpen = !fabOpen;
             document.getElementById('fabMenu').classList.toggle('open', fabOpen);
             document.getElementById('fabBackdrop').classList.toggle('open', fabOpen);
-            document.getElementById('fabIcon').textContent = fabOpen ? '✕' : '☰';
+            setFabIcon(fabOpen ? 'x' : 'menu');
         }
         function closeFab() {
             fabOpen = false;
             document.getElementById('fabMenu').classList.remove('open');
             document.getElementById('fabBackdrop').classList.remove('open');
-            document.getElementById('fabIcon').textContent = '☰';
+            setFabIcon('menu');
+        }
+        function setFabIcon(nombre) {
+            document.getElementById('fabIcon').innerHTML = `<svg class="ic"><use href="#i-${nombre}"/></svg>`;
         }
 
         // ==================== PERFIL NEGOCIO ====================
@@ -1160,6 +1173,18 @@
 
         // ==================== DETECCIÓN TELÉFONO ====================
         let telefonoGuardado = false;
+        const TEL_CFG = {{ {'regex': tel_cfg.regex, 'prefijo': tel_cfg.prefijo} | tojson | safe }};
+
+        function normalizarTelefono(texto) {
+            const digitos = (texto || '').replace(/\D/g, '').replace(/^00/, '');
+            const patron = new RegExp('^' + TEL_CFG.regex + '$');
+            if (patron.test(digitos)) return digitos;
+            if (TEL_CFG.prefijo && digitos.startsWith(TEL_CFG.prefijo)) {
+                const resto = digitos.slice(TEL_CFG.prefijo.length);
+                if (patron.test(resto)) return resto;
+            }
+            return null;
+        }
 
         function iniciarDetectorTelefono() {
             const observer = new MutationObserver(() => {
@@ -1167,9 +1192,9 @@
                 const msgs = document.querySelectorAll('.msg-user');
                 const last = msgs[msgs.length - 1];
                 if (!last) return;
-                const match = last.textContent.match(/\b(3\d{9})\b/);
-                if (match) {
-                    localStorage.setItem('telefono_cliente', match[1]);
+                const tel = normalizarTelefono(last.textContent);
+                if (tel) {
+                    localStorage.setItem('telefono_cliente', tel);
                     telefonoGuardado = true;
                     if (seccionActiva === 'promociones') cargarPromociones();
                 }
@@ -1192,7 +1217,7 @@
             const negNombre = document.getElementById('negocioNombre').value;
             const d = document.createElement('div');
             d.className = 'msg msg-bot';
-            d.innerHTML = `<div class="msg-sender">💬 ${escapeHtml(negNombre)}</div>${escapeHtml(text)}`;
+            d.innerHTML = `<div class="msg-sender">${escapeHtml(negNombre)}</div>${escapeHtml(text)}`;
             chatMessages.appendChild(d);
             scrollToBottomChat();
 
@@ -1212,8 +1237,8 @@
                         card.innerHTML = `
                             <div class="prof-avatar">
                                 ${opt.image
-                                    ? `<img src="${opt.image}" onerror="this.parentElement.textContent='👤'">`
-                                    : '👤'}
+                                    ? `<img src="${opt.image}" onerror="this.parentElement.innerHTML='${ICONO_USUARIO}'">`
+                                    : ICONO_USUARIO}
                             </div>
                             <div class="prof-name">${escapeHtml(opt.name || opt.text)}</div>
                             ${details}
@@ -1258,10 +1283,10 @@
                     body: JSON.stringify({ message: msg, session_id: sessionId, negocio_id: negocioId })
                 });
                 const data = await res.json();
-                if (data.error) addBotMsg('❌ ' + data.error);
+                if (data.error) addBotMsg(data.error);
                 else addBotMsg(data.message, data.options);
             } catch(e) {
-                addBotMsg('❌ Error de conexión. Intenta de nuevo.');
+                addBotMsg('Error de conexión. Intenta de nuevo.');
             }
         }
 
@@ -1271,7 +1296,7 @@
             const tel = localStorage.getItem('telefono_cliente');
             const container = document.getElementById('promocionesList');
 
-            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><h4>Cargando...</h4></div>`;
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('clock', 'ic')}</div><h4>Cargando...</h4></div>`;
 
             let url = `/api/cliente/verificar-elegibilidad/${negocioId}`;
             if (tel) url += `?telefono=${encodeURIComponent(tel)}`;
@@ -1283,7 +1308,7 @@
                 if (!data.success || !data.promociones?.length) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon">🎟️</div>
+                            <div class="empty-state-icon">${ic('gift', 'ic')}</div>
                             <h4>Sin promociones activas</h4>
                             <p>Vuelve pronto para ver concursos y premios</p>
                         </div>`;
@@ -1307,13 +1332,13 @@
 
                     html += `
                         <div class="promo-card">
-                            <div class="promo-banner">🏆 ${escapeHtml(promo.titulo)} <span style="opacity:.75;font-weight:400;font-size:.75rem;">· ${escapeHtml(promo.profesional_nombre)}</span></div>
+                            <div class="promo-banner">${ic('gift')} ${escapeHtml(promo.titulo)} <span style="opacity:.75;font-weight:400;font-size:.75rem;">· ${escapeHtml(promo.profesional_nombre)}</span></div>
                             <div class="promo-body">
                                 <div class="promo-title-text">${escapeHtml(promo.titulo)}</div>
                                 <div class="promo-desc">${escapeHtml(promo.descripcion || 'Participa y gana increíbles premios')}</div>
-                                ${promo.premio ? `<div class="promo-prize">🏅 Premio: <strong>${escapeHtml(promo.premio)}</strong></div>` : ''}
+                                ${promo.premio ? `<div class="promo-prize">Premio: <strong>${escapeHtml(promo.premio)}</strong></div>` : ''}
                                 <div class="promo-footer">
-                                    <span class="promo-date">📅 Hasta: ${escapeHtml(fechaFin)}</span>
+                                    <span class="promo-date">Hasta: ${escapeHtml(fechaFin)}</span>
                                     ${participacion
                                         ? '<span class="badge-participando">✓ Ya participaste</span>'
                                         : elegible
@@ -1322,12 +1347,12 @@
                                 </div>
                                 <div class="promo-actions">
                                     ${participacion ? `
-                                        <button class="btn-promo btn-promo-info" onclick="verMiParticipacion(${participacion.id})">👁 Ver entrada</button>
-                                        <button class="btn-promo btn-promo-danger" onclick="eliminarParticipacion(${promo.id})">🗑 Eliminar</button>
+                                        <button class="btn-promo btn-promo-info" onclick="verMiParticipacion(${participacion.id})">Ver entrada</button>
+                                        <button class="btn-promo btn-promo-danger" onclick="eliminarParticipacion(${promo.id})">Eliminar</button>
                                     ` : elegible ? `
-                                        <button class="btn-promo btn-promo-primary" onclick="abrirSheetParticipar(${promo.id})">📸 Participar</button>
+                                        <button class="btn-promo btn-promo-primary" onclick="abrirSheetParticipar(${promo.id})">Participar</button>
                                     ` : `
-                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">📅 Agendar cita</button>
+                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">{{ 'Reservar vehículo' if negocio.tipo_negocio == 'renta_autos' else 'Agendar cita' }}</button>
                                     `}
                                 </div>
                             </div>
@@ -1335,7 +1360,7 @@
                 }
                 container.innerHTML = html;
             } catch(e) {
-                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error al cargar</h4><p>Intenta de nuevo más tarde</p></div>`;
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('x', 'ic')}</div><h4>Error al cargar</h4><p>Intenta de nuevo más tarde</p></div>`;
             }
         }
 
@@ -1393,7 +1418,7 @@
             if (files.length>3) return toast('Máximo 3 fotos', 'warning');
 
             btn.disabled = true;
-            btn.textContent = '⏳ Enviando...';
+            btn.textContent = 'Enviando...';
 
             const fd = new FormData(e.target);
             fd.append('telefono', tel);
@@ -1404,7 +1429,7 @@
                 if (data.success) {
                     toast('🎉 ¡Participación exitosa!');
                     cerrarSheet();
-                    if (data.share_link && confirm('📤 ¿Copiar enlace para compartir y recibir votos?')) {
+                    if (data.share_link && confirm('¿Copiar enlace para compartir y recibir votos?')) {
                         navigator.clipboard.writeText(data.share_link);
                         toast('✅ Enlace copiado');
                     }
@@ -1416,7 +1441,7 @@
                 toast('❌ Error de conexión', 'error');
             } finally {
                 btn.disabled = false;
-                btn.textContent = '📤 Enviar';
+                btn.textContent = 'Enviar';
             }
         });
 
@@ -1445,39 +1470,43 @@
             const container = document.getElementById('misCitasList');
             const tel = localStorage.getItem('telefono_cliente');
             const negocioId = document.getElementById('negocioId').value;
-            
+            const esAutos = {{ 'true' if negocio.tipo_negocio == 'renta_autos' else 'false' }};
+            const txtCitas = esAutos ? 'reservas' : 'citas';
+            const iconoServicio = esAutos ? ic('calendar') : ic('scissors');
+            const iconoProfesional = esAutos ? ic('car') : ic('user');
+
             if (!tel) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">🔒</div>
+                        <div class="empty-state-icon">${ic('lock', 'ic')}</div>
                         <h4>Identifícate primero</h4>
-                        <p>Ve al chat y escribe tu número de teléfono para ver tus citas</p>
+                        <p>Ve al chat y escribe tu número de teléfono para ver tus ${txtCitas}</p>
                         <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">
-                            💬 Ir al Chat
+                            Ir al chat
                         </button>
                     </div>`;
                 return;
             }
             
-            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><h4>Cargando...</h4></div>`;
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('clock', 'ic')}</div><h4>Cargando...</h4></div>`;
             
             try {
                 const res = await fetch(`/api/cliente/mis-citas?telefono=${encodeURIComponent(tel)}&negocio_id=${negocioId}`);
                 const data = await res.json();
                 
                 if (!data.success) {
-                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error</h4><p>${data.error || 'Intenta de nuevo'}</p></div>`;
+                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('x', 'ic')}</div><h4>Error</h4><p>${data.error || 'Intenta de nuevo'}</p></div>`;
                     return;
                 }
                 
                 if (!data.citas || data.citas.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon">📭</div>
-                            <h4>Sin citas aún</h4>
-                            <p>Agenda tu primera cita desde el chat</p>
+                            <div class="empty-state-icon">${ic('inbox', 'ic')}</div>
+                            <h4>Sin ${txtCitas} aún</h4>
+                            <p>${esAutos ? 'Haz tu primera reserva desde el chat' : 'Agenda tu primera cita desde el chat'}</p>
                             <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat')" style="margin-top:12px;">
-                                💬 Agendar Cita
+                                ${esAutos ? 'Reservar Vehículo' : 'Agendar Cita'}
                             </button>
                         </div>`;
                     return;
@@ -1492,17 +1521,17 @@
                 // Sección pendientes
                 if (pendientes.length > 0) {
                     html += `<div style="margin-bottom:16px;">
-                        <div style="font-weight:700;font-size:0.8rem;color:var(--primary);margin-bottom:8px;">📅 PRÓXIMAS CITAS</div>`;
+                        <div style="font-weight:700;font-size:0.8rem;color:var(--primary);margin-bottom:8px;">PRÓXIMAS ${txtCitas.toUpperCase()}</div>`;
                     html += pendientes.map(c => `
                         <div class="cita-card">
                             <div class="cita-card-header">
-                                <span class="cita-card-estado pendiente">📅 ${c.estado_texto}</span>
+                                <span class="cita-card-estado pendiente">${c.estado_texto}</span>
                                 <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
                             </div>
                             <div class="cita-card-body">
-                                <div class="cita-info-row">📅 <strong>${c.fecha}</strong> · ⏰ ${c.hora}</div>
-                                <div class="cita-info-row">💈 ${c.servicio}</div>
-                                <div class="cita-info-row">👨‍💼 ${c.profesional}</div>
+                                <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
+                                <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
+                                <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
                             </div>
                         </div>
                     `).join('');
@@ -1512,30 +1541,30 @@
                 // Sección pasadas
                 if (pasadas.length > 0) {
                     html += `<div>
-                        <div style="font-weight:700;font-size:0.8rem;color:var(--text-light);margin-bottom:8px;">📋 HISTORIAL</div>`;
+                        <div style="font-weight:700;font-size:0.8rem;color:var(--text-light);margin-bottom:8px;">HISTORIAL</div>`;
                     html += pasadas.map(c => {
                         const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
                         return `
                         <div class="cita-card">
                             <div class="cita-card-header">
-                                <span class="cita-card-estado ${c.estado === 'completado' ? 'completada' : 'cancelada'}">${c.estado_icono} ${c.estado_texto}</span>
+                                <span class="cita-card-estado ${c.estado === 'completado' ? 'completada' : 'cancelada'}">${c.estado_texto}</span>
                                 <span style="font-weight:700;color:var(--success);font-size:0.85rem;">$${c.precio.toLocaleString()}</span>
                             </div>
                             <div class="cita-card-body">
-                                <div class="cita-info-row">📅 <strong>${c.fecha}</strong> · ⏰ ${c.hora}</div>
-                                <div class="cita-info-row">💈 ${c.servicio}</div>
-                                <div class="cita-info-row">👨‍💼 ${c.profesional}</div>
+                                <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
+                                <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
+                                <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
                             </div>
                             ${puedeCalificar ? `
                             <div class="cita-card-footer">
                                 <button class="btn-calificar" onclick="calificarCita(${c.id})">
-                                    ⭐ Calificar
+                                    Calificar
                                 </button>
                             </div>
                             ` : (c.ya_calificada ? `
                             <div class="cita-card-footer">
                                 <button class="btn-calificar calificado" disabled>
-                                    ✅ Ya calificada
+                                    Ya calificada
                                 </button>
                             </div>
                             ` : '')}
@@ -1548,7 +1577,7 @@
                 container.innerHTML = html;
                 
             } catch (e) {
-                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h4>Error</h4><p>No se pudo conectar</p></div>`;
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('x', 'ic')}</div><h4>Error</h4><p>No se pudo conectar</p></div>`;
             }
         }
 

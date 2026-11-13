@@ -1,0 +1,72 @@
+{#
+  Cabecera única de los paneles (negocio, profesional y admin).
+  Uso:  {% from '_panel_header.html' import panel_header with context %}
+        {{ panel_header('negocio', 'servicios', 'Servicios', subtitulo=None, volver=url_for('negocio_servicios')) }}
+  El bloque de acciones de la página (botón "Nuevo ...") se pasa con {% call panel_header(...) %}...{% endcall %}.
+#}
+{% macro panel_header(rol, activa='', titulo='', subtitulo='', volver='', volver_texto='Volver') %}
+{%- set menus = {
+    'negocio': [
+        ('negocio_dashboard', 'Inicio', 'dashboard'),
+        ('negocio_citas', 'Citas', 'citas'),
+        ('negocio_estadisticas', 'Estadísticas', 'estadisticas'),
+        ('negocio_servicios', 'Servicios', 'servicios'),
+        ('negocio_profesionales', 'Equipo', 'profesionales'),
+        ('negocio_productos', 'Productos', 'productos'),
+        ('negocio_plantillas', 'Mensajes', 'plantillas'),
+        ('negocio_configuracion', 'Horarios', 'configuracion'),
+        ('negocio_editor_visual', 'Perfil público', 'editor'),
+        ('negocio_prompt_ia', 'Asistente IA', 'ia')
+    ],
+    'profesional': [
+        ('profesional_dashboard', 'Mi agenda', 'agenda'),
+        ('profesional_todas_citas', 'Citas', 'citas'),
+        ('profesional_agendar', 'Nueva cita', 'agendar'),
+        ('profesional_estadisticas', 'Estadísticas', 'estadisticas'),
+        ('profesional_bloqueos', 'Bloqueos', 'bloqueos'),
+        ('profesional_promociones', 'Promociones', 'promociones'),
+        ('profesional_perfil', 'Mi perfil', 'perfil')
+    ],
+    'admin': [
+        ('admin_dashboard', 'Inicio', 'dashboard'),
+        ('admin_negocios', 'Negocios', 'negocios'),
+        ('admin_usuarios', 'Usuarios', 'usuarios'),
+        ('admin_plantillas', 'Plantillas', 'plantillas')
+    ]
+} -%}
+{%- set marca = 'Wabot Admin' if rol == 'admin' else (session.get('negocio_nombre') or 'Mi negocio') -%}
+{%- set usuario = session.get('usuario_nombre') or 'Usuario' -%}
+<header class="wb-top">
+    <div class="wb-top-in">
+        <a class="wb-brand" href="{{ url_for(menus[rol][0][0]) }}">
+            <span class="wb-brand-mark">{{ marca[:1]|upper }}</span>
+            <span class="wb-brand-name">{{ marca }}</span>
+        </a>
+        <nav class="wb-tabs" aria-label="Secciones">
+            {%- for endpoint, texto, clave in menus[rol] %}
+            <a href="{{ url_for(endpoint) }}" class="wb-tab{{ ' active' if clave == activa else '' }}"{{ ' aria-current="page"' if clave == activa else '' }}>{{ texto }}</a>
+            {%- endfor %}
+        </nav>
+        <div class="wb-user">
+            <span class="wb-user-chip"><span class="wb-user-ini">{{ usuario[:1]|upper }}</span><span class="wb-user-nombre">{{ usuario }}</span></span>
+            <a href="{{ url_for('logout') }}" class="wb-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            </a>
+        </div>
+    </div>
+</header>
+{#- elementos que el JS de algunas páginas antiguas actualiza por id -#}
+<span id="avatarInitials" hidden></span><span id="topbarUser" hidden></span><span id="topAvatar" hidden></span>
+{%- if titulo %}
+<div class="wb-pagehead">
+    <div class="wb-pagehead-in">
+        <div>
+            {%- if volver %}<a class="wb-back" href="{{ volver }}"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg> {{ volver_texto }}</a>{% endif %}
+            <h1 class="wb-title">{{ titulo }}</h1>
+            {%- if subtitulo %}<p class="wb-subtitle">{{ subtitulo }}</p>{% endif %}
+        </div>
+        <div class="wb-actions">{{ caller() if caller else '' }}</div>
+    </div>
+</div>
+{%- endif %}
+{% endmacro %}

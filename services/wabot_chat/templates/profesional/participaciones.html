@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,29 +7,27 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        .header { background: white; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        body { background: var(--wb-bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .header { background: var(--wb-surface); padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
         .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .participacion-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .participacion-card { background: var(--wb-surface); border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         .foto-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
         .foto-grid img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; cursor: pointer; }
-        .likes-badge { background: #c53030; color: white; padding: 5px 15px; border-radius: 20px; font-weight: 600; }
-        .ganador { border: 3px solid #ffd700; background: #fffbeb; }
-        .ganador-badge { background: #ffd700; color: #333; padding: 5px 15px; border-radius: 20px; font-weight: 600; }
+        .likes-badge { background: var(--wb-bad-solid); color: white; padding: 5px 15px; border-radius: 20px; font-weight: 600; }
+        .ganador { border: 3px solid var(--wb-warn-line); background: var(--wb-warn-soft); }
+        .ganador-badge { background: var(--wb-warn); color: var(--wb-text); padding: 5px 15px; border-radius: 20px; font-weight: 600; }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
-    <div class="header">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h4 class="mb-0"><i class="fas fa-users text-primary"></i> Participaciones</h4>
-                <small class="text-muted">{{ promocion.titulo }} - Premio: {{ promocion.premio }}</small>
-            </div>
-            <a href="/profesional/promociones" class="btn btn-outline-secondary btn-sm">
-                <i class="fas fa-arrow-left"></i> Volver
-            </a>
-        </div>
-    </div>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('profesional', 'promociones', 'Participaciones', subtitulo=promocion.titulo, volver=url_for('profesional_promociones')) }}
     
     <div class="container">
         {% if participaciones %}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -17,7 +17,7 @@
             --danger:        #ef4444;
             --danger-soft:   #fee2e2;
             --warning:       #f59e0b;
-            --gold:          #fbbf24;
+            --gold:          var(--wb-warn);
             --dark:          #0f172a;
             --mid:           #475569;
             --text-light:    #64748b;
@@ -31,14 +31,14 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
+            background: var(--wb-bg);
             color: var(--dark);
             padding-bottom: 40px;
         }
 
         /* ── HEADER ──────────────────────────────────────────────────────── */
         .header {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             padding: 14px 18px;
             border-bottom: 1px solid var(--border);
             display: flex;
@@ -79,7 +79,7 @@
         }
         .btn:active { transform: scale(0.97); }
         .btn-primary   { background:var(--success); color:#fff; }
-        .btn-primary:hover { background:#059669; }
+        .btn-primary:hover { background:var(--wb-ok-solid); }
         .btn-outline   { background:transparent; border:1px solid var(--border); color:var(--mid); }
         .btn-outline:hover { background:var(--bg); }
 
@@ -92,7 +92,7 @@
 
         /* ── PREVIEW CARD ────────────────────────────────────────────────── */
         .preview-card {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: var(--radius);
             overflow: hidden;
             box-shadow: 0 2px 12px rgba(0,0,0,0.08);
@@ -103,7 +103,7 @@
         .cover {
             width: 100%;
             height: 180px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--wb-accent), color-mix(in srgb, var(--wb-accent) 55%, #000));
             position: relative;
             cursor: pointer;
             overflow: hidden;
@@ -142,7 +142,7 @@
             left: 20px;
             width: 100px;
             height: 100px;
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: 22px;
             box-shadow: 0 6px 18px rgba(0,0,0,0.13);
             display: flex;
@@ -152,13 +152,13 @@
             overflow: hidden;
             cursor: pointer;
             z-index: 2;
-            border: 3px solid var(--white);
+            border: 3px solid var(--var(--wb-surface));
         }
         .profile-logo img { width:100%; height:100%; object-fit:cover; }
 
         /* INFO SECTION */
         .info-section {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: var(--radius);
             margin-top: 62px;
             padding: 18px;
@@ -182,8 +182,8 @@
         .field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-light); margin-bottom:2px; display:flex; align-items:center; gap:5px; }
         .field-label i { color:var(--primary); }
         .field-value { font-size:14px; color:var(--dark); font-weight:500; }
-        .field-value.placeholder { color:#94a3b8; font-style:italic; font-weight:400; }
-        .field-edit-icon { color:#94a3b8; font-size:12px; margin-top:3px; flex-shrink:0; }
+        .field-value.placeholder { color:var(--wb-text-3); font-style:italic; font-weight:400; }
+        .field-edit-icon { color:var(--wb-text-3); font-size:12px; margin-top:3px; flex-shrink:0; }
 
         .business-name-display {
             font-size:20px; font-weight:800; color:var(--dark);
@@ -215,7 +215,7 @@
 
         /* ── SECCIÓN GENÉRICA ────────────────────────────────────────────── */
         .section {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: var(--radius);
             margin-bottom: 14px;
             padding: 16px;
@@ -295,18 +295,18 @@
         }
 
         /* colores por red */
-        .ri-instagram .red-item-icon { background:#fce4ec; color:#c2185b; }
-        .ri-facebook  .red-item-icon { background:#e3f2fd; color:#1565c0; }
-        .ri-tiktok    .red-item-icon { background:#f3e5f5; color:#4a148c; }
-        .ri-twitter   .red-item-icon { background:#e0f7fa; color:#006064; }
-        .ri-youtube   .red-item-icon { background:#ffebee; color:#b71c1c; }
+        .ri-instagram .red-item-icon { background:var(--wb-bad-soft); color:var(--wb-text); }
+        .ri-facebook  .red-item-icon { background:var(--wb-surface-2); color:var(--wb-info-text); }
+        .ri-tiktok    .red-item-icon { background:var(--wb-accent-soft); color:var(--wb-text); }
+        .ri-twitter   .red-item-icon { background:var(--wb-info-soft); color:var(--wb-text); }
+        .ri-youtube   .red-item-icon { background:var(--wb-bad-soft); color:var(--wb-bad-text); }
         .ri-web       .red-item-icon { background:var(--primary-soft); color:var(--primary-dark); }
 
-        .ri-instagram.activa { border-color:#c2185b; color:#c2185b; }
-        .ri-facebook.activa  { border-color:#1565c0; color:#1565c0; }
-        .ri-tiktok.activa    { border-color:#4a148c; color:#4a148c; }
-        .ri-twitter.activa   { border-color:#006064; color:#006064; }
-        .ri-youtube.activa   { border-color:#b71c1c; color:#b71c1c; }
+        .ri-instagram.activa { border-color:var(--wb-accent); color:var(--wb-text); }
+        .ri-facebook.activa  { border-color:var(--wb-accent); color:var(--wb-info-text); }
+        .ri-tiktok.activa    { border-color:var(--wb-accent); color:var(--wb-text); }
+        .ri-twitter.activa   { border-color:var(--wb-accent); color:var(--wb-text); }
+        .ri-youtube.activa   { border-color:var(--wb-bad-solid); color:var(--wb-bad-text); }
         .ri-web.activa       { border-color:var(--primary); color:var(--primary); }
 
         /* ── HORARIO COMPACTO (editor) ───────────────────────────────────── */
@@ -328,8 +328,8 @@
         }
         .dia-chip-edit .dc-abrev { font-size:10px; font-weight:800; text-transform:uppercase; }
         .dia-chip-edit .dc-hora  { font-size:9px; opacity:0.75; }
-        .dia-chip-edit.abierto { background:var(--success-soft); color:#065f46; border:1px solid #6ee7b7; }
-        .dia-chip-edit.cerrado { background:#f1f5f9; color:#94a3b8; border:1px solid var(--border); }
+        .dia-chip-edit.abierto { background:var(--success-soft); color:var(--wb-ok-text); border:1px solid var(--wb-ok-line); }
+        .dia-chip-edit.cerrado { background:var(--wb-surface-2); color:var(--wb-text-3); border:1px solid var(--border); }
 
         .horario-config-note {
             display: flex;
@@ -350,7 +350,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 11px 10px;
-            border-bottom: 1px solid #f8fafc;
+            border-bottom: 1px solid var(--wb-line-strong);
             border-radius: var(--radius-sm);
             gap: 10px;
             transition: background 0.15s;
@@ -421,7 +421,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            color: #94a3b8;
+            color: var(--wb-text-3);
             font-size: 1.4rem;
             gap: 4px;
             transition: all 0.15s;
@@ -443,7 +443,7 @@
             width:48px; height:48px;
             border-radius:50%;
             object-fit:cover;
-            background:#cbd5e1;
+            background:var(--wb-surface-3);
             flex-shrink:0;
         }
 
@@ -459,7 +459,7 @@
         .bottom-sheet {
             position: fixed;
             bottom:0; left:0; right:0;
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: 20px 20px 0 0;
             padding-bottom: var(--safe-bottom);
             z-index: 600;
@@ -509,7 +509,7 @@
             background:var(--bg);
             transition:border-color 0.15s, background 0.15s;
         }
-        .form-control:focus { outline:none; border-color:var(--primary); background:var(--white); }
+        .form-control:focus { outline:none; border-color:var(--primary); background:var(--var(--wb-surface)); }
 
         textarea.form-control { resize:vertical; min-height:80px; }
 
@@ -524,7 +524,7 @@
 
         .sheet-footer { padding:12px 18px 16px; display:flex; gap:8px; }
         .btn-sheet { flex:1; padding:12px; border-radius:30px; font-size:0.9rem; font-weight:700; border:none; cursor:pointer; }
-        .btn-sheet-primary   { background:var(--primary); color:#fff; }
+        .btn-sheet-primary   { background:var(--primary); color:var(--wb-accent-ink); }
         .btn-sheet-secondary { background:var(--bg); color:var(--dark); }
         .btn-sheet-danger    { background:var(--danger-soft); color:var(--danger); }
 
@@ -532,7 +532,7 @@
         #toast {
             position: fixed;
             bottom: 24px; left:50%; transform:translateX(-50%) translateY(8px);
-            background: var(--dark);
+            background: var(--wb-surface-3);
             color: #fff;
             padding: 10px 22px;
             border-radius: 30px;
@@ -552,8 +552,15 @@
             .cover { height:145px; }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
 
     <!-- TOAST -->
     <div id="toast"></div>
@@ -690,7 +697,7 @@
                 <!-- Nombre -->
                 <div class="business-name-display" id="nombreArea">
                     <span id="nombreDisplay">{{ negocio.nombre }}</span>
-                    <i class="fas fa-pencil" style="color:#94a3b8; font-size:13px;"></i>
+                    <i class="fas fa-pencil" style="color:var(--wb-text-3); font-size:13px;"></i>
                 </div>
 
                 <!-- Campos de información -->
@@ -763,7 +770,7 @@
                     {% if valor %}
                     <i class="fas fa-check-circle red-item-check" style="color:var(--success);"></i>
                     {% else %}
-                    <i class="fas fa-plus red-item-check" style="color:#94a3b8; font-size:11px;"></i>
+                    <i class="fas fa-plus red-item-check" style="color:var(--wb-text-3); font-size:11px;"></i>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -865,7 +872,7 @@
                 </div>
             </div>
             {% else %}
-            <div style="text-align:center; padding:24px; color:#94a3b8;">
+            <div style="text-align:center; padding:24px; color:var(--wb-text-3);">
                 <i class="fas fa-user-plus" style="font-size:2rem; margin-bottom:8px; display:block;"></i>
                 <p style="font-size:13px; margin-bottom:12px;">No hay profesionales aún</p>
                 <a href="{{ url_for('negocio_profesionales') }}" class="btn btn-outline">Agregar profesional</a>
@@ -1073,7 +1080,7 @@
 
             const checkEl = itemEl.querySelector('.red-item-check');
             checkEl.className   = 'fas fa-plus red-item-check';
-            checkEl.style.color = '#94a3b8';
+            checkEl.style.color = 'var(--wb-text-3)';
             checkEl.style.fontSize = '11px';
 
             toast('🗑 Red eliminada', 'success');

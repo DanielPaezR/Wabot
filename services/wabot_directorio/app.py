@@ -1,7 +1,9 @@
 # services/wabot_directorio/app.py
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
+import json
 import os
+import re
 import sys
 from datetime import datetime
 
@@ -25,6 +27,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+ACENTO_DEFECTO = '#d4a857'
+
+
+def acento_del_negocio(negocio):
+    """Color de acento del negocio (configuracion.color_acento, hex de 6 dígitos) y color de texto legible sobre él."""
+    config = getattr(negocio, 'configuracion', None)
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except ValueError:
+            config = {}
+    candidato = (config or {}).get('color_acento', '') if isinstance(config, dict) else ''
+    acento = candidato if re.fullmatch(r'#[0-9a-fA-F]{6}', str(candidato)) else ACENTO_DEFECTO
+    r, g, b = (int(acento[i:i + 2], 16) for i in (1, 3, 5))
+    luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return acento, ('#17110a' if luminancia > 0.55 else '#ffffff')
 
 _cors_origins = [
     'https://wabot-production-d544.up.railway.app',
@@ -219,7 +238,10 @@ def pagina_negocio(negocio_id):
         Producto.disponible == True
     ).all()
     
+    acento, acento_tinta = acento_del_negocio(negocio)
     return render_template('directorio/negocio.html',
+                         acento=acento,
+                         acento_tinta=acento_tinta,
                          negocio=negocio,
                          servicios=servicios,
                          horarios=horarios_formateados,
@@ -283,11 +305,15 @@ def perfil_profesional(profesional_id):
             'imagen_url': promocion_activa.imagen_url
         }
     
+    acento, acento_tinta = acento_del_negocio(negocio)
     return render_template('directorio/profesional.html',
+                         acento=acento,
+                         acento_tinta=acento_tinta,
                          profesional=profesional,
                          fotos_trabajo=fotos_trabajo,
                          negocio_nombre=negocio_nombre,
                          negocio_emoji=negocio_emoji,
+                         negocio_tipo=negocio.tipo_negocio if negocio else None,
                          negocio_portada_url=negocio_portada_url,
                          promocion=promocion_data)
 

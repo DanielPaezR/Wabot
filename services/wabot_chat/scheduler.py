@@ -7,8 +7,11 @@ import pytz
 import database as db
 from notification_system import notification_system
 
-# Usar hora local de Colombia para recordatorios
-tz_colombia = pytz.timezone('America/Bogota')
+import localizacion
+from localizacion import tz_reloj
+
+# Los recordatorios usan la hora local de cada negocio (localizacion.zona_de);
+# tz_reloj (Colombia) solo se usa para logs y para elegir qué fechas consultar.
 
 class AppointmentScheduler:
     """Scheduler para recordatorios de citas (profesional + cliente)"""
@@ -24,8 +27,8 @@ class AppointmentScheduler:
     def verificar_recordatorios(self):
         """Verificar y enviar recordatorios a profesionales y clientes"""
         try:
-            ahora = datetime.now(tz_colombia)
-            
+            ahora = datetime.now(tz_reloj)
+
             # Solo log cada 10 minutos para no saturar
             if not hasattr(self, 'ultimo_log') or self.ultimo_log is None or \
                (ahora - self.ultimo_log).seconds >= 600:
@@ -39,11 +42,13 @@ class AppointmentScheduler:
                 return
             
             recordatorios_enviados = 0
-            manana = ahora.date() + timedelta(days=1)
 
             for cita in citas_pendientes:
                 try:
                     cita_id = cita['id']
+                    zona_cita = localizacion.zona_de(cita.get('negocio_id'))
+                    ahora_cita = datetime.now(zona_cita)
+                    manana = ahora_cita.date() + timedelta(days=1)
                     cita_fecha = cita.get('fecha')
                     cita_hora = cita.get('hora')
                     
@@ -61,10 +66,10 @@ class AppointmentScheduler:
                     
                     cita_datetime = datetime.combine(cita_fecha, cita_hora)
                     if cita_datetime.tzinfo is None:
-                        cita_datetime = tz_colombia.localize(cita_datetime)
-                    
+                        cita_datetime = zona_cita.localize(cita_datetime)
+
                     # Calcular tiempo restante
-                    tiempo_restante = cita_datetime - ahora
+                    tiempo_restante = cita_datetime - ahora_cita
                     horas_restantes = tiempo_restante.total_seconds() / 3600
                     
                     # ============================================
@@ -137,10 +142,9 @@ class AppointmentScheduler:
         
         cursor = conn.cursor()
         try:
-            ahora = datetime.now(tz_colombia)
-            fecha_hoy = ahora.strftime('%Y-%m-%d')
-            fecha_manana = (ahora + timedelta(days=1)).strftime('%Y-%m-%d')
-            fecha_pasadomanana = (ahora + timedelta(days=2)).strftime('%Y-%m-%d')
+            # Ventana amplia de fechas: cada negocio puede estar en una zona distinta
+            ahora = datetime.now(tz_reloj)
+            fechas = [(ahora + timedelta(days=d)).strftime('%Y-%m-%d') for d in range(-1, 4)]
             
             sql = '''
                 SELECT c.id, c.negocio_id, c.profesional_id, c.cliente_telefono,
@@ -156,12 +160,12 @@ class AppointmentScheduler:
                 LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono 
                     AND cl.negocio_id = c.negocio_id
                 WHERE c.estado = 'confirmado'
-                AND c.fecha IN (%s, %s, %s)
+                AND c.fecha IN (%s, %s, %s, %s, %s)
                 AND (c.recordatorio_24h_enviado = FALSE OR c.recordatorio_1h_enviado = FALSE)
                 ORDER BY c.fecha, c.hora
             '''
             
-            cursor.execute(sql, (fecha_hoy, fecha_manana, fecha_pasadomanana))
+            cursor.execute(sql, tuple(fechas))
             citas = cursor.fetchall()
             
             # Convertir a diccionarios con todas las claves necesarias
@@ -245,7 +249,7 @@ class AppointmentScheduler:
                 return
             
             cursor = conn.cursor()
-            fecha_hoy = datetime.now(tz_colombia).strftime('%Y-%m-%d')
+            fecha_hoy = datetime.now(tz_reloj).strftime('%Y-%m-%d')
 
             cursor.execute('''
                 SELECT DISTINCT c.profesional_id, p.nombre as profesional_nombre,
@@ -413,36 +417,39 @@ class AppointmentScheduler:
     
     # ==================== FUNCIÓN DE RESUMEN DIARIO ====================
     
-    def enviar_resumen_diario_profesionales(self):
-        """Enviar resumen diario de citas a cada profesional (8:00 AM hora Colombia)"""
+    def enviar_resumen_diario_profesionales(self, negocio_ids=None, ahora=None):
+        """Enviar resumen diario de citas a cada profesional (8:00 AM hora local del negocio)"""
         try:
-            ahora = datetime.now(tz_colombia)
+            ahora = ahora or datetime.now(tz_reloj)
             print(f"📋 [{ahora.strftime('%H:%M')}] Enviando resumen diario...")
-            
+
             conn = db.get_db_connection()
             if not conn:
                 return
-            
+
             cursor = conn.cursor()
             fecha_hoy = ahora.strftime('%Y-%m-%d')
-            
-            cursor.execute('''
+            filtro_negocios = 'AND p.negocio_id = ANY(%s)' if negocio_ids else ''
+            parametros = (fecha_hoy, list(negocio_ids)) if negocio_ids else (fecha_hoy,)
+
+            cursor.execute(f'''
                 SELECT p.id, p.nombre,
                        COUNT(c.id) as citas_hoy,
                        STRING_AGG(
-                           CONCAT(c.hora, ' - ', COALESCE(cl.nombre, c.cliente_nombre)), 
-                           ', ' 
+                           CONCAT(c.hora, ' - ', COALESCE(cl.nombre, c.cliente_nombre)),
+                           ', '
                            ORDER BY c.hora
                        ) as detalle_citas
                 FROM profesionales p
-                LEFT JOIN citas c ON p.id = c.profesional_id 
-                    AND c.fecha = %s 
+                LEFT JOIN citas c ON p.id = c.profesional_id
+                    AND c.fecha = %s
                     AND c.estado = 'confirmado'
                 LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono
                 WHERE p.activo = TRUE
+                {filtro_negocios}
                 GROUP BY p.id, p.nombre
                 HAVING COUNT(c.id) > 0
-            ''', (fecha_hoy,))
+            ''', parametros)
             
             profesionales = cursor.fetchall()
             conn.close()
@@ -487,17 +494,21 @@ class AppointmentScheduler:
     
     def verificar_resumen_diario(self):
         """
-        Disparar el resumen diario a las 8:00 AM hora de Colombia.
+        Disparar el resumen diario a las 8:00 AM hora local de cada negocio.
         No se usa schedule.every().day.at("08:00") porque esa API usa la hora
-        LOCAL del servidor (típicamente UTC en hosting cloud), no America/Bogota,
-        lo que haría que el resumen se enviara a las 3:00 a.m. Colombia.
+        LOCAL del servidor (típicamente UTC en hosting cloud), lo que haría que
+        el resumen se enviara a las 3:00 a.m. en Colombia.
         """
-        ahora = datetime.now(tz_colombia)
-        if ahora.strftime('%H:%M') == '08:00':
-            hoy = ahora.date()
-            if getattr(self, 'ultimo_resumen_fecha', None) != hoy:
-                self.ultimo_resumen_fecha = hoy
-                self.enviar_resumen_diario_profesionales()
+        if not hasattr(self, 'ultimo_resumen_por_zona'):
+            self.ultimo_resumen_por_zona = {}
+
+        for zona_nombre, negocio_ids in localizacion.negocios_por_zona().items():
+            ahora = datetime.now(pytz.timezone(zona_nombre))
+            if ahora.strftime('%H:%M') == '08:00':
+                hoy = ahora.date()
+                if self.ultimo_resumen_por_zona.get(zona_nombre) != hoy:
+                    self.ultimo_resumen_por_zona[zona_nombre] = hoy
+                    self.enviar_resumen_diario_profesionales(negocio_ids, ahora)
 
     def iniciar(self):
         """Iniciar el scheduler principal"""

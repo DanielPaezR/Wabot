@@ -1,0 +1,385 @@
+/* Wabot UI - sistema de diseño compartido (tema oscuro premium)
+   Un solo color de acento (--wb-accent) gobierna todo; cada negocio puede cambiarlo. */
+
+:root {
+  color-scheme: dark;
+
+  --wb-bg: #0a0a0d;
+  --wb-surface: #121217;
+  --wb-surface-2: #191920;
+  --wb-surface-3: #23232c;
+  --wb-line: rgba(255, 255, 255, 0.08);
+  --wb-line-strong: rgba(255, 255, 255, 0.16);
+
+  --wb-text: #f4f4f5;
+  --wb-text-2: #b4b4bc;
+  --wb-text-3: #7c7c86;
+
+  --wb-accent: #d4a857;
+  --wb-accent-ink: #17110a;
+  --wb-accent-hover: color-mix(in srgb, var(--wb-accent) 88%, #fff);
+  --wb-accent-soft: color-mix(in srgb, var(--wb-accent) 14%, transparent);
+  --wb-accent-line: color-mix(in srgb, var(--wb-accent) 38%, transparent);
+
+  --wb-ok: #4ade80;
+  --wb-ok-soft: rgba(74, 222, 128, 0.12);
+  --wb-bad: #f87171;
+  --wb-bad-soft: rgba(248, 113, 113, 0.12);
+  --wb-warn: #fbbf24;
+
+  --wb-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --wb-display: "Fraunces", "Playfair Display", Georgia, serif;
+
+  --wb-r-sm: 10px;
+  --wb-r: 14px;
+  --wb-r-lg: 22px;
+  --wb-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.75);
+
+  /* Estados (alertas, insignias, botones de peligro/éxito) */
+  --wb-ok-solid: #16a34a;
+  --wb-bad-solid: #dc2626;
+  --wb-warn-soft: rgba(251, 191, 36, 0.12);
+  --wb-info-soft: rgba(96, 165, 250, 0.12);
+  --wb-ok-text: #86efac;
+  --wb-bad-text: #fca5a5;
+  --wb-warn-text: #fcd34d;
+  --wb-info-text: #93c5fd;
+  --wb-ok-line: rgba(74, 222, 128, 0.3);
+  --wb-bad-line: rgba(248, 113, 113, 0.3);
+  --wb-warn-line: rgba(251, 191, 36, 0.3);
+  --wb-info-line: rgba(96, 165, 250, 0.3);
+
+  /* Nombres antiguos que usan las plantillas existentes */
+  --primary: var(--wb-accent);
+  --primary-dark: color-mix(in srgb, var(--wb-accent) 78%, #000);
+  --primary-soft: var(--wb-accent-soft);
+  --success: var(--wb-ok-solid);
+  --success-soft: var(--wb-ok-soft);
+  --danger: var(--wb-bad-solid);
+  --danger-soft: var(--wb-bad-soft);
+  --warning: var(--wb-warn);
+  --dark: var(--wb-text);
+  --mid: var(--wb-text-2);
+  --text: #d4d4d8;
+  --text-light: var(--wb-text-3);
+  --border: var(--wb-line);
+  --bg: var(--wb-bg);
+  --white: var(--wb-surface);
+}
+
+/* ---------- Íconos ---------- */
+.ic {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.ic-sm { width: 16px; height: 16px; }
+.ic-lg { width: 26px; height: 26px; }
+
+/* ---------- Componentes reutilizables (login, directorio, paneles) ---------- */
+.wb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: 600 0.92rem var(--wb-font);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.wb-btn:active { transform: scale(0.98); }
+.wb-btn-primary { background: var(--wb-accent); color: var(--wb-accent-ink); }
+.wb-btn-primary:hover { background: var(--wb-accent-hover); }
+.wb-btn-ghost { background: transparent; color: var(--wb-text); border-color: var(--wb-line-strong); }
+.wb-btn-ghost:hover { border-color: var(--wb-accent-line); color: var(--wb-accent); }
+.wb-btn-block { width: 100%; }
+
+.wb-card {
+  background: var(--wb-surface);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-lg);
+  box-shadow: var(--wb-shadow);
+}
+
+.wb-field { margin-bottom: 18px; }
+.wb-label {
+  display: block;
+  margin-bottom: 8px;
+  font: 600 0.74rem var(--wb-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wb-text-2);
+}
+.wb-input {
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: var(--wb-r);
+  border: 1px solid var(--wb-line-strong);
+  background: var(--wb-surface-2);
+  color: var(--wb-text);
+  font: 400 1rem var(--wb-font);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.wb-input::placeholder { color: var(--wb-text-3); }
+.wb-input:focus {
+  outline: none;
+  border-color: var(--wb-accent);
+  box-shadow: 0 0 0 4px var(--wb-accent-soft);
+}
+
+.wb-alert { padding: 12px 14px; border-radius: var(--wb-r-sm); font-size: 0.88rem; margin-bottom: 16px; border: 1px solid transparent; }
+.wb-alert-error { background: var(--wb-bad-soft); color: #fca5a5; border-color: rgba(248, 113, 113, 0.3); }
+.wb-alert-success { background: var(--wb-ok-soft); color: #86efac; border-color: rgba(74, 222, 128, 0.3); }
+
+.wb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--wb-accent-soft);
+  color: var(--wb-accent);
+  font: 600 0.72rem var(--wb-font);
+  letter-spacing: 0.04em;
+}
+
+/* =====================================================================
+   Chat del cliente (body.wb-client)
+   ===================================================================== */
+body.wb-client {
+  font-family: var(--wb-font);
+  background: var(--wb-bg);
+  color: var(--wb-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wb-client .header {
+  background: color-mix(in srgb, var(--wb-bg) 80%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--wb-line);
+  padding: 12px 16px;
+  padding-top: calc(12px + var(--safe-top));
+}
+.wb-client .negocio-avatar {
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(145deg, var(--wb-accent), color-mix(in srgb, var(--wb-accent) 55%, #000));
+  color: var(--wb-accent-ink);
+  font-family: var(--wb-display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  box-shadow: 0 0 0 3px var(--wb-accent-soft);
+}
+.wb-client .negocio-name {
+  font-family: var(--wb-display);
+  font-weight: 600;
+  font-size: 1.08rem;
+  letter-spacing: 0.01em;
+  color: var(--wb-text);
+}
+.wb-client .negocio-sub { color: var(--wb-text-3); font-size: 0.72rem; letter-spacing: 0.02em; }
+
+.wb-client .icon-btn {
+  background: var(--wb-surface-2);
+  border: 1px solid var(--wb-line);
+  color: var(--wb-text-2);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.wb-client .icon-btn:hover { color: var(--wb-accent); border-color: var(--wb-accent-line); }
+.wb-client .icon-btn:active { background: var(--wb-surface-3); }
+.wb-client .icon-btn.on { color: var(--wb-accent); background: var(--wb-accent-soft); border-color: var(--wb-accent-line); }
+.wb-client .icon-btn.cargando { opacity: 0.6; }
+
+.wb-client .chat-messages::-webkit-scrollbar-thumb { background: var(--wb-surface-3); }
+.wb-client .msg { font-size: 0.9rem; line-height: 1.5; padding: 10px 14px; }
+.wb-client .msg-user {
+  background: var(--wb-accent);
+  color: var(--wb-accent-ink);
+  font-weight: 500;
+}
+.wb-client .msg-user .msg-sender { display: none; }
+.wb-client .msg-bot {
+  background: var(--wb-surface-2);
+  color: var(--wb-text);
+  border: 1px solid var(--wb-line);
+  box-shadow: none;
+}
+.wb-client .msg-sender { color: var(--wb-accent); opacity: 0.9; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.wb-client .option-chip {
+  background: transparent;
+  border: 1px solid var(--wb-accent-line);
+  color: var(--wb-accent);
+  padding: 8px 16px;
+  font-weight: 600;
+}
+.wb-client .option-chip:hover { background: var(--wb-accent-soft); }
+.wb-client .option-chip:active { background: var(--wb-accent); color: var(--wb-accent-ink); }
+
+.wb-client .professional-card {
+  background: var(--wb-surface-2);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r);
+  padding: 14px 10px;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.wb-client .professional-card:hover { border-color: var(--wb-accent-line); }
+.wb-client .professional-card:active { background: var(--wb-surface-3); }
+.wb-client .prof-avatar {
+  background: var(--wb-accent-soft);
+  color: var(--wb-accent);
+  box-shadow: 0 0 0 2px var(--wb-accent-line);
+}
+.wb-client .prof-avatar .ic { width: 28px; height: 28px; }
+.wb-client .prof-name { color: var(--wb-text); font-weight: 600; font-size: 0.82rem; }
+.wb-client .prof-specialty { color: var(--wb-text-3); }
+.wb-client .btn-select-prof {
+  background: var(--wb-accent);
+  color: var(--wb-accent-ink);
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-weight: 700;
+}
+
+.wb-client .chat-input-bar {
+  background: color-mix(in srgb, var(--wb-bg) 86%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--wb-line);
+}
+.wb-client .chat-input {
+  background: var(--wb-surface-2);
+  border: 1px solid var(--wb-line-strong);
+  color: var(--wb-text);
+}
+.wb-client .chat-input::placeholder { color: var(--wb-text-3); }
+.wb-client .chat-input:focus { border-color: var(--wb-accent); background: var(--wb-surface-2); box-shadow: 0 0 0 3px var(--wb-accent-soft); }
+.wb-client .send-btn { background: var(--wb-accent); color: var(--wb-accent-ink); }
+.wb-client .send-btn:active { background: var(--wb-accent-hover); }
+
+.wb-client .bottom-bar {
+  background: color-mix(in srgb, var(--wb-bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid var(--wb-line);
+}
+.wb-client .nav-item:active { background: var(--wb-surface-2); }
+.wb-client .nav-icon { color: var(--wb-text-3); display: flex; transition: color 0.15s; }
+.wb-client .nav-item.active .nav-icon { transform: none; color: var(--wb-accent); }
+.wb-client .nav-label { color: var(--wb-text-3); font-size: 0.62rem; letter-spacing: 0.06em; }
+.wb-client .nav-item.active .nav-label { color: var(--wb-accent); }
+.wb-client .nav-item.nav-fab {
+  background: var(--wb-accent);
+  box-shadow: 0 8px 22px -6px var(--wb-accent-line), 0 0 0 4px var(--wb-bg);
+}
+.wb-client .nav-item.nav-fab .nav-icon { color: var(--wb-accent-ink); }
+.wb-client .nav-item.nav-fab:active { background: var(--wb-accent-hover); }
+
+.wb-client .fab-backdrop { background: rgba(0, 0, 0, 0.6); }
+.wb-client .fab-item {
+  background: var(--wb-surface-2);
+  border: 1px solid var(--wb-line-strong);
+  box-shadow: var(--wb-shadow);
+}
+.wb-client .fab-item:active { background: var(--wb-surface-3); }
+.wb-client .fab-ic { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.wb-client .fab-text { color: var(--wb-text); }
+
+.wb-client #toast {
+  background: var(--wb-surface-3);
+  color: var(--wb-text);
+  border: 1px solid var(--wb-line-strong);
+  box-shadow: var(--wb-shadow);
+}
+
+.wb-client .sheet-overlay { background: rgba(0, 0, 0, 0.65); }
+.wb-client .bottom-sheet { background: var(--wb-surface); border-top: 1px solid var(--wb-line-strong); }
+.wb-client .sheet-handle { background: var(--wb-line-strong); }
+.wb-client .sheet-head { border-bottom: 1px solid var(--wb-line); }
+.wb-client .sheet-title { color: var(--wb-text); font-family: var(--wb-display); font-weight: 600; }
+.wb-client .sheet-close { background: var(--wb-surface-2); color: var(--wb-text-2); }
+.wb-client .form-label { color: var(--wb-text-2); letter-spacing: 0.08em; }
+.wb-client .form-control {
+  background: var(--wb-surface-2);
+  border: 1px solid var(--wb-line-strong);
+  color: var(--wb-text);
+}
+.wb-client .form-control:focus { border-color: var(--wb-accent); background: var(--wb-surface-2); box-shadow: 0 0 0 3px var(--wb-accent-soft); }
+.wb-client .btn-sheet-primary { background: var(--wb-accent); color: var(--wb-accent-ink); }
+.wb-client .btn-sheet-secondary { background: var(--wb-surface-2); color: var(--wb-text); border: 1px solid var(--wb-line); }
+.wb-client .btn-sheet-warning { background: var(--wb-accent-soft); color: var(--wb-accent); }
+
+.wb-client .panel-title {
+  color: var(--wb-accent);
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  margin-bottom: 14px;
+}
+
+.wb-client .promo-card,
+.wb-client .cita-card {
+  background: var(--wb-surface-2);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r);
+  box-shadow: none;
+}
+.wb-client .promo-banner {
+  background: linear-gradient(135deg, var(--wb-accent), color-mix(in srgb, var(--wb-accent) 60%, #000));
+  color: var(--wb-accent-ink);
+}
+.wb-client .promo-title-text { color: var(--wb-text); font-family: var(--wb-display); font-weight: 600; }
+.wb-client .promo-desc,
+.wb-client .promo-date { color: var(--wb-text-3); }
+.wb-client .promo-prize { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.wb-client .badge-eligible { background: var(--wb-ok-soft); color: var(--wb-ok); }
+.wb-client .badge-not-eligible { background: var(--wb-bad-soft); color: var(--wb-bad); }
+.wb-client .badge-participando { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.wb-client .btn-promo-success { background: var(--wb-ok-soft); color: var(--wb-ok); }
+.wb-client .btn-promo-danger { background: var(--wb-bad-soft); color: var(--wb-bad); }
+.wb-client .btn-promo-primary { background: var(--wb-accent); color: var(--wb-accent-ink); }
+.wb-client .btn-promo-warning { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.wb-client .btn-promo-info { background: var(--wb-surface-3); color: var(--wb-text); }
+
+.wb-client .cita-card-estado.completada { background: var(--wb-ok-soft); color: var(--wb-ok); }
+.wb-client .cita-card-estado.pendiente { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.wb-client .cita-card-estado.cancelada { background: var(--wb-bad-soft); color: var(--wb-bad); }
+.wb-client .cita-card-body { color: var(--wb-text-2); }
+.wb-client .cita-card-footer { border-top: 1px solid var(--wb-line); }
+.wb-client .btn-calificar { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.wb-client .btn-calificar.calificado { background: var(--wb-ok-soft); color: var(--wb-ok); }
+
+.wb-client .directorio-hero {
+  background:
+    radial-gradient(120% 120% at 100% 0%, var(--wb-accent-soft), transparent 60%),
+    var(--wb-surface-2);
+  border: 1px solid var(--wb-line);
+  padding: 32px 22px;
+}
+.wb-client .directorio-icon { color: var(--wb-accent); display: flex; justify-content: center; margin-bottom: 14px; }
+.wb-client .directorio-hero h3 { font-family: var(--wb-display); font-weight: 600; font-size: 1.3rem; color: var(--wb-text); }
+.wb-client .directorio-hero p { color: var(--wb-text-2); opacity: 1; }
+.wb-client .btn-directorio { background: var(--wb-accent); color: var(--wb-accent-ink); }
+
+.wb-client .empty-state { color: var(--wb-text-3); }
+.wb-client .empty-state-icon { color: var(--wb-accent); display: flex; justify-content: center; margin-bottom: 14px; }
+.wb-client .empty-state-icon .ic { width: 40px; height: 40px; stroke-width: 1.4; }
+.wb-client .empty-state h4 { color: var(--wb-text); }
+
+.wb-client .cita-info-row .ic,
+.wb-client .promo-banner .ic { color: var(--wb-accent); }
+.wb-client .promo-banner .ic { color: var(--wb-accent-ink); }
+.wb-client .cita-info-row { color: var(--wb-text-2); }
+.wb-client .cita-info-row strong { color: var(--wb-text); }
+
+/* En el chat y el directorio, verde/rojo claros (se usan como texto sobre fondo oscuro) */
+.wb-client,
+.wb-dir { --success: var(--wb-ok); --danger: var(--wb-bad); }

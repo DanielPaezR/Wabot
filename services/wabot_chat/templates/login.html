@@ -3,294 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Login - WaBot</title>
+    <title>Iniciar sesión - Wabot</title>
 
-    <!-- 🔥 PWA HABILITADO -->
-    <meta name="theme-color" content="#007bff">
+    <meta name="theme-color" content="#0a0a0d">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <!-- 🔥 Manifest para el login -->
     <link rel="manifest" href="/manifest-login.json">
 
-    <!-- Favicon para PWA -->
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-login-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-login-512.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-login-192.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='icons/favicon-login.ico') }}">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=1">
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: var(--wb-font);
+            background: var(--wb-bg);
+            color: var(--wb-text);
             min-height: 100vh;
+            min-height: 100dvh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .auth {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        /* ---------- Panel de marca ---------- */
+        .auth-brand {
+            position: relative;
+            overflow: hidden;
+            padding: 56px 64px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background:
+                radial-gradient(70% 60% at 20% 0%, color-mix(in srgb, var(--wb-accent) 26%, transparent), transparent 70%),
+                radial-gradient(60% 50% at 100% 100%, color-mix(in srgb, var(--wb-accent) 12%, transparent), transparent 70%),
+                var(--wb-surface);
+            border-right: 1px solid var(--wb-line);
+        }
+        .auth-brand::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(var(--wb-line) 1px, transparent 1px), linear-gradient(90deg, var(--wb-line) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%);
+            -webkit-mask-image: radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .auth-brand > * { position: relative; z-index: 1; }
+
+        .brand-mark { display: flex; align-items: center; gap: 12px; font-family: var(--wb-display); font-size: 1.5rem; font-weight: 600; }
+        .brand-mark span {
+            width: 38px; height: 38px;
+            display: grid; place-items: center;
+            border-radius: 11px;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
+            font-size: 1.15rem;
+        }
+
+        .brand-copy h1 {
+            font-family: var(--wb-display);
+            font-weight: 500;
+            font-size: clamp(2.2rem, 3.6vw, 3.4rem);
+            line-height: 1.08;
+            letter-spacing: -0.01em;
+            max-width: 15ch;
+        }
+        .brand-copy h1 em { font-style: italic; color: var(--wb-accent); }
+        .brand-copy p { margin-top: 20px; color: var(--wb-text-2); max-width: 44ch; line-height: 1.6; }
+
+        .brand-points { display: flex; gap: 28px; flex-wrap: wrap; color: var(--wb-text-2); font-size: 0.85rem; }
+        .brand-points div { display: flex; align-items: center; gap: 8px; }
+        .brand-points .ic { color: var(--wb-accent); }
+
+        /* ---------- Formulario ---------- */
+        .auth-form {
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 40px 28px;
         }
-        
-        .login-container {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            width: 100%;
-            max-width: 400px;
-        }
-        
-        .logo {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        
-        .logo h1 {
-            color: #333;
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .logo p {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #333;
-            font-weight: 500;
-        }
-        
-        input[type="email"],
-        input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 5px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        input[type="email"]:focus,
-        input[type="password"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .btn {
-            width: 100%;
-            padding: 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .btn:hover {
-            background: #5a6fd8;
-        }
-        
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-            border: 1px solid #fcc;
-        }
+        .auth-card { width: 100%; max-width: 400px; }
+        .auth-card h2 { font-family: var(--wb-display); font-weight: 600; font-size: 1.9rem; letter-spacing: -0.01em; }
+        .auth-card .sub { margin: 8px 0 30px; color: var(--wb-text-2); font-size: 0.95rem; }
 
-        .flash-messages {
-            margin-bottom: 1rem;
+        .pw-wrap { position: relative; }
+        .pw-wrap .wb-input { padding-right: 48px; }
+        .pw-toggle {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            width: 38px; height: 38px;
+            display: grid; place-items: center;
+            background: none; border: none; border-radius: 10px;
+            color: var(--wb-text-3); cursor: pointer;
         }
-        
-        .flash-success {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #c3e6cb;
-            margin-bottom: 1rem;
-        }
-        
-        .flash-error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #f5c6cb;
-            margin-bottom: 1rem;
-        }
+        .pw-toggle:hover { color: var(--wb-accent); }
 
-        .login-info {
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #eee;
-            text-align: center;
-            color: #666;
-            font-size: 0.9rem;
-        }
+        .auth-card .wb-btn { padding: 14px 20px; font-size: 1rem; margin-top: 6px; }
 
-        .demo-accounts {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 5px;
-            margin-top: 1rem;
-            font-size: 0.8rem;
-        }
+        .install-btn { display: none; margin-top: 12px; }
 
-        .demo-accounts h4 {
-            margin-bottom: 0.5rem;
-            color: #333;
+        .support {
+            margin-top: 34px;
+            padding-top: 22px;
+            border-top: 1px solid var(--wb-line);
+            display: flex; flex-direction: column; gap: 10px;
+            color: var(--wb-text-3); font-size: 0.85rem;
         }
+        .support-title { font: 600 0.72rem var(--wb-font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--wb-text-2); }
+        .support a, .support span { display: flex; align-items: center; gap: 10px; color: var(--wb-text-2); text-decoration: none; }
+        .support a:hover { color: var(--wb-accent); }
+        .support .ic { color: var(--wb-accent); }
 
-        .demo-account {
-            margin-bottom: 0.3rem;
-            font-family: monospace;
-        }
-
-        /* 🔥 Botón para instalar como app */
-        .install-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            margin-top: 10px;
-            cursor: pointer;
-            display: none;
-            width: 100%;
-            font-size: 0.9rem;
-        }
-        
-        .install-btn:hover {
-            background: #218838;
+        @media (max-width: 900px) {
+            .auth { grid-template-columns: 1fr; }
+            .auth-brand { padding: 28px 24px 32px; border-right: none; border-bottom: 1px solid var(--wb-line); gap: 28px; }
+            .brand-copy h1 { font-size: 2rem; }
+            .brand-copy p, .brand-points { display: none; }
+            .auth-form { align-items: flex-start; padding: 32px 22px 48px; }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="logo">
-            <h1>💼 Wabot</h1>
-            <p>Plataforma Multi-Negocio - Acceso Unificado</p>
-        </div>
-        
-        <div class="flash-messages">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="flash-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-        </div>
-        
-        <form method="POST">
-            <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" required placeholder="tu@email.com">
-            </div>
-            
-            <div class="form-group">
-                <label for="password">Contraseña:</label>
-                <input type="password" id="password" name="password" required placeholder="Tu contraseña">
-            </div>
-            
-            <button type="submit" class="btn">Iniciar Sesión</button>
-        </form>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M9 16l2 2 4-4"/></symbol>
+            <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+            <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+            <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+            <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+            <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.9 4.2A10 10 0 0 1 12 4c6.4 0 10 8 10 8a17 17 0 0 1-2.2 3.3M6.6 6.6A17 17 0 0 0 2 12s3.6 8 10 8a9.7 9.7 0 0 0 5.4-1.6M2 2l20 20M14.1 14.1a3 3 0 1 1-4.2-4.2"/></symbol>
+        </defs>
+    </svg>
 
-        <div class="login-info">
-            <div class="demo-accounts">
-                <h4>Canales de soporte:</h4>
-                <div class="demo-account">✉️ Correo: wabot6020@gmail.com</div>
-                <div class="demo-account">📞 Whatsapp: 3174694941</div>
+    <main class="auth">
+        <section class="auth-brand">
+            <div class="brand-mark"><span>W</span> Wabot</div>
+
+            <div class="brand-copy">
+                <h1>Tu agenda, <em>siempre llena</em> y sin esfuerzo.</h1>
+                <p>Un asistente que atiende a tus clientes, agenda las citas y le avisa a cada profesional. Tú solo te ocupas de tu negocio.</p>
             </div>
-        </div>
-    </div>
+
+            <div class="brand-points">
+                <div><svg class="ic"><use href="#i-chat"/></svg> Reservas por chat</div>
+                <div><svg class="ic"><use href="#i-calendar"/></svg> Agenda por profesional</div>
+                <div><svg class="ic"><use href="#i-bell"/></svg> Recordatorios automáticos</div>
+            </div>
+        </section>
+
+        <section class="auth-form">
+            <div class="auth-card">
+                <h2>Bienvenido de nuevo</h2>
+                <p class="sub">Ingresa con tu correo para ver tu agenda.</p>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="wb-alert {{ 'wb-alert-success' if category == 'success' else 'wb-alert-error' }}" role="alert">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST">
+                    <div class="wb-field">
+                        <label class="wb-label" for="email">Correo electrónico</label>
+                        <input class="wb-input" type="email" id="email" name="email" required placeholder="tu@email.com" autocomplete="username" autofocus>
+                    </div>
+
+                    <div class="wb-field">
+                        <label class="wb-label" for="password">Contraseña</label>
+                        <div class="pw-wrap">
+                            <input class="wb-input" type="password" id="password" name="password" required placeholder="Tu contraseña" autocomplete="current-password">
+                            <button type="button" class="pw-toggle" id="pwToggle" aria-label="Mostrar contraseña"><svg class="ic"><use href="#i-eye"/></svg></button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="wb-btn wb-btn-primary wb-btn-block">Iniciar sesión</button>
+                    <button type="button" class="wb-btn wb-btn-ghost wb-btn-block install-btn" id="installBtn">Instalar como app</button>
+                </form>
+
+                <div class="support">
+                    <div class="support-title">¿Necesitas ayuda?</div>
+                    <a href="mailto:wabot6020@gmail.com"><svg class="ic ic-sm"><use href="#i-mail"/></svg> wabot6020@gmail.com</a>
+                    <span><svg class="ic ic-sm"><use href="#i-phone"/></svg> WhatsApp: 3174694941</span>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script>
+    // Mostrar / ocultar contraseña
+    (function () {
+        const campo = document.getElementById('password');
+        const boton = document.getElementById('pwToggle');
+        boton.addEventListener('click', function () {
+            const visible = campo.type === 'text';
+            campo.type = visible ? 'password' : 'text';
+            boton.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
+            boton.innerHTML = '<svg class="ic"><use href="#i-' + (visible ? 'eye' : 'eye-off') + '"/></svg>';
+        });
+    })();
+
     // =============================================================================
     // HABILITAR PWA PARA EL LOGIN
     // =============================================================================
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('✅ PWA habilitado para el login');
-        
         let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
-        
-        // 1. Mostrar botón de instalación cuando esté disponible
+
         window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('📱 beforeinstallprompt disponible para login');
             e.preventDefault();
             deferredPrompt = e;
-            
-            // Mostrar botón
-            installBtn.style.display = 'block';
-            
+            installBtn.style.display = 'flex';
+
             installBtn.addEventListener('click', () => {
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('✅ Usuario instaló el login como app');
-                    } else {
-                        console.log('❌ Usuario canceló instalación');
-                    }
+                deferredPrompt.userChoice.then(() => {
                     deferredPrompt = null;
                     installBtn.style.display = 'none';
                 });
             });
         });
-        
-        // 2. Si ya está instalado como PWA, ocultar botón
+
         if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log('📱 Login ya está en modo PWA');
             installBtn.style.display = 'none';
         }
-        
-        // 3. Verificar y registrar Service Worker si no existe
+
         if ('serviceWorker' in navigator && !window.location.hostname.includes('localhost')) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 if (registrations.length === 0) {
-                    navigator.serviceWorker.register('/static/sw-login.js')
-                        .then(registration => {
-                            console.log('✅ Service Worker registrado para login:', registration.scope);
-                        })
-                        .catch(error => {
-                            console.log('❌ Error registrando SW:', error);
-                        });
+                    navigator.serviceWorker.register('/static/sw-login.js').catch(error => {
+                        console.log('Error registrando SW:', error);
+                    });
                 }
             });
         }
-        
-        // 4. Forzar actualización del manifest
+
         const manifestLink = document.querySelector('link[rel="manifest"]');
         if (manifestLink) {
-            const newHref = '/manifest-login.json?t=' + Date.now();
-            manifestLink.href = newHref;
+            manifestLink.href = '/manifest-login.json?t=' + Date.now();
         }
     });
 
-    // 5. Detectar si es iOS para añadir icono específico
     if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
         const appleIcon = document.createElement('link');
         appleIcon.rel = 'apple-touch-icon';
         appleIcon.href = '{{ url_for("static", filename="icons/icon-login-192.png") }}';
         document.head.appendChild(appleIcon);
-        
-        // Evitar zoom en inputs
+
         document.addEventListener('touchstart', function(e) {
             if (e.touches.length > 1) {
                 e.preventDefault();

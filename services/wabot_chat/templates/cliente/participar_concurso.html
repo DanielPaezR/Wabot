@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,18 +7,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--wb-bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         .container { max-width: 500px; margin: 0 auto; padding: 20px; }
-        .promo-card { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        .promo-title { color: #c53030; font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
-        .premio { background: linear-gradient(135deg, #ffd700, #ffb700); color: #333; padding: 15px; border-radius: 12px; font-weight: 600; margin: 15px 0; }
-        .upload-area { border: 2px dashed #ccc; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
-        .upload-area:hover { border-color: #c53030; background: #fff5f5; }
+        .promo-card { background: var(--wb-surface); border-radius: 20px; padding: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .promo-title { color: var(--wb-bad-text); font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
+        .premio { background: linear-gradient(135deg, var(--wb-warn), var(--wb-warn-soft)); color: var(--wb-text); padding: 15px; border-radius: 12px; font-weight: 600; margin: 15px 0; }
+        .upload-area { border: 2px dashed var(--wb-line-strong); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { border-color: var(--wb-bad-solid); background: var(--wb-bad-soft); }
         .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
         .preview-img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; }
         
         .participacion-card {
-            background: linear-gradient(135deg, #e8f4f8 0%, #d1e9f0 100%);
+            background: linear-gradient(135deg, var(--wb-info-soft) 0%, var(--wb-info-soft) 100%);
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 20px;
@@ -33,28 +33,35 @@
             border-bottom: 1px solid rgba(0,0,0,0.1);
         }
         .stat-item { text-align: center; }
-        .stat-value { font-size: 1.8rem; font-weight: 700; color: #c53030; }
-        .stat-label { font-size: 0.75rem; color: #666; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--wb-bad-text); }
+        .stat-label { font-size: 0.75rem; color: var(--wb-text-2); }
         .position-badge {
             display: inline-block;
-            background: #c53030;
+            background: var(--wb-bad-solid);
             color: white;
             padding: 5px 12px;
             border-radius: 30px;
             font-size: 0.8rem;
             font-weight: 600;
         }
-        .btn-ver { background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; margin-right: 8px; }
-        .btn-eliminar { background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; }
-        .btn-ver:hover { background: #5a67d8; }
-        .btn-eliminar:hover { background: #c0392b; }
+        .btn-ver { background: var(--wb-accent); color: var(--wb-accent-ink); border: none; padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; margin-right: 8px; }
+        .btn-eliminar { background: var(--wb-bad-solid); color: white; border: none; padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; }
+        .btn-ver:hover { background: var(--wb-accent-hover); }
+        .btn-eliminar:hover { background: var(--wb-bad-solid); }
         
         .alert { border-radius: 12px; padding: 15px; margin-bottom: 20px; }
-        .alert-success { background: #d1fae5; color: #065f46; border: none; }
-        .alert-warning { background: #fef3c7; color: #92400e; border: none; }
+        .alert-success { background: var(--wb-ok-soft); color: var(--wb-ok-text); border: none; }
+        .alert-warning { background: var(--wb-warn-soft); color: var(--wb-warn-text); border: none; }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
     <div class="container" id="mainContainer" 
          data-profesional-id="{{ profesional_id }}" 
          data-promocion-id="{{ promocion.id }}"

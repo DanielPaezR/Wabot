@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,11 +14,11 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f6fa;
+            background: var(--wb-bg);
         }
         
         .header {
-            background: white;
+            background: var(--wb-surface);
             padding: 1rem 2rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
@@ -29,14 +29,14 @@
         }
         
         .header h1 {
-            color: #333;
+            color: var(--wb-text);
         }
         
         .user-info {
             display: flex;
             align-items: center;
             gap: 1rem;
-            color: #666;
+            color: var(--wb-text-2);
         }
         
         .btn {
@@ -53,22 +53,22 @@
         }
         
         .btn-primary {
-            background: #3498db;
-            color: white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
         }
         
         .btn-secondary {
-            background: #95a5a6;
+            background: var(--wb-surface-3);
             color: white;
         }
         
         .btn-success {
-            background: #27ae60;
+            background: var(--wb-ok-solid);
             color: white;
         }
         
         .btn-logout {
-            background: #e74c3c;
+            background: var(--wb-bad-solid);
             color: white;
         }
         
@@ -86,7 +86,7 @@
         }
         
         .form-section {
-            background: white;
+            background: var(--wb-surface);
             padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -100,7 +100,7 @@
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
-            color: #333;
+            color: var(--wb-text);
         }
         
         .form-group input, 
@@ -108,7 +108,7 @@
         .form-group select {
             width: 100%;
             padding: 10px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--wb-line-strong);
             border-radius: 5px;
             font-size: 1rem;
         }
@@ -117,7 +117,7 @@
         .form-group textarea:focus, 
         .form-group select:focus {
             outline: none;
-            border-color: #3498db;
+            border-color: var(--wb-accent);
         }
         
         .form-actions {
@@ -127,7 +127,7 @@
         }
         
         .btn-save {
-            background: #27ae60;
+            background: var(--wb-ok-solid);
             color: white;
             padding: 12px 24px;
             font-size: 1rem;
@@ -137,7 +137,7 @@
         }
         
         .btn-cancel {
-            background: #95a5a6;
+            background: var(--wb-surface-3);
             color: white;
             padding: 12px 24px;
             font-size: 1rem;
@@ -152,20 +152,20 @@
         }
         
         .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: var(--wb-ok-soft);
+            color: var(--wb-ok-text);
+            border: 1px solid var(--wb-ok-line);
         }
         
         .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: var(--wb-bad-soft);
+            color: var(--wb-bad-text);
+            border: 1px solid var(--wb-bad-line);
         }
         
         .help-text {
             font-size: 0.8rem;
-            color: #666;
+            color: var(--wb-text-2);
             margin-top: 0.3rem;
         }
         
@@ -201,9 +201,9 @@
         .precio-maximo-group {
             margin-top: 1rem;
             padding: 1rem;
-            background: #f8f9fa;
+            background: var(--wb-surface-2);
             border-radius: 5px;
-            border-left: 3px solid #3498db;
+            border-left: 3px solid var(--wb-accent);
         }
         
         .photo-preview {
@@ -220,7 +220,7 @@
         }
         
         .remove-photo-btn {
-            background: #e74c3c;
+            background: var(--wb-bad-solid);
             color: white;
             border: none;
             padding: 5px 10px;
@@ -232,7 +232,7 @@
         }
         
         .remove-photo-btn:hover {
-            background: #c0392b;
+            background: var(--wb-bad-solid);
         }
         
         .badge {
@@ -245,13 +245,13 @@
         }
         
         .badge-info {
-            background: #3498db;
-            color: white;
+            background: var(--wb-accent);
+            color: var(--wb-accent-ink);
         }
         
         .badge-warning {
-            background: #f39c12;
-            color: white;
+            background: var(--wb-warn);
+            color: var(--wb-accent-ink);
         }
         
         /* Estilos para selector de moneda */
@@ -261,22 +261,22 @@
             align-items: center;
             margin-bottom: 1rem;
             padding: 0.8rem;
-            background: #f8f9fa;
+            background: var(--wb-surface-2);
             border-radius: 8px;
             flex-wrap: wrap;
         }
         
         .currency-selector label {
             font-weight: 600;
-            color: #333;
+            color: var(--wb-text);
             margin-right: 0.5rem;
         }
         
         .currency-selector select {
             padding: 8px 12px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--wb-line-strong);
             border-radius: 5px;
-            background: white;
+            background: var(--wb-surface);
             cursor: pointer;
             flex: 1;
             min-width: 0;
@@ -288,7 +288,7 @@
             display: inline-block;
             margin-left: 8px;
             font-weight: normal;
-            color: #666;
+            color: var(--wb-text-2);
         }
         
         .precio-input-group {
@@ -298,11 +298,11 @@
         }
         
         .precio-input-group .currency-symbol-badge {
-            background: #e9ecef;
+            background: var(--wb-surface-2);
             padding: 10px 12px;
             border-radius: 5px;
             font-weight: bold;
-            color: #495057;
+            color: var(--wb-text-2);
         }
         
         .precio-input-group input {
@@ -322,26 +322,25 @@
             display: block;
             margin-bottom: 10px;
             padding: 8px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--wb-line-strong);
             border-radius: 5px;
             width: 100%;
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
-    <div class="header">
-        <h1>✏️ Editar Servicio</h1>
-        <div class="user-info">
-            <span>👤 {{ session.get('usuario_nombre', 'Usuario') }}</span>
-            <a href="{{ url_for('logout') }}" class="btn btn-logout">Cerrar Sesión</a>
-        </div>
-    </div>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', 'servicios', 'Editar servicio', volver=url_for('negocio_servicios')) }}
     
     <div class="container">
-        <div class="nav-buttons">
-            <a href="{{ url_for('negocio_servicios') }}" class="btn btn-secondary">← Volver a Servicios</a>
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-secondary">📋 Dashboard</a>
-        </div>
+        
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -25,7 +25,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
+            background: var(--wb-bg);
             color: var(--text);
             padding: 16px;
             padding-bottom: 100px;
@@ -34,7 +34,7 @@
         .container { max-width: 600px; margin: 0 auto; }
 
         .header {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             padding: 16px;
             border-radius: var(--radius);
             margin-bottom: 20px;
@@ -63,14 +63,14 @@
             text-decoration: none;
         }
         .btn:active { transform: scale(0.97); }
-        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary { background: var(--primary); color: var(--wb-accent-ink); }
         .btn-danger { background: var(--danger); color: white; font-size: 0.75rem; padding: 6px 12px; }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
         .btn-sm { padding: 6px 14px; font-size: 0.75rem; }
 
         /* Tarjeta de promoción */
         .card {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: var(--radius);
             margin-bottom: 16px;
             overflow: hidden;
@@ -88,10 +88,10 @@
             flex-wrap: wrap;
             gap: 8px;
         }
-        .card-header.concurso { background: #fef3c7; color: #92400e; }
-        .card-header.descuento { background: #d1fae5; color: #065f46; }
-        .card-header.dosxuno { background: #dbeafe; color: #1e40af; }
-        .card-header.expirado { background: #fee2e2; color: #991b1b; }
+        .card-header.concurso { background: var(--wb-warn-soft); color: var(--wb-warn-text); }
+        .card-header.descuento { background: var(--wb-ok-soft); color: var(--wb-ok-text); }
+        .card-header.dosxuno { background: var(--wb-info-soft); color: var(--wb-info-text); }
+        .card-header.expirado { background: var(--wb-bad-soft); color: var(--wb-bad-text); }
 
         .card-body { padding: 16px; }
 
@@ -106,10 +106,10 @@
             font-size: 0.7rem;
             font-weight: 600;
         }
-        .badge-concurso { background: #fef3c7; color: #92400e; }
-        .badge-descuento { background: #d1fae5; color: #065f46; }
-        .badge-dosxuno { background: #dbeafe; color: #1e40af; }
-        .badge-expirado { background: #fee2e2; color: #991b1b; }
+        .badge-concurso { background: var(--wb-warn-soft); color: var(--wb-warn-text); }
+        .badge-descuento { background: var(--wb-ok-soft); color: var(--wb-ok-text); }
+        .badge-dosxuno { background: var(--wb-info-soft); color: var(--wb-info-text); }
+        .badge-expirado { background: var(--wb-bad-soft); color: var(--wb-bad-text); }
 
         .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 
@@ -130,10 +130,10 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.15s;
-            background: var(--white);
+            background: var(--var(--wb-surface));
         }
         .tipo-option:active { transform: scale(0.97); }
-        .tipo-option.selected { border-color: var(--primary); background: #eef0fd; }
+        .tipo-option.selected { border-color: var(--primary); background: var(--wb-info-soft); }
         .tipo-option .tipo-icon { font-size: 1.8rem; margin-bottom: 4px; }
         .tipo-option .tipo-name { font-size: 0.8rem; font-weight: 600; color: var(--dark); }
         .tipo-option .tipo-desc { font-size: 0.65rem; color: var(--text-light); }
@@ -150,7 +150,7 @@
             background: var(--bg);
             color: var(--dark);
         }
-        .form-control:focus { outline: none; border-color: var(--primary); background: var(--white); }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--var(--wb-surface)); }
         textarea.form-control { border-radius: var(--radius-sm); resize: vertical; }
 
         .form-row { display: flex; gap: 10px; }
@@ -180,7 +180,7 @@
             white-space: nowrap;
         }
         .btn-promo:active { transform: scale(0.97); }
-        .btn-promo-primary { background: var(--primary); color: white; }
+        .btn-promo-primary { background: var(--primary); color: var(--wb-accent-ink); }
         .btn-promo-success { background: var(--success); color: white; }
 
         /* Modal */
@@ -196,7 +196,7 @@
         .modal.open { display: flex; }
 
         .modal-sheet {
-            background: var(--white);
+            background: var(--var(--wb-surface));
             border-radius: 24px 24px 0 0;
             width: 100%;
             max-width: 540px;
@@ -226,7 +226,7 @@
             align-items: center;
             position: sticky;
             top: 0;
-            background: var(--white);
+            background: var(--var(--wb-surface));
             z-index: 1;
         }
 
@@ -251,7 +251,7 @@
             gap: 10px;
             position: sticky;
             bottom: 0;
-            background: var(--white);
+            background: var(--var(--wb-surface));
         }
 
         .modal-footer .btn { flex: 1; justify-content: center; }
@@ -261,15 +261,22 @@
             .tipo-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
     <div class="container">
-        <div class="header">
-            <h2>🎁 Mis Promociones</h2>
-            <button class="btn btn-primary" onclick="abrirModalCrear()">
-                ✨ Crear Promoción
+        {% call panel_header('profesional', 'promociones', 'Mis promociones') %}
+        <button class="wb-btn wb-btn-primary" onclick="abrirModalCrear()">
+                Crear Promoción
             </button>
-        </div>
+    {% endcall %}
 
         <div id="promocionesList">
             {% if promociones %}
@@ -294,7 +301,7 @@
                             </span>
                             
                             {% if promo.participaciones and promo.participaciones > 0 %}
-                            <span class="badge" style="background:#e0e7ff;color:#3730a3;">
+                            <span class="badge" style="background:var(--wb-info-soft);color:var(--wb-info-text);">
                                 📸 {{ promo.participaciones }}
                             </span>
                             {% endif %}

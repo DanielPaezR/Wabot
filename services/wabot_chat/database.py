@@ -10,6 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import sqlite3  # Para fallback
+import localizacion
 
 logger = logging.getLogger(__name__)
 
@@ -2747,10 +2748,11 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
 
 def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, año=None):
     """Obtener estadísticas mensuales - VERSIÓN CORREGIDA PARA POSTGRESQL"""
+    ahora_negocio = localizacion.ahora_en(negocio_id)
     if mes is None:
-        mes = datetime.now().month
+        mes = ahora_negocio.month
     if año is None:
-        año = datetime.now().year
+        año = ahora_negocio.year
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -4066,3 +4068,38 @@ try:
     crear_tabla_bloqueos_recurrentes()
 except Exception as e:
     print(f"⚠️ Error creando tabla de bloqueos recurrentes: {e}")
+
+
+def asegurar_columnas_localizacion():
+    """Columnas pais y zona_horaria en negocios (NULL = Colombia, el comportamiento histórico)."""
+    if not is_postgresql():
+        return
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS pais TEXT")
+        cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS zona_horaria TEXT")
+        cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS prompt_ia TEXT")
+        # Relación número de WhatsApp (n8n) -> negocio; el alta de negocios la consulta
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS numeros_whatsapp_negocio (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+                numero_whatsapp VARCHAR(20) NOT NULL UNIQUE,
+                activo BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️ Error asegurando columnas de localización: {e}")
+    finally:
+        conn.close()
+
+
+try:
+    asegurar_columnas_localizacion()
+except Exception as e:
+    print(f"⚠️ Error asegurando columnas de localización: {e}")

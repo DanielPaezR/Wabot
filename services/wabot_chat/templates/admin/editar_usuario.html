@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,126 +8,95 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .password-section {
-            border-left: 4px solid #0d6efd;
-            background-color: #f8f9fa;
+            border-left: 4px solid var(--wb-accent);
+            background-color: var(--wb-surface-2);
         }
         .toggle-password {
             cursor: pointer;
-            color: #6c757d;
+            color: var(--wb-text-2);
         }
         .toggle-password:hover {
-            color: #0d6efd;
+            color: var(--wb-info-text);
         }
         .password-strength {
             height: 4px;
             margin-top: 5px;
             border-radius: 2px;
         }
-        .strength-weak { background-color: #dc3545; width: 25%; }
-        .strength-medium { background-color: #ffc107; width: 50%; }
-        .strength-strong { background-color: #198754; width: 75%; }
-        .strength-very-strong { background-color: #198754; width: 100%; }
+        .strength-weak { background-color: var(--wb-bad-solid); width: 25%; }
+        .strength-medium { background-color: var(--wb-warn); width: 50%; }
+        .strength-strong { background-color: var(--wb-ok-solid); width: 75%; }
+        .strength-very-strong { background-color: var(--wb-ok-solid); width: 100%; }
         
         /* Estilos personalizados para compatibilidad */
         .role-info {
-            background: #e3f2fd;
+            background: var(--wb-surface-2);
             padding: 1rem;
             border-radius: 5px;
             margin-bottom: 1.5rem;
         }
         
         .role-info h3 {
-            color: #1976d2;
+            color: var(--wb-accent);
             margin-bottom: 0.5rem;
         }
         
         .role-desc {
-            color: #666;
+            color: var(--wb-text-2);
             font-size: 0.9rem;
             line-height: 1.4;
         }
         
         .conditional-field {
             display: none;
-            background: #f8f9fa;
+            background: var(--wb-surface-2);
             padding: 1rem;
             border-radius: 5px;
             margin-top: 0.5rem;
-            border-left: 4px solid #6c757d;
+            border-left: 4px solid var(--wb-line-strong);
         }
         
         .optional-field {
-            color: #666;
+            color: var(--wb-text-2);
             font-size: 0.8rem;
             margin-top: 0.25rem;
         }
         
         .password-requirements {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
+            background: var(--wb-warn-soft);
+            border: 1px solid var(--wb-warn-line);
             border-radius: 5px;
             padding: 0.75rem;
             margin-top: 0.5rem;
             font-size: 0.85rem;
-            color: #856404;
+            color: var(--wb-warn-text);
         }
         
         /* Estilo para campo deshabilitado */
         .negocio-disabled {
-            background-color: #e9ecef;
+            background-color: var(--wb-surface-2);
             opacity: 0.7;
             cursor: not-allowed;
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+
 </head>
-<body>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('admin', 'usuarios', 'Editar usuario', subtitulo=usuario.nombre, volver=url_for('admin_usuarios')) }}
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
-                <div class="position-sticky pt-3">
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="{{ url_for('admin_dashboard') }}">
-                                <i class="fas fa-tachometer-alt"></i>
-                                Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="{{ url_for('admin_negocios') }}">
-                                <i class="fas fa-store"></i>
-                                Negocios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link active text-white" href="{{ url_for('admin_usuarios') }}">
-                                <i class="fas fa-users"></i>
-                                Usuarios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-white" href="{{ url_for('admin_plantillas') }}">
-                                <i class="fas fa-envelope"></i>
-                                Plantillas
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
+            
 
             <!-- Main content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">
-                        <i class="fas fa-user-edit"></i>
-                        Editar Usuario: {{ usuario.nombre }}
-                    </h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <a href="{{ url_for('admin_usuarios') }}" class="btn btn-secondary">
-                            <i class="fas fa-arrow-left"></i> Volver
-                        </a>
-                    </div>
-                </div>
+            <main class="col-12 px-md-4">
 
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -221,7 +190,7 @@
 
                             <!-- Campos específicos para Profesional -->
                             <div id="profesionalFields" class="conditional-field">
-                                <h4 style="margin-bottom: 1rem; color: #2c3e50;">👨‍💼 Información del Profesional</h4>
+                                <h4 style="margin-bottom: 1rem; color: var(--wb-text);">👨‍💼 Información del Profesional</h4>
                                 
                                 <div class="row">
                                     <div class="col-md-6">
