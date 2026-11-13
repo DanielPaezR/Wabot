@@ -43,7 +43,8 @@ from localizacion import (
 
 web_chat_bp = Blueprint('web_chat', __name__)
 
-# Estados de conversación para sesiones web (en memoria — se pierde al reiniciar)
+# Estado de las conversaciones: copia de trabajo en memoria para cada mensaje; la fuente de verdad es la base
+# de datos (estado_conversacion.py), así sobrevive a los despliegues y funciona con varios procesos.
 conversaciones_activas = {}
 _CONVERSACION_TTL_MINUTOS = 30
 MENSAJE_HORARIO_OCUPADO = (
@@ -684,34 +685,6 @@ def quitar_caracteres(nombre):
     return re.sub(r'[^a-z0-9áéíóúüñ]', '', nombre.lower())
 
 
-def buscar_profesional_por_nombre(nombre, profesionales):
-    if not profesionales:
-        return None
-    busqueda = quitar_caracteres(nombre)
-    for profesional in profesionales:
-        if quitar_caracteres(profesional.get('nombre', '')) == busqueda:
-            return profesional
-    for profesional in profesionales:
-        nombre_limpio = quitar_caracteres(profesional.get('nombre', ''))
-        if busqueda in nombre_limpio or nombre_limpio in busqueda:
-            return profesional
-    return profesionales[0]
-
-
-def buscar_servicio_por_nombre(nombre, servicios):
-    if not servicios:
-        return None
-    busqueda = quitar_caracteres(nombre)
-    for servicio in servicios:
-        if quitar_caracteres(servicio.get('nombre', '')) == busqueda:
-            return servicio
-    for servicio in servicios:
-        nombre_limpio = quitar_caracteres(servicio.get('nombre', ''))
-        if busqueda in nombre_limpio or nombre_limpio in busqueda:
-            return servicio
-    return servicios[0]
-
-
 def obtener_contexto_de_negocio(negocio_id):
     negocio = db.obtener_negocio_por_id(negocio_id) or {}
     profesionales = db.obtener_profesionales(negocio_id) or []
@@ -871,13 +844,6 @@ def construir_prompt_negocio(negocio_id):
     if contexto['horarios']:
         partes.append(f"Horarios próximos: {valores['{horarios}']}.")
     return ' '.join(partes)
-
-
-def format_ia_template(template, variables):
-    texto = template
-    for key, valor in variables.items():
-        texto = texto.replace(f"{{{key}}}", str(valor or ''))
-    return texto
 
 
 def es_mensaje_despedida(mensaje):
@@ -1465,28 +1431,20 @@ def ia_consultar_horarios(arguments, negocio_id):
     if not horarios_dia or not horarios_dia.get('activo'):
         return f'El negocio no está activo el {fecha} o no hay horarios disponibles ese día.'
 
-    citas = db.obtener_citas_dia(negocio_id, profesional.get('id'), fecha)
-    horarios_disponibles = []
-    try:
-        inicio = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
-        fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
-        hora_actual = inicio
-        while hora_actual < fin:
-            hora_str = hora_actual.strftime('%H:%M')
-            if not any(cita.get('hora') == hora_str for cita in citas):
-                horarios_disponibles.append(hora_str)
-            hora_actual += timedelta(minutes=15)  # ✅ CAMBIADO a 15 minutos
-    except Exception as e:
-        print(f"⚠️ [IA] Error generando horarios disponibles: {e}")
+    # Misma lógica que el chat y los paneles: citas, bloqueos, almuerzo y horas ya pasadas.
+    # Sin servicio elegido se usa el más corto: son los horarios donde cabe al menos algún servicio.
+    import disponibilidad
+    duracion = disponibilidad.duracion_minima_servicios(negocio_id) or 30
+    horarios_disponibles = disponibilidad.horarios_libres(negocio_id, profesional.get('id'), fecha, duracion=duracion)
 
     if not horarios_disponibles:
         return f'❌ No encontré horarios disponibles para {profesional.get("nombre")} el {fecha}.'
 
-    horarios_texto = ', '.join(horarios_disponibles[:8])
+    horarios_texto = ', '.join(convertir_a_formato_12_horas(h) for h in horarios_disponibles[:8])
     return (
         f"📅 Disponibilidad para {profesional.get('nombre')}\n"
         f"🗓️ Fecha: {fecha}\n"
-        f"⏰ Horarios disponibles:\n"
+        f"⏰ Horarios disponibles (para el servicio más corto, {duracion} min):\n"
         f"{horarios_texto}"
     )
 
@@ -1735,6 +1693,32 @@ def detectar_y_extraer_whatsapp(session_id):
 # =============================================================================
 
 def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
+    """Procesa un mensaje del chat guardando el estado de la conversación en la base de datos."""
+    import estado_conversacion
+    import random
+    clave = f"{session_id}_{negocio_id}"      # la misma clave que usa procesar_mensaje (numero = session_id)
+    clave_bd = f"chat:{clave}"
+    guardado, disponible = estado_conversacion.cargar(clave_bd, ttl_minutos=_CONVERSACION_TTL_MINUTOS)
+    if disponible:
+        if guardado is not None:
+            conversaciones_activas[clave] = guardado
+        else:
+            conversaciones_activas.pop(clave, None)
+    try:
+        return _procesar_mensaje_chat(user_message, session_id, negocio_id, session)
+    finally:
+        try:
+            if clave in conversaciones_activas:
+                estado_conversacion.guardar(clave_bd, conversaciones_activas[clave])
+            elif disponible:
+                estado_conversacion.borrar(clave_bd)
+            if random.random() < 0.01:
+                estado_conversacion.limpiar_antiguas()
+        except Exception as e:
+            print(f"⚠️ [ESTADO] No se pudo persistir la conversación: {e}")
+
+
+def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
     """
     Función principal que procesa mensajes del chat web
     Reemplaza la función webhook_whatsapp
@@ -1744,13 +1728,13 @@ def procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         _limpiar_conversaciones_viejas()
         user_message = user_message.strip()
 
-        print(f"🔧 [CHAT WEB] Mensaje recibido: '{user_message}'")
+        print(f"🔧 [CHAT WEB] Mensaje recibido ({len(user_message)} caracteres)")
         
         # ✅ NUEVO: Detectar si es WhatsApp o PWA
         es_whatsapp, telefono_whatsapp = detectar_y_extraer_whatsapp(session_id)
         
         if es_whatsapp and telefono_whatsapp:
-            print(f"📱 [WHATSAPP] Cliente WhatsApp detectado - Teléfono: {telefono_whatsapp}")
+            print(f"📱 [WHATSAPP] Cliente WhatsApp detectado (...{str(telefono_whatsapp)[-4:]})")
             # Guardar automáticamente en la sesión para WhatsApp
             from flask import session as flask_session
             flask_session['cliente_telefono'] = telefono_whatsapp
@@ -1865,7 +1849,7 @@ def procesar_mensaje(mensaje, numero, negocio_id, session=None, es_whatsapp=Fals
     mensaje = mensaje.lower().strip()
     clave_conversacion = f"{numero}_{negocio_id}"
     
-    print(f"🔧 [DEBUG] PROCESANDO MENSAJE: '{mensaje}' de {numero}")
+    print(f"🔧 [DEBUG] Procesando mensaje de {len(mensaje)} caracteres")
     print(f"🔧 [DEBUG] Clave conversación: {clave_conversacion}")
     print(f"🔧 [DEBUG] Es WhatsApp: {es_whatsapp}")
     print(f"🔧 [DEBUG] Conversación activa: {clave_conversacion in conversaciones_activas}")
@@ -2787,53 +2771,6 @@ def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
     else:
         return "❌ Opción no válida. Responde con *1* para tu servicio personalizado o *2* para ver todos los servicios."
     
-def mostrar_servicios_disponibles(numero_cliente, negocio_id):
-    conn = db(negocio_id)
-    cursor = conn.cursor()
-    
-    # PRIMERO: Verificar si tiene servicio personalizado
-    cursor.execute('''
-        SELECT sp.*, 
-               json_agg(json_build_object(
-                   'id', s.id,
-                   'nombre', s.nombre,
-                   'duracion', s.duracion,
-                   'precio', s.precio,
-                   'incluido_por_defecto', sac.incluido_por_defecto
-               )) as servicios_adicionales
-        FROM servicios_personalizados sp
-        LEFT JOIN servicios_adicionales_cliente sac ON sp.id = sac.servicio_personalizado_id
-        LEFT JOIN servicios s ON sac.servicio_id = s.id
-        WHERE sp.cliente_id = (
-            SELECT id FROM clientes WHERE telefono = %s AND negocio_id = %s
-        ) AND sp.activo = true
-        GROUP BY sp.id
-    ''', (numero_cliente, negocio_id))
-    
-    servicio_personalizado = cursor.fetchone()
-    
-    if servicio_personalizado:
-        # Construir mensaje con servicio personalizado primero
-        mensaje = f"🌟 *SERVICIO PERSONALIZADO PARA TI* 🌟\n\n"
-        mensaje += f"*{servicio_personalizado['nombre_personalizado']}*\n"
-        mensaje += f"⏱️ Duración: {servicio_personalizado['duracion_personalizada']} min\n"
-        mensaje += f"💵 Precio: ${servicio_personalizado['precio_personalizado']:,.0f}\n"
-        
-        if servicio_personalizado['servicios_adicionales']:
-            mensaje += f"\n📋 *Servicios incluidos:*\n"
-            for adicional in servicio_personalizado['servicios_adicionales']:
-                if adicional['incluido_por_defecto']:
-                    mensaje += f"✅ {adicional['nombre']}\n"
-                else:
-                    mensaje += f"⚪ {adicional['nombre']} (opcional)\n"
-        
-        mensaje += f"\n🔢 *Responde con el número:*\n"
-        mensaje += f"1️⃣ - Seleccionar mi servicio personalizado\n"
-        mensaje += f"2️⃣ - Ver todos los servicios disponibles\n"
-        
-        conn.close()
-        return mensaje, 'servicio_personalizado'
-
 def mostrar_fechas_disponibles(numero, negocio_id):
     """Mostrar fechas disponibles para agendar - USANDO PLANTILLA"""
     try:
@@ -3397,7 +3334,7 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         
         print(f"🔧 [DEBUG] Datos para cita:")
         print(f"   - Cliente: {nombre_cliente}")
-        print(f"   - Teléfono: {telefono}")
+        print(f"   - Teléfono: ...{str(telefono)[-4:]}")
         print(f"   - Fecha: {fecha}")
         print(f"   - Hora: {hora}")
         print(f"   - Profesional: {profesional_nombre} (ID: {profesional_id})")
@@ -3502,61 +3439,6 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             del conversaciones_activas[clave_conversacion]
         return renderizar_plantilla('error_generico', negocio_id)
 
-
-def diagnostico_citas_duplicadas(negocio_id, profesional_id, fecha, hora, servicio_id):
-    """Función para diagnosticar por qué se permiten citas duplicadas"""
-    print(f"\n🚨 DIAGNÓSTICO DE DUPLICADOS 🚨")
-    print(f"Fecha: {fecha}")
-    print(f"Hora: {hora}")
-    print(f"Profesional ID: {profesional_id}")
-    print(f"Servicio ID: {servicio_id}")
-    
-    # Obtener duración del servicio
-    duracion = db.obtener_duracion_servicio(negocio_id, servicio_id)
-    print(f"Duración servicio: {duracion} minutos")
-    
-    # Obtener todas las citas del día
-    citas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
-    print(f"\n📋 TODAS las citas en BD para este día:")
-    
-    for i, cita in enumerate(citas):
-        print(f"  Cita #{i+1}:")
-        print(f"    Hora: {cita.get('hora')}")
-        print(f"    Duración: {cita.get('duracion')}")
-        print(f"    Estado: {cita.get('estado')}")
-    
-    # Verificar si ya existe una cita a esa hora
-    cita_existente = None
-    for cita in citas:
-        if cita.get('hora') == hora and cita.get('estado') == 'confirmado':
-            cita_existente = cita
-            break
-    
-    if cita_existente:
-        print(f"\n🚨 ¡YA EXISTE UNA CITA CONFIRMADA A ESA HORA!")
-        print(f"   Hora: {cita_existente.get('hora')}")
-        print(f"   Duración: {cita_existente.get('duracion')}")
-        print(f"   Estado: {cita_existente.get('estado')}")
-    else:
-        print(f"\n✅ No hay citas confirmadas a las {hora}")
-    
-    # Calcular horario propuesto
-    hora_inicio = datetime.strptime(hora, '%H:%M')
-    hora_fin = hora_inicio + timedelta(minutes=duracion)
-    
-    print(f"\n⏰ Horario propuesto: {hora} - {hora_fin.strftime('%H:%M')}")
-    
-    # Verificar solapamientos
-    for cita in citas:
-        if cita.get('estado') == 'confirmado':
-            cita_hora = datetime.strptime(cita.get('hora'), '%H:%M')
-            cita_duracion = cita.get('duracion', 0)
-            cita_fin = cita_hora + timedelta(minutes=int(cita_duracion))
-            
-            if se_solapan(hora_inicio, hora_fin, cita_hora, cita_fin):
-                print(f"\n🚨 SOLAPAMIENTO CON CITA EXISTENTE:")
-                print(f"   Cita existente: {cita.get('hora')} - {cita_fin.strftime('%H:%M')}")
-                print(f"   Nueva cita: {hora} - {hora_fin.strftime('%H:%M')}")
 
 def continuar_conversacion(numero, mensaje, negocio_id):
     """Continuar conversación basada en el estado actual"""
@@ -3857,7 +3739,7 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
     citas_disponibles = conversaciones_activas[clave_conversacion]['citas_disponibles']
     
     print(f"🔧 [DEBUG-CANCELAR] Citas disponibles: {list(citas_disponibles.keys())}")
-    print(f"🔧 [DEBUG-CANCELAR] Mensaje recibido: '{mensaje}'")
+    print(f"🔧 [DEBUG-CANCELAR] Mensaje recibido ({len(mensaje)} caracteres)")
     
     if mensaje not in citas_disponibles:
         return "❌ ID de cita inválido. Por favor, ingresa un ID de la lista anterior."
@@ -4073,246 +3955,16 @@ def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):
     return fechas_disponibles
 
 def generar_horarios_disponibles_actualizado(negocio_id, profesional_id, fecha, servicio_id):
-    """Generar horarios disponibles - VERIFICANDO BLOQUEOS RECURRENTES Y PUNTUALES"""
-    from datetime import datetime, timedelta
-    
+    """Horarios libres para un servicio, en formato 12 horas. La lógica vive en disponibilidad.py (una sola copia)."""
     try:
-        # Verificar si el día está activo
-        horarios_dia = db.obtener_horarios_por_dia(negocio_id, fecha)
-        
-        if not horarios_dia or not horarios_dia['activo']:
-            print(f"❌ Día no activo: {fecha}")
-            return []
-        
-        print(f"✅ Día activo: {fecha} ({horarios_dia['hora_inicio']} - {horarios_dia['hora_fin']})")
-        
-        # Obtener citas ya agendadas CON SU DURACIÓN (INCLUYENDO BLOQUEADOS PUNTUALES)
-        citas_ocupadas = db.obtener_citas_dia(negocio_id, profesional_id, fecha)
-        print(f"📋 Citas existentes: {len(citas_ocupadas)}")
-        
-        # ✅ VERIFICAR BLOQUEOS RECURRENTES
-        from database import obtener_bloqueos_recurrentes
-        bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
-        
-        # Determinar si el día de la semana está bloqueado recurrentemente
-        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
-        dia_semana = fecha_obj.isoweekday()  # 1=lunes, 7=domingo
-        
-        bloqueo_recurrente_activo = None
-        for bloqueo in bloqueos_recurrentes:
-            if bloqueo['activo']:
-                dias_bloqueados = bloqueo.get('dias_semana_lista', [])
-                if dia_semana in dias_bloqueados:
-                    # Verificar rango de fechas
-                    fecha_inicio = bloqueo.get('fecha_inicio')
-                    fecha_fin = bloqueo.get('fecha_fin')
-                    
-                    aplicar = True
-                    if fecha_inicio and fecha_obj.date() < datetime.strptime(fecha_inicio, '%Y-%m-%d').date():
-                        aplicar = False
-                    if fecha_fin and fecha_obj.date() > datetime.strptime(fecha_fin, '%Y-%m-%d').date():
-                        aplicar = False
-                    
-                    if aplicar:
-                        bloqueo_recurrente_activo = bloqueo
-                        print(f"🚫 Día bloqueado recurrentemente: {bloqueo['motivo']} ({bloqueo['hora_inicio']} - {bloqueo['hora_fin']})")
-                        break
-        
-        # Obtener duración del servicio que se quiere agendar
-        duracion_servicio = db.obtener_duracion_servicio(negocio_id, servicio_id)
-        if not duracion_servicio:
-            print(f"❌ No se pudo obtener duración del servicio")
-            return []
-        
-        print(f"⏱️ Duración del servicio a agendar: {duracion_servicio} minutos")
-        
-        # Si es hoy, considerar margen mínimo
-        fecha_actual = datetime.now(tz_negocio)
-        fecha_cita = datetime.strptime(fecha, '%Y-%m-%d')
-        es_hoy = fecha_cita.date() == fecha_actual.date()
-        
-        # Generar horarios disponibles
-        horarios = []
-        hora_actual = datetime.strptime(horarios_dia['hora_inicio'], '%H:%M')
-        hora_fin = datetime.strptime(horarios_dia['hora_fin'], '%H:%M')
-        
-        # Si hay bloqueo recurrente, determinar rango de horas bloqueadas
-        hora_inicio_bloqueo = None
-        hora_fin_bloqueo = None
-        if bloqueo_recurrente_activo:
-            try:
-                hora_inicio_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_inicio'], '%H:%M')
-                hora_fin_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_fin'], '%H:%M')
-            except:
-                pass
-        
-        # Contadores para resumen
-        total_horarios_verificados = 0
-        horarios_disponibles = 0
-        horarios_omitidos = 0
-        
-        while hora_actual < hora_fin:
-            hora_str = hora_actual.strftime('%H:%M')
-            total_horarios_verificados += 1
-            
-            # Calcular hora de fin del servicio
-            hora_fin_servicio = hora_actual + timedelta(minutes=duracion_servicio)
-            
-            # Verificar que el servicio no se pase de la hora de cierre
-            if hora_fin_servicio.time() > hora_fin.time():
-                print(f"⏰ {hora_str} - Servicio terminaría después del cierre ({hora_fin_servicio.strftime('%H:%M')} > {horarios_dia['hora_fin']})")
-                hora_actual += timedelta(minutes=15)
-                continue
-            
-            # Si es hoy, verificar horarios futuros con margen
-            if es_hoy:
-                hora_actual_completa = datetime.combine(fecha_actual.date(), hora_actual.time())
-                hora_actual_completa = hora_actual_completa.replace(tzinfo=tz_negocio)
-                tiempo_hasta_horario = hora_actual_completa - fecha_actual
-                
-                # MARGEN MÍNIMO: 30 minutos de anticipación
-                margen_minimo_minutos = 30
-                
-                if tiempo_hasta_horario.total_seconds() <= 0:
-                    print(f"⏰ {hora_str} - Ya pasó esta hora")
-                    horarios_omitidos += 1
-                    hora_actual += timedelta(minutes=15)
-                    continue
-                elif tiempo_hasta_horario.total_seconds() < (margen_minimo_minutos * 60):
-                    print(f"⏰ {hora_str} - Muy cerca (faltan {int(tiempo_hasta_horario.total_seconds()/60)} min, mínimo {margen_minimo_minutos})")
-                    horarios_omitidos += 1
-                    hora_actual += timedelta(minutes=15)
-                    continue
-            
-            # Verificar si está en horario de almuerzo
-            if es_horario_almuerzo(hora_actual, horarios_dia):
-                print(f"⏰ {hora_str} - Horario de almuerzo")
-                horarios_omitidos += 1
-                hora_actual += timedelta(minutes=15)
-                continue
-            
-            # ✅ VERIFICAR BLOQUEO RECURRENTE
-            if bloqueo_recurrente_activo and hora_inicio_bloqueo and hora_fin_bloqueo:
-                # Verificar si el horario se solapa con el bloqueo recurrente
-                if (hora_actual.time() < hora_fin_bloqueo.time() and 
-                    hora_fin_servicio.time() > hora_inicio_bloqueo.time()):
-                    print(f"🚫 {hora_str} - Bloqueado por recurrente: {bloqueo_recurrente_activo['motivo']}")
-                    horarios_omitidos += 1
-                    hora_actual += timedelta(minutes=15)
-                    continue
-            
-            # ✅ VERIFICAR DISPONIBILIDAD COMPLETA con citas existentes
-            if esta_disponible_por_duracion(hora_actual, duracion_servicio, citas_ocupadas, horarios_dia):
-                # Convertir a formato 12 horas antes de agregar
-                hora_12h = convertir_a_formato_12_horas(hora_str)
-                horarios.append(hora_12h)
-                horarios_disponibles += 1
-                print(f"   ✅ {hora_str} -> {hora_12h} DISPONIBLE (ocupará hasta {hora_fin_servicio.strftime('%H:%M')})")
-            else:
-                print(f"❌ {hora_str} NO DISPONIBLE - Conflicto con otra cita o bloqueo puntual")
-                horarios_omitidos += 1
-            
-            # Avanzar al siguiente slot (15 minutos)
-            hora_actual += timedelta(minutes=15)
-        
-        # Mostrar resumen
-        print(f"🎯 Horarios generados:")
-        print(f"   • Total verificados: {total_horarios_verificados}")
-        print(f"   • Disponibles: {horarios_disponibles}")
-        print(f"   • Omitidos: {horarios_omitidos}")
-        print(f"   • Lista: {', '.join(horarios[:5])}{'...' if len(horarios) > 5 else ''}")
-        
-        return horarios
-        
+        import disponibilidad
+        libres = disponibilidad.horarios_libres(negocio_id, profesional_id, fecha, servicio_id=servicio_id)
+        return [convertir_a_formato_12_horas(h) for h in libres]
     except Exception as e:
         print(f"❌ Error en generar_horarios_disponibles_actualizado: {e}")
         import traceback
         traceback.print_exc()
         return []
-
-def esta_disponible_por_duracion(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """
-    Verificar si un horario está disponible considerando la DURACIÓN COMPLETA del servicio.
-    Versión mejorada que bloquea todo el tiempo que dure el servicio.
-    """
-    # ✅ IMPORTAR DATETIME DENTRO DE LA FUNCIÓN
-    from datetime import datetime, timedelta
-    
-    hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
-    hora_inicio_str = hora_inicio.strftime('%H:%M')
-    hora_fin_str = hora_fin_servicio.strftime('%H:%M')
-    
-    # Verificar límites del día
-    try:
-        hora_fin_jornada = datetime.strptime(config_dia['hora_fin'], '%H:%M')
-        if hora_fin_servicio.time() > hora_fin_jornada.time():
-            print(f"     ❌ {hora_inicio_str} - Se pasa del horario de cierre (termina {hora_fin_str})")
-            return False
-    except Exception as e:
-        print(f"❌ Error verificando horario cierre: {e}")
-        return False
-    
-    # Verificar almuerzo
-    if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
-        print(f"     ❌ {hora_inicio_str} - Se solapa con horario de almuerzo")
-        return False
-    
-    # Verificar citas existentes
-    if citas_ocupadas:
-        for cita_ocupada in citas_ocupadas:
-            try:
-                # Extraer datos de la cita
-                hora_cita_str = None
-                duracion_cita = 0
-                estado_cita = 'confirmado'
-                
-                if isinstance(cita_ocupada, dict):
-                    hora_cita_str = cita_ocupada.get('hora')
-                    duracion_cita = cita_ocupada.get('duracion', 0)
-                    estado_cita = cita_ocupada.get('estado', 'confirmado')
-                elif isinstance(cita_ocupada, (list, tuple)) and len(cita_ocupada) >= 2:
-                    hora_cita_str = cita_ocupada[0]
-                    duracion_cita = cita_ocupada[1]
-                    estado_cita = cita_ocupada[2] if len(cita_ocupada) > 2 else 'confirmado'
-                
-                if not hora_cita_str or (estado_cita and estado_cita.lower() in ['cancelado', 'cancelada']):
-                    continue
-                
-                # Normalizar hora si es necesario
-                hora_cita_str_normalizada = hora_cita_str
-                if 'AM' in hora_cita_str or 'PM' in hora_cita_str:
-                    try:
-                        hora_obj = datetime.strptime(hora_cita_str.strip(), '%I:%M %p')
-                        hora_cita_str_normalizada = hora_obj.strftime('%H:%M')
-                    except:
-                        pass
-                
-                # Convertir a datetime
-                hora_cita = datetime.strptime(str(hora_cita_str_normalizada).strip(), '%H:%M')
-                hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
-                
-                # ✅ VERIFICAR SOLAPAMIENTO COMPLETO - INCLUYENDO BLOQUEADOS
-                if estado_cita.lower() == 'bloqueado':
-                    # Si es bloqueo, también afecta disponibilidad
-                    if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-                        print(f"     ❌ {hora_inicio_str} - Conflicto con BLOQUEO {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')}")
-                        return False
-                elif estado_cita.lower() in ['confirmado', 'confirmada', 'completado']:
-                    if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-                        print(f"     ❌ {hora_inicio_str} - Conflicto con cita {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')} (dur. {duracion_cita} min)")
-                        return False
-                else:
-                    print(f"     ✓ {hora_inicio_str} - No hay conflicto con cita {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')}")
-                    
-            except Exception as e:
-                print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
-                continue
-    else:
-        print(f"     ✓ {hora_inicio_str} - No hay citas para comparar")
-    
-    print(f"     ✅ {hora_inicio_str} DISPONIBLE (ocupará hasta {hora_fin_str})")
-    return True
-
 
 def verificar_disponibilidad_basica(negocio_id, fecha):
     """Verificación rápida de disponibilidad para una fecha - FIX TIMEZONE"""
@@ -4354,116 +4006,6 @@ def verificar_disponibilidad_basica(negocio_id, fecha):
         traceback.print_exc()
         return False
 
-def es_horario_almuerzo(hora, config_dia):
-    """Verificar si es horario de almuerzo - SIN CAMBIOS"""
-    if not config_dia.get('almuerzo_inicio') or not config_dia.get('almuerzo_fin'):
-        return False  # No hay almuerzo configurado para este día
-    
-    try:
-        almuerzo_ini = datetime.strptime(config_dia['almuerzo_inicio'], '%H:%M')
-        almuerzo_fin = datetime.strptime(config_dia['almuerzo_fin'], '%H:%M')
-        hora_time = hora.time()
-        
-        return almuerzo_ini.time() <= hora_time < almuerzo_fin.time()
-    except Exception as e:
-        print(f"❌ Error verificando horario almuerzo: {e}")
-        return False
-
-def esta_disponible(hora_inicio, duracion_servicio, citas_ocupadas, config_dia):
-    """Verificar si un horario está disponible - CON LOGS DETALLADOS"""
-    hora_str = hora_inicio.strftime('%H:%M')
-    hora_fin_servicio = hora_inicio + timedelta(minutes=duracion_servicio)
-    
-    print(f"\n   🔍 Verificando disponibilidad para {hora_str} (duración: {duracion_servicio} min)")
-    
-    # Verificar límites del día
-    try:
-        hora_fin_jornada = datetime.strptime(config_dia['hora_fin'], '%H:%M')
-        if hora_fin_servicio.time() > hora_fin_jornada.time():
-            print(f"     ❌ NO DISPONIBLE - Se pasa del horario de cierre ({config_dia['hora_fin']})")
-            return False
-    except Exception as e:
-        print(f"❌ Error verificando horario cierre: {e}")
-        return False
-    
-    # Verificar almuerzo
-    if se_solapa_con_almuerzo(hora_inicio, hora_fin_servicio, config_dia):
-        print(f"     ❌ NO DISPONIBLE - Se solapa con horario de almuerzo")
-        return False
-    
-    # Verificar citas existentes
-    if citas_ocupadas:
-        print(f"     📋 Verificando contra {len(citas_ocupadas)} citas existentes...")
-        
-        for i, cita_ocupada in enumerate(citas_ocupadas):
-            try:
-                # Extraer datos de la cita
-                hora_cita_str = None
-                duracion_cita = 0
-                estado_cita = 'confirmado'
-                
-                if isinstance(cita_ocupada, dict):
-                    hora_cita_str = cita_ocupada.get('hora')
-                    duracion_cita = cita_ocupada.get('duracion', 0)
-                    estado_cita = cita_ocupada.get('estado', 'confirmado')
-                elif isinstance(cita_ocupada, (list, tuple)) and len(cita_ocupada) >= 2:
-                    hora_cita_str = cita_ocupada[0]
-                    duracion_cita = cita_ocupada[1]
-                    estado_cita = cita_ocupada[2] if len(cita_ocupada) > 2 else 'confirmado'
-                
-                if not hora_cita_str:
-                    print(f"       ⚠️ Hora de cita vacía, saltando...")
-                    continue
-                
-                print(f"     🔍 Comparando con cita #{i+1}: {hora_cita_str} ({duracion_cita} min, Estado: {estado_cita})")
-                
-                # VERIFICACIÓN CRÍTICA CORREGIDA:
-                # Solo excluir citas CANCELADAS, pero INCLUIR BLOQUEADAS en la verificación
-                if estado_cita and estado_cita.lower() in ['cancelado', 'cancelada']:
-                    print(f"       ⏭️ IGNORADA - Cita cancelada: {estado_cita}")
-                    continue
-                
-                # LAS CITAS BLOQUEADAS CONTINÚAN AQUÍ Y SE VERIFICAN POR SOLAPAMIENTO
-                
-                # Verificar solapamiento
-                hora_cita = datetime.strptime(str(hora_cita_str).strip(), '%H:%M')
-                hora_fin_cita = hora_cita + timedelta(minutes=int(duracion_cita))
-                
-                if se_solapan(hora_inicio, hora_fin_servicio, hora_cita, hora_fin_cita):
-                    print(f"       ❌ SOLAPAMIENTO DETECTADO - Cita con estado: {estado_cita}")
-                    print(f"         Nuevo: {hora_str}-{hora_fin_servicio.strftime('%H:%M')}")
-                    print(f"         Existente: {hora_cita_str}-{hora_fin_cita.strftime('%H:%M')}")
-                    return False
-                else:
-                    print(f"       ✅ No hay solapamiento (estado: {estado_cita})")
-                    
-            except Exception as e:
-                print(f"⚠️ Error procesando cita ocupada {cita_ocupada}: {e}")
-                continue
-    else:
-        print(f"     📭 No hay citas para comparar")
-    
-    print(f"     ✅ DISPONIBLE - {hora_str}")
-    return True
-
-def se_solapa_con_almuerzo(hora_inicio, hora_fin, config_dia):
-    """Verificar si un horario se solapa con el almuerzo - VERSIÓN SILENCIOSA"""
-    if not config_dia.get('almuerzo_inicio') or not config_dia.get('almuerzo_fin'):
-        return False
-    
-    try:
-        almuerzo_ini = datetime.strptime(config_dia['almuerzo_inicio'], '%H:%M')
-        almuerzo_fin = datetime.strptime(config_dia['almuerzo_fin'], '%H:%M')
-        
-        return (hora_inicio.time() < almuerzo_fin.time() and 
-                hora_fin.time() > almuerzo_ini.time())
-    except Exception:
-        return False
-
-def se_solapan(inicio1, fin1, inicio2, fin2):
-    """Verificar si dos intervalos de tiempo se solapan"""
-    return (inicio1.time() < fin2.time() and fin1.time() > inicio2.time())
-
 def reiniciar_conversacion_si_es_necesario(numero, negocio_id):
     """Reiniciar conversación si ha pasado mucho tiempo - SIN CAMBIOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
@@ -4491,44 +4033,6 @@ def enviar_sms_confirmacion(numero_telefono, mensaje):
     print(f"📱 [SIMULADO] SMS enviado a {numero_telefono}: {mensaje[:50]}...")
     return True
 
-def notificar_cita_agendada(cita, cliente_info):
-    """Notificar al cliente que su cita fue agendada"""
-    try:
-        # Obtener información del negocio
-        negocio = db.obtener_negocio_por_id(cita['negocio_id'])
-        
-        # Preparar mensaje
-        fecha_formateada = datetime.strptime(cita['fecha'], '%Y-%m-%d').strftime('%d/%m/%Y')
-        precio_formateado = f"${cita.get('precio', 0):,.0f}".replace(',', '.')
-        
-        mensaje = f'''✅ Cita confirmada en {negocio['nombre']}
-
-👤 Cliente: {cita['cliente_nombre']}
-👨‍💼 Profesional: {cita['profesional_nombre']}
-💼 Servicio: {cita['servicio_nombre']}
-💰 Precio: {precio_formateado}
-📅 Fecha: {fecha_formateada}
-⏰ Hora: {cita['hora']}
-🎫 ID: #{cita['id']}
-
-📍 {negocio.get('direccion', 'Dirección no especificada')}
-
-Recibirás recordatorios por correo electrónico.'''
-        
-        # Intentar enviar correo si hay email
-        if cliente_info and cliente_info.get('email'):
-            enviar_correo_confirmacion(cita, cliente_info['email'])
-        
-        # Enviar SMS si hay número de teléfono
-        if cita.get('cliente_telefono'):
-            enviar_sms_confirmacion(cita['cliente_telefono'], mensaje)
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error notificando cita: {e}")
-        return False
-    
 def limpiar_formato_whatsapp(texto):
     """
     Limpiar formato WhatsApp (*negrita*, _cursiva_) pero preservar emojis reales
