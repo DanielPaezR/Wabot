@@ -8,7 +8,7 @@ on:
 
 jobs:
   pruebas:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04       # fijo: ubuntu-latest ya no trae Python 3.9
     timeout-minutes: 20
 
     services:
