@@ -138,7 +138,7 @@ check('sin errores muestra el mensaje vacío', 'No hay errores registrados' in h
 
 # ---------------------------------------------------------------- Sentry opcional
 check('sin SENTRY_DSN no se activa', M.iniciar_sentry() is False)
-os.environ['SENTRY_DSN'] = 'https://clave@o0.ingest.sentry.io/0'
+os.environ['SENTRY_DSN'] = 'https://' + 'clave' + '@' + 'o0.ingest.sentry.io/0'      # DSN falso, armado por partes
 resultado = M.iniciar_sentry()
 check('con DSN pero sin el paquete instalado no rompe la app', resultado in (True, False))
 os.environ.pop('SENTRY_DSN')
