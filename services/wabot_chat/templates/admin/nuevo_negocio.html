@@ -266,7 +266,7 @@
         
         <div class="form-container">
             <div class="form-help">
-                <h4>💡 Información importante</h4>
+                <h4>Información importante</h4>
                 <p>Al crear un negocio se generará automáticamente un usuario propietario con las credenciales: <strong>propietario@negocio.com / propietario123</strong>. Podrás editar estos datos después.</p>
             </div>
             
@@ -311,16 +311,16 @@
                 <div class="form-group">
                     <label for="tipo_negocio">Tipo de Negocio *</label>
                     <select id="tipo_negocio" name="tipo_negocio" required>
-                        <option value="barberia" {% if request.form and request.form.tipo_negocio == 'barberia' %}selected{% endif %}>💈 Barbería</option>
-                        <option value="spa_unas" {% if request.form and request.form.tipo_negocio == 'spa_unas' %}selected{% endif %}>💅 Spa de Uñas</option>
-                        <option value="peluqueria" {% if request.form and request.form.tipo_negocio == 'peluqueria' %}selected{% endif %}>✂️ Peluquería</option>
-                        <option value="estetica" {% if request.form and request.form.tipo_negocio == 'estetica' %}selected{% endif %}>💆‍♀️ Centro Estética</option>
-                        <option value="consultorio" {% if request.form and request.form.tipo_negocio == 'consultorio' %}selected{% endif %}>🏥 Consultorio Médico</option>
-                        <option value="gimnasio" {% if request.form and request.form.tipo_negocio == 'gimnasio' %}selected{% endif %}>🏋️ Gimnasio</option>
-                        <option value="yoga" {% if request.form and request.form.tipo_negocio == 'yoga' %}selected{% endif %}>🧘 Estudio de Yoga</option>
-                        <option value="masajes" {% if request.form and request.form.tipo_negocio == 'masajes' %}selected{% endif %}>💆 Centro de Masajes</option>
-                        <option value="tattoo" {% if request.form and request.form.tipo_negocio == 'tattoo' %}selected{% endif %}>🎨 Estudio de Tattoo</option>
-                        <option value="otros" {% if request.form and request.form.tipo_negocio == 'otros' %}selected{% endif %}>💼 Otros Servicios</option>
+                        <option value="barberia" {% if request.form and request.form.tipo_negocio == 'barberia' %}selected{% endif %}>Barbería</option>
+                        <option value="spa_unas" {% if request.form and request.form.tipo_negocio == 'spa_unas' %}selected{% endif %}>Spa de Uñas</option>
+                        <option value="peluqueria" {% if request.form and request.form.tipo_negocio == 'peluqueria' %}selected{% endif %}>Peluquería</option>
+                        <option value="estetica" {% if request.form and request.form.tipo_negocio == 'estetica' %}selected{% endif %}>Centro Estética</option>
+                        <option value="consultorio" {% if request.form and request.form.tipo_negocio == 'consultorio' %}selected{% endif %}>Consultorio Médico</option>
+                        <option value="gimnasio" {% if request.form and request.form.tipo_negocio == 'gimnasio' %}selected{% endif %}>Gimnasio</option>
+                        <option value="yoga" {% if request.form and request.form.tipo_negocio == 'yoga' %}selected{% endif %}>Estudio de Yoga</option>
+                        <option value="masajes" {% if request.form and request.form.tipo_negocio == 'masajes' %}selected{% endif %}>Centro de Masajes</option>
+                        <option value="tattoo" {% if request.form and request.form.tipo_negocio == 'tattoo' %}selected{% endif %}>Estudio de Tattoo</option>
+                        <option value="otros" {% if request.form and request.form.tipo_negocio == 'otros' %}selected{% endif %}>Otros Servicios</option>
                     </select>
                     <small>Selecciona la categoría que mejor describa tu negocio</small>
                 </div>
@@ -331,7 +331,7 @@
                         <select id="pais" name="pais" required>
                             <option value="CO" {% if not request.form or request.form.pais == 'CO' %}selected{% endif %}>🇨🇴 Colombia (celular de 10 dígitos)</option>
                             <option value="AW" {% if request.form and request.form.pais == 'AW' %}selected{% endif %}>🇦🇼 Aruba (teléfono de 7 dígitos)</option>
-                            <option value="OTRO" {% if request.form and request.form.pais == 'OTRO' %}selected{% endif %}>🌎 Otro país (7 a 15 dígitos)</option>
+                            <option value="OTRO" {% if request.form and request.form.pais == 'OTRO' %}selected{% endif %}>Otro país (7 a 15 dígitos)</option>
                         </select>
                         <small>Define el formato de teléfono de los clientes y la hora local de las citas</small>
                     </div>
@@ -354,7 +354,7 @@
 
                 <!-- NUEVO: Coordenadas para el mapa -->
                 <div class="coordinates-group">
-                    <h4>📍 Ubicación en el Mapa</h4>
+                    <h4>Ubicación en el Mapa</h4>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="latitud">Latitud</label>
@@ -389,7 +389,7 @@
                 </div>
                 
                 <button type="submit" class="btn-primary" id="submitBtn">
-                    🏪 Crear Negocio
+                    Crear Negocio
                 </button>
                 
                 <div class="loading" id="loading">
@@ -407,19 +407,19 @@
             
             const telefono = document.getElementById('telefono_whatsapp').value;
             if (!telefono.startsWith('+')) {
-                alert('❌ El número de WhatsApp debe empezar con + (formato internacional)');
+                alert('El número de WhatsApp debe empezar con + (formato internacional)');
                 e.preventDefault();
                 return;
             }
             
             if (telefono.length < 10) {
-                alert('❌ El número de WhatsApp parece ser muy corto');
+                alert('El número de WhatsApp parece ser muy corto');
                 e.preventDefault();
                 return;
             }
             
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '⏳ Creando...';
+            submitBtn.innerHTML = 'Creando...';
             loading.style.display = 'block';
         });
 

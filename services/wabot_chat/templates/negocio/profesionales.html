@@ -82,7 +82,7 @@
             padding: 1rem;
         }
         
-        /* ✅ CORRECCIÓN 1: Navegación responsive mejorada */
+        /* CORRECCIÓN 1: Navegación responsive mejorada */
         .nav-buttons {
             display: flex;
             flex-wrap: wrap;
@@ -272,7 +272,7 @@
             color: var(--wb-text-2);
         }
 
-        /* ✅ CORRECCIÓN 2: Vista móvil para profesionales */
+        /* CORRECCIÓN 2: Vista móvil para profesionales */
         .mobile-table-view {
             display: none;
         }
@@ -411,7 +411,7 @@
     {{ panel_header('negocio', 'profesionales', 'Equipo') }}
     
     <div class="container">
-        <!-- ✅ CORRECCIÓN 1: Navegación responsive mejorada -->
+        <!-- CORRECCIÓN 1: Navegación responsive mejorada -->
         
 
         <div class="flash-messages">
@@ -466,10 +466,10 @@
                                 {% endif %}
                             </td>
                             <td class="actions">
-                                <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                                <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">Editar</a>
                                 <form method="POST" action="{{ url_for('negocio_eliminar_profesional', profesional_id=profesional.id) }}" style="display: inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">🗑️ Eliminar</button>
+                                    <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">Eliminar</button>
                                 </form>
                             </td>
                         </tr>
@@ -478,7 +478,7 @@
                 </table>
             </div>
             
-            <!-- ✅ CORRECCIÓN 2: Vista móvil para profesionales -->
+            <!-- CORRECCIÓN 2: Vista móvil para profesionales -->
             <div class="mobile-table-view">
                 {% for profesional in profesionales %}
                 <div class="profesional-card">
@@ -517,10 +517,10 @@
                     </div>
                     
                     <div class="card-actions">
-                        <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                        <a href="{{ url_for('negocio_editar_profesional', profesional_id=profesional.id) }}" class="btn-sm btn-edit">Editar</a>
                         <form method="POST" action="{{ url_for('negocio_eliminar_profesional', profesional_id=profesional.id) }}" style="display: inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">🗑️ Eliminar</button>
+                            <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este profesional?')">Eliminar</button>
                         </form>
                     </div>
                 </div>
@@ -529,9 +529,9 @@
             
             {% else %}
             <div class="empty-state">
-                <h2>👨‍💼 No hay profesionales registrados</h2>
+                <h2>No hay profesionales registrados</h2>
                 <p>Comienza agregando el primer profesional a tu negocio</p>
-                <a href="{{ url_for('negocio_nuevo_profesional') }}" class="btn btn-primary">➕ Agregar Primer Profesional</a>
+                <a href="{{ url_for('negocio_nuevo_profesional') }}" class="btn btn-primary">Agregar Primer Profesional</a>
             </div>
             {% endif %}
         </div>

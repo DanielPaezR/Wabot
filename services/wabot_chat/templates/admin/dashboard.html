@@ -460,79 +460,79 @@
 
         <div class="stats-grid">
             <div class="stat-card">
-                <h3>🏪 Total Negocios</h3>
+                <h3>Total Negocios</h3>
                 <div class="stat-number">{{ total_negocios }}</div>
             </div>
             <div class="stat-card">
-                <h3>✅ Negocios Activos</h3>
+                <h3>Negocios Activos</h3>
                 <div class="stat-number">{{ negocios_activos }}</div>
             </div>
             <div class="stat-card">
-                <h3>👥 Usuarios Totales</h3>
+                <h3>Usuarios Totales</h3>
                 <div class="stat-number">{{ usuarios_recientes|length }}</div>
             </div>
             <div class="stat-card">
-                <h3>📊 Sistema</h3>
-                <div class="stat-number" style="color: var(--wb-ok-text);">🟢 Activo</div>
+                <h3>Sistema</h3>
+                <div class="stat-number" style="color: var(--wb-ok-text);">Activo</div>
             </div>
         </div>
         
         <div class="nav-grid">
             <a href="{{ url_for('admin_negocios') }}" class="nav-card nav-card-negocios">
-                <h2>🏪 Gestión de Negocios</h2>
+                <h2>Gestión de Negocios</h2>
                 <p>Administra todos los negocios registrados en la plataforma. Crea, edita y desactiva negocios.</p>
             </a>
             
             <a href="{{ url_for('admin_usuarios') }}" class="nav-card nav-card-usuarios">
-                <h2>👥 Gestión de Usuarios</h2>
+                <h2>Gestión de Usuarios</h2>
                 <p>Gestiona usuarios del sistema. Crea super admins, propietarios y profesionales.</p>
             </a>
             
             <a href="{{ url_for('admin_plantillas') }}" class="nav-card nav-card-plantillas">
-                <h2>📝 Plantillas Base</h2>
+                <h2>Plantillas Base</h2>
                 <p>Gestiona las plantillas base de WhatsApp para todos los negocios del sistema.</p>
             </a>
             
             <!-- NUEVO: Card para Base de Datos -->
             <a href="#" class="nav-card nav-card-base-datos" onclick="openDatabaseModal(event)">
-                <h2>🗄️ Base de Datos</h2>
+                <h2>Base de Datos</h2>
                 <p>Administración de la base de datos. Crear tablas, ejecutar SQL y verificar sistema.</p>
             </a>
             
             <!-- NUEVO: Card para Sistema -->
             <a href="#" class="nav-card nav-card-sistema" onclick="openSystemInfoModal(event)">
-                <h2>⚙️ Información del Sistema</h2>
+                <h2>Información del Sistema</h2>
                 <p>Verifica el estado del sistema, tablas existentes y configuración del servidor.</p>
             </a>
         </div>
 
         <!-- Estado del Sistema - VERSIÓN SIMPLIFICADA -->
         <div class="system-status">
-            <h2 style="color: var(--wb-text); margin-bottom: 1rem;">⚙️ Estado del Sistema</h2>
+            <h2 style="color: var(--wb-text); margin-bottom: 1rem;">Estado del Sistema</h2>
             <div class="status-item">
                 <span class="status-name">Base de Datos</span>
-                <span class="status-value status-online">🟢 Conectada</span>
+                <span class="status-value status-online">Conectada</span>
             </div>
             <div class="status-item">
                 <span class="status-name">Tabla de Imágenes</span>
                 <span id="tablaImagenesStatus" class="status-value status-warning">
-                    ⚠️ Clic en "Base de Datos" para crear
+                    Clic en "Base de Datos" para crear
                 </span>
             </div>
             <div class="status-item">
                 <span class="status-name">Sistema de Citas</span>
-                <span class="status-value status-online">🟢 Operativo</span>
+                <span class="status-value status-online">Operativo</span>
             </div>
             <div class="status-item">
                 <span class="status-name">Integración WhatsApp</span>
-                <span class="status-value status-online">🟢 Configurado</span>
+                <span class="status-value status-online">Configurado</span>
             </div>
         </div>
 
         <!-- Usuarios Recientes -->
         {% if usuarios_recientes %}
         <div style="margin-top: 2rem;">
-            <h2 style="color: var(--wb-text); margin-bottom: 1rem;">👥 Usuarios Recientes</h2>
+            <h2 style="color: var(--wb-text); margin-bottom: 1rem;">Usuarios Recientes</h2>
             <div style="background: var(--wb-surface); padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
                     {% for usuario in usuarios_recientes %}
@@ -544,11 +544,11 @@
                             <div style="font-weight: bold; font-size: 0.9rem;">{{ usuario.nombre }}</div>
                             <div style="font-size: 0.7rem; color: var(--wb-text-2);">
                                 {% if usuario.rol == 'superadmin' %}
-                                    🔧 Super Admin
+                                    Super Admin
                                 {% elif usuario.rol == 'propietario' %}
-                                    👑 Propietario
+                                    Propietario
                                 {% else %}
-                                    👨‍💼 Profesional
+                                    Profesional
                                 {% endif %}
                             </div>
                         </div>
@@ -564,33 +564,33 @@
     <div id="databaseModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">🗄️ Administración de Base de Datos</h3>
+                <h3 class="modal-title">Administración de Base de Datos</h3>
                 <button class="modal-close" onclick="closeDatabaseModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="warning-box">
-                    <h3>⚠️ ADVERTENCIA</h3>
+                    <h3>ADVERTENCIA</h3>
                     <p>Esta sección es solo para administradores experimentados. Las operaciones pueden afectar permanentemente los datos.</p>
                 </div>
                 
                 <div class="db-actions">
                     <div class="db-action-card" onclick="crearTablaImagenes()">
-                        <div class="db-action-title">🖼️ Crear Tabla de Imágenes</div>
+                        <div class="db-action-title">Crear Tabla de Imágenes</div>
                         <div class="db-action-desc">Crea la tabla para almacenar imágenes de profesionales con su negocio y profesional asociados.</div>
                     </div>
                     
                     <div class="db-action-card" onclick="verTablasSistema()">
-                        <div class="db-action-title">📊 Ver Tablas del Sistema</div>
+                        <div class="db-action-title">Ver Tablas del Sistema</div>
                         <div class="db-action-desc">Lista todas las tablas existentes en la base de datos con su estructura.</div>
                     </div>
                     
                     <div class="db-action-card" onclick="openSQLModal()">
-                        <div class="db-action-title">🔧 SQL Manual</div>
+                        <div class="db-action-title">SQL Manual</div>
                         <div class="db-action-desc">Ejecuta comandos SQL personalizados. Usar con precaución extrema.</div>
                     </div>
                     
                     <div class="db-action-card" onclick="verificarSistema()">
-                        <div class="db-action-title">🔍 Verificar Sistema</div>
+                        <div class="db-action-title">Verificar Sistema</div>
                         <div class="db-action-desc">Comprueba el estado de todas las tablas y componentes del sistema.</div>
                     </div>
                 </div>
@@ -607,12 +607,12 @@
     <div id="sqlModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">🔧 SQL Manual</h3>
+                <h3 class="modal-title">SQL Manual</h3>
                 <button class="modal-close" onclick="closeSQLModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="warning-box">
-                    <h3>⚠️ PELIGRO</h3>
+                    <h3>PELIGRO</h3>
                     <p>Ejecutar SQL manual puede dañar permanentemente la base de datos. Haz backup primero.</p>
                 </div>
                 
@@ -630,8 +630,8 @@
                 
                 <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                     <button class="btn btn-primary" onclick="ejecutarSQL()">▶ Ejecutar</button>
-                    <button class="btn btn-warning" onclick="limpiarSQL()">🗑️ Limpiar</button>
-                    <button class="btn" onclick="cargarEjemplos()" style="background: var(--wb-surface-3); color: white;">📋 Ejemplos</button>
+                    <button class="btn btn-warning" onclick="limpiarSQL()">Limpiar</button>
+                    <button class="btn" onclick="cargarEjemplos()" style="background: var(--wb-surface-3); color: white;">Ejemplos</button>
                 </div>
                 
                 <div id="sqlResult" class="result-box"></div>
@@ -646,11 +646,11 @@
     <div id="systemModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">⚙️ Información del Sistema</h3>
+                <h3 class="modal-title">Información del Sistema</h3>
                 <button class="modal-close" onclick="closeSystemModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <h4 style="margin-bottom: 1rem; color: var(--wb-text);">📊 Estadísticas del Sistema</h4>
+                <h4 style="margin-bottom: 1rem; color: var(--wb-text);">Estadísticas del Sistema</h4>
                 
                 <div id="systemStats">
                     <p>Cargando información del sistema...</p>
@@ -658,7 +658,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-danger" onclick="closeSystemModal()">Cerrar</button>
-                <button class="btn btn-primary" onclick="actualizarInfoSistema()">🔄 Actualizar</button>
+                <button class="btn btn-primary" onclick="actualizarInfoSistema()">Actualizar</button>
             </div>
         </div>
     </div>
@@ -728,7 +728,7 @@
             if (!confirm('¿Crear tabla de imágenes para profesionales?')) return;
             
             try {
-                resultDiv.innerHTML = '<p>⏳ Creando tabla...</p>';
+                resultDiv.innerHTML = '<p>Creando tabla...</p>';
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
@@ -747,7 +747,7 @@
                     // Muestra ayuda concreta
                     resultDiv.className = 'result-box result-error';
                     resultDiv.innerHTML = `
-                        <p><strong>❌ Error 403 - Permisos insuficientes</strong></p>
+                        <p><strong>Error 403 - Permisos insuficientes</strong></p>
                         <p>Tu usuario no tiene permisos para crear tablas.</p>
                         <p><strong>Solución:</strong></p>
                         <ol>
@@ -764,7 +764,7 @@
                 if (result.success) {
                     resultDiv.className = 'result-box result-success';
                     resultDiv.innerHTML = `
-                        <p><strong>✅ ${result.message}</strong></p>
+                        <p><strong>${result.message}</strong></p>
                         <p>Los profesionales ahora pueden subir fotos desde su perfil.</p>
                     `;
                     
@@ -772,19 +772,19 @@
                     const statusSpan = document.getElementById('tablaImagenesStatus');
                     if (statusSpan) {
                         statusSpan.className = 'status-value status-online';
-                        statusSpan.textContent = '🟢 Configurada';
+                        statusSpan.textContent = 'Configurada';
                     }
                     
                 } else {
                     resultDiv.className = 'result-box result-error';
-                    resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                    resultDiv.innerHTML = `<p><strong>Error:</strong> ${result.message}</p>`;
                 }
                 
             } catch (error) {
                 console.error('Error:', error);
                 resultDiv.className = 'result-box result-error';
                 resultDiv.innerHTML = `
-                    <p><strong>❌ Error de sistema</strong></p>
+                    <p><strong>Error de sistema</strong></p>
                     <p>${error.message}</p>
                     <p>Intenta recargar la página o contacta soporte.</p>
                 `;
@@ -795,7 +795,7 @@
             const resultDiv = document.getElementById('databaseResult');
             
             try {
-                resultDiv.innerHTML = '<p>⏳ Cargando tablas del sistema...</p>';
+                resultDiv.innerHTML = '<p>Cargando tablas del sistema...</p>';
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
@@ -809,13 +809,13 @@
                 
                 if (result.success) {
                     resultDiv.className = 'result-box result-success';
-                    let html = `<p><strong>✅ ${result.total_tables} tablas encontradas</strong></p>`;
+                    let html = `<p><strong>${result.total_tables} tablas encontradas</strong></p>`;
                     
                     if (result.tables && result.tables.length > 0) {
                         result.tables.forEach(table => {
                             html += `
                                 <div style="margin: 1rem 0; padding: 1rem; background: var(--wb-surface); border-radius: 5px; border-left: 3px solid var(--wb-accent);">
-                                    <strong style="color: var(--wb-text);">📊 ${table.name}</strong>
+                                    <strong style="color: var(--wb-text);">${table.name}</strong>
                                     <div style="font-size: 0.9rem; color: var(--wb-text-2); margin: 0.5rem 0;">
                                         ${table.column_count} columnas
                                     </div>
@@ -832,12 +832,12 @@
                     resultDiv.innerHTML = html;
                 } else {
                     resultDiv.className = 'result-box result-error';
-                    resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                    resultDiv.innerHTML = `<p><strong>Error:</strong> ${result.message}</p>`;
                 }
             } catch (error) {
                 console.error('Error:', error);
                 resultDiv.className = 'result-box result-error';
-                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+                resultDiv.innerHTML = `<p><strong>Error de conexión:</strong> ${error.message}</p>`;
             }
         }
         
@@ -845,7 +845,7 @@
             const resultDiv = document.getElementById('databaseResult');
             
             try {
-                resultDiv.innerHTML = '<p>⏳ Verificando sistema...</p>';
+                resultDiv.innerHTML = '<p>Verificando sistema...</p>';
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
@@ -860,14 +860,14 @@
                 if (result.status === 'ok') {
                     resultDiv.className = 'result-box result-success';
                     resultDiv.innerHTML = `
-                        <p><strong>✅ Sistema verificado correctamente</strong></p>
+                        <p><strong>Sistema verificado correctamente</strong></p>
                         <p>Todos los componentes funcionan correctamente.</p>
                         <p><strong>Hora:</strong> ${new Date(result.timestamp).toLocaleString()}</p>
                     `;
                 } else if (result.status === 'warning') {
                     resultDiv.className = 'result-box';
                     resultDiv.innerHTML = `
-                        <p><strong>⚠️ Advertencias encontradas</strong></p>
+                        <p><strong>Advertencias encontradas</strong></p>
                         <ul style="margin-left: 1.5rem;">
                             ${result.issues.map(issue => `<li>${issue}</li>`).join('')}
                         </ul>
@@ -875,12 +875,12 @@
                     `;
                 } else {
                     resultDiv.className = 'result-box result-error';
-                    resultDiv.innerHTML = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                    resultDiv.innerHTML = `<p><strong>Error:</strong> ${result.message}</p>`;
                 }
             } catch (error) {
                 console.error('Error:', error);
                 resultDiv.className = 'result-box result-error';
-                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+                resultDiv.innerHTML = `<p><strong>Error de conexión:</strong> ${error.message}</p>`;
             }
         }
         
@@ -927,16 +927,16 @@ LIMIT 10;`;
             const sql = sqlInput.value.trim();
             
             if (!sql) {
-                alert('❌ Por favor, escribe algún comando SQL');
+                alert('Por favor, escribe algún comando SQL');
                 return;
             }
             
-            if (!confirm('⚠️ ¿Estás seguro de ejecutar este SQL? Esto puede afectar permanentemente los datos.')) {
+            if (!confirm('¿Estás seguro de ejecutar este SQL? Esto puede afectar permanentemente los datos.')) {
                 return;
             }
             
             try {
-                resultDiv.innerHTML = '<p>⏳ Ejecutando SQL...</p>';
+                resultDiv.innerHTML = '<p>Ejecutando SQL...</p>';
                 resultDiv.style.display = 'block';
                 resultDiv.className = 'result-box';
                 
@@ -957,7 +957,7 @@ LIMIT 10;`;
                 
                 if (result.success) {
                     resultDiv.className = 'result-box result-success';
-                    let html = `<p><strong>✅ ${result.message}</strong></p>`;
+                    let html = `<p><strong>${result.message}</strong></p>`;
                     
                     if (result.results) {
                         result.results.forEach((r, i) => {
@@ -972,9 +972,9 @@ LIMIT 10;`;
                                     html += `</pre>`;
                                 }
                             } else if (r.type === 'ERROR') {
-                                html += `<p style="color: var(--wb-bad-text);">❌ Error: ${r.error}</p>`;
+                                html += `<p style="color: var(--wb-bad-text);">Error: ${r.error}</p>`;
                             } else {
-                                html += `<p>📊 ${r.message}</p>`;
+                                html += `<p>${r.message}</p>`;
                             }
                         });
                     }
@@ -982,14 +982,14 @@ LIMIT 10;`;
                     resultDiv.innerHTML = html;
                 } else {
                     resultDiv.className = 'result-box result-error';
-                    let html = `<p><strong>❌ Error:</strong> ${result.message}</p>`;
+                    let html = `<p><strong>Error:</strong> ${result.message}</p>`;
                     
                     if (result.results) {
                         html += `<hr style="margin: 1rem 0; border-color: var(--wb-line-strong);">`;
                         result.results.forEach((r, i) => {
                             if (r.type === 'ERROR') {
                                 html += `<p><strong>Sentencia ${i + 1}:</strong></p>`;
-                                html += `<p style="color: var(--wb-bad-text);">❌ ${r.error}</p>`;
+                                html += `<p style="color: var(--wb-bad-text);">${r.error}</p>`;
                             }
                         });
                     }
@@ -999,7 +999,7 @@ LIMIT 10;`;
             } catch (error) {
                 console.error('Error:', error);
                 resultDiv.className = 'result-box result-error';
-                resultDiv.innerHTML = `<p><strong>❌ Error de conexión:</strong> ${error.message}</p>`;
+                resultDiv.innerHTML = `<p><strong>Error de conexión:</strong> ${error.message}</p>`;
             }
         }
         
@@ -1009,7 +1009,7 @@ LIMIT 10;`;
             const statsDiv = document.getElementById('systemStats');
             
             try {
-                statsDiv.innerHTML = '<p>⏳ Actualizando información...</p>';
+                statsDiv.innerHTML = '<p>Actualizando información...</p>';
                 
                 // Verificar tabla de imágenes
                 const checkResponse = await fetch('/api/imagenes/test');
@@ -1028,7 +1028,7 @@ LIMIT 10;`;
                         <div style="background: var(--wb-surface-2); padding: 1rem; border-radius: 5px;">
                             <div style="font-size: 0.9rem; color: var(--wb-text-2);">Sistema Imágenes</div>
                             <div style="font-size: 1.5rem; font-weight: bold; ${checkResult.table_exists ? 'color: var(--wb-ok-text);' : 'color: var(--wb-bad-text);'}">
-                                ${checkResult.table_exists ? '✅ Activo' : '❌ Inactivo'}
+                                ${checkResult.table_exists ? 'Activo' : 'Inactivo'}
                             </div>
                         </div>
                     </div>
@@ -1037,18 +1037,18 @@ LIMIT 10;`;
                 if (checkResult.table_exists) {
                     html += `
                         <div style="background: var(--wb-ok-soft); padding: 1rem; border-radius: 5px; margin-bottom: 1rem;">
-                            <strong>🖼️ Sistema de Imágenes</strong>
+                            <strong>Sistema de Imágenes</strong>
                             <div style="margin-top: 0.5rem;">
                                 <div>Imágenes almacenadas: <strong>${checkResult.image_count}</strong></div>
                                 <div>Directorio: <code>${checkResult.upload_dir}</code></div>
-                                <div>Directorio existe: ${checkResult.upload_dir_exists ? '✅ Sí' : '❌ No'}</div>
+                                <div>Directorio existe: ${checkResult.upload_dir_exists ? 'Sí' : 'No'}</div>
                             </div>
                         </div>
                     `;
                 }
                 
                 if (tablesResult.tables && tablesResult.tables.length > 0) {
-                    html += `<div style="margin-top: 1.5rem;"><strong>📋 Tablas importantes:</strong></div>`;
+                    html += `<div style="margin-top: 1.5rem;"><strong>Tablas importantes:</strong></div>`;
                     
                     const tablasImportantes = ['profesionales', 'negocios', 'usuarios', 'citas', 'imagenes_profesionales'];
                     
@@ -1058,7 +1058,7 @@ LIMIT 10;`;
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--wb-line-strong);">
                                 <span>${tabla}</span>
                                 <span style="font-weight: bold; ${tablaInfo ? 'color: var(--wb-ok-text);' : 'color: var(--wb-bad-text);'}">
-                                    ${tablaInfo ? '✅ ' + tablaInfo.column_count + ' columnas' : '❌ No existe'}
+                                    ${tablaInfo ? '' + tablaInfo.column_count + ' columnas' : 'No existe'}
                                 </span>
                             </div>
                         `;
@@ -1069,7 +1069,7 @@ LIMIT 10;`;
                 
             } catch (error) {
                 console.error('Error:', error);
-                statsDiv.innerHTML = `<p style="color: var(--wb-bad-text);">❌ Error al cargar información: ${error.message}</p>`;
+                statsDiv.innerHTML = `<p style="color: var(--wb-bad-text);">Error al cargar información: ${error.message}</p>`;
             }
         }
         

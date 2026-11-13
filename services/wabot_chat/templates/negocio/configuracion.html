@@ -252,8 +252,8 @@
     {% endwith %}
 
     <div class="section-tabs">
-        <button class="stab active" data-sec="horarios">📅 Horarios</button>
-        <button class="stab"        data-sec="info">🏢 Información</button>
+        <button class="stab active" data-sec="horarios">Horarios</button>
+        <button class="stab"        data-sec="info">Información</button>
     </div>
 
     <form method="POST" action="{{ url_for('negocio_configuracion') }}" id="mainForm" novalidate>
@@ -299,7 +299,7 @@
                         <div class="day-body" id="db-body-{{ dia.id }}">
 
                             <div class="time-row">
-                                <span class="time-label">🕐 Jornada</span>
+                                <span class="time-label">Jornada</span>
                                 <div class="time-inputs">
                                     <input type="time"
                                            class="time-input main-time"
@@ -316,7 +316,7 @@
                                            value="{{ d.hora_fin or '19:00' }}"
                                            oninput="updateSummary({{ dia.id }})"
                                            {% if not d.activo %}disabled{% endif %}>
-                                    <span class="field-error" id="err-main-{{ dia.id }}">⚠ Inicio debe ser antes que fin</span>
+                                    <span class="field-error" id="err-main-{{ dia.id }}">Inicio debe ser antes que fin</span>
                                 </div>
                             </div>
 
@@ -329,7 +329,7 @@
                                            id="lch-{{ dia.id }}"
                                            {% if d.almuerzo_inicio %}checked{% endif %}
                                            onchange="toggleLunch({{ dia.id }}, this.checked)">
-                                    ⏸ Agregar horario de descanso
+                                    Agregar horario de descanso
                                     <span class="lunch-note">(almuerzo u otro)</span>
                                 </label>
                             </div>
@@ -337,7 +337,7 @@
                             <div class="lunch-row {% if d.almuerzo_inicio %}visible{% endif %}"
                                  id="lr-{{ dia.id }}">
                                 <div class="time-row" style="padding-top:.4rem;">
-                                    <span class="time-label">☕ Descanso</span>
+                                    <span class="time-label">Descanso</span>
                                     <div class="time-inputs">
                                         <input type="time"
                                                class="time-input lunch-time"
@@ -352,7 +352,7 @@
                                                id="alf-{{ dia.id }}"
                                                value="{{ d.almuerzo_fin or '' }}"
                                                {% if not d.activo or not d.almuerzo_inicio %}disabled{% endif %}>
-                                        <span class="field-error" id="err-lunch-{{ dia.id }}">⚠ Revisa el horario de descanso</span>
+                                        <span class="field-error" id="err-lunch-{{ dia.id }}">Revisa el horario de descanso</span>
                                     </div>
                                 </div>
                             </div>
@@ -384,11 +384,11 @@
                     <div class="form-group">
                         <label class="form-label" for="tipo_negocio">Tipo de negocio *</label>
                         <select class="form-select" id="tipo_negocio" name="tipo_negocio" required>
-                            <option value="spa_unas"  {% if negocio.tipo_negocio == 'spa_unas'  %}selected{% endif %}>💅 Spa de Uñas</option>
-                            <option value="barberia"  {% if negocio.tipo_negocio == 'barberia'  %}selected{% endif %}>✂️ Barbería</option>
-                            <option value="peluqueria"{% if negocio.tipo_negocio == 'peluqueria'%}selected{% endif %}>💇‍♀️ Peluquería</option>
-                            <option value="estetica"  {% if negocio.tipo_negocio == 'estetica'  %}selected{% endif %}>✨ Centro de Estética</option>
-                            <option value="general"   {% if not negocio.tipo_negocio or negocio.tipo_negocio == 'general' %}selected{% endif %}>🏢 General</option>
+                            <option value="spa_unas"  {% if negocio.tipo_negocio == 'spa_unas'  %}selected{% endif %}>Spa de Uñas</option>
+                            <option value="barberia"  {% if negocio.tipo_negocio == 'barberia'  %}selected{% endif %}>Barbería</option>
+                            <option value="peluqueria"{% if negocio.tipo_negocio == 'peluqueria'%}selected{% endif %}>Peluquería</option>
+                            <option value="estetica"  {% if negocio.tipo_negocio == 'estetica'  %}selected{% endif %}>Centro de Estética</option>
+                            <option value="general"   {% if not negocio.tipo_negocio or negocio.tipo_negocio == 'general' %}selected{% endif %}>General</option>
                         </select>
                         <span class="form-hint">Afecta los textos automáticos (estilista / profesional)</span>
                     </div>
@@ -445,7 +445,7 @@
             <div class="save-bar-info">
                 <strong id="activeDaysCount">0</strong> días activos configurados
             </div>
-            <button type="submit" class="btn-save" id="btnSave">💾 Guardar cambios</button>
+            <button type="submit" class="btn-save" id="btnSave">Guardar cambios</button>
         </div>
 
     </form>
@@ -566,7 +566,7 @@ function validar() {
             ok = false;
         } else if (ini.value >= fin.value) {
             errores.push(nombre + ': la hora de inicio debe ser antes que la hora de fin.');
-            document.getElementById('err-main-' + id).textContent = '⚠ Inicio debe ser antes que fin.';
+            document.getElementById('err-main-' + id).textContent = 'Inicio debe ser antes que fin.';
             document.getElementById('err-main-' + id).classList.add('show');
             document.getElementById('db-body-' + id).style.display = 'block';
             ok = false;
@@ -577,18 +577,18 @@ function validar() {
             var errLunch = document.getElementById('err-lunch-' + id);
             if ((ali.value && !alf.value) || (!ali.value && alf.value)) {
                 errores.push(nombre + ': el descanso necesita inicio y fin.');
-                if (errLunch) { errLunch.textContent = '⚠ Completa inicio y fin del descanso.'; errLunch.classList.add('show'); }
+                if (errLunch) { errLunch.textContent = 'Completa inicio y fin del descanso.'; errLunch.classList.add('show'); }
                 document.getElementById('db-body-' + id).style.display = 'block';
                 ok = false;
             } else if (ali.value && alf.value) {
                 if (ali.value >= alf.value) {
                     errores.push(nombre + ': el descanso debe tener inicio antes que fin.');
-                    if (errLunch) { errLunch.textContent = '⚠ Inicio del descanso debe ser antes que fin.'; errLunch.classList.add('show'); }
+                    if (errLunch) { errLunch.textContent = 'Inicio del descanso debe ser antes que fin.'; errLunch.classList.add('show'); }
                     document.getElementById('db-body-' + id).style.display = 'block';
                     ok = false;
                 } else if (ini.value && fin.value && (ali.value < ini.value || alf.value > fin.value)) {
                     errores.push(nombre + ': el descanso debe estar dentro de la jornada laboral.');
-                    if (errLunch) { errLunch.textContent = '⚠ El descanso debe estar dentro de tu jornada.'; errLunch.classList.add('show'); }
+                    if (errLunch) { errLunch.textContent = 'El descanso debe estar dentro de tu jornada.'; errLunch.classList.add('show'); }
                     document.getElementById('db-body-' + id).style.display = 'block';
                     ok = false;
                 }

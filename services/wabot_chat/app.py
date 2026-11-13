@@ -534,10 +534,10 @@ def crear_promocion():
                 'descuento_horas': '🔥 Hora Feliz creada exitosamente',
                 'cliente_frecuente': '⭐ Promoción para clientes frecuentes creada exitosamente'
             }
-            flash(mensajes.get(tipo_promocion, '✅ Promoción creada exitosamente'), 'success')
+            flash(mensajes.get(tipo_promocion, 'Promoción creada exitosamente'), 'success')
         else:
             print("❌ No se pudo obtener el ID de la promoción")
-            flash('❌ Error al crear la promoción', 'error')
+            flash('Error al crear la promoción', 'error')
         
         print("➡️ Redirigiendo a profesional_promociones")
         return redirect(url_for('profesional_promociones'))
@@ -949,7 +949,7 @@ def eliminar_promocion(promo_id):
         conn.commit()
         conn.close()
         
-        flash('✅ Promoción eliminada correctamente', 'success')
+        flash('Promoción eliminada correctamente', 'success')
         
     except Exception as e:
         print(f"❌ Error eliminando promoción: {e}")
@@ -1003,7 +1003,7 @@ def cerrar_promocion(promocion_id):
     conn.commit()
     conn.close()
     
-    flash('✅ Concurso cerrado correctamente', 'success')
+    flash('Concurso cerrado correctamente', 'success')
     return redirect(url_for('profesional_promociones'))
 
 @app.route('/negocio/<int:negocio_id>')
@@ -1697,7 +1697,7 @@ def profesional_cancelar_cita(cita_id):
                 'cliente_nombre': cita_cancelada['cliente_nombre']
             })
         
-        flash(f'✅ Cita cancelada para {cita_cancelada["cliente_nombre"]}', 'success')
+        flash(f'Cita cancelada para {cita_cancelada["cliente_nombre"]}', 'success')
         
         return redirect(url_for('profesional_dashboard', fecha=fecha, profesional_id=profesional_id))
         
@@ -1772,20 +1772,20 @@ def admin_nuevo_negocio():
             try:
                 latitud_float = float(latitud)
             except ValueError:
-                flash('❌ La latitud debe ser un número válido (ej: 6.24420)', 'error')
+                flash('La latitud debe ser un número válido (ej: 6.24420)', 'error')
                 return redirect(url_for('admin_nuevo_negocio'))
         if longitud:
             try:
                 longitud_float = float(longitud)
             except ValueError:
-                flash('❌ La longitud debe ser un número válido (ej: -75.58121)', 'error')
+                flash('La longitud debe ser un número válido (ej: -75.58121)', 'error')
                 return redirect(url_for('admin_nuevo_negocio'))
         
         pais_ok, pais_msg, pais_codigo, zona_horaria = localizacion.validar(
             request.form.get('pais'), request.form.get('zona_horaria')
         )
         if not pais_ok:
-            flash(f'❌ {pais_msg}', 'error')
+            flash(f'{pais_msg}', 'error')
             return redirect(url_for('admin_nuevo_negocio'))
 
         # Configuración por defecto
@@ -1820,7 +1820,7 @@ def admin_nuevo_negocio():
             if numero_api_whatsapp:
                 # Validar que solo contenga dígitos
                 if not numero_api_whatsapp.isdigit():
-                    flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
+                    flash('El número de API de WhatsApp debe contener solo dígitos', 'error')
                     return redirect(url_for('admin_nuevo_negocio'))
                 
                 # Validar unicidad (no esté en otro negocio)
@@ -1841,7 +1841,7 @@ def admin_nuevo_negocio():
                 
                 if cursor.fetchone():
                     conn.close()
-                    flash('❌ Este número de API ya está registrado para otro negocio', 'error')
+                    flash('Este número de API ya está registrado para otro negocio', 'error')
                     return redirect(url_for('admin_nuevo_negocio'))
                 
                 # Guardar o actualizar
@@ -1861,10 +1861,10 @@ def admin_nuevo_negocio():
                 conn.close()
                 print(f'✅ Número de API WhatsApp guardado para negocio {negocio_id}: {numero_api_whatsapp}')
             
-            flash('✅ Negocio creado exitosamente', 'success')
+            flash('Negocio creado exitosamente', 'success')
             return redirect(url_for('admin_negocios'))
         else:
-            flash('❌ Error al crear el negocio. Verifica que el número no esté en uso.', 'error')
+            flash('Error al crear el negocio. Verifica que el número no esté en uso.', 'error')
     
     return render_template('admin/nuevo_negocio.html')
 
@@ -1902,20 +1902,20 @@ def admin_editar_negocio(negocio_id):
             try:
                 latitud_float = float(latitud)
             except ValueError:
-                flash('❌ La latitud debe ser un número válido (ej: 6.24420)', 'error')
+                flash('La latitud debe ser un número válido (ej: 6.24420)', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
         if longitud:
             try:
                 longitud_float = float(longitud)
             except ValueError:
-                flash('❌ La longitud debe ser un número válido (ej: -75.58121)', 'error')
+                flash('La longitud debe ser un número válido (ej: -75.58121)', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
         
         pais_ok, pais_msg, pais_codigo, zona_horaria = localizacion.validar(
             request.form.get('pais'), request.form.get('zona_horaria')
         )
         if not pais_ok:
-            flash(f'❌ {pais_msg}', 'error')
+            flash(f'{pais_msg}', 'error')
             return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
 
         configuracion = {
@@ -1949,7 +1949,7 @@ def admin_editar_negocio(negocio_id):
         if numero_api_whatsapp:
             # Validar que solo contenga dígitos
             if not numero_api_whatsapp.isdigit():
-                flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
+                flash('El número de API de WhatsApp debe contener solo dígitos', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
             
             # Validar unicidad (no esté en otro negocio)
@@ -1970,7 +1970,7 @@ def admin_editar_negocio(negocio_id):
             
             if cursor.fetchone():
                 conn.close()
-                flash('❌ Este número de API ya está registrado para otro negocio', 'error')
+                flash('Este número de API ya está registrado para otro negocio', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
             
             # Guardar o actualizar
@@ -2004,7 +2004,7 @@ def admin_editar_negocio(negocio_id):
             conn.close()
             print(f'✅ Número de API WhatsApp eliminado para negocio {negocio_id}')
         
-        flash('✅ Negocio actualizado exitosamente', 'success')
+        flash('Negocio actualizado exitosamente', 'success')
         return redirect(url_for('admin_negocios'))
     
     # Obtener número de API de WhatsApp actual
@@ -2063,12 +2063,12 @@ def admin_eliminar_negocio(negocio_id):
         ''', (negocio_id,))
         
         conn.commit()
-        flash('✅ Negocio desactivado exitosamente', 'success')
+        flash('Negocio desactivado exitosamente', 'success')
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error eliminando negocio: {e}")
-        flash('❌ Error al eliminar el negocio', 'error')
+        flash('Error al eliminar el negocio', 'error')
     finally:
         conn.close()
     
@@ -2102,12 +2102,12 @@ def admin_activar_negocio(negocio_id):
         ''', (negocio_id,))
         
         conn.commit()
-        flash('✅ Negocio activado exitosamente', 'success')
+        flash('Negocio activado exitosamente', 'success')
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error activando negocio: {e}")
-        flash('❌ Error al activar el negocio', 'error')
+        flash('Error al activar el negocio', 'error')
     finally:
         conn.close()
     
@@ -2264,7 +2264,7 @@ def admin_toggle_usuario(usuario_id):
         usuario = cursor.fetchone()
         
         if not usuario:
-            flash('❌ Usuario no encontrado', 'error')
+            flash('Usuario no encontrado', 'error')
             return redirect(url_for('admin_usuarios'))
         
         # Acceder correctamente a los valores
@@ -2284,14 +2284,14 @@ def admin_toggle_usuario(usuario_id):
         conn.commit()
         
         if nuevo_estado:
-            flash('✅ Usuario activado exitosamente', 'success')
+            flash('Usuario activado exitosamente', 'success')
         else:
-            flash('✅ Usuario desactivado exitosamente', 'success')
+            flash('Usuario desactivado exitosamente', 'success')
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error cambiando estado de usuario: {str(e)}")
-        flash('❌ Error al cambiar el estado del usuario', 'error')
+        flash('Error al cambiar el estado del usuario', 'error')
     finally:
         conn.close()
     
@@ -2308,7 +2308,7 @@ def admin_eliminar_usuario(usuario_id):
     
     # Prevenir eliminación del superadmin principal
     if usuario_id == 1:
-        flash('❌ No se puede eliminar el superadministrador principal', 'error')
+        flash('No se puede eliminar el superadministrador principal', 'error')
         return redirect(url_for('admin_usuarios'))
     
     conn = db.get_db_connection()
@@ -2320,7 +2320,7 @@ def admin_eliminar_usuario(usuario_id):
         usuario = cursor.fetchone()
         
         if not usuario:
-            flash('❌ Usuario no encontrado', 'error')
+            flash('Usuario no encontrado', 'error')
             return redirect(url_for('admin_usuarios'))
         
         # Acceder correctamente a los valores según el tipo de cursor
@@ -2348,7 +2348,7 @@ def admin_eliminar_usuario(usuario_id):
             cursor.execute('DELETE FROM usuarios WHERE id = ?', (usuario_id,))
         
         conn.commit()
-        flash('✅ Usuario eliminado exitosamente', 'success')
+        flash('Usuario eliminado exitosamente', 'success')
         print(f"✅ Usuario {usuario_email} eliminado correctamente")
         
     except Exception as e:
@@ -2356,7 +2356,7 @@ def admin_eliminar_usuario(usuario_id):
         print(f"❌ Error eliminando usuario: {str(e)}")
         import traceback
         traceback.print_exc()
-        flash('❌ Error al eliminar el usuario', 'error')
+        flash('Error al eliminar el usuario', 'error')
     finally:
         conn.close()
     
@@ -2380,7 +2380,7 @@ def admin_editar_usuario(usuario_id):
     usuario = cursor.fetchone()
     
     if not usuario:
-        flash('❌ Usuario no encontrado', 'error')
+        flash('Usuario no encontrado', 'error')
         conn.close()
         return redirect(url_for('admin_usuarios'))
     
@@ -2406,7 +2406,7 @@ def admin_editar_usuario(usuario_id):
         else:
             negocio_id = request.form.get('negocio_id')
             if not negocio_id:
-                flash('❌ Debes seleccionar un negocio para este rol', 'error')
+                flash('Debes seleccionar un negocio para este rol', 'error')
                 conn.close()
                 return redirect(url_for('admin_editar_usuario', usuario_id=usuario_id))
         
@@ -2427,9 +2427,9 @@ def admin_editar_usuario(usuario_id):
                     ''', (hashed_password, usuario_id))
                     
                     conn.commit()
-                    flash('✅ Contraseña actualizada exitosamente', 'success')
+                    flash('Contraseña actualizada exitosamente', 'success')
                 else:
-                    flash('❌ No se proporcionó una nueva contraseña', 'error')
+                    flash('No se proporcionó una nueva contraseña', 'error')
                     
             else:
                 # Actualizar todos los datos del usuario
@@ -2482,14 +2482,14 @@ def admin_editar_usuario(usuario_id):
                     ''', (usuario_id,))
                 
                 conn.commit()
-                flash('✅ Usuario actualizado exitosamente', 'success')
+                flash('Usuario actualizado exitosamente', 'success')
             
             return redirect(url_for('admin_usuarios'))
             
         except Exception as e:
             conn.rollback()
             print(f"❌ Error actualizando usuario: {e}")
-            flash(f'❌ Error al actualizar el usuario: {str(e)}', 'error')
+            flash(f'Error al actualizar el usuario: {str(e)}', 'error')
             return redirect(url_for('admin_editar_usuario', usuario_id=usuario_id))
         finally:
             conn.close()
@@ -2591,11 +2591,11 @@ def admin_editar_plantilla(nombre_plantilla):
             ''', (nueva_plantilla, descripcion, nombre_plantilla))
             
             conn.commit()
-            flash('✅ Plantilla base actualizada exitosamente', 'success')
+            flash('Plantilla base actualizada exitosamente', 'success')
             return redirect(url_for('admin_plantillas'))
         except Exception as e:
             conn.rollback()
-            flash('❌ Error al actualizar la plantilla', 'error')
+            flash('Error al actualizar la plantilla', 'error')
         finally:
             conn.close()
     
@@ -2670,12 +2670,12 @@ def admin_limpiar_plantillas():
             ''', (nombre, plantilla, descripcion, variables))
         
         conn.commit()
-        flash('✅ Plantillas limpiadas correctamente. Solo quedan las 8 plantillas base.', 'success')
+        flash('Plantillas limpiadas correctamente. Solo quedan las 8 plantillas base.', 'success')
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error limpiando plantillas: {e}")
-        flash('❌ Error al limpiar las plantillas', 'error')
+        flash('Error al limpiar las plantillas', 'error')
     finally:
         conn.close()
     
@@ -3287,7 +3287,7 @@ def negocio_configuracion():
             politica_cancelacion = request.form.get('politica_cancelacion')
             
             if not nombre or not tipo_negocio:
-                flash('❌ El nombre y tipo de negocio son obligatorios', 'error')
+                flash('El nombre y tipo de negocio son obligatorios', 'error')
                 return redirect(url_for('negocio_configuracion'))
             
             nueva_configuracion = {
@@ -3317,19 +3317,19 @@ def negocio_configuracion():
                 # Validación de horario principal
                 if activo:
                     if not hora_inicio or not hora_fin:
-                        flash(f'❌ El {nombres_dias[dia_id-1]} necesita horario de inicio y fin', 'error')
+                        flash(f'El {nombres_dias[dia_id-1]} necesita horario de inicio y fin', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     if hora_inicio >= hora_fin:
-                        flash(f'❌ En {nombres_dias[dia_id-1]}, la hora de inicio debe ser anterior a la hora de fin', 'error')
+                        flash(f'En {nombres_dias[dia_id-1]}, la hora de inicio debe ser anterior a la hora de fin', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     
                     # Validación opcional de almuerzo (si se enviaron valores)
                     if almuerzo_inicio and almuerzo_fin:
                         if almuerzo_inicio >= almuerzo_fin:
-                            flash(f'❌ En {nombres_dias[dia_id-1]}, el inicio del descanso debe ser anterior al fin', 'error')
+                            flash(f'En {nombres_dias[dia_id-1]}, el inicio del descanso debe ser anterior al fin', 'error')
                             return redirect(url_for('negocio_configuracion'))
                         if almuerzo_inicio < hora_inicio or almuerzo_fin > hora_fin:
-                            flash(f'❌ En {nombres_dias[dia_id-1]}, el descanso debe estar dentro de la jornada laboral', 'error')
+                            flash(f'En {nombres_dias[dia_id-1]}, el descanso debe estar dentro de la jornada laboral', 'error')
                             return redirect(url_for('negocio_configuracion'))
                 
                 print(f"🔍 Día {dia_id}: activo={activo}, inicio={hora_inicio}, fin={hora_fin}, almuerzo={almuerzo_inicio}-{almuerzo_fin}")
@@ -3345,7 +3345,7 @@ def negocio_configuracion():
             
             dias_activos = sum(1 for h in horarios_actualizados if h['activo'])
             if dias_activos == 0:
-                flash('❌ Debe haber al menos un día activo para atención', 'error')
+                flash('Debe haber al menos un día activo para atención', 'error')
                 return redirect(url_for('negocio_configuracion'))
             
             print(f"🔍 DEBUG - Guardando configuración:")
@@ -3364,7 +3364,7 @@ def negocio_configuracion():
                 if numero_api_whatsapp:
                     if not numero_api_whatsapp.isdigit():
                         conn.close()
-                        flash('❌ El número de API de WhatsApp debe contener solo dígitos', 'error')
+                        flash('El número de API de WhatsApp debe contener solo dígitos', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     
                     # Verificar unicidad
@@ -3381,7 +3381,7 @@ def negocio_configuracion():
                     
                     if cursor.fetchone():
                         conn.close()
-                        flash('❌ Este número de API ya está registrado para otro negocio', 'error')
+                        flash('Este número de API ya está registrado para otro negocio', 'error')
                         return redirect(url_for('negocio_configuracion'))
                     
                     # Guardar o actualizar
@@ -3415,15 +3415,15 @@ def negocio_configuracion():
                     conn.close()
                     print('✅ Número de API WhatsApp eliminado')
                 
-                flash('✅ Configuración actualizada exitosamente', 'success')
+                flash('Configuración actualizada exitosamente', 'success')
             else:
-                flash('❌ Error al actualizar la configuración', 'error')
+                flash('Error al actualizar la configuración', 'error')
                 
         except Exception as e:
             print(f"❌ Error en configuración: {e}")
             import traceback
             traceback.print_exc()
-            flash(f'❌ Error al procesar la configuración: {str(e)}', 'error')
+            flash(f'Error al procesar la configuración: {str(e)}', 'error')
     
     # Obtener número de API de WhatsApp actual
     numero_api_whatsapp = None
@@ -3485,7 +3485,7 @@ def negocio_prompt_ia():
 
         nuevo_prompt = request.form.get('prompt_ia', '').strip()
         if len(nuevo_prompt) > PROMPT_IA_MAX_CARACTERES:
-            flash(f'❌ El prompt es demasiado largo ({len(nuevo_prompt)} caracteres). El máximo es {PROMPT_IA_MAX_CARACTERES}.', 'error')
+            flash(f'El prompt es demasiado largo ({len(nuevo_prompt)} caracteres). El máximo es {PROMPT_IA_MAX_CARACTERES}.', 'error')
             return redirect(url_for('negocio_prompt_ia'))
 
         try:
@@ -3497,10 +3497,10 @@ def negocio_prompt_ia():
             conn.commit()
             conn.close()
             
-            flash('✅ Prompt de IA actualizado exitosamente', 'success')
+            flash('Prompt de IA actualizado exitosamente', 'success')
         except Exception as e:
             print(f"❌ Error guardando prompt_ia: {e}")
-            flash('❌ Error al guardar el prompt', 'error')
+            flash('Error al guardar el prompt', 'error')
         
         return redirect(url_for('negocio_prompt_ia'))
     
@@ -3685,7 +3685,7 @@ def negocio_personalizar_servicio(cita_id):
                         continue
             
             conn.commit()
-            flash('✅ Servicio personalizado guardado exitosamente', 'success')
+            flash('Servicio personalizado guardado exitosamente', 'success')
             return redirect('/negocio/citas')
         
         # Obtener servicios disponibles del negocio (excluyendo el servicio actual)
@@ -3800,7 +3800,7 @@ def negocio_nuevo_servicio():
                 try:
                     precio_maximo = float(precio_maximo_str)
                 except ValueError:
-                    flash('❌ El precio máximo debe ser un número válido', 'error')
+                    flash('El precio máximo debe ser un número válido', 'error')
                     return redirect(url_for('negocio_nuevo_servicio'))
         
         resultado = db.guardar_servicio(
@@ -3821,7 +3821,7 @@ def negocio_nuevo_servicio():
             flash(resultado['message'], 'success')
             return redirect(url_for('negocio_servicios'))
         else:
-            flash(f'❌ Error: {resultado.get("error", "Error al crear el servicio")}', 'error')
+            flash(f'Error: {resultado.get("error", "Error al crear el servicio")}', 'error')
             return redirect(url_for('negocio_nuevo_servicio'))
     
     return render_template('negocio/nuevo_servicio.html', negocio_id=negocio_id)
@@ -3861,7 +3861,7 @@ def negocio_editar_servicio(servicio_id):
                 try:
                     precio_maximo = float(precio_maximo_str)
                 except ValueError:
-                    flash('❌ El precio máximo debe ser un número válido', 'error')
+                    flash('El precio máximo debe ser un número válido', 'error')
                     return redirect(url_for('negocio_editar_servicio', servicio_id=servicio_id))
         
         # Usar la nueva función guardar_servicio con foto_url
@@ -3882,7 +3882,7 @@ def negocio_editar_servicio(servicio_id):
             flash(resultado['message'], 'success')
             return redirect(url_for('negocio_servicios'))
         else:
-            flash(f'❌ Error: {resultado.get("error", "Error al guardar")}', 'error')
+            flash(f'Error: {resultado.get("error", "Error al guardar")}', 'error')
             return redirect(url_for('negocio_editar_servicio', servicio_id=servicio_id))
     
     # Convertir a diccionario si es necesario
@@ -3930,7 +3930,7 @@ def negocio_eliminar_servicio(servicio_id):
                       (servicio_id, negocio_id))
         
         if not cursor.fetchone():
-            flash('❌ Servicio no encontrado', 'error')
+            flash('Servicio no encontrado', 'error')
             return redirect(url_for('negocio_servicios'))
         
         # Eliminar relaciones con profesionales primero
@@ -3940,12 +3940,12 @@ def negocio_eliminar_servicio(servicio_id):
         cursor.execute('DELETE FROM servicios WHERE id = %s', (servicio_id,))
         
         conn.commit()
-        flash('✅ Servicio eliminado exitosamente', 'success')
+        flash('Servicio eliminado exitosamente', 'success')
         
     except Exception as e:
         conn.rollback()
         print(f"❌ Error eliminando servicio: {e}")
-        flash('❌ Error al eliminar el servicio', 'error')
+        flash('Error al eliminar el servicio', 'error')
     finally:
         conn.close()
     
@@ -3981,7 +3981,7 @@ def negocio_editar_plantilla(nombre_plantilla):
     
     if not plantilla_actual:
         print(f"❌ [APP] Plantilla '{nombre_plantilla}' no encontrada")
-        flash('❌ Plantilla no encontrada', 'error')
+        flash('Plantilla no encontrada', 'error')
         return redirect(url_for('negocio_plantillas'))
     
     print(f"✅ [APP] Plantilla obtenida: {plantilla_actual.get('nombre')}")
@@ -4000,10 +4000,10 @@ def negocio_editar_plantilla(nombre_plantilla):
         
         # Guardar plantilla personalizada
         if db.guardar_plantilla_personalizada(negocio_id, nombre_plantilla, nueva_plantilla, descripcion):
-            flash('✅ Plantilla actualizada exitosamente', 'success')
+            flash('Plantilla actualizada exitosamente', 'success')
             return redirect(url_for('negocio_plantillas'))
         else:
-            flash('❌ Error al actualizar la plantilla', 'error')
+            flash('Error al actualizar la plantilla', 'error')
             return redirect(url_for('negocio_editar_plantilla', nombre_plantilla=nombre_plantilla))
     
     # Para GET, preparar datos para la template
@@ -4126,10 +4126,10 @@ def negocio_nuevo_profesional():
         )
         
         if resultado:
-            flash('✅ Profesional creado exitosamente con acceso al sistema', 'success')
+            flash('Profesional creado exitosamente con acceso al sistema', 'success')
             return redirect(url_for('negocio_profesionales'))
         else:
-            flash('❌ Error al crear el profesional. El email puede estar en uso.', 'error')
+            flash('Error al crear el profesional. El email puede estar en uso.', 'error')
     
     return render_template('negocio/nuevo_profesional.html', 
                          servicios=servicios,
@@ -4184,13 +4184,13 @@ def negocio_editar_profesional(profesional_id):
                 ''', (profesional_id, servicio_id))
             
             conn.commit()
-            flash('✅ Profesional actualizado exitosamente', 'success')
+            flash('Profesional actualizado exitosamente', 'success')
             return redirect(url_for('negocio_profesionales'))
             
         except Exception as e:
             conn.rollback()
             print(f"❌ Error actualizando profesional: {e}")
-            flash('❌ Error al actualizar el profesional', 'error')
+            flash('Error al actualizar el profesional', 'error')
         finally:
             conn.close()
     
@@ -4621,7 +4621,7 @@ def profesional_crear_cita():
             except Exception as push_error:
                 print(f"⚠️ Error enviando push: {push_error}")
             
-            flash('✅ Cita agendada exitosamente', 'success')
+            flash('Cita agendada exitosamente', 'success')
             
             # ✅ REDIRECCIÓN
             print(f"🔍 [DEBUG] Redirigiendo a dashboard con fecha={fecha}, profesional_id={profesional_id}")
@@ -4629,14 +4629,14 @@ def profesional_crear_cita():
             
         else:
             print(f"❌ [DEBUG] Error al crear la cita. ID retornado: {cita_id}")
-            flash('❌ Error al agendar la cita', 'error')
+            flash('Error al agendar la cita', 'error')
             return redirect(url_for('profesional_agendar'))
             
     except Exception as e:
         print(f"❌ [DEBUG] Error general: {e}")
         import traceback
         traceback.print_exc()
-        flash('❌ Error al agendar la cita', 'error')
+        flash('Error al agendar la cita', 'error')
         return redirect(url_for('profesional_agendar'))
 
 @app.route('/profesional/completar-cita/<int:cita_id>', methods=['POST'])
@@ -4685,7 +4685,7 @@ def completar_cita(cita_id):
         cita_actual = cursor.fetchone()
         
         if not cita_actual:
-            flash('❌ Cita no encontrada', 'error')
+            flash('Cita no encontrada', 'error')
             print(f"❌ [COMPLETAR_CITA] Cita {cita_id} no encontrada")
             conn.close()
             
@@ -4820,7 +4820,7 @@ def completar_cita(cita_id):
                     'cita_id': cita_id
                 })
             
-            flash(f'✅ Cita completada para {resultado_update["cliente_nombre"]}', 'success')
+            flash(f'Cita completada para {resultado_update["cliente_nombre"]}', 'success')
             
         else:
             print(f"❌ [COMPLETAR_CITA] UPDATE no devolvió resultado")
@@ -4828,7 +4828,7 @@ def completar_cita(cita_id):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': 'Error al actualizar la cita'})
             
-            flash('❌ Error al actualizar la cita', 'error')
+            flash('Error al actualizar la cita', 'error')
             conn.rollback()
         
     except Exception as e:
@@ -4843,7 +4843,7 @@ def completar_cita(cita_id):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': False, 'message': str(e)})
         
-        flash('❌ Error al completar la cita', 'error')
+        flash('Error al completar la cita', 'error')
         
     finally:
         if conn:
@@ -5082,7 +5082,7 @@ def profesional_personalizar_servicio(cita_id):
             conn.commit()
             print("✅ [PERSONALIZAR] Personalización guardada exitosamente")
             
-            flash('✅ Servicio personalizado guardado exitosamente', 'success')
+            flash('Servicio personalizado guardado exitosamente', 'success')
             return redirect('/profesional')
         
         # ========== GET REQUEST ==========
@@ -5701,8 +5701,8 @@ def manifest_final():
         "description": "Agendar citas",
         "start_url": f"{base_url}/cliente/{negocio_id}",
         "display": "standalone",
-        "background_color": "#007bff",
-        "theme_color": "#007bff",
+        "background_color": "#0a0a0d",
+        "theme_color": "#0a0a0d",
         "orientation": "portrait",
         "scope": f"{base_url}/",
         "lang": "es",
@@ -5744,8 +5744,8 @@ def crear_manifest_default():
         "description": "Sistema de agendamiento",
         "start_url": "/app",  # Ruta INTELIGENTE que decide
         "display": "standalone",
-        "background_color": "#007bff",
-        "theme_color": "#007bff",
+        "background_color": "#0a0a0d",
+        "theme_color": "#0a0a0d",
         "orientation": "portrait-primary",
         "scope": "/",
         "lang": "es",
@@ -5827,8 +5827,8 @@ def manifest_login():
         "description": "Acceso a la plataforma WaBot",
         "start_url": "/login",
         "display": "standalone",
-        "background_color": "#667eea",
-        "theme_color": "#667eea",
+        "background_color": "#0a0a0d",
+        "theme_color": "#0a0a0d",
         "orientation": "portrait",
         "scope": "/",
         "lang": "es",
@@ -5997,9 +5997,9 @@ def profesional_desbloquear_horario(bloqueo_id):
         resultado = desbloquear_horario(bloqueo_id, profesional_id)
         
         if resultado['success']:
-            flash('✅ Horario desbloqueado exitosamente', 'success')
+            flash('Horario desbloqueado exitosamente', 'success')
         else:
-            flash(f"❌ {resultado.get('error', 'Error al desbloquear')}", 'error')
+            flash(f"{resultado.get('error', 'Error al desbloquear')}", 'error')
         
         return redirect(url_for('profesional_bloqueos'))
         
@@ -6085,9 +6085,9 @@ def profesional_eliminar_bloqueo_recurrente(bloqueo_id):
         resultado = eliminar_bloqueo_recurrente(bloqueo_id, profesional_id=profesional_id)
         
         if resultado['success']:
-            flash('✅ Bloqueo recurrente eliminado exitosamente', 'success')
+            flash('Bloqueo recurrente eliminado exitosamente', 'success')
         else:
-            flash(f"❌ {resultado.get('error', 'Error al eliminar')}", 'error')
+            flash(f"{resultado.get('error', 'Error al eliminar')}", 'error')
         
         return redirect(url_for('profesional_bloqueos', tab='recurrentes'))
         
@@ -8083,14 +8083,14 @@ def negocio_productos_nuevo():
             
             print(f"✅ [PRODUCTO] Filas afectadas: {cursor.rowcount}")
             conn.commit()
-            flash('✅ Producto creado exitosamente', 'success')
+            flash('Producto creado exitosamente', 'success')
             
         except Exception as e:
             conn.rollback()
             print(f"❌ Error insertando producto: {e}")
             import traceback
             traceback.print_exc()
-            flash(f'❌ Error al crear el producto: {str(e)}', 'error')
+            flash(f'Error al crear el producto: {str(e)}', 'error')
         finally:
             conn.close()
         
@@ -8149,7 +8149,7 @@ def negocio_productos_editar(producto_id):
         conn.commit()
         conn.close()
         
-        flash('✅ Producto actualizado exitosamente', 'success')
+        flash('Producto actualizado exitosamente', 'success')
         return redirect(url_for('negocio_productos'))
     
     conn.close()
@@ -8172,7 +8172,7 @@ def negocio_productos_eliminar(producto_id):
     conn.commit()
     conn.close()
     
-    flash('✅ Producto eliminado exitosamente', 'success')
+    flash('Producto eliminado exitosamente', 'success')
     return redirect(url_for('negocio_productos'))
 
 @app.route('/negocio/productos/subir-foto', methods=['POST'])
@@ -8293,7 +8293,7 @@ def calificar_servicio(cita_id):
         conn.commit()
         conn.close()
         
-        flash('✅ ¡Gracias por tu calificación!', 'success')
+        flash('¡Gracias por tu calificación!', 'success')
         
         # ✅ REDIRIGIR AL PERFIL PÚBLICO DEL NEGOCIO
         return redirect(f'https://wabot-directorio-production.up.railway.app/negocio/{cita["negocio_id"]}')
@@ -8886,6 +8886,34 @@ try:
         print("✅ Scheduler iniciado exitosamente")
 except Exception as e:
     print(f"⚠️ No se pudo iniciar scheduler automáticamente: {e}")
+
+
+# ─── Páginas de error con el diseño de la app ────────────────────────────────
+_ERRORES = {
+    404: ('Página no encontrada', 'La dirección que buscas no existe o se movió.'),
+    500: ('Algo salió mal', 'Tuvimos un problema al procesar tu solicitud. Inténtalo de nuevo en unos minutos.'),
+}
+
+
+def _pagina_error(codigo):
+    titulo, mensaje = _ERRORES[codigo]
+    if request.path.startswith('/api/') or (request.accept_mimetypes.best == 'application/json'):
+        return jsonify({'success': False, 'error': titulo}), codigo
+    try:
+        return render_template('error.html', codigo=codigo, titulo=titulo, mensaje=mensaje), codigo
+    except Exception:
+        return f'{codigo} - {titulo}', codigo
+
+
+@app.errorhandler(404)
+def error_404(_e):
+    return _pagina_error(404)
+
+
+@app.errorhandler(500)
+def error_500(_e):
+    return _pagina_error(500)
+
 
 if __name__ == '__main__':
     print("🏠 MODO DESARROLLO LOCAL")

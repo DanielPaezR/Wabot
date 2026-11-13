@@ -372,7 +372,7 @@
                 
                 <!-- Foto del servicio -->
                 <div class="form-group">
-                    <label class="form-label">📸 Foto del Servicio (opcional)</label>
+                    <label class="form-label">Foto del Servicio (opcional)</label>
                     <div class="photo-upload-area" id="uploadArea">
                         <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--wb-text-3);"></i>
                         <p>Haz clic para subir una foto</p>
@@ -382,7 +382,7 @@
                     <div id="photoPreview" class="photo-preview" style="display: none;">
                         <img id="previewImg" src="">
                         <br>
-                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
+                        <a href="#" class="remove-photo" onclick="removerFoto(event)">Eliminar foto</a>
                     </div>
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
                 </div>
@@ -393,15 +393,15 @@
                     <div class="tipo-precio-options">
                         <div class="tipo-precio-option">
                             <input type="radio" id="precio_fijo" name="tipo_precio" value="fijo" checked>
-                            <label for="precio_fijo">💰 Precio Fijo</label>
+                            <label for="precio_fijo">Precio Fijo</label>
                         </div>
                         <div class="tipo-precio-option">
                             <input type="radio" id="precio_rango" name="tipo_precio" value="rango">
-                            <label for="precio_rango">📊 Rango de Precios</label>
+                            <label for="precio_rango">Rango de Precios</label>
                         </div>
                         <div class="tipo-precio-option">
                             <input type="radio" id="precio_variable" name="tipo_precio" value="variable">
-                            <label for="precio_variable">💬 Precio Variable (Consultar)</label>
+                            <label for="precio_variable">Precio Variable (Consultar)</label>
                         </div>
                     </div>
                     <div class="help-text">Selecciona cómo se mostrará el precio al cliente</div>
@@ -559,12 +559,12 @@
                 if (!file) return;
                 
                 if (file.size > 5 * 1024 * 1024) {
-                    alert('❌ La imagen es demasiado grande (máx 5MB)');
+                    alert('La imagen es demasiado grande (máx 5MB)');
                     return;
                 }
                 
                 if (!file.type.match('image.*')) {
-                    alert('❌ Solo se permiten imágenes');
+                    alert('Solo se permiten imágenes');
                     return;
                 }
                 
@@ -625,7 +625,7 @@
             if (radioRango && radioRango.checked) {
                 if (!precioMaximoInput.value || precioMaximoInput.value <= 0) {
                     e.preventDefault();
-                    alert('❌ Para servicios con rango de precios, debes especificar el precio máximo.');
+                    alert('Para servicios con rango de precios, debes especificar el precio máximo.');
                     return;
                 }
                 
@@ -634,7 +634,7 @@
                 
                 if (precioMax <= precioBase) {
                     e.preventDefault();
-                    alert('❌ El precio máximo debe ser mayor que el precio base.');
+                    alert('El precio máximo debe ser mayor que el precio base.');
                 }
             }
         });

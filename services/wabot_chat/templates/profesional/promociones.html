@@ -302,7 +302,7 @@
                             
                             {% if promo.participaciones and promo.participaciones > 0 %}
                             <span class="badge" style="background:var(--wb-info-soft);color:var(--wb-info-text);">
-                                📸 {{ promo.participaciones }}
+                                {{ promo.participaciones }}
                             </span>
                             {% endif %}
                         </div>
@@ -310,54 +310,54 @@
                         <form method="POST" action="{{ url_for('eliminar_promocion', promo_id=promo.id) }}" style="display:inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar esta promoción?')">
-                                🗑 Eliminar
+                                Eliminar
                             </button>
                         </form>
                     </div>
                     
                     <div class="card-body">
                         {% if promo.descripcion %}
-                        <p>📝 {{ promo.descripcion }}</p>
+                        <p>{{ promo.descripcion }}</p>
                         {% endif %}
                         
                         {% if tipo == 'concurso_fotos' and promo.premio %}
-                        <p>🏅 <strong>Premio:</strong> {{ promo.premio }}</p>
+                        <p><strong>Premio:</strong> {{ promo.premio }}</p>
                         {% endif %}
                         
                         {% if tipo == 'descuento_dia' and promo.descuento_porcentaje %}
-                        <p>💰 <strong>{{ promo.descuento_porcentaje }}% de descuento</strong></p>
+                        <p><strong>{{ promo.descuento_porcentaje }}% de descuento</strong></p>
                         {% endif %}
                         
                         {% if tipo == 'dosxuno' %}
-                        <p>🎟️ <strong>2x1 en servicios seleccionados</strong></p>
+                        <p><strong>2x1 en servicios seleccionados</strong></p>
                         {% endif %}
                         
                         {% if tipo == 'descuento_horas' and promo.descuento_porcentaje %}
-                        <p>🔥 <strong>{{ promo.descuento_porcentaje }}% de descuento</strong></p>
+                        <p><strong>{{ promo.descuento_porcentaje }}% de descuento</strong></p>
                         {% if promo.hora_inicio and promo.hora_fin %}
-                        <p class="text-light">⏰ {{ promo.hora_inicio }} - {{ promo.hora_fin }}</p>
+                        <p class="text-light">{{ promo.hora_inicio }} - {{ promo.hora_fin }}</p>
                         {% endif %}
                         {% endif %}
                         
                         <p class="text-light">
-                            📅 {{ promo.fecha_inicio.strftime('%d/%m/%Y') if promo.fecha_inicio else 'Hoy' }} 
+                            {{ promo.fecha_inicio.strftime('%d/%m/%Y') if promo.fecha_inicio else 'Hoy' }} 
                             → {{ promo.fecha_fin.strftime('%d/%m/%Y') if promo.fecha_fin else 'Indefinido' }}
                         </p>
                         
                         {% if expirada %}
-                        <p class="text-light" style="color:var(--danger);">⏰ Esta promoción ya expiró</p>
+                        <p class="text-light" style="color:var(--danger);">Esta promoción ya expiró</p>
                         {% endif %}
                         
-                        <!-- ✅ BOTONES DE ACCIÓN (FUERA del form de eliminar) -->
+                        <!-- BOTONES DE ACCIÓN (FUERA del form de eliminar) -->
                         <div class="promo-actions">
                             <a href="{{ url_for('generar_flyer_promocion', promocion_id=promo.id) }}" 
                                target="_blank"
                                class="btn-promo btn-promo-primary">
-                                🎨 Ver Flyer
+                                Ver Flyer
                             </a>
                             <button class="btn-promo btn-promo-success" 
                                     onclick="compartirFlyerWhatsApp({{ promo.id }})">
-                                📤 Compartir
+                                Compartir
                             </button>
                         </div>
                     </div>
@@ -369,7 +369,7 @@
                     <p style="font-weight:600;">No tienes promociones creadas</p>
                     <p style="font-size:0.85rem;">Crea descuentos, concursos y más</p>
                     <button class="btn btn-primary" style="margin-top:16px;" onclick="abrirModalCrear()">
-                        ✨ Crear primera promoción
+                        Crear primera promoción
                     </button>
                 </div>
             {% endif %}
@@ -385,7 +385,7 @@
                 <input type="hidden" name="tipo_promocion" id="tipoPromocion" value="concurso_fotos">
                 
                 <div class="modal-head">
-                    <h4>✨ Nueva Promoción</h4>
+                    <h4>Nueva Promoción</h4>
                     <button type="button" class="modal-close" onclick="cerrarModalCrear()">×</button>
                 </div>
                 
@@ -471,7 +471,7 @@
                 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline" onclick="cerrarModalCrear()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">✨ Crear Promoción</button>
+                    <button type="submit" class="btn btn-primary">Crear Promoción</button>
                 </div>
             </form>
         </div>
@@ -507,7 +507,7 @@
         function compartirFlyerWhatsApp(promoId) {
             const flyerUrl = window.location.origin + '/profesional/generar-flyer/' + promoId;
             const mensaje = encodeURIComponent(
-                '🔥 ¡Mira esta promo!\n\n' +
+                '¡Mira esta promo!\n\n' +
                 'Agenda tu cita aquí: ' + window.location.origin + '/cliente/1\n\n' +
                 'Flyer: ' + flyerUrl
             );

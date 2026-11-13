@@ -319,6 +319,34 @@ def perfil_profesional(profesional_id):
 
 
 
+
+# ─── Páginas de error con el diseño de la app ────────────────────────────────
+_ERRORES = {
+    404: ('Página no encontrada', 'La dirección que buscas no existe o se movió.'),
+    500: ('Algo salió mal', 'Tuvimos un problema al procesar tu solicitud. Inténtalo de nuevo en unos minutos.'),
+}
+
+
+def _pagina_error(codigo):
+    titulo, mensaje = _ERRORES[codigo]
+    if request.path.startswith('/api/') or (request.accept_mimetypes.best == 'application/json'):
+        return jsonify({'success': False, 'error': titulo}), codigo
+    try:
+        return render_template('error.html', codigo=codigo, titulo=titulo, mensaje=mensaje), codigo
+    except Exception:
+        return f'{codigo} - {titulo}', codigo
+
+
+@app.errorhandler(404)
+def error_404(_e):
+    return _pagina_error(404)
+
+
+@app.errorhandler(500)
+def error_500(_e):
+    return _pagina_error(500)
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)

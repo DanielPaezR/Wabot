@@ -425,25 +425,25 @@
                             <td>
                                 <div class="tipo-negocio">
                                     {% if negocio.tipo_negocio == 'barberia' %}
-                                        💈 Barbería
+                                        Barbería
                                     {% elif negocio.tipo_negocio == 'spa_unas' %}
-                                        💅 Spa de Uñas
+                                        Spa de Uñas
                                     {% elif negocio.tipo_negocio == 'peluqueria' %}
-                                        ✂️ Peluquería
+                                        Peluquería
                                     {% elif negocio.tipo_negocio == 'estetica' %}
-                                        💆‍♀️ Centro Estética
+                                        Centro Estética
                                     {% elif negocio.tipo_negocio == 'consultorio' %}
-                                        🏥 Consultorio Médico
+                                        Consultorio Médico
                                     {% elif negocio.tipo_negocio == 'gimnasio' %}
-                                        🏋️ Gimnasio
+                                        Gimnasio
                                     {% elif negocio.tipo_negocio == 'yoga' %}
-                                        🧘 Estudio de Yoga
+                                        Estudio de Yoga
                                     {% elif negocio.tipo_negocio == 'masajes' %}
-                                        💆 Centro de Masajes
+                                        Centro de Masajes
                                     {% elif negocio.tipo_negocio == 'tattoo' %}
-                                        🎨 Estudio de Tattoo
+                                        Estudio de Tattoo
                                     {% else %}
-                                        💼 {{ negocio.tipo_negocio|title }}
+                                        {{ negocio.tipo_negocio|title }}
                                     {% endif %}
                                 </div>
                             </td>
@@ -466,10 +466,10 @@
                                 {% endif %}
                             </td>
                             <td class="actions">
-                                <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                                <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">Editar</a>
                                 <form method="POST" action="{{ url_for('admin_eliminar_negocio', negocio_id=negocio.id) }}" style="display: inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">🗑️ Eliminar</button>
+                                    <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">Eliminar</button>
                                 </form>
                             </td>
                         </tr>
@@ -502,25 +502,25 @@
                             <span class="detail-label">Tipo</span>
                             <span class="detail-value">
                                 {% if negocio.tipo_negocio == 'barberia' %}
-                                    💈 Barbería
+                                    Barbería
                                 {% elif negocio.tipo_negocio == 'spa_unas' %}
-                                    💅 Spa de Uñas
+                                    Spa de Uñas
                                 {% elif negocio.tipo_negocio == 'peluqueria' %}
-                                    ✂️ Peluquería
+                                    Peluquería
                                 {% elif negocio.tipo_negocio == 'estetica' %}
-                                    💆‍♀️ Centro Estética
+                                    Centro Estética
                                 {% elif negocio.tipo_negocio == 'consultorio' %}
-                                    🏥 Consultorio Médico
+                                    Consultorio Médico
                                 {% elif negocio.tipo_negocio == 'gimnasio' %}
-                                    🏋️ Gimnasio
+                                    Gimnasio
                                 {% elif negocio.tipo_negocio == 'yoga' %}
-                                    🧘 Estudio de Yoga
+                                    Estudio de Yoga
                                 {% elif negocio.tipo_negocio == 'masajes' %}
-                                    💆 Centro de Masajes
+                                    Centro de Masajes
                                 {% elif negocio.tipo_negocio == 'tattoo' %}
-                                    🎨 Estudio de Tattoo
+                                    Estudio de Tattoo
                                 {% else %}
-                                    💼 {{ negocio.tipo_negocio|title }}
+                                    {{ negocio.tipo_negocio|title }}
                                 {% endif %}
                             </span>
                         </div>
@@ -541,10 +541,10 @@
                     </div>
                     
                     <div class="card-actions">
-                        <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">✏️ Editar</a>
+                        <a href="{{ url_for('admin_editar_negocio', negocio_id=negocio.id) }}" class="btn-sm btn-edit">Editar</a>
                         <form method="POST" action="{{ url_for('admin_eliminar_negocio', negocio_id=negocio.id) }}" style="display: inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">🗑️ Eliminar</button>
+                            <button type="submit" class="btn-sm btn-delete" onclick="return confirm('¿Estás seguro de eliminar este negocio? Se perderán todos los datos asociados.')">Eliminar</button>
                         </form>
                     </div>
                 </div>
@@ -553,9 +553,9 @@
             
             {% else %}
             <div class="empty-state">
-                <h2>📭 No hay negocios registrados</h2>
+                <h2>No hay negocios registrados</h2>
                 <p>Comienza creando el primer negocio en el sistema</p>
-                <a href="{{ url_for('admin_nuevo_negocio') }}" class="btn btn-primary" style="margin-top: 1rem;">➕ Crear Primer Negocio</a>
+                <a href="{{ url_for('admin_nuevo_negocio') }}" class="btn btn-primary" style="margin-top: 1rem;">Crear Primer Negocio</a>
             </div>
             {% endif %}
         </div>

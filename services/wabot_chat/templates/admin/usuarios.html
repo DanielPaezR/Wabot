@@ -489,11 +489,11 @@
                             <td>
                                 <span class="role-badge role-{{ usuario.rol }}">
                                     {% if usuario.rol == 'superadmin' %}
-                                        👑 Super Admin
+                                        Super Admin
                                     {% elif usuario.rol == 'propietario' %}
-                                        💼 Propietario
+                                        Propietario
                                     {% else %}
-                                        👨‍💼 Profesional
+                                        Profesional
                                     {% endif %}
                                 </span>
                             </td>
@@ -520,7 +520,7 @@
                             <td class="actions">
                                 <!-- Botón de Editar -->
                                 <a href="{{ url_for('admin_editar_usuario', usuario_id=usuario.id) }}" class="btn-sm btn-edit">
-                                    ✏️ Editar
+                                    Editar
                                 </a>
                                 
                                 <!-- Botón de Toggle Activo/Inactivo -->
@@ -528,7 +528,7 @@
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-sm btn-toggle" 
                                             onclick="return confirm('¿{% if usuario.activo %}Desactivar{% else %}Activar{% endif %} este usuario?')">
-                                        {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
+                                        {% if usuario.activo %}Desactivar{% else %}Activar{% endif %}
                                     </button>
                                 </form>
                                 
@@ -537,7 +537,7 @@
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-sm btn-delete" 
                                             onclick="return confirm('¿Estás seguro de ELIMINAR permanentemente este usuario? Esta acción no se puede deshacer.')">
-                                        🗑️ Eliminar
+                                        Eliminar
                                     </button>
                                 </form>
                             </td>
@@ -580,11 +580,11 @@
                             <span class="detail-value">
                                 <span class="role-badge role-{{ usuario.rol }}">
                                     {% if usuario.rol == 'superadmin' %}
-                                        👑 Super Admin
+                                        Super Admin
                                     {% elif usuario.rol == 'propietario' %}
-                                        💼 Propietario
+                                        Propietario
                                     {% else %}
-                                        👨‍💼 Profesional
+                                        Profesional
                                     {% endif %}
                                 </span>
                             </span>
@@ -608,7 +608,7 @@
                     <div class="card-actions">
                         <!-- Botón de Editar -->
                         <a href="{{ url_for('admin_editar_usuario', usuario_id=usuario.id) }}" class="btn-sm btn-edit">
-                            ✏️ Editar
+                            Editar
                         </a>
                         
                         <!-- Botón de Toggle Activo/Inactivo -->
@@ -616,7 +616,7 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-sm btn-toggle" 
                                     onclick="return confirm('¿{% if usuario.activo %}Desactivar{% else %}Activar{% endif %} este usuario?')">
-                                {% if usuario.activo %}❌ Desactivar{% else %}✅ Activar{% endif %}
+                                {% if usuario.activo %}Desactivar{% else %}Activar{% endif %}
                             </button>
                         </form>
                         
@@ -625,7 +625,7 @@
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-sm btn-delete" 
                                     onclick="return confirm('¿Estás seguro de ELIMINAR permanentemente este usuario? Esta acción no se puede deshacer.')">
-                                🗑️ Eliminar
+                                Eliminar
                             </button>
                         </form>
                     </div>
@@ -635,9 +635,9 @@
             
             {% else %}
             <div class="empty-state">
-                <h2>📭 No hay usuarios registrados</h2>
+                <h2>No hay usuarios registrados</h2>
                 <p>Comienza creando el primer usuario del sistema</p>
-                <a href="{{ url_for('admin_nuevo_usuario') }}" class="btn btn-primary" style="margin-top: 1rem;">➕ Crear Primer Usuario</a>
+                <a href="{{ url_for('admin_nuevo_usuario') }}" class="btn btn-primary" style="margin-top: 1rem;">Crear Primer Usuario</a>
             </div>
             {% endif %}
         </div>

@@ -241,11 +241,11 @@
             {% endif %}
 
             <div class="role-info">
-                <h3>📋 Información de Roles</h3>
+                <h3>Información de Roles</h3>
                 <div class="role-desc">
-                    <strong>👑 Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema.<br>
-                    <strong>💼 Propietario:</strong> Gestiona su propio negocio, citas, estadísticas y configuración.<br>
-                    <strong>👨‍💼 Profesional:</strong> Acceso limitado a sus citas del día y funciones básicas.
+                    <strong>Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema.<br>
+                    <strong>Propietario:</strong> Gestiona su propio negocio, citas, estadísticas y configuración.<br>
+                    <strong>Profesional:</strong> Acceso limitado a sus citas del día y funciones básicas.
                 </div>
             </div>
             
@@ -294,15 +294,15 @@
                 <div class="form-group">
                     <label for="rol">Rol *</label>
                     <select id="rol" name="rol" required onchange="toggleNegocioField()">
-                        <option value="propietario">💼 Propietario</option>
-                        <option value="profesional">👨‍💼 Profesional</option>
-                        <option value="superadmin">👑 Super Admin</option>
+                        <option value="propietario">Propietario</option>
+                        <option value="profesional">Profesional</option>
+                        <option value="superadmin">Super Admin</option>
                     </select>
                 </div>
 
                 <!-- Campos específicos para Profesional -->
                 <div id="profesionalFields" class="conditional-field">
-                    <h4 style="margin-bottom: 1rem; color: var(--wb-text);">👨‍💼 Información del Profesional</h4>
+                    <h4 style="margin-bottom: 1rem; color: var(--wb-text);">Información del Profesional</h4>
                     
                     <div class="form-group">
                         <label for="especialidad">Especialidad</label>
@@ -318,11 +318,11 @@
                 </div>
 
                 <div id="profesionalInfo" class="conditional-field">
-                    <strong>💡 Información para Profesional:</strong><br>
+                    <strong>Información para Profesional:</strong><br>
                     El profesional podrá acceder al sistema con su email y contraseña. El PIN es opcional para acceso rápido desde dispositivos móviles.
                 </div>
                 
-                <button type="submit" class="btn-primary" id="submitBtn">👤 Crear Usuario</button>
+                <button type="submit" class="btn-primary" id="submitBtn">Crear Usuario</button>
             </form>
         </div>
     </div>
@@ -361,19 +361,19 @@
 
             // Validar que las contraseñas coincidan
             if (password !== confirmPassword) {
-                alert('❌ Las contraseñas no coinciden. Por favor, verifica.');
+                alert('Las contraseñas no coinciden. Por favor, verifica.');
                 return false;
             }
 
             // Validar longitud de contraseña
             if (password.length < 6) {
-                alert('❌ La contraseña debe tener al menos 6 caracteres.');
+                alert('La contraseña debe tener al menos 6 caracteres.');
                 return false;
             }
 
             // Validar que se seleccione negocio para roles que lo requieren
             if (rol !== 'superadmin' && !negocioField.value) {
-                alert('❌ Debes seleccionar un negocio para este rol.');
+                alert('Debes seleccionar un negocio para este rol.');
                 return false;
             }
 

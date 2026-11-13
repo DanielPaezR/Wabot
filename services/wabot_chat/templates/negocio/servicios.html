@@ -204,7 +204,7 @@
             font-size: 1.1rem;
         }
         
-        /* ✅ NUEVO: Estilos para badges de tipo de precio */
+        /* NUEVO: Estilos para badges de tipo de precio */
         .badge-container {
             display: flex;
             gap: 0.5rem;
@@ -437,13 +437,13 @@
                     <div class="servicio-header">
                         <div class="servicio-nombre">{{ servicio.nombre }}</div>
                         <div class="badge-container">
-                            <!-- ✅ NUEVO: Badge según tipo de precio -->
+                            <!-- NUEVO: Badge según tipo de precio -->
                             {% if servicio.tipo_precio == 'rango' %}
-                                <span class="badge badge-rango">📊 Rango</span>
+                                <span class="badge badge-rango">Rango</span>
                             {% elif servicio.tipo_precio == 'variable' %}
-                                <span class="badge badge-variable">💬 Variable</span>
+                                <span class="badge badge-variable">Variable</span>
                             {% else %}
-                                <span class="badge badge-fijo">💰 Fijo</span>
+                                <span class="badge badge-fijo">Fijo</span>
                             {% endif %}
                             
                             <!-- Precio con formato según tipo -->
@@ -465,7 +465,7 @@
                     
                     <div class="servicio-info">
                         <span class="servicio-duracion">
-                            ⏱️ {{ servicio.duracion }} minutos
+                            {{ servicio.duracion }} minutos
                         </span>
                     </div>
                     
@@ -477,23 +477,23 @@
                     
                     <div class="servicio-actions">
                         <a href="{{ url_for('negocio_editar_servicio', servicio_id=servicio.id) }}" class="btn-edit">
-                            ✏️ Editar
+                            Editar
                         </a>
                         <form method="POST" action="{{ url_for('negocio_eliminar_servicio', servicio_id=servicio.id) }}" 
                               class="form-inline"
                               onsubmit="return confirm('¿Estás seguro de que quieres eliminar este servicio?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn-delete">🗑️ Eliminar</button>
+                            <button type="submit" class="btn-delete">Eliminar</button>
                         </form>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
             <div class="empty-state">
-                <h2>📭 No hay servicios configurados</h2>
+                <h2>No hay servicios configurados</h2>
                 <p>Los clientes no podrán agendar citas hasta que agregues servicios.</p>
                 <a href="{{ url_for('negocio_nuevo_servicio') }}" class="btn btn-primary" style="margin-top: 1rem;">
-                    ➕ Crear Primer Servicio
+                    Crear Primer Servicio
                 </a>
             </div>
             {% endif %}
@@ -510,7 +510,7 @@
                     const href = this.getAttribute('href');
                     if (!href || href === '#' || href.includes('undefined')) {
                         e.preventDefault();
-                        alert('❌ Error: No se puede cargar la página de edición. Por favor, recarga la página e intenta nuevamente.');
+                        alert('Error: No se puede cargar la página de edición. Por favor, recarga la página e intenta nuevamente.');
                     }
                 });
             });
@@ -521,7 +521,7 @@
             deleteForms.forEach(form => {
                 form.onsubmit = function(e) {
                     e.preventDefault();
-                    if (confirm('⚠️ ¿Estás seguro de que quieres eliminar este servicio?\n\nEsta acción no se puede deshacer y podría afectar las citas futuras.')) {
+                    if (confirm('¿Estás seguro de que quieres eliminar este servicio?\n\nEsta acción no se puede deshacer y podría afectar las citas futuras.')) {
                         this.submit();
                     }
                 };
