@@ -29,7 +29,7 @@ CFG = {
 def js_valido(html, nombre):
     scripts = re.findall(r'<script(?![^>]*src)[^>]*>(.*?)</script>', html, re.S)
     for i, js in enumerate(scripts):
-        p = os.path.join(os.environ['TEMP'], f'_chk_{nombre}_{i}.js')
+        p = os.path.join(__import__('tempfile').gettempdir(), f'_chk_{nombre}_{i}.js')
         open(p, 'w', encoding='utf-8').write(js)
         r = subprocess.run(['node', '--check', p], capture_output=True, text=True)
         os.remove(p)

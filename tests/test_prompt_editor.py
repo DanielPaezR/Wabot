@@ -23,6 +23,6 @@ with app.test_request_context('/'):
         check('editor: muestra la vista previa', 'Negocio: N. Tel +297' in html)
         check('editor: el valor actual va en el tooltip escapado', 'title="Ahora vale: Calle 1 &#34;x&#34;"' in html)
         js = re.findall(r'<script>(.*?)</script>', html, re.S)[0]
-        open(os.path.join(os.environ['TEMP'], '_p.js'), 'w', encoding='utf-8').write(js)
-        check('editor: JS válido', subprocess.run(['node', '--check', os.path.join(os.environ['TEMP'], '_p.js')], capture_output=True).returncode == 0)
+        open(os.path.join(__import__('tempfile').gettempdir(), '_p.js'), 'w', encoding='utf-8').write(js)
+        check('editor: JS válido', subprocess.run(['node', '--check', os.path.join(__import__('tempfile').gettempdir(), '_p.js')], capture_output=True).returncode == 0)
 print('\nRESULTADO:', 'TODO OK' if ok else 'HAY FALLOS')

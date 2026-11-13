@@ -23,7 +23,7 @@ for f in ['wabot_chat/templates/login.html', 'wabot_chat/templates/cliente/index
     check(f'Jinja válido: {f}', okj)
     rendered = re.sub(r'\{\{.*?\}\}', '0', re.sub(r'\{%.*?%\}', '', html, flags=re.S), flags=re.S)
     for i, js in enumerate(re.findall(r'<script(?![^>]*src)[^>]*>(.*?)</script>', rendered, re.S)):
-        p = os.path.join(os.environ['TEMP'], f'_d_{i}.js'); open(p, 'w', encoding='utf-8').write(js)
+        p = os.path.join(__import__('tempfile').gettempdir(), f'_d_{i}.js'); open(p, 'w', encoding='utf-8').write(js)
         r = subprocess.run(['node', '--check', p], capture_output=True, text=True); os.remove(p)
         if r.returncode: print(r.stderr[:300])
         check(f'  JS #{i} sin errores: {f.split("/")[-1]}', r.returncode == 0)
