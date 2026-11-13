@@ -49,6 +49,14 @@ conversaciones_activas = {}
 import renta   # renta de vehículos por días (tipo_negocio = 'renta_autos')
 
 
+def _registrar_error(exc, contexto):
+    try:
+        import monitoreo
+        monitoreo.registrar_error(exc, '/cliente/send', 'POST', contexto)
+    except Exception:
+        pass
+
+
 def _tipo_negocio(negocio_id):
     try:
         return dict(db.obtener_negocio_por_id(negocio_id) or {}).get('tipo_negocio')
@@ -1718,6 +1726,7 @@ def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         
     except Exception as e:
         print(f"❌ [CHAT WEB] Error procesando mensaje: {e}")
+        _registrar_error(e, f'chat negocio {negocio_id}')
         import traceback
         traceback.print_exc()
         
@@ -3330,6 +3339,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         
     except Exception as e:
         print(f"❌ Error en continuar_conversacion: {e}")
+        _registrar_error(e, f'chat negocio {negocio_id} estado {estado}')
         import traceback
         traceback.print_exc()
         if clave_conversacion in conversaciones_activas:

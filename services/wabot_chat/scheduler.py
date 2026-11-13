@@ -5,6 +5,7 @@ import threading
 from datetime import datetime, timedelta
 import pytz
 import database as db
+import monitoreo
 from notification_system import notification_system
 
 import localizacion
@@ -26,6 +27,7 @@ class AppointmentScheduler:
     
     def verificar_recordatorios(self):
         """Verificar y enviar recordatorios a profesionales y clientes"""
+        monitoreo.registrar_latido('scheduler')      # el monitor externo comprueba que este latido sea reciente
         try:
             ahora = datetime.now(tz_reloj)
 
@@ -133,6 +135,7 @@ class AppointmentScheduler:
                         
         except Exception as e:
             print(f"❌ Error en recordatorios: {e}")
+            monitoreo.registrar_error(e, contexto='programador: recordatorios')
     
     def obtener_citas_pendientes_recordatorio(self):
         """Obtener citas confirmadas que necesitan recordatorios"""
@@ -490,6 +493,7 @@ class AppointmentScheduler:
             
         except Exception as e:
             print(f"❌ Error enviando resumen diario: {e}")
+            monitoreo.registrar_error(e, contexto='programador: resumen diario')
     
     # ==================== INICIAR SCHEDULER ====================
     

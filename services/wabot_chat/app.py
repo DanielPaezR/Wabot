@@ -72,6 +72,9 @@ import localizacion
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 
+import monitoreo
+monitoreo.iniciar_sentry()          # opcional: solo si existe SENTRY_DSN
+
 # Detrás del proxy de Railway, request.remote_addr sería la IP del proxy para TODOS los visitantes: el límite de
 # mensajes y de intentos de login y la deduplicación de votos del concurso (por IP) valdrían para todo el sitio a la vez.
 # ProxyFix toma la IP real del encabezado X-Forwarded-For que añade Railway (un solo proxy de confianza).
@@ -1036,8 +1039,41 @@ def index():
 
 @app.route('/health')
 def health_check():
-    """Health check para Railway"""
-    return jsonify({"status": "healthy", "timestamp": datetime.now(tz_negocio).isoformat()})
+    """Salud básica (Railway): ¿la app responde y llega a la base de datos? 200 si sí, 503 si no."""
+    import monitoreo
+    info, codigo = monitoreo.salud(completo=False)
+    info['status'] = 'healthy' if codigo == 200 else 'unhealthy'
+    return jsonify(info), codigo
+
+
+@app.route('/health/completo')
+def health_completo():
+    """Salud completa para el monitor externo (UptimeRobot, etc.): además de la base de datos revisa que el programador
+    de recordatorios esté vivo, que las claves de push existan y que no haya una ráfaga de errores. 503 si algo falla."""
+    import monitoreo
+    info, codigo = monitoreo.salud(completo=True)
+    return jsonify(info), codigo
+
+
+@app.route('/admin/errores')
+@role_required(['superadmin'])
+def admin_errores():
+    """Estado de la aplicación y registro de errores recientes."""
+    import monitoreo
+    estado, _ = monitoreo.salud(completo=True)
+    return render_template('admin/errores.html', estado=estado, errores=monitoreo.errores_recientes(100))
+
+
+@app.route('/admin/errores/limpiar', methods=['POST'])
+@role_required(['superadmin'])
+def admin_errores_limpiar():
+    import monitoreo
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+    else:
+        monitoreo.limpiar_errores()
+        flash('Registro de errores limpiado', 'success')
+    return redirect(url_for('admin_errores'))
 
 
 # =============================================================================
@@ -1115,6 +1151,7 @@ def chat_send():
         
     except Exception as e:
         print(f"❌ Error en chat_send: {e}")
+        monitoreo.registrar_error(e, '/cliente/send', 'POST', 'chat')
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -8130,6 +8167,7 @@ def procesar_whatsapp_entrante(data):
 
     except Exception as e:
         print(f"❌ [WHATSAPP] Error: {e}")
+        monitoreo.registrar_error(e, '/api/whatsapp/webhook', 'POST', 'whatsapp')
         import traceback
         traceback.print_exc()
         return {'error': 'Error interno'}, 500
@@ -8286,6 +8324,8 @@ def error_404(_e):
 
 @app.errorhandler(500)
 def error_500(_e):
+    # Los errores no controlados quedan registrados (y se ven en /admin/errores)
+    monitoreo.registrar_error(getattr(_e, 'original_exception', None) or _e, request.path, request.method)
     return _pagina_error(500)
 
 

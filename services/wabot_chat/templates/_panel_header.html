@@ -31,7 +31,8 @@
         ('admin_dashboard', 'Inicio', 'dashboard'),
         ('admin_negocios', 'Negocios', 'negocios'),
         ('admin_usuarios', 'Usuarios', 'usuarios'),
-        ('admin_plantillas', 'Plantillas', 'plantillas')
+        ('admin_plantillas', 'Plantillas', 'plantillas'),
+        ('admin_errores', 'Estado', 'errores')
     ]
 } -%}
 {%- set marca = 'Wabot Admin' if rol == 'admin' else (session.get('negocio_nombre') or 'Mi negocio') -%}
