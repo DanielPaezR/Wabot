@@ -173,14 +173,14 @@
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    alert('✅ Configuración guardada correctamente');
+                    alert('Configuración guardada correctamente');
                 } else {
-                    alert('❌ Error al guardar la configuración');
+                    alert('Error al guardar la configuración');
                 }
 
             } catch (error) {
                 console.error('Error guardando configuración:', error);
-                alert('❌ Error al guardar la configuración');
+                alert('Error al guardar la configuración');
             }
         });
     </script>

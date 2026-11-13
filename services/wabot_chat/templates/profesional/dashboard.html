@@ -2,12 +2,11 @@
 <html lang="es" data-bs-theme="dark">
 <head>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#667eea">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="application-name" content="Mi Agenda">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Mi Agenda">
-    <meta name="msapplication-navbutton-color" content="#667eea">
+    <meta name="msapplication-navbutton-color" content="#0a0a0d">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -792,7 +791,7 @@
         <div class="modal-sheet">
             <div class="modal-handle"></div>
             <div class="modal-head">
-                <span class="modal-head-title">🔐 Cambiar Contraseña</span>
+                <span class="modal-head-title">Cambiar Contraseña</span>
                 <button class="modal-close-btn" onclick="closePasswordModal()">×</button>
             </div>
             <form id="passwordForm" onsubmit="submitPasswordChange(event)">
@@ -823,7 +822,7 @@
     <div class="header">
         <div class="header-top">
             <div>
-                <div class="welcome-name">👋 {{ session.usuario_nombre }}</div>
+                <div class="welcome-name">{{ session.usuario_nombre }}</div>
                 <div class="welcome-biz">{{ session.negocio_nombre }}</div>
             </div>
             <div class="header-right">
@@ -832,7 +831,7 @@
                     <button class="icon-btn" title="Estadísticas">📊</button>
                 </a>
                 <button class="icon-btn" onclick="toggleNotif()" title="Notificaciones">
-                    🔔
+
                     <span id="notifBadge" class="notif-badge" style="display:none;">0</span>
                 </button>
                 <a href="{{ url_for('logout') }}" style="text-decoration:none;">
@@ -866,7 +865,7 @@
         <div class="notif-panel-inner">
             <div class="notif-panel-head">
                 Notificaciones
-                <button onclick="loadNotifications()" style="background:none;border:none;font-size:0.8rem;color:var(--primary);cursor:pointer;">🔄 Actualizar</button>
+                <button onclick="loadNotifications()" style="background:none;border:none;font-size:0.8rem;color:var(--primary);cursor:pointer;">Actualizar</button>
             </div>
             <div id="notifList">Cargando...</div>
         </div>
@@ -945,7 +944,7 @@
                                                 <button type="submit" class="btn-cita btn-cita-ok completar-btn"
                                                         data-cita-id="{{ cita.id }}"
                                                         onclick="return manejarCompletarCita(event, this);">
-                                                    ✅ Completar
+                                                    Completar
                                                 </button>
                                             </form>
                                             <form method="POST" action="{{ url_for('profesional_cancelar_cita', cita_id=cita.id) }}?fecha={{ fecha }}&profesional_id={{ profesional_id }}" style="display:inline;">
@@ -954,13 +953,13 @@
                                                         data-cita-id="{{ cita.id }}"
                                                         data-cliente="{{ cita.cliente_nombre }}"
                                                         onclick="return manejarCancelarCita(event, this);">
-                                                    ❌ Cancelar
+                                                    Cancelar
                                                 </button>
                                             </form>
                                             <a href="{{ url_for('profesional_personalizar_servicio', cita_id=cita.id) }}"
                                                class="btn-cita btn-cita-edit"
                                                onclick="event.stopPropagation()">
-                                                ⚙️ Personalizar
+                                                Personalizar
                                             </a>
                                         </div>
                                         {% endif %}
@@ -975,7 +974,7 @@
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <h3>🎉 Sin citas hoy</h3>
+                    <h3>Sin citas hoy</h3>
                     <p>Disfruta tu día libre</p>
                 </div>
             {% endif %}
@@ -1047,11 +1046,11 @@
                     const topRow = block.querySelector('.cita-top-row > div:last-child');
                     topRow.innerHTML = '<span class="cita-estado-tag tag-completado">Completada</span>';
                     actualizarContadores();
-                    mostrarNotificacion('✅ Cita completada');
+                    mostrarNotificacion('Cita completada');
                 } else throw new Error(data.message);
             } catch(e) {
-                mostrarNotificacion('❌ Error al completar', 'error');
-                btn.disabled = false; btn.innerHTML = '✅ Completar';
+                mostrarNotificacion('Error al completar', 'error');
+                btn.disabled = false; btn.innerHTML = 'Completar';
             }
             return false;
         }
@@ -1061,7 +1060,7 @@
             event.preventDefault();
             event.stopPropagation();
             const cliente = btn.dataset.cliente;
-            if (!confirm(`⚠️ ¿Cancelar cita de ${cliente}?`)) return false;
+            if (!confirm(`¿Cancelar cita de ${cliente}?`)) return false;
             const form   = btn.closest('form');
             const csrf   = form.querySelector('input[name="csrf_token"]').value;
             const fecha  = document.querySelector('input[type="date"]').value;
@@ -1080,11 +1079,11 @@
                     const topRow = block.querySelector('.cita-top-row > div:last-child');
                     topRow.innerHTML = '<span class="cita-estado-tag tag-cancelado">Cancelada</span>';
                     actualizarContadores();
-                    mostrarNotificacion(`❌ Cita de ${cliente} cancelada`, 'warning');
+                    mostrarNotificacion(`Cita de ${cliente} cancelada`, 'warning');
                 } else throw new Error(data.message);
             } catch(e) {
-                mostrarNotificacion('❌ Error al cancelar', 'error');
-                btn.disabled = false; btn.innerHTML = '❌ Cancelar';
+                mostrarNotificacion('Error al cancelar', 'error');
+                btn.disabled = false; btn.innerHTML = 'Cancelar';
             }
             return false;
         }
@@ -1127,7 +1126,7 @@
                 const data = await res.json();
                 if (data.success) {
                     if (!data.notificaciones.length) {
-                        list.innerHTML = '<div style="font-size:0.8rem;color:var(--wb-text-3);padding:4px 0;">📭 Sin notificaciones</div>';
+                        list.innerHTML = '<div style="font-size:0.8rem;color:var(--wb-text-3);padding:4px 0;">Sin notificaciones</div>';
                         return;
                     }
                     list.innerHTML = data.notificaciones.map(n => `
@@ -1179,10 +1178,10 @@
             });
             const data = await res.json();
             if (data.success) {
-                mostrarNotificacion('✅ Contraseña actualizada');
+                mostrarNotificacion('Contraseña actualizada');
                 closePasswordModal();
             } else {
-                alert('❌ Error: ' + data.message);
+                alert('Error: ' + data.message);
             }
         }
 
@@ -1198,10 +1197,10 @@
             if (window.PushNotifications) {
                 const push = new window.PushNotifications();
                 const ok   = await push.inicializar(profId);
-                if (ok) { mostrarNotificacion('✅ Notificaciones activadas'); document.getElementById('pushButton').disabled = true; }
-                else mostrarNotificacion('❌ No se pudo activar', 'error');
+                if (ok) { mostrarNotificacion('Notificaciones activadas'); document.getElementById('pushButton').disabled = true; }
+                else mostrarNotificacion('No se pudo activar', 'error');
             } else {
-                mostrarNotificacion('❌ No disponible en este navegador', 'error');
+                mostrarNotificacion('No disponible en este navegador', 'error');
             }
         });
 

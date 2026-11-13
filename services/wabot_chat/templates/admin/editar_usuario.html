@@ -115,9 +115,9 @@
                         <div class="role-info">
                             <h3><i class="fas fa-info-circle"></i> Información de Roles</h3>
                             <div class="role-desc">
-                                <strong>👑 Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema. Se asignará automáticamente al primer negocio disponible.<br>
-                                <strong>💼 Propietario:</strong> Gestiona su propio negocio, citas, estadísticas y configuración.<br>
-                                <strong>👨‍💼 Profesional:</strong> Acceso limitado a sus citas del día y funciones básicas.
+                                <strong>Super Admin:</strong> Acceso completo a todos los negocios y configuraciones del sistema. Se asignará automáticamente al primer negocio disponible.<br>
+                                <strong>Propietario:</strong> Gestiona su propio negocio, citas, estadísticas y configuración.<br>
+                                <strong>Profesional:</strong> Acceso limitado a sus citas del día y funciones básicas.
                             </div>
                         </div>
 
@@ -151,9 +151,9 @@
                                     <div class="mb-3">
                                         <label for="rol" class="form-label">Rol *</label>
                                         <select class="form-select" id="rol" name="rol" required onchange="toggleNegocioField()">
-                                            <option value="propietario" {% if usuario.rol == 'propietario' %}selected{% endif %}>💼 Propietario</option>
-                                            <option value="profesional" {% if usuario.rol == 'profesional' %}selected{% endif %}>👨‍💼 Profesional</option>
-                                            <option value="superadmin" {% if usuario.rol == 'superadmin' %}selected{% endif %}>👑 Super Admin</option>
+                                            <option value="propietario" {% if usuario.rol == 'propietario' %}selected{% endif %}>Propietario</option>
+                                            <option value="profesional" {% if usuario.rol == 'profesional' %}selected{% endif %}>Profesional</option>
+                                            <option value="superadmin" {% if usuario.rol == 'superadmin' %}selected{% endif %}>Super Admin</option>
                                         </select>
                                     </div>
                                 </div>
@@ -181,7 +181,7 @@
                                             <input class="form-check-input" type="checkbox" id="activo" name="activo" 
                                                    {% if usuario.activo %}checked{% endif %}>
                                             <label class="form-check-label" for="activo">
-                                                {% if usuario.activo %}✅ Activo{% else %}❌ Inactivo{% endif %}
+                                                {% if usuario.activo %}Activo{% else %}Inactivo{% endif %}
                                             </label>
                                         </div>
                                     </div>
@@ -190,7 +190,7 @@
 
                             <!-- Campos específicos para Profesional -->
                             <div id="profesionalFields" class="conditional-field">
-                                <h4 style="margin-bottom: 1rem; color: var(--wb-text);">👨‍💼 Información del Profesional</h4>
+                                <h4 style="margin-bottom: 1rem; color: var(--wb-text);">Información del Profesional</h4>
                                 
                                 <div class="row">
                                     <div class="col-md-6">
@@ -214,7 +214,7 @@
 
                             <div id="profesionalInfo" class="conditional-field">
                                 <div class="alert alert-info mb-0">
-                                    <strong>💡 Información para Profesional:</strong><br>
+                                    <strong>Información para Profesional:</strong><br>
                                     El profesional podrá acceder al sistema con su email y contraseña. Los campos de especialidad y teléfono son opcionales.
                                 </div>
                             </div>
@@ -460,17 +460,17 @@
             const confirmarPassword = document.getElementById('confirmar_password').value;
             
             if (!nuevaPassword) {
-                alert('❌ Por favor, ingresa una nueva contraseña');
+                alert('Por favor, ingresa una nueva contraseña');
                 return;
             }
             
             if (nuevaPassword !== confirmarPassword) {
-                alert('❌ Las contraseñas no coinciden');
+                alert('Las contraseñas no coinciden');
                 return;
             }
             
             if (nuevaPassword.length < 6) {
-                alert('❌ La contraseña debe tener al menos 6 caracteres');
+                alert('La contraseña debe tener al menos 6 caracteres');
                 return;
             }
             
@@ -498,19 +498,19 @@
             // Validar negocio para roles que lo requieren
             if (rol !== 'superadmin' && !negocioField.value) {
                 e.preventDefault();
-                alert('❌ Debes seleccionar un negocio para este rol.');
+                alert('Debes seleccionar un negocio para este rol.');
                 return;
             }
             
             if (nuevaPassword && nuevaPassword.length < 6) {
                 e.preventDefault();
-                alert('❌ La contraseña debe tener al menos 6 caracteres');
+                alert('La contraseña debe tener al menos 6 caracteres');
                 return;
             }
             
             if (nuevaPassword && nuevaPassword !== confirmarPassword) {
                 e.preventDefault();
-                alert('❌ Las contraseñas no coinciden');
+                alert('Las contraseñas no coinciden');
                 return;
             }
         });

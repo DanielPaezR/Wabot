@@ -191,10 +191,10 @@
                     <div class="cita-info">
                         <h3>{{ cita.cliente_nombre }}</h3>
                         <div class="cita-meta">
-                            <span class="cita-date">📅 {{ cita.fecha }} ⏰ {{ cita.hora }}</span>
-                            <span> | 📞 {{ cita.cliente_telefono }}</span>
-                            <span> | 💼 {{ cita.servicio_nombre }}</span>
-                            <span> | 💰 ${{ cita.precio }}</span>
+                            <span class="cita-date">{{ cita.fecha }} {{ cita.hora }}</span>
+                            <span> | {{ cita.cliente_telefono }}</span>
+                            <span> | {{ cita.servicio_nombre }}</span>
+                            <span> | ${{ cita.precio }}</span>
                         </div>
                     </div>
                     <span class="estado-badge estado-{{ cita.estado }}">{{ cita.estado }}</span>
@@ -202,7 +202,7 @@
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <h3>📭 No hay citas registradas</h3>
+                    <h3>No hay citas registradas</h3>
                     <p>Cuando agendes citas, aparecerán aquí</p>
                 </div>
             {% endif %}

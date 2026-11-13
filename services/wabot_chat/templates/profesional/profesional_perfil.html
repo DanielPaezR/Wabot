@@ -547,7 +547,7 @@
             </div>
             <div class="stat-item">
                 <div class="stat-value">{{ profesional.calificacion_promedio or 0 }}</div>
-                <div class="stat-label">⭐ Calificación</div>
+                <div class="stat-label">Calificación</div>
             </div>
             <div class="stat-item">
                 <div class="stat-value">
@@ -622,7 +622,7 @@
     </button>
     
     <!-- Toast -->
-    <div id="toast" class="toast">✅ Cambios guardados</div>
+    <div id="toast" class="toast">Cambios guardados</div>
     
     <!-- Modal -->
     <div id="modal" class="modal" onclick="cerrarModal()">
@@ -653,12 +653,12 @@
             if (!file) return;
             
             if (file.size > 5 * 1024 * 1024) {
-                showToast('❌ Imagen demasiado grande (máx 5MB)', true);
+                showToast('Imagen demasiado grande (máx 5MB)', true);
                 return;
             }
             
             if (!file.type.match('image.*')) {
-                showToast('❌ Solo se permiten imágenes', true);
+                showToast('Solo se permiten imágenes', true);
                 return;
             }
             
@@ -674,15 +674,15 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast('✅ Foto actualizada');
+                    showToast('Foto actualizada');
                     const separator = result.url.includes('?') ? '&' : '?';
                     const newUrl = result.url + separator + 't=' + new Date().getTime();
                     document.getElementById('avatarImg').src = newUrl;
                 } else {
-                    showToast('❌ Error: ' + result.message, true);
+                    showToast('Error: ' + result.message, true);
                 }
             } catch (error) {
-                showToast('❌ Error de conexión', true);
+                showToast('Error de conexión', true);
             }
             
             event.target.value = '';
@@ -698,7 +698,7 @@
                 if (!file) return;
                 
                 if (file.size > 5 * 1024 * 1024) {
-                    showToast('❌ Imagen demasiado grande (máx 5MB)', true);
+                    showToast('Imagen demasiado grande (máx 5MB)', true);
                     return;
                 }
                 
@@ -714,13 +714,13 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        showToast('✅ Trabajo agregado');
+                        showToast('Trabajo agregado');
                         cargarTrabajos();
                     } else {
-                        showToast('❌ Error: ' + result.message, true);
+                        showToast('Error: ' + result.message, true);
                     }
                 } catch (error) {
-                    showToast('❌ Error de conexión', true);
+                    showToast('Error de conexión', true);
                 }
             };
             input.click();
@@ -783,13 +783,13 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast('✅ Foto eliminada');
+                    showToast('Foto eliminada');
                     cargarTrabajos();
                 } else {
-                    showToast('❌ Error al eliminar', true);
+                    showToast('Error al eliminar', true);
                 }
             } catch (error) {
-                showToast('❌ Error de conexión', true);
+                showToast('Error de conexión', true);
             }
         }
         
@@ -806,7 +806,7 @@
             };
             
             if (!data.nombre) {
-                showToast('❌ El nombre es obligatorio', true);
+                showToast('El nombre es obligatorio', true);
                 return;
             }
             
@@ -825,7 +825,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast('✅ Perfil actualizado');
+                    showToast('Perfil actualizado');
                     document.querySelector('.profesional-name').textContent = data.nombre;
                     
                     if (data.especialidad) {
@@ -841,10 +841,10 @@
                         }
                     }
                 } else {
-                    showToast('❌ Error: ' + result.message, true);
+                    showToast('Error: ' + result.message, true);
                 }
             } catch (error) {
-                showToast('❌ Error de conexión', true);
+                showToast('Error de conexión', true);
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;

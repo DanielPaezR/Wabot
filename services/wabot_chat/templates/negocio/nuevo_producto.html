@@ -320,7 +320,7 @@
 
                 <!-- Selector de moneda -->
                 <div class="form-group">
-                    <label class="form-label">💰 Moneda</label>
+                    <label class="form-label">Moneda</label>
                     <select class="form-control" id="currencySelect" name="moneda">
                         <option value="COP" data-symbol="$">🇨🇴 COP ($) - Peso Colombiano</option>
                         <option value="USD" data-symbol="$">🇺🇸 USD ($) - Dólar Estadounidense</option>
@@ -340,7 +340,7 @@
                 
                 <!-- Foto del producto -->
                 <div class="form-group">
-                    <label class="form-label">📸 Foto del Producto (opcional)</label>
+                    <label class="form-label">Foto del Producto (opcional)</label>
                     <div class="photo-upload-area" id="uploadArea">
                         <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--wb-text-3);"></i>
                         <p>Haz clic para subir una foto</p>
@@ -350,7 +350,7 @@
                     <div id="photoPreview" class="photo-preview" style="display: none;">
                         <img id="previewImg" src="">
                         <br>
-                        <a href="#" class="remove-photo" onclick="removerFoto(event)">🗑️ Eliminar foto</a>
+                        <a href="#" class="remove-photo" onclick="removerFoto(event)">Eliminar foto</a>
                     </div>
                     <div class="help-text">Una imagen que muestre el producto</div>
                 </div>
@@ -423,12 +423,12 @@
                 if (!file) return;
                 
                 if (file.size > 5 * 1024 * 1024) {
-                    alert('❌ La imagen es demasiado grande (máx 5MB)');
+                    alert('La imagen es demasiado grande (máx 5MB)');
                     return;
                 }
                 
                 if (!file.type.match('image.*')) {
-                    alert('❌ Solo se permiten imágenes');
+                    alert('Solo se permiten imágenes');
                     return;
                 }
                 
@@ -465,13 +465,13 @@
             
             if (!nombre) {
                 e.preventDefault();
-                alert('❌ El nombre del producto es obligatorio');
+                alert('El nombre del producto es obligatorio');
                 return;
             }
             
             if (!precio || parseFloat(precio) <= 0) {
                 e.preventDefault();
-                alert('❌ El precio debe ser mayor a 0');
+                alert('El precio debe ser mayor a 0');
                 return;
             }
         });

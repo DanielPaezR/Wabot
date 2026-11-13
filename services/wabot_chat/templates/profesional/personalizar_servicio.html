@@ -304,7 +304,7 @@
             <div class="card-body">
                 {% if cita %}
                 <div class="cliente-info">
-                    <h3 style="margin-bottom: 0.5rem; color: var(--wb-text);">📋 Información de la cita</h3>
+                    <h3 style="margin-bottom: 0.5rem; color: var(--wb-text);">Información de la cita</h3>
                     <p><strong>Cliente:</strong> {{ cita.cliente_nombre }}</p>
                     <p><strong>Teléfono:</strong> {{ cita.telefono or cita.cliente_telefono }}</p>
                     <p><strong>Servicio actual:</strong> {{ cita.servicio_nombre }}</p>
@@ -320,7 +320,7 @@
                     
                     <!-- Configuración Básica -->
                     <div class="form-group">
-                        <h3 style="margin-bottom: 1rem; color: var(--wb-text);">📝 Configuración del Servicio Personalizado</h3>
+                        <h3 style="margin-bottom: 1rem; color: var(--wb-text);">Configuración del Servicio Personalizado</h3>
                         <div class="row">
                             <div>
                                 <label for="nombre_personalizado">Nombre del servicio personalizado *</label>
@@ -355,10 +355,10 @@
                     
                     <div class="form-footer">
                         <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">
-                            ↩️ Cancelar y volver al Dashboard
+                            Cancelar y volver al Dashboard
                         </a>
                         <button type="submit" class="btn btn-primary">
-                            💾 Guardar Personalización
+                            Guardar Personalización
                         </button>
                     </div>
                 </form>
@@ -375,19 +375,19 @@
             
             if (!nombre || nombre.length < 5) {
                 e.preventDefault();
-                alert('⚠️ El nombre del servicio personalizado debe tener al menos 5 caracteres.');
+                alert('El nombre del servicio personalizado debe tener al menos 5 caracteres.');
                 return;
             }
             
             if (!duracion || duracion < 5) {
                 e.preventDefault();
-                alert('⚠️ La duración debe ser de al menos 5 minutos.');
+                alert('La duración debe ser de al menos 5 minutos.');
                 return;
             }
             
             if (!precio || precio < 0) {
                 e.preventDefault();
-                alert('⚠️ El precio debe ser un valor positivo.');
+                alert('El precio debe ser un valor positivo.');
                 return;
             }
             

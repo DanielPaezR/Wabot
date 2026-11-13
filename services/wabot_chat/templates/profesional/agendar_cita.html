@@ -66,7 +66,7 @@
             border-color: var(--wb-accent);
         }
         
-        /* ✅ CORRECCIÓN: Botones responsive */
+        /* CORRECCIÓN: Botones responsive */
         .buttons-container {
             display: flex;
             gap: 0.5rem;
@@ -241,7 +241,7 @@
 {{ panel_header('profesional', 'agendar', '') }}
     <div class="container">
         <div class="form-card">
-            <h1>📅 Agendar Cita Directa</h1>
+            <h1>Agendar Cita Directa</h1>
             
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -254,19 +254,19 @@
             <form method="POST" action="{{ url_for('profesional_crear_cita') }}" id="agendarForm" data-profesional-id="{{ profesional_id or session.get('profesional_id', 1) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
-                    <label for="cliente_nombre">👤 Nombre del Cliente:</label>
+                    <label for="cliente_nombre">Nombre del Cliente:</label>
                     <input type="text" id="cliente_nombre" name="cliente_nombre" required 
                            placeholder="Ingresa el nombre completo del cliente">
                 </div>
                 
                 <div class="form-group">
-                    <label for="cliente_telefono">📞 Teléfono:</label>
+                    <label for="cliente_telefono">Teléfono:</label>
                     <input type="tel" id="cliente_telefono" name="cliente_telefono" required 
                            placeholder="Ej: {{ tel_cfg.ejemplo }}">
                 </div>
                 
                 <div class="form-group">
-                    <label for="servicio_id">💼 Servicio:</label>
+                    <label for="servicio_id">Servicio:</label>
                     <select id="servicio_id" name="servicio_id" required>
                         <option value="">Seleccionar servicio</option>
                         {% for servicio in servicios %}
@@ -278,22 +278,22 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="fecha">📅 Fecha:</label>
+                    <label for="fecha">Fecha:</label>
                     <input type="date" id="fecha" name="fecha" min="{{ fecha_hoy }}" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>⏰ Horarios Disponibles:</label>
+                    <label>Horarios Disponibles:</label>
                     <div id="horarios-container">
                         <p class="text-muted">Selecciona una fecha y servicio para ver los horarios disponibles</p>
                     </div>
                     <input type="hidden" id="hora" name="hora" required>
                 </div>
                 
-                <!-- ✅ CORRECCIÓN: Botones responsive -->
+                <!-- CORRECCIÓN: Botones responsive -->
                 <div class="buttons-container">
-                    <button type="submit" class="btn btn-success">✅ Agendar Cita</button>
-                    <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">↩️ Volver al Panel</a>
+                    <button type="submit" class="btn btn-success">Agendar Cita</button>
+                    <a href="{{ url_for('profesional_dashboard') }}" class="btn btn-secondary">Volver al Panel</a>
                 </div>
             </form>
         </div>
@@ -351,7 +351,7 @@
                 return;
             }
             
-            container.innerHTML = '<div class="loading">🔄 Cargando horarios disponibles...</div>';
+            container.innerHTML = '<div class="loading">Cargando horarios disponibles...</div>';
             if (horaInput) horaInput.value = '';
             
             var xhr = new XMLHttpRequest();
@@ -370,7 +370,7 @@
                             var html = '<div class="horarios-grid">';
                             for (var i = 0; i < data.horarios.length; i++) {
                                 var horaOriginal = data.horarios[i];
-                                // ✅ CONVERTIR A FORMATO 12 HORAS
+                                // CONVERTIR A FORMATO 12 HORAS
                                 var hora12 = convertirAFormato12Horas(horaOriginal);
                                 html += '<div class="hora-btn" data-hora="' + horaOriginal + '">' + hora12 + '</div>';
                             }
@@ -401,26 +401,26 @@
                             // Mostrar cuántos horarios se encontraron
                             console.log(`✅ ${data.horarios.length} horarios disponibles`);
                         } else {
-                            container.innerHTML = '<p class="text-danger">❌ No hay horarios disponibles para esta fecha</p>';
+                            container.innerHTML = '<p class="text-danger">No hay horarios disponibles para esta fecha</p>';
                         }
                     } catch (e) {
                         console.error('❌ Error parseando JSON:', e);
-                        container.innerHTML = '<p class="text-danger">❌ Error procesando los horarios</p>';
+                        container.innerHTML = '<p class="text-danger">Error procesando los horarios</p>';
                     }
                 } else {
                     console.error('❌ Error HTTP:', xhr.status);
                     try {
                         var errorData = JSON.parse(xhr.responseText);
-                        container.innerHTML = '<p class="text-danger">❌ ' + (errorData.error || 'Error cargando horarios') + '</p>';
+                        container.innerHTML = '<p class="text-danger">' + (errorData.error || 'Error cargando horarios') + '</p>';
                     } catch (e) {
-                        container.innerHTML = '<p class="text-danger">❌ Error cargando horarios. Intenta nuevamente.</p>';
+                        container.innerHTML = '<p class="text-danger">Error cargando horarios. Intenta nuevamente.</p>';
                     }
                 }
             };
             
             xhr.onerror = function() {
                 console.error('❌ Error de conexión');
-                container.innerHTML = '<p class="text-danger">❌ Error de conexión. Verifica tu internet.</p>';
+                container.innerHTML = '<p class="text-danger">Error de conexión. Verifica tu internet.</p>';
             };
             
             xhr.send();
@@ -450,7 +450,7 @@
                 const horaSeleccionada = document.getElementById('hora').value;
                 if (!horaSeleccionada) {
                     e.preventDefault();
-                    alert('⚠️ Por favor selecciona un horario disponible');
+                    alert('Por favor selecciona un horario disponible');
                     return false;
                 }
                 
@@ -458,7 +458,7 @@
                 const telefono = document.getElementById('cliente_telefono').value.trim();
                 if (!new RegExp('^' + {{ tel_cfg.regex | tojson | safe }} + '$').test(telefono)) {
                     e.preventDefault();
-                    alert('⚠️ El teléfono debe tener {{ tel_cfg.digitos }} dígitos (ejemplo: {{ tel_cfg.ejemplo }})');
+                    alert('El teléfono debe tener {{ tel_cfg.digitos }} dígitos (ejemplo: {{ tel_cfg.ejemplo }})');
                     return false;
                 }
             });

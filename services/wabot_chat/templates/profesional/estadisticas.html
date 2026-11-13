@@ -513,7 +513,7 @@
     <!-- COMPARE -->
     <div class="compare-row">
         <div class="compare-card">
-            <div class="compare-title">📊 Citas: actual vs período anterior</div>
+            <div class="compare-title">Citas: actual vs período anterior</div>
             <div class="compare-cols">
                 <div>
                     <div class="compare-col-label" id="cmCurrLabel">Actual</div>
@@ -536,7 +536,7 @@
             </div>
         </div>
         <div class="compare-card">
-            <div class="compare-title">📆 Vs. mismo período año anterior</div>
+            <div class="compare-title">Vs. mismo período año anterior</div>
             <div class="compare-cols">
                 <div>
                     <div class="compare-col-label">Este año</div>
@@ -579,7 +579,7 @@
     <!-- PREDICCIÓN + RETENCIÓN -->
     <div class="charts-grid-half" style="margin-bottom:1.5rem;">
         <div class="pred-card">
-            <div class="card-title" style="margin-bottom:.25rem;">🔮 Predicción próxima semana</div>
+            <div class="card-title" style="margin-bottom:.25rem;">Predicción próxima semana</div>
             <div class="pred-big-num" id="predNum">—</div>
             <div class="pred-label">citas estimadas</div>
             <div class="pred-ing"    id="predIng"></div>
@@ -620,13 +620,13 @@
     <!-- SERVICIOS + HORAS PICO -->
     <div class="charts-grid-half" style="margin-bottom:1.5rem;">
         <div class="card">
-            <div class="card-title">💼 Mis servicios</div>
+            <div class="card-title">Mis servicios</div>
             <div id="servsTableWrap" style="overflow-x:auto;">
                 <div class="empty">Cargando...</div>
             </div>
         </div>
         <div class="card">
-            <div class="card-title">⏰ Mis horas pico</div>
+            <div class="card-title">Mis horas pico</div>
             <div class="chart-wrap" style="height:175px;">
                 <canvas id="chartHoras" role="img" aria-label="Distribución de citas por hora"></canvas>
             </div>
@@ -636,18 +636,18 @@
     <!-- DÍAS OCUPADOS + FLOJOS -->
     <div class="charts-grid-half" style="margin-bottom:1.5rem;">
         <div class="card">
-            <div class="card-title">📈 Días más ocupados</div>
+            <div class="card-title">Días más ocupados</div>
             <div id="diasOcupList"><div class="empty">Cargando...</div></div>
         </div>
         <div class="card">
-            <div class="card-title">📉 Días con menos actividad</div>
+            <div class="card-title">Días con menos actividad</div>
             <div id="diasFlujoList"><div class="empty">Cargando...</div></div>
         </div>
     </div>
 
     <!-- CLIENTES FRECUENTES -->
     <div class="card" style="margin-bottom:1.5rem;">
-        <div class="card-title">👥 Clientes más frecuentes</div>
+        <div class="card-title">Clientes más frecuentes</div>
         <div style="overflow-x:auto;">
             <table class="freq-table">
                 <thead>
@@ -660,7 +660,7 @@
 
     <!-- SUGERENCIAS -->
     <div id="suggestSection" style="margin-bottom:1.5rem;display:none;">
-        <div class="section-title">💡 Oportunidades para mejorar</div>
+        <div class="section-title">Oportunidades para mejorar</div>
         <div id="suggestList"></div>
     </div>
 
@@ -875,11 +875,11 @@ function actualizarPerfil(cr, met) {
 
     var chips = [];
     var tasa = total > 0 ? Math.round(((cr.citas_confirmadas||0)+(cr.citas_completadas||0))/total*100) : 0;
-    if (tasa >= 80) chips.push('<span class="perf-chip chip-green">✅ '+tasa+'% éxito</span>');
-    else if (tasa > 0) chips.push('<span class="perf-chip chip-amber">⚠️ '+tasa+'% éxito</span>');
-    if (met.pctRetorno >= 40) chips.push('<span class="perf-chip chip-violet">🔁 '+met.pctRetorno+'% retención</span>');
+    if (tasa >= 80) chips.push('<span class="perf-chip chip-green">'+tasa+'% éxito</span>');
+    else if (tasa > 0) chips.push('<span class="perf-chip chip-amber">'+tasa+'% éxito</span>');
+    if (met.pctRetorno >= 40) chips.push('<span class="perf-chip chip-violet">'+met.pctRetorno+'% retención</span>');
     var cancelRate = total > 0 ? Math.round(((cr.citas_canceladas||0)/total)*100) : 0;
-    if (cancelRate > 20) chips.push('<span class="perf-chip chip-red">❌ '+cancelRate+'% cancelación</span>');
+    if (cancelRate > 20) chips.push('<span class="perf-chip chip-red">'+cancelRate+'% cancelación</span>');
     document.getElementById('perfChips').innerHTML = chips.join('');
 }
 
@@ -1112,9 +1112,9 @@ function renderAvanzadas(avanz) {
     if (avanz.prediccion) {
         document.getElementById('predNum').textContent = avanz.prediccion.citas_estimadas || '—';
         document.getElementById('predIng').textContent = avanz.prediccion.ingresos_estimados
-            ? '💰 ~'+fmt$(avanz.prediccion.ingresos_estimados)+' est.'
+            ? '~'+fmt$(avanz.prediccion.ingresos_estimados)+' est.'
             : '';
-        var tendencias = { subiendo: '📈 Tendencia al alza', bajando: '📉 Tendencia a la baja', estable: '📊 Tendencia estable' };
+        var tendencias = { subiendo: 'Tendencia al alza', bajando: 'Tendencia a la baja', estable: 'Tendencia estable' };
         var tendCls    = { subiendo: 'tend-up', bajando: 'tend-down', estable: 'tend-flat' };
         var tend = avanz.prediccion.tendencia || 'estable';
         var el = document.getElementById('predTend');
@@ -1157,7 +1157,7 @@ function renderSuggestions(cr, pr, met, avanz) {
         return '<div class="suggestion">' +
             '<div class="suggestion-icon">'+s.icon+'</div>' +
             '<div class="suggestion-body"><div class="suggestion-text">'+escH(s.text)+'</div><div class="suggestion-sub">'+escH(s.sub)+'</div></div>' +
-            '<button class="btn-promo" onclick="window.location.href=\'/profesional/promociones?crear='+s.tipo+'\'">✨ Crear promo</button>' +
+            '<button class="btn-promo" onclick="window.location.href=\'/profesional/promociones?crear='+s.tipo+'\'">Crear promo</button>' +
         '</div>';
     }).join('');
 }

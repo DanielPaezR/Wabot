@@ -70,14 +70,14 @@ if not FALLBACK:
 BASE_URL = 'https://wabot-production-d544.up.railway.app/cliente/'  # URL base para QR
 
 # ─── PALETA ──────────────────────────────────────────────────────────────────
-C_BG      = (10,  12,  28)
-C_CARD    = (18,  22,  48)
-C_PRIMARY = (102, 126, 234)   # #667eea
-C_ACCENT  = (245, 158,  11)   # #f59e0b
+C_BG      = (10,  10,  13)   # #0a0a0d (--wb-bg)
+C_CARD    = (22,  22,  27)   # superficie elevada
+C_PRIMARY = (212, 168,  87)   # #d4a857 (--wb-accent)
+C_ACCENT  = (232, 196, 128)   # dorado claro
 C_SUCCESS = (16,  185, 129)   # #10b981
 C_WHITE   = (255, 255, 255)
-C_LIGHT   = (148, 163, 184)
-C_DIM     = ( 60,  70, 110)
+C_LIGHT   = (161, 161, 170)
+C_DIM     = ( 63,  63,  70)
 
 
 # ─── HELPERS ─────────────────────────────────────────────────────────────────

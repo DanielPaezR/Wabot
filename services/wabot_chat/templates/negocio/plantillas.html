@@ -48,7 +48,7 @@
             justify-content: flex-end;
         }
         
-        /* ✅ CORRECCIÓN: Navegación responsive */
+        /* CORRECCIÓN: Navegación responsive */
         .nav-buttons {
             display: flex;
             flex-wrap: wrap;
@@ -300,7 +300,7 @@
             background: var(--wb-ok-solid);
         }
 
-        /* ✅ Estilos responsive adicionales */
+        /* Estilos responsive adicionales */
         @media (max-width: 768px) {
             .plantillas-grid {
                 grid-template-columns: 1fr;
@@ -363,7 +363,7 @@
     {{ panel_header('negocio', 'plantillas', 'Plantillas de mensajes') }}
     
     <div class="container">
-        <!-- ✅ CORRECCIÓN: Navegación responsive mejorada -->
+        <!-- CORRECCIÓN: Navegación responsive mejorada -->
         
 
         <div class="flash-messages">
@@ -417,25 +417,25 @@
                         <a href="{{ url_for('negocio_editar_plantilla', nombre_plantilla=plantilla.nombre) }}" 
                         class="btn-edit {% if plantilla.es_personalizada %}primary{% endif %}">
                             {% if plantilla.es_personalizada %}
-                                ✏️ Editar Personalizada
+                                Editar Personalizada
                             {% else %}
-                                📝 Personalizar Plantilla
+                                Personalizar Plantilla
                             {% endif %}
                         </a>
                     </div>
 
                     <div class="plantilla-info {% if plantilla.es_personalizada %}info-custom{% else %}info-base{% endif %}">
                         {% if plantilla.es_personalizada %}
-                            ✅ Esta es tu versión personalizada
+                            Esta es tu versión personalizada
                         {% else %}
-                            🔄 Usando plantilla base del sistema
+                            Usando plantilla base del sistema
                         {% endif %}
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
             <div class="empty-state">
-                <h2>📭 No hay plantillas configuradas</h2>
+                <h2>No hay plantillas configuradas</h2>
                 <p>Las plantillas se configuran desde el panel de administración</p>
             </div>
             {% endif %}
@@ -443,14 +443,14 @@
     </div>
 
     <script>
-        // ✅ CORRECCIÓN: Debug completo de enlaces
+        // CORRECCIÓN: Debug completo de enlaces
         function verificarEnlace(enlace) {
             const href = enlace.getAttribute('href');
             console.log('🔍 Verificando enlace:', href);
             
             // Verificar que el enlace sea válido
             if (!href || href === '#' || href.includes('undefined')) {
-                alert('❌ Error: Enlace inválido. href: ' + href);
+                alert('Error: Enlace inválido. href: ' + href);
                 return false;
             }
             

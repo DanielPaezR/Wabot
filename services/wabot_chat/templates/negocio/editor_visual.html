@@ -655,8 +655,8 @@
     <div class="header">
         <div class="header-title"><i class="fas fa-wand-magic-sparkles"></i> Editor Visual</div>
         <div class="header-actions">
-            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-outline">📊 Dashboard</a>
-            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-outline">⚙️ Config</a>
+            <a href="{{ url_for('negocio_dashboard') }}" class="btn btn-outline">Dashboard</a>
+            <a href="{{ url_for('negocio_configuracion') }}" class="btn btn-outline">Config</a>
             <button class="btn btn-primary" id="btnGuardarTodo"><i class="fas fa-floppy-disk"></i> Guardar</button>
         </div>
     </div>
@@ -864,7 +864,7 @@
             </div>
             {% for prof in profesionales %}
             <div class="profesional-card">
-                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=667eea&color=fff&name=' + prof.nombre|urlencode }}"
+                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=d4a857&color=0a0a0d&name=' + prof.nombre|urlencode }}"
                      class="profesional-foto" alt="{{ prof.nombre }}">
                 <div>
                     <div style="font-weight:700; font-size:14px;">{{ prof.nombre }}</div>
@@ -950,9 +950,9 @@
                                 </button>`;
                             grid.insertBefore(div, addBtn);
                         }
-                        toast('✅ Foto actualizada', 'success');
-                    } else { toast('❌ ' + (data.error || 'Error'), 'error'); }
-                } catch { toast('❌ Error de conexión', 'error'); }
+                        toast('Foto actualizada', 'success');
+                    } else { toast('' + (data.error || 'Error'), 'error'); }
+                } catch { toast('Error de conexión', 'error'); }
                 input.value = '';
             };
             input.click();
@@ -969,9 +969,9 @@
                     body: JSON.stringify({ foto_id:parseInt(id), tipo:'galeria' })
                 });
                 const data = await res.json();
-                if (data.success) { btn.closest('.galeria-item').remove(); toast('✅ Foto eliminada', 'success'); }
-                else toast('❌ Error', 'error');
-            } catch { toast('❌ Error de conexión', 'error'); }
+                if (data.success) { btn.closest('.galeria-item').remove(); toast('Foto eliminada', 'success'); }
+                else toast('Error', 'error');
+            } catch { toast('Error de conexión', 'error'); }
         }
 
         /* ── CAMPO EDITABLE ──────────────────────────────────────────── */
@@ -1001,7 +1001,7 @@
             const val  = isTA
                 ? document.getElementById('editSheetTextarea').value
                 : document.getElementById('editSheetInput').value;
-            if (!val.trim()) { toast('⚠️ El campo no puede estar vacío', 'error'); return; }
+            if (!val.trim()) { toast('El campo no puede estar vacío', 'error'); return; }
             const el = document.getElementById(editField.displayId);
             el.innerText = val;
             el.classList.remove('placeholder');
@@ -1066,7 +1066,7 @@
             checkEl.style.color = 'var(--success)';
             checkEl.style.fontSize = '';
 
-            toast('✅ Red social guardada', 'success');
+            toast('Red social guardada', 'success');
             cerrarSheet();
         }
 
@@ -1083,7 +1083,7 @@
             checkEl.style.color = 'var(--wb-text-3)';
             checkEl.style.fontSize = '11px';
 
-            toast('🗑 Red eliminada', 'success');
+            toast('Red eliminada', 'success');
             cerrarSheet();
         }
 
@@ -1106,8 +1106,8 @@
             const precio   = parseFloat(document.getElementById('servicioSheetPrecio').value);
             const duracion = parseInt(document.getElementById('servicioSheetDuracion').value);
 
-            if (!nombre) { toast('⚠️ Escribe el nombre', 'error'); return; }
-            if (isNaN(precio) || precio < 0) { toast('⚠️ Precio inválido', 'error'); return; }
+            if (!nombre) { toast('Escribe el nombre', 'error'); return; }
+            if (isNaN(precio) || precio < 0) { toast('Precio inválido', 'error'); return; }
 
             try {
                 const res  = await fetch('/negocio/editor/guardar-servicio', {
@@ -1119,8 +1119,8 @@
                 if (data.success) {
                     cerrarSheet();
                     location.reload();
-                } else toast('❌ ' + (data.error || 'Error'), 'error');
-            } catch { toast('❌ Error de conexión', 'error'); }
+                } else toast('' + (data.error || 'Error'), 'error');
+            } catch { toast('Error de conexión', 'error'); }
         }
 
         async function eliminarServicio(item) {
@@ -1133,9 +1133,9 @@
                     body: JSON.stringify({ servicio_id: parseInt(id) })
                 });
                 const data = await res.json();
-                if (data.success) { item.remove(); toast('✅ Servicio eliminado', 'success'); }
-                else toast('❌ Error', 'error');
-            } catch { toast('❌ Error de conexión', 'error'); }
+                if (data.success) { item.remove(); toast('Servicio eliminado', 'success'); }
+                else toast('Error', 'error');
+            } catch { toast('Error de conexión', 'error'); }
         }
 
         /* ── GUARDAR TODO ────────────────────────────────────────────── */
@@ -1167,9 +1167,9 @@
                     body: JSON.stringify(data)
                 });
                 const result = await res.json();
-                if (result.success) toast('✅ Cambios guardados', 'success');
-                else toast('❌ ' + (result.error || 'Error al guardar'), 'error');
-            } catch { toast('❌ Error de conexión', 'error'); }
+                if (result.success) toast('Cambios guardados', 'success');
+                else toast('' + (result.error || 'Error al guardar'), 'error');
+            } catch { toast('Error de conexión', 'error'); }
         };
     </script>
 </body>

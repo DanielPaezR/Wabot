@@ -215,13 +215,13 @@
         </div>
         {% else %}
         <div class="plantilla-info">
-            <strong>✅ Plantilla Personalizada</strong><br>
+            <strong>Plantilla Personalizada</strong><br>
             Esta es tu versión personalizada de la plantilla.
         </div>
         {% endif %}
         
         <div class="variables-info">
-            <strong>💡 Variables Disponibles:</strong>
+            <strong>Variables Disponibles:</strong>
             <div class="variables-list">
                 {% for variable in plantilla.variables_disponibles | fromjson %}
                     <span class="variable-tag">{{ "{" + variable + "}" }}</span>
@@ -253,16 +253,16 @@
                           placeholder="Escribe el contenido del mensaje...">{{ plantilla.plantilla }}</textarea>
             </div>
             
-            <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
-            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">❌ Cancelar</a>
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            <a href="{{ url_for('negocio_plantillas') }}" class="btn btn-secondary">Cancelar</a>
             
             {% if es_personalizada %}
-            <button type="button" class="btn btn-warning" onclick="resetearPlantilla()">🔄 Restablecer a Base</button>
+            <button type="button" class="btn btn-warning" onclick="resetearPlantilla()">Restablecer a Base</button>
             {% endif %}
         </form>
         
         <div class="preview-section">
-            <h3 class="preview-title">👁️ Vista Previa</h3>
+            <h3 class="preview-title">Vista Previa</h3>
             <div class="preview-content">{{ plantilla.plantilla }}</div>
         </div>
     </div>

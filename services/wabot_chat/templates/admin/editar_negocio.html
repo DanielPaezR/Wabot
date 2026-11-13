@@ -261,7 +261,7 @@
                 <div class="id-note">
                     Usa este ID para acceder al negocio:
                     <br>
-                    🔗 Cliente: <code>https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}</code>
+                    Cliente: <code>https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}</code>
                 </div>
             </div>
             
@@ -297,16 +297,16 @@
                     <div class="form-group">
                         <label for="tipo_negocio">Tipo de Negocio *</label>
                         <select id="tipo_negocio" name="tipo_negocio" required>
-                            <option value="barberia" {% if negocio.tipo_negocio == 'barberia' %}selected{% endif %}>💈 Barbería</option>
-                            <option value="spa_unas" {% if negocio.tipo_negocio == 'spa_unas' %}selected{% endif %}>💅 Spa de Uñas</option>
-                            <option value="peluqueria" {% if negocio.tipo_negocio == 'peluqueria' %}selected{% endif %}>✂️ Peluquería</option>
-                            <option value="estetica" {% if negocio.tipo_negocio == 'estetica' %}selected{% endif %}>💆‍♀️ Centro Estética</option>
-                            <option value="consultorio" {% if negocio.tipo_negocio == 'consultorio' %}selected{% endif %}>🏥 Consultorio Médico</option>
-                            <option value="gimnasio" {% if negocio.tipo_negocio == 'gimnasio' %}selected{% endif %}>🏋️ Gimnasio</option>
-                            <option value="yoga" {% if negocio.tipo_negocio == 'yoga' %}selected{% endif %}>🧘 Estudio de Yoga</option>
-                            <option value="masajes" {% if negocio.tipo_negocio == 'masajes' %}selected{% endif %}>💆 Centro de Masajes</option>
-                            <option value="tattoo" {% if negocio.tipo_negocio == 'tattoo' %}selected{% endif %}>🎨 Estudio de Tattoo</option>
-                            <option value="otros" {% if negocio.tipo_negocio == 'otros' %}selected{% endif %}>💼 Otros Servicios</option>
+                            <option value="barberia" {% if negocio.tipo_negocio == 'barberia' %}selected{% endif %}>Barbería</option>
+                            <option value="spa_unas" {% if negocio.tipo_negocio == 'spa_unas' %}selected{% endif %}>Spa de Uñas</option>
+                            <option value="peluqueria" {% if negocio.tipo_negocio == 'peluqueria' %}selected{% endif %}>Peluquería</option>
+                            <option value="estetica" {% if negocio.tipo_negocio == 'estetica' %}selected{% endif %}>Centro Estética</option>
+                            <option value="consultorio" {% if negocio.tipo_negocio == 'consultorio' %}selected{% endif %}>Consultorio Médico</option>
+                            <option value="gimnasio" {% if negocio.tipo_negocio == 'gimnasio' %}selected{% endif %}>Gimnasio</option>
+                            <option value="yoga" {% if negocio.tipo_negocio == 'yoga' %}selected{% endif %}>Estudio de Yoga</option>
+                            <option value="masajes" {% if negocio.tipo_negocio == 'masajes' %}selected{% endif %}>Centro de Masajes</option>
+                            <option value="tattoo" {% if negocio.tipo_negocio == 'tattoo' %}selected{% endif %}>Estudio de Tattoo</option>
+                            <option value="otros" {% if negocio.tipo_negocio == 'otros' %}selected{% endif %}>Otros Servicios</option>
                         </select>
                     </div>
                     
@@ -325,7 +325,7 @@
                         <select id="pais" name="pais" required>
                             <option value="CO" {% if localizacion.pais == 'CO' %}selected{% endif %}>🇨🇴 Colombia (celular de 10 dígitos)</option>
                             <option value="AW" {% if localizacion.pais == 'AW' %}selected{% endif %}>🇦🇼 Aruba (teléfono de 7 dígitos)</option>
-                            <option value="OTRO" {% if localizacion.pais == 'OTRO' %}selected{% endif %}>🌎 Otro país (7 a 15 dígitos)</option>
+                            <option value="OTRO" {% if localizacion.pais == 'OTRO' %}selected{% endif %}>Otro país (7 a 15 dígitos)</option>
                         </select>
                         <small>Define el formato de teléfono de los clientes y la hora local de las citas</small>
                     </div>
@@ -347,7 +347,7 @@
 
                 <!-- NUEVO: Coordenadas para el mapa -->
                 <div class="coordinates-group">
-                    <h4>📍 Ubicación en el Mapa</h4>
+                    <h4>Ubicación en el Mapa</h4>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="latitud">Latitud</label>
@@ -393,7 +393,7 @@
                     <input type="text" id="politica_cancelacion" name="politica_cancelacion" value="{{ config.politica_cancelacion }}" placeholder="Puedes cancelar hasta 2 horas antes">
                 </div>
                 
-                <button type="submit" class="btn-primary">💾 Guardar Cambios</button>
+                <button type="submit" class="btn-primary">Guardar Cambios</button>
             </form>
         </div>
     </div>

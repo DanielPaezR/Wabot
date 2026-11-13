@@ -395,14 +395,14 @@
                 
                 <!-- Foto del servicio -->
                 <div class="form-group">
-                    <label>📸 Foto del Servicio (opcional)</label>
+                    <label>Foto del Servicio (opcional)</label>
                     
                     <!-- Foto actual (si existe) -->
                     <div id="existingPhotoContainer" class="{% if not servicio or not servicio.foto_url %}hidden{% else %}visible{% endif %}">
                         <div class="photo-preview">
                             <img src="{{ servicio.foto_url if servicio else '' }}" id="existingPhotoImg" style="max-width: 150px; border-radius: 12px;">
                             <br>
-                            <button type="button" class="remove-photo-btn" onclick="eliminarFotoExistente()">🗑️ Eliminar foto actual</button>
+                            <button type="button" class="remove-photo-btn" onclick="eliminarFotoExistente()">Eliminar foto actual</button>
                         </div>
                     </div>
                     
@@ -416,7 +416,7 @@
                     <div id="newPhotoPreview" class="photo-preview hidden">
                         <img id="newPhotoImg" src="" style="max-width: 150px; border-radius: 12px;">
                         <br>
-                        <button type="button" class="remove-photo-btn" onclick="cancelarNuevaFoto()">🗑️ Cancelar</button>
+                        <button type="button" class="remove-photo-btn" onclick="cancelarNuevaFoto()">Cancelar</button>
                     </div>
                     
                     <div class="help-text">Una imagen que represente este servicio (se mostrará en la página pública)</div>
@@ -428,17 +428,17 @@
                         <div class="tipo-precio-option">
                             <input type="radio" id="precio_fijo" name="tipo_precio" value="fijo" 
                                    {% if not servicio or servicio.tipo_precio == 'fijo' %}checked{% endif %}>
-                            <label for="precio_fijo">💰 Precio Fijo</label>
+                            <label for="precio_fijo">Precio Fijo</label>
                         </div>
                         <div class="tipo-precio-option">
                             <input type="radio" id="precio_rango" name="tipo_precio" value="rango"
                                    {% if servicio and servicio.tipo_precio == 'rango' %}checked{% endif %}>
-                            <label for="precio_rango">📊 Rango de Precios</label>
+                            <label for="precio_rango">Rango de Precios</label>
                         </div>
                         <div class="tipo-precio-option">
                             <input type="radio" id="precio_variable" name="tipo_precio" value="variable"
                                    {% if servicio and servicio.tipo_precio == 'variable' %}checked{% endif %}>
-                            <label for="precio_variable">💬 Precio Variable (Consultar)</label>
+                            <label for="precio_variable">Precio Variable (Consultar)</label>
                         </div>
                     </div>
                     <div class="help-text">Selecciona cómo se mostrará el precio al cliente</div>
@@ -490,10 +490,10 @@
                 
                 <div class="form-actions">
                     <button type="submit" class="btn-save">
-                        💾 Actualizar Servicio
+                        Actualizar Servicio
                     </button>
                     <a href="{{ url_for('negocio_servicios') }}" class="btn-cancel">
-                        ❌ Cancelar
+                        Cancelar
                     </a>
                 </div>
             </form>
@@ -627,12 +627,12 @@
                 if (!file) return;
                 
                 if (file.size > 5 * 1024 * 1024) {
-                    alert('❌ La imagen es demasiado grande (máx 5MB)');
+                    alert('La imagen es demasiado grande (máx 5MB)');
                     return;
                 }
                 
                 if (!file.type.match('image.*')) {
-                    alert('❌ Solo se permiten imágenes');
+                    alert('Solo se permiten imágenes');
                     return;
                 }
                 
@@ -675,14 +675,14 @@
                     ocultarElemento('existingPhotoContainer');
                     mostrarElemento('uploadAreaContainer');
                     ocultarElemento('newPhotoPreview');
-                    alert('✅ Foto eliminada');
+                    alert('Foto eliminada');
                 } else {
-                    alert('❌ Error al eliminar la foto');
+                    alert('Error al eliminar la foto');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('❌ Error de conexión');
+                alert('Error de conexión');
             });
         }
 
@@ -725,7 +725,7 @@
             if (radioRango && radioRango.checked) {
                 if (!precioMaximoInput.value || precioMaximoInput.value <= 0) {
                     e.preventDefault();
-                    alert('❌ Para servicios con rango de precios, debes especificar el precio máximo.');
+                    alert('Para servicios con rango de precios, debes especificar el precio máximo.');
                     return;
                 }
                 
@@ -734,7 +734,7 @@
                 
                 if (precioMax <= precioBase) {
                     e.preventDefault();
-                    alert('❌ El precio máximo debe ser mayor que el precio base.');
+                    alert('El precio máximo debe ser mayor que el precio base.');
                 }
             }
         });

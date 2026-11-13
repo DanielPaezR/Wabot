@@ -49,20 +49,20 @@
         <h1>¡Cita Agendada Exitosamente!</h1>
         
         <div class="cita-info">
-            <p><strong>👤 Cliente:</strong> {{ cliente_nombre }}</p>
-            <p><strong>📞 Teléfono:</strong> {{ cliente_telefono }}</p>
-            <p><strong>📅 Fecha:</strong> {{ fecha }}</p>
-            <p><strong>⏰ Hora:</strong> {{ hora }}</p>
-            <p><strong>💼 Servicio:</strong> {{ servicio_nombre }}</p>
-            <p><strong>👨‍💼 Profesional:</strong> {{ profesional_nombre }}</p>
-            <p><strong>🎫 ID de Cita:</strong> #{{ turno_id }}</p>
+            <p><strong>Cliente:</strong> {{ cliente_nombre }}</p>
+            <p><strong>Teléfono:</strong> {{ cliente_telefono }}</p>
+            <p><strong>Fecha:</strong> {{ fecha }}</p>
+            <p><strong>Hora:</strong> {{ hora }}</p>
+            <p><strong>Servicio:</strong> {{ servicio_nombre }}</p>
+            <p><strong>Profesional:</strong> {{ profesional_nombre }}</p>
+            <p><strong>ID de Cita:</strong> #{{ turno_id }}</p>
         </div>
         
         <p>La cita ha sido registrada en el sistema correctamente.</p>
         
         <div>
-            <a href="{{ url_for('profesional_agendar_cita') }}" class="btn btn-success">➕ Agendar Otra Cita</a>
-            <a href="{{ url_for('profesional_dashboard') }}" class="btn">📋 Ver Mis Citas</a>
+            <a href="{{ url_for('profesional_agendar_cita') }}" class="btn btn-success">Agendar Otra Cita</a>
+            <a href="{{ url_for('profesional_dashboard') }}" class="btn">Ver Mis Citas</a>
         </div>
     </div>
 </body>

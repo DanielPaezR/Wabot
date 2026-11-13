@@ -4,8 +4,8 @@
   "description": "Sistema de gestión de citas para profesionales",
   "start_url": "/profesional",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#007bff",
+  "background_color": "#0a0a0d",
+  "theme_color": "#0a0a0d",
   "orientation": "portrait",
   "icons": [
     {
