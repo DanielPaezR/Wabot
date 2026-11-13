@@ -58,7 +58,6 @@ _VOCABULARIO_POR_TIPO = {
     'renta_autos': {
         'reemplazos_especiales': [
             (r'\bagendar (?:una )?cita\b', 'reservar vehículo'),
-            (r'comun[ií]cate con el profesional v[ií]a whatsapp', 'comunícate con nuestro equipo por WhatsApp'),
             (r'💈|👨‍💼', '🚗'),
         ],
         'reemplazos': [
@@ -141,204 +140,14 @@ def convertir_a_formato_12_horas(hora_24):
 # =============================================================================
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
-    """Función FINAL de push notificaciones - Versión simplificada y robusta"""
+    """Aviso al profesional (lista interna + push a todos sus dispositivos). Ver push_notifications.enviar_push_profesional."""
     try:
-        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}, cita {cita_id}")
-        
-        # 1. SIEMPRE guardar en BD (esto ya funciona)
-        guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        print(f"✅ Notificación guardada en BD")
-        
-        # 2. Intentar push si tenemos todo configurado
-        try:
-            import os
-            import json
-            import time
-            from database import get_db_connection
-            
-            # Verificar VAPID
-            VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-            if not VAPID_PRIVATE_KEY:
-                print("⚠️ No hay VAPID_PRIVATE_KEY - push omitido")
-                return True
-            
-            # Obtener la última suscripción activa
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT subscription_json 
-                FROM suscripciones_push 
-                WHERE profesional_id = %s AND activa = TRUE
-                ORDER BY id DESC LIMIT 1
-            ''', (profesional_id,))
-            
-            result = cursor.fetchone()
-            conn.close()
-            
-            if not result:
-                print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
-                return True
-            
-            # Extraer suscripción (maneja tuplas o diccionarios)
-            subscription_json = None
-            if isinstance(result, tuple):
-                subscription_json = result[0]
-            elif isinstance(result, dict):
-                subscription_json = result.get('subscription_json')
-            
-            if not subscription_json:
-                print(f"⚠️ No se pudo extraer subscription_json")
-                return True
-            
-            subscription = json.loads(subscription_json)
-            
-            # Enviar push
-            import pywebpush
-            
-            current_time = int(time.time())
-            expiration_time = current_time + (12 * 60 * 60)  # 12 horas máximo para Google FCM
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": os.getenv('VAPID_SUBJECT', ''),
-                    "exp": expiration_time
-                },
-                ttl=86400  # 24 horas en segundos
-            )
-            
-            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
-            return True
-            
-        except Exception as push_error:
-            error_msg = str(push_error)
-            print(f"⚠️ Push falló (pero notificación en BD OK): {type(push_error).__name__}")
-            
-            # Solo log breve, no detalles que saturan logs
-            if '403' in error_msg and 'credentials' in error_msg:
-                print(f"🔍 Diagnóstico: Problema de claves VAPID (las suscripciones fueron creadas con claves diferentes)")
-            elif '404' in error_msg or '410' in error_msg:
-                print(f"🔍 Diagnóstico: Suscripción expirada o inválida")
-            
-            return True
-            
+        from push_notifications import enviar_push_profesional
+        r = enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=cita_id)
+        print(f"🔔 Push al profesional {profesional_id}: {r['enviados']}/{r['suscripciones']} dispositivos")
     except Exception as e:
-        print(f"❌ Error crítico (pero continuamos): {type(e).__name__}")
-        return True  # Importante: siempre devolver True porque la notificación YA está en BD
-
-def try_push_immediately(profesional_id, titulo, mensaje):
-    """Intentar enviar push inmediatamente"""
-    try:
-        import os
-        import json
-        import time
-        from database import get_db_connection
-        
-        # Verificar VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
-        
-        if not VAPID_PRIVATE_KEY:
-            print("❌ No hay VAPID_PRIVATE_KEY - saltando push")
-            return False
-        
-        # Obtener la última suscripción activa
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT subscription_json 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-            ORDER BY id DESC LIMIT 1
-        ''', (profesional_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result or not result[0]:
-            print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
-            return False
-        
-        # Parsear suscripción
-        try:
-            subscription = json.loads(result[0])
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON inválido en suscripción: {e}")
-            return False
-        
-        # Verificar estructura
-        if not subscription.get('endpoint'):
-            print("❌ Suscripción no tiene endpoint")
-            return False
-        
-        # Intentar enviar con pywebpush
-        try:
-            import pywebpush
-        
-            # Configurar tiempo de expiración (12 horas máximo)
-            current_time = int(time.time())
-            expiration_time = current_time + (12 * 60 * 60)
-            
-            print(f"🚀 Enviando push a: {subscription.get('endpoint')[:50]}...")
-            print(f"   Expiración: {expiration_time} ({time.ctime(expiration_time)})")
-            
-            # Enviar push
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": expiration_time
-                },
-                ttl=86400,
-                timeout=5
-            )
-            
-            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE a profesional {profesional_id}!")
-            return True
-            
-        except ImportError:
-            print("❌ pywebpush no está instalado")
-            return False
-        except Exception as push_error:
-            print(f"⚠️ Error en pywebpush: {type(push_error).__name__}: {push_error}")
-            return False
-            
-    except Exception as e:
-        print(f"⚠️ Error en try_push_immediately: {type(e).__name__}: {e}")
-        return False
-
-def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
-    """Función auxiliar solo para guardar notificación en BD"""
-    try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO notificaciones_profesional 
-            (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-            VALUES (%s, 'push', %s, %s, FALSE, %s)
-        ''', (profesional_id, titulo, mensaje, cita_id))
-        conn.commit()
-        conn.close()
-        print(f"✅ Notificación guardada en BD")
-        return True
-    except Exception as e:
-        print(f"⚠️ Error guardando en BD: {e}")
-        return False
+        print(f"⚠️ No se pudo avisar al profesional {profesional_id}: {type(e).__name__}: {e}")
+    return True
 
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
     """Motor principal de plantillas - CORREGIDO PARA POSTGRESQL"""
@@ -1409,7 +1218,7 @@ def ia_cancelar_cita(arguments, negocio_id, telefono_cliente):
     print(f"🔍 [IA] ia_cancelar_cita - cita_id: {cita_id}, telefono_cliente: {telefono_cliente}")
     if not cita_id.isdigit():
         return 'Necesito un ID de cita válido para cancelar la reserva.'
-    return procesar_cancelacion_directa(telefono_cliente or cita_id, cita_id, negocio_id)
+    return procesar_cancelacion_directa(telefono_cliente or cita_id, cita_id, negocio_id, telefono_verificado=telefono_cliente)
 
 
 def ia_consultar_horarios(arguments, negocio_id):
@@ -2820,7 +2629,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
             print("❌ No pasó verificación básica")
             fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente comunicate con el Profesional via Whatsapp para explorar opciones"
+            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente, prueba con otra fecha o contacta directamente al negocio."
         
         # Verificar profesional_id
         if 'profesional_id' not in conversaciones_activas[clave_conversacion]:
@@ -2842,7 +2651,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         if not horarios_disponibles:
             print("❌ No se generaron horarios")
             fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente comunicate con el Profesional via Whatsapp para explorar opciones"
+            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente, prueba con otra fecha o contacta directamente al negocio."
         
         # Obtener datos para la plantilla
         profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
@@ -3782,6 +3591,8 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
                 conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
             return renderizar_plantilla('error_generico', negocio_id)
         
+        _avisar_cancelacion_al_profesional(int(cita_id), negocio_id)
+
         # Limpiar datos de cancelación pero mantener la conversación
         if clave_conversacion in conversaciones_activas:
             # Eliminar solo los datos de cancelación
@@ -3824,77 +3635,77 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         
         return renderizar_plantilla('error_generico', negocio_id)
 
-def procesar_cancelacion_directa(numero, cita_id, negocio_id):
-    """Procesar cancelación cuando solo hay una cita"""
+def _avisar_cancelacion_al_profesional(cita_id, negocio_id):
+    """Cuando un cliente cancela, el profesional recibe el aviso (lista interna + push)."""
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT profesional_id, cliente_nombre, fecha, hora FROM citas WHERE id = %s AND negocio_id = %s', (cita_id, negocio_id))
+        fila = cursor.fetchone()
+        conn.close()
+        if not fila:
+            return
+        d = dict(fila) if hasattr(fila, 'keys') else {'profesional_id': fila[0], 'cliente_nombre': fila[1], 'fecha': fila[2], 'hora': fila[3]}
+        fecha = d['fecha'].strftime('%d/%m') if hasattr(d['fecha'], 'strftime') else str(d['fecha'])[:10]
+        hora = d['hora'].strftime('%H:%M') if hasattr(d['hora'], 'strftime') else str(d['hora'])[:5]
+        enviar_notificacion_push_local(
+            d['profesional_id'], 'Cita cancelada',
+            f"{d.get('cliente_nombre') or 'Un cliente'} canceló su cita del {fecha} a las {hora}", cita_id=cita_id)
+    except Exception as e:
+        print(f"⚠️ No se pudo avisar la cancelación al profesional: {type(e).__name__}: {e}")
+
+
+def procesar_cancelacion_directa(numero, cita_id, negocio_id, telefono_verificado=None):
+    """Cancela una cita SOLO si pertenece al cliente identificado en la conversación (o ``telefono_verificado``).
+
+    Antes, sin teléfono conocido, tomaba el teléfono de la propia cita y la cancelaba: cualquiera podía cancelar
+    la cita de otra persona con solo conocer su número de cita. Tampoco decía la verdad si no cancelaba nada.
+    """
     print(f"🔧 [DEBUG-CANCELAR-DIRECTO] Cancelando cita ID: {cita_id}")
-    
-    if cita_id == '0':
-        clave_conversacion = f"{numero}_{negocio_id}"
+    clave_conversacion = f"{numero}_{negocio_id}"
+
+    if str(cita_id) == '0':
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         return "Volviendo al menú principal..."
-    
-    # Cancelar cita directamente
+
+    if not str(cita_id).isdigit():
+        return 'Necesito un ID de cita válido para cancelar la reserva.'
+
+    conversacion = conversaciones_activas.get(clave_conversacion, {})
+    telefono_real = telefono_verificado or conversacion.get('telefono_cliente')
+    if not telefono_real:
+        return "Para cancelar una cita primero necesito identificarte con tu número de teléfono. Escribe *hola* para empezar."
+
     try:
-        from database import get_db_connection
-        conn = get_db_connection()
+        conn = db.get_db_connection()
         cursor = conn.cursor()
-        
-        # Obtener teléfono REAL de la conversación
-        clave_conversacion = f"{numero}_{negocio_id}"
-        telefono_real = None
-        if clave_conversacion in conversaciones_activas:
-            telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
-        
-        if not telefono_real:
-            print(f"⚠️ [DEBUG-CANCELAR-DIRECTO] No hay teléfono, buscando en BD...")
-            # Buscar teléfono de la cita
-            cursor.execute('''
-                SELECT cliente_telefono FROM citas WHERE id = %s AND negocio_id = %s
-            ''', (cita_id, negocio_id))
-            
-            resultado = cursor.fetchone()
-            if resultado:
-                telefono_real = resultado[0] if isinstance(resultado, tuple) else resultado.get('cliente_telefono')
-                print(f"✅ [DEBUG-CANCELAR-DIRECTO] Teléfono obtenido de BD: {telefono_real}")
-        
-        # Cancelar la cita
-        if telefono_real:
-            cursor.execute('''
-                UPDATE citas SET estado = %s 
-                WHERE id = %s AND negocio_id = %s AND cliente_telefono = %s
-            ''', ('cancelado', int(cita_id), negocio_id, telefono_real))
-        else:
-            cursor.execute('''
-                UPDATE citas SET estado = %s 
-                WHERE id = %s AND negocio_id = %s
-            ''', ('cancelado', int(cita_id), negocio_id))
-        
+        cursor.execute('''
+            UPDATE citas SET estado = 'cancelado'
+            WHERE id = %s AND negocio_id = %s AND cliente_telefono = %s AND estado IN ('confirmado', 'confirmada')
+        ''', (int(cita_id), negocio_id, telefono_real))
         filas_afectadas = cursor.rowcount
         conn.commit()
         conn.close()
-        
-        print(f"✅ [DEBUG-CANCELAR-DIRECTO] Cita cancelada. Filas afectadas: {filas_afectadas}")
-        
-        # Obtener nombre del cliente
-        nombre_cliente = 'Cliente'
-        if clave_conversacion in conversaciones_activas:
-            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
-        
+
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-        
+
+        if filas_afectadas == 0:
+            return f"No encontré una cita activa tuya con el ID #{cita_id}. Escribe *2* para ver tus citas."
+
+        _avisar_cancelacion_al_profesional(int(cita_id), negocio_id)
+        nombre_cliente = conversacion.get('cliente_nombre', 'Cliente')
         return f'''❌ **Cita cancelada exitosamente**
 
 Hola {nombre_cliente}, has cancelado tu cita (ID: #{cita_id}).
 
 Esperamos verte pronto en otra ocasión.'''
-        
+
     except Exception as e:
         print(f"❌ [DEBUG-CANCELAR-DIRECTO] Error cancelando cita: {e}")
         import traceback
         traceback.print_exc()
-        
         return renderizar_plantilla('error_generico', negocio_id)
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):

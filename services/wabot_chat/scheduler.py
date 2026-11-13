@@ -482,6 +482,7 @@ class AppointmentScheduler:
                     
                     if notif_id:
                         notificaciones_enviadas += 1
+                        notification_system.enviar_push(prof_id, "Resumen del día", f"Tienes {citas_hoy} cita(s) programada(s) para hoy.")
                         print(f"✅ Resumen enviado a {prof_nombre} ({citas_hoy} citas)")
             
             if notificaciones_enviadas > 0:

@@ -285,6 +285,7 @@
                     <small>Formato: +573001234567</small>
                 </div>
 
+{% if whatsapp_activo %}
                 <div class="form-group">
                     <label for="numero_api_whatsapp">Número de API de WhatsApp (Opcional)</label>
                     <input type="text" id="numero_api_whatsapp" name="numero_api_whatsapp" 
@@ -292,6 +293,7 @@
                            placeholder="Ej: 573001234567">
                     <small>Número que Meta asignó a este negocio para la API (solo dígitos, sin +)</small>
                 </div>
+{% endif %}
                 
                 <div class="form-row">
                     <div class="form-group">

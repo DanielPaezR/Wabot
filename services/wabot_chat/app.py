@@ -130,76 +130,14 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
-    """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
+    """Aviso al profesional (lista interna + push a todos sus dispositivos)."""
     try:
-        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
-        
-        # Solo lo esencial
-        import json
-        import os
-        
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
-        
-        if not VAPID_PRIVATE_KEY:
-            print("⚠️ No hay clave privada")
-            return False
-        
-        # Obtener suscripciones
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
-        suscripciones = cursor.fetchall()
-        conn.close()
-        
-        if not suscripciones:
-            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
-            return False
-        
-        # 1. Guardar notificación en BD (SIEMPRE funciona)
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-                VALUES (%s, 'push', %s, %s, FALSE, %s)
-            ''', (profesional_id, titulo, mensaje, cita_id))
-            conn.commit()
-            conn.close()
-            print(f"✅ Notificación guardada en BD")
-        except Exception:
-            pass
-        
-        # 2. Intentar push (opcional)
-        try:
-            import pywebpush
-            subscription = json.loads(suscripciones[0][0])
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png'
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": int(time.time()) + (12 * 60 * 60)  # 12 horas máximo
-                }
-            )
-            print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
-            return True
-        except Exception as e:
-            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
-            # Igual devolvemos True porque la notificación se guardó en BD
-            return True
-            
+        from push_notifications import enviar_push_profesional
+        r = enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=cita_id)
+        return r['enviados'] > 0
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
-        return False  # Solo False si falla todo
+        print(f"⚠️ No se pudo avisar al profesional {profesional_id}: {type(e).__name__}: {e}")
+        return False
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
@@ -218,6 +156,12 @@ def validate_csrf_token(token_from_form):
     return secrets.compare_digest(session['csrf_token'], token_from_form)
 
 # Context processor para agregar CSRF a todas las templates
+@app.context_processor
+def inject_whatsapp_flag():
+    """Los campos de la integración con WhatsApp se muestran solo si WHATSAPP_ACTIVO=1 (hoy está suspendida)."""
+    return {'whatsapp_activo': os.getenv('WHATSAPP_ACTIVO', '').strip().lower() in ('1', 'true', 'si', 'sí')}
+
+
 @app.context_processor
 def inject_csrf_token():
     return dict(csrf_token=generate_csrf_token)
@@ -1837,7 +1781,7 @@ def admin_editar_negocio(negocio_id):
             if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                 flash('Este número de API ya está registrado para otro negocio', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
-        else:
+        elif 'numero_api_whatsapp' in request.form:
             # Si se vació el campo, eliminar el registro
             db.eliminar_numero_whatsapp_negocio(negocio_id)
         
@@ -2341,6 +2285,7 @@ def admin_editar_usuario(usuario_id):
                              negocios=negocios)
     
 @app.route('/admin/reset-db')
+@role_required(['superadmin'])
 def admin_reset_db():
     """Ruta de emergencia para resetear la base de datos (SOLO DESARROLLO)"""
     if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PYTHONANYWHERE_SITE'):
@@ -3202,7 +3147,7 @@ def negocio_configuracion():
                     if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                         flash('Este número de API ya está registrado para otro negocio', 'error')
                         return redirect(url_for('negocio_configuracion'))
-                else:
+                elif 'numero_api_whatsapp' in request.form:
                     db.eliminar_numero_whatsapp_negocio(negocio_id)
                 
                 flash('Configuración actualizada exitosamente', 'success')
@@ -3310,6 +3255,7 @@ def negocio_prompt_ia():
                          max_caracteres=PROMPT_IA_MAX_CARACTERES)
 
 @app.route('/actualizar-cache/<int:negocio_id>')
+@role_required(['superadmin', 'propietario'])
 def actualizar_cache(negocio_id):
     """Forzar actualización de cache para un negocio"""
     from database import notificar_cambio_horarios
@@ -5245,38 +5191,6 @@ def subscribe_push():
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
-@app.route('/api/debug/recreate-push-table', methods=['GET', 'POST'])
-def recreate_push_table():
-    """Recrear tabla de suscripciones push correctamente"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        print("🗑️ Eliminando tabla existente...")
-        cursor.execute('DROP TABLE IF EXISTS suscripciones_push')
-        
-        print("🔧 Creando nueva tabla...")
-        cursor.execute('''
-            CREATE TABLE suscripciones_push (
-                id SERIAL PRIMARY KEY,
-                profesional_id INTEGER NOT NULL,
-                subscription_json TEXT NOT NULL,
-                dispositivo_info TEXT,
-                activa BOOLEAN DEFAULT TRUE,
-                UNIQUE(profesional_id, subscription_json)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Tabla recreada con constraint UNIQUE'})
-        
-    except Exception as e:
-        print(f"❌ Error recreando tabla: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 # =============================================================================
 # MANIFEST ÚNICO - DETECTA AUTOMÁTICAMENTE
 # =============================================================================
@@ -6050,40 +5964,11 @@ def obtener_configuracion_horarios():
 
 @app.route('/api/push/public-key')
 def get_public_key():
-    """Obtener clave pública VAPID para notificaciones push"""
-    try:
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-        
-        # DEBUG: Mostrar qué hay en la variable
-        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {VAPID_PUBLIC_KEY[:50]}...")
-        print(f"🔑 [DEBUG] Longitud: {len(VAPID_PUBLIC_KEY)}")
-        print(f"🔑 [DEBUG] Tipo: {type(VAPID_PUBLIC_KEY)}")
-        
-        if not VAPID_PUBLIC_KEY:
-            return jsonify({'error': 'VAPID no configurado'}), 500
-        
-        # Verificar que sea string Base64 válido
-        import base64
-        try:
-            # Intentar decodificar para verificar
-            if '=' in VAPID_PUBLIC_KEY:
-                # Tiene padding, verificar
-                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
-            else:
-                # Sin padding
-                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
-            print(f"✅ Clave válida, longitud decodificada: {len(test)}")
-        except Exception as decode_error:
-            print(f"❌ Clave inválida: {decode_error}")
-            return jsonify({'error': 'Clave VAPID inválida'}), 500
-        
-        return jsonify({
-            'success': True,
-            'publicKey': VAPID_PUBLIC_KEY
-        })
-    except Exception as e:
-        print(f"❌ Error get_public_key: {e}")
-        return jsonify({'error': 'Error interno'}), 500
+    """Clave pública VAPID para suscribirse a notificaciones push."""
+    clave = (os.getenv('VAPID_PUBLIC_KEY') or '').strip()
+    if not clave:
+        return jsonify({'error': 'VAPID no configurado'}), 500
+    return jsonify({'success': True, 'publicKey': clave})
 
 @app.route('/api/push/unsubscribe', methods=['POST'])
 @login_required
@@ -6123,7 +6008,10 @@ def manifest():
 
 @app.route('/service-worker.js')
 def serve_service_worker():
-    return send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
+    respuesta = send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
+    respuesta.headers['Cache-Control'] = 'no-cache'          # el navegador debe revisar siempre si hay una versión nueva
+    respuesta.headers['Service-Worker-Allowed'] = '/'
+    return respuesta
 
     
 @app.route('/profesional/perfil')
@@ -7832,29 +7720,9 @@ def calificar_servicio(cita_id):
 
 @app.route('/api/push/subscribe-cliente', methods=['POST'])
 def subscribe_cliente_push_direct():
-    """Ruta directa para suscribir clientes (sin prefijo /push)"""
-    try:
-        data = request.json
-        subscription = data.get('subscription')
-        telefono = data.get('telefono')
-        negocio_id = data.get('negocio_id')
-        
-        if not subscription or not telefono or not negocio_id:
-            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
-        
-        from push_notifications import guardar_suscripcion_cliente
-        dispositivo_info = request.headers.get('User-Agent', '')[:500]
-        
-        success = guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_info)
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Notificaciones activadas'})
-        else:
-            return jsonify({'success': False, 'error': 'Error al guardar'}), 500
-            
-    except Exception as e:
-        print(f"❌ Error en subscribe_cliente_push_direct: {e}")
-        return jsonify({'success': False, 'error': 'Error interno'}), 500
+    """Suscribir al cliente a las notificaciones push. Su teléfono es el que verificó el chat (sesión), no el del cuerpo."""
+    from push_notifications import subscribe_cliente_push
+    return subscribe_cliente_push()
 
 @app.route('/api/cliente/mis-citas', methods=['GET'])
 def api_cliente_citas():
@@ -8075,7 +7943,7 @@ def generar_flyer_promocion(promocion_id):
 
 WHATSAPP_SECRETO = os.getenv('WHATSAPP_WEBHOOK_SECRET', '')
 if not WHATSAPP_SECRETO:
-    print("⚠️ [WHATSAPP] WHATSAPP_WEBHOOK_SECRET no está configurada: los endpoints /api/whatsapp/* aceptan cualquier llamada")
+    print("ℹ️ [WHATSAPP] WHATSAPP_WEBHOOK_SECRET no está configurada: los endpoints /api/whatsapp/* están desactivados")
 
 _WA_DEDUPE_SEGUNDOS = 600
 _WA_SESION_SEGUNDOS = 24 * 3600
@@ -8083,9 +7951,9 @@ _wa_respuestas_recientes = {}
 
 
 def _webhook_whatsapp_autorizado():
-    """Si WHATSAPP_WEBHOOK_SECRET está definida, exige el header X-Webhook-Secret (n8n)."""
+    """Endpoints de n8n: exigen el header X-Webhook-Secret. Sin WHATSAPP_WEBHOOK_SECRET quedan APAGADOS (la integración con WhatsApp está suspendida)."""
     if not WHATSAPP_SECRETO:
-        return True
+        return False
     enviado = request.headers.get('X-Webhook-Secret', '')
     return hmac.compare_digest(enviado.encode('utf-8'), WHATSAPP_SECRETO.encode('utf-8'))
 

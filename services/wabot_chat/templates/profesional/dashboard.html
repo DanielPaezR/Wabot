@@ -1181,19 +1181,6 @@
                 '&profesional_id={{ profesional_id }}';
         }
 
-        // ==================== PUSH ====================
-        document.getElementById('pushButton')?.addEventListener('click', async () => {
-            const profId = document.body.dataset.profesionalId;
-            if (window.PushNotifications) {
-                const push = new window.PushNotifications();
-                const ok   = await push.inicializar(profId);
-                if (ok) { mostrarNotificacion('Notificaciones activadas'); document.getElementById('pushButton').disabled = true; }
-                else mostrarNotificacion('No se pudo activar', 'error');
-            } else {
-                mostrarNotificacion('No disponible en este navegador', 'error');
-            }
-        });
-
         // ==================== INIT ====================
         document.addEventListener('DOMContentLoaded', () => {
             loadNotifications();
