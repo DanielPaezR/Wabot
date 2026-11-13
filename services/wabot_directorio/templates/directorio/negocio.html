@@ -496,8 +496,15 @@
             .cover { height:170px; }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-dir.css') }}?v=1">
+    <style>:root { --wb-accent: {{ acento or '#d4a857' }}; --wb-accent-ink: {{ acento_tinta or '#17110a' }}; }</style>
 </head>
-<body>
+<body class="wb-dir">
 
     <!-- MODAL FOTO -->
     <div id="modalFoto" class="modal-foto" onclick="cerrarModal()">
@@ -557,7 +564,7 @@
                 {% if negocio.telefono_whatsapp %}
                 <div class="info-row">
                     <i class="fab fa-whatsapp"></i>
-                    <span>{{ negocio.telefono_whatsapp }}</span>
+                    <span>{{ negocio.telefono_whatsapp|replace('whatsapp:','') }}</span>
                 </div>
                 {% endif %}
             </div>
@@ -717,7 +724,7 @@
             </div>
             {% for prof in profesionales %}
             <a href="/profesional/{{ prof.id }}/publico" class="profesional-card">
-                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=667eea&color=fff&name=' + prof.nombre|urlencode }}"
+                <img src="{{ prof.foto_url or 'https://ui-avatars.com/api/?background=23232c&color=' + (acento or '#d4a857')|replace('#','') + '&name=' + prof.nombre|urlencode }}"
                      class="profesional-foto" alt="{{ prof.nombre }}">
                 <div style="flex:1; min-width:0;">
                     <div class="profesional-nombre">{{ prof.nombre }}</div>

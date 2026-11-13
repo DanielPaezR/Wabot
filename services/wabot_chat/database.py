@@ -4079,6 +4079,18 @@ def asegurar_columnas_localizacion():
         cursor = conn.cursor()
         cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS pais TEXT")
         cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS zona_horaria TEXT")
+        cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS prompt_ia TEXT")
+        # Relación número de WhatsApp (n8n) -> negocio; el alta de negocios la consulta
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS numeros_whatsapp_negocio (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+                numero_whatsapp VARCHAR(20) NOT NULL UNIQUE,
+                activo BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
         conn.commit()
     except Exception as e:
         conn.rollback()

@@ -726,7 +726,7 @@ def obtener_contexto_de_negocio(negocio_id):
         fecha_str = fecha.strftime('%Y-%m-%d')
         dia_horario = db.obtener_horarios_por_dia(negocio_id, fecha_str)
         if dia_horario and dia_horario.get('activo'):
-            dias_es = {'Mon': 'Lunes', 'Tue': 'Martes', 'Wed': 'Miércoles', 'Thu': 'Jueves', 
+            dias_es = {'Mon': 'Lunes', 'Tue': 'Martes', 'Wed': 'Miércoles', 'Thu': 'Jueves',
            'Fri': 'Viernes', 'Sat': 'Sábado', 'Sun': 'Domingo'}
             dia_en = fecha.strftime('%a')
             dia_es = dias_es.get(dia_en, dia_en)
@@ -740,76 +740,137 @@ def obtener_contexto_de_negocio(negocio_id):
 
     return {
         'negocio': {
-            'nombre': negocio.get('nombre', 'Negocio'),
-            'direccion': negocio.get('direccion', 'Dirección no disponible'),
-            'telefono': negocio.get('telefono_whatsapp', 'No disponible'),
-            'tipo_negocio': negocio.get('tipo_negocio', 'general'),
+            'nombre': negocio.get('nombre') or 'Negocio',
+            'direccion': negocio.get('direccion') or configuracion.get('direccion') or '',
+            'telefono': negocio.get('telefono_whatsapp') or '',
+            'tipo_negocio': negocio.get('tipo_negocio') or 'general',
             'configuracion': configuracion
         },
         'profesionales': nombre_profesionales,
         'servicios': nombre_servicios,
+        'servicios_detalle': servicios,
         'horarios': horarios
+    }
+
+
+# Variables que el dueño puede usar en su prompt: (variable, etiqueta del botón)
+VARIABLES_PROMPT = [
+    ('{nombre_negocio}', 'Nombre del negocio'),
+    ('{descripcion}', 'Descripción'),
+    ('{direccion}', 'Dirección'),
+    ('{telefono}', 'Teléfono de contacto'),
+    ('{servicios}', 'Servicios (nombres)'),
+    ('{servicios_precios}', 'Servicios con precio y duración'),
+    ('{profesionales}', 'Profesionales'),
+    ('{horario_atencion}', 'Horario de atención (texto)'),
+    ('{horarios}', 'Horarios de los próximos 7 días'),
+    ('{politica_cancelacion}', 'Política de cancelación'),
+]
+
+_TIPOS_LEGIBLES = {
+    'barberia': 'barbería', 'spa_unas': 'spa de uñas', 'peluqueria': 'peluquería',
+    'estetica': 'centro estético', 'consultorio': 'consultorio', 'gimnasio': 'gimnasio',
+    'yoga': 'estudio de yoga', 'masajes': 'centro de masajes', 'tattoo': 'estudio de tattoo',
+    'renta_autos': 'renta de vehículos',
+}
+
+
+def _leer_columna_negocio(negocio_id, columna):
+    """Lee una columna de texto opcional de negocios (None si no existe o está vacía)."""
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(f'SELECT {columna} FROM negocios WHERE id = %s', (negocio_id,))
+            fila = cursor.fetchone()
+        finally:
+            conn.close()
+        if not fila:
+            return None
+        valor = fila.get(columna) if isinstance(fila, dict) else fila[0]
+        return valor.strip() if isinstance(valor, str) and valor.strip() else None
+    except Exception as e:
+        print(f"⚠️ [IA] No se pudo leer {columna} del negocio {negocio_id}: {e}")
+        return None
+
+
+def _formatear_servicio(s):
+    precio = s.get('precio') or 0
+    try:
+        precio_txt = f"${float(precio):,.0f}"
+        maximo = s.get('precio_maximo')
+        if s.get('tipo_precio') == 'rango' and maximo:
+            precio_txt += f" - ${float(maximo):,.0f}"
+        elif s.get('tipo_precio') == 'variable':
+            precio_txt = f"desde {precio_txt}"
+    except (TypeError, ValueError):
+        precio_txt = str(precio)
+    moneda = s.get('moneda')
+    if moneda:
+        precio_txt += f" {moneda}"
+    duracion = s.get('duracion')
+    detalle = f"{s.get('nombre')} ({precio_txt}" + (f", {duracion} min)" if duracion else ")")
+    return detalle
+
+
+def valores_variables_prompt(negocio_id, contexto=None):
+    """Valores actuales de cada variable del prompt (se usa en el bot y en la vista previa)."""
+    contexto = contexto or obtener_contexto_de_negocio(negocio_id)
+    negocio = contexto['negocio']
+    config = negocio['configuracion']
+    telefono = (config.get('telefono_contacto') or '').strip()
+    if not telefono:
+        telefono = re.sub(r'^whatsapp:', '', negocio.get('telefono') or '').strip()
+    detalle = contexto.get('servicios_detalle') or []
+    return {
+        '{nombre_negocio}': negocio['nombre'],
+        '{descripcion}': _leer_columna_negocio(negocio_id, 'descripcion') or 'No disponible',
+        '{direccion}': negocio['direccion'] or 'No disponible',
+        '{telefono}': telefono or 'No disponible',
+        '{servicios}': ', '.join(contexto['servicios']) if contexto['servicios'] else 'No hay servicios registrados',
+        '{servicios_precios}': '; '.join(_formatear_servicio(s) for s in detalle if s.get('nombre')) or 'No hay servicios registrados',
+        '{profesionales}': ', '.join(contexto['profesionales']) if contexto['profesionales'] else 'No hay profesionales registrados',
+        '{horario_atencion}': config.get('horario_atencion') or 'No disponible',
+        '{horarios}': ', '.join(contexto['horarios']) if contexto['horarios'] else 'No disponible',
+        '{politica_cancelacion}': config.get('politica_cancelacion') or 'No disponible',
     }
 
 
 def construir_prompt_negocio(negocio_id):
     """Construye el prompt del negocio usando su prompt_ia personalizado"""
     contexto = obtener_contexto_de_negocio(negocio_id)
-    negocio = contexto['negocio']
-    profesionales = contexto['profesionales']
-    servicios = contexto['servicios']
-    horarios = contexto['horarios']
-    
-    # ✅ NUEVO: Obtener prompt_ia personalizado de la BD
-    prompt_personalizado = ''
-    try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT prompt_ia FROM negocios WHERE id = %s', (negocio_id,))
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            if isinstance(result, dict):
-                prompt_personalizado = result.get('prompt_ia', '')
-            elif isinstance(result, (list, tuple)):
-                prompt_personalizado = result[0] if result[0] else ''
-    except Exception as e:
-        print(f"⚠️ [IA] No se pudo obtener prompt_ia personalizado: {e}")
-    
-    # Si hay prompt personalizado, usarlo como base
-    if prompt_personalizado and prompt_personalizado.strip():
-        # Reemplazar variables en el prompt personalizado
+    valores = valores_variables_prompt(negocio_id, contexto)
+    prompt_personalizado = _leer_columna_negocio(negocio_id, 'prompt_ia')
+
+    # Prompt personalizado: se reemplazan las variables por los valores actuales
+    if prompt_personalizado:
         prompt = prompt_personalizado
-        prompt = prompt.replace('{nombre_negocio}', negocio.get('nombre', 'Negocio'))
-        prompt = prompt.replace('{profesionales}', ', '.join(profesionales) if profesionales else 'No hay profesionales')
-        prompt = prompt.replace('{servicios}', ', '.join(servicios) if servicios else 'No hay servicios')
-        prompt = prompt.replace('{direccion}', negocio.get('direccion', 'No disponible'))
-        prompt = prompt.replace('{telefono}', negocio.get('telefono', 'No disponible'))
-        
-        # Agregar horarios si el prompt no los incluye
-        if '{horarios}' in prompt and horarios:
-            prompt = prompt.replace('{horarios}', ', '.join(horarios))
-        elif horarios:
-            prompt += f"\nHorarios: {', '.join(horarios)}"
-        
+        usa_horarios = '{horarios}' in prompt
+        for variable, valor in valores.items():
+            prompt = prompt.replace(variable, str(valor))
+        if not usa_horarios and contexto['horarios']:
+            prompt += f"\nHorarios: {', '.join(contexto['horarios'])}"
         return prompt
-    
-    # Si no hay prompt personalizado, usar el genérico
-    prompt = (
-        f"Negocio: {negocio['nombre']}. "
-        f"Dirección: {negocio['direccion']}. "
-        f"Teléfono de contacto: {negocio['telefono']}. "
-        f"Tipo de negocio: {negocio['tipo_negocio']}. "
-        f"Profesionales disponibles: {', '.join(profesionales) if profesionales else 'No hay profesionales registrados'}. "
-        f"Servicios disponibles: {', '.join(servicios) if servicios else 'No hay servicios registrados'}. "
-    )
-    
-    if horarios:
-        prompt += f"Horarios próximos: {', '.join(horarios)}. "
-    
-    return prompt
+
+    # Sin prompt personalizado: se arma uno con TODO lo configurado del negocio
+    negocio = contexto['negocio']
+    tipo = _TIPOS_LEGIBLES.get(negocio['tipo_negocio'], 'negocio')
+    partes = [f"Negocio: {valores['{nombre_negocio}']} ({tipo})."]
+    for etiqueta, clave in [
+        ('Descripción', '{descripcion}'),
+        ('Dirección', '{direccion}'),
+        ('Teléfono de contacto', '{telefono}'),
+        ('Horario de atención', '{horario_atencion}'),
+        ('Política de cancelación', '{politica_cancelacion}'),
+    ]:
+        if valores[clave] != 'No disponible':
+            partes.append(f"{etiqueta}: {valores[clave]}.")
+    partes.append(f"Profesionales disponibles: {valores['{profesionales}']}.")
+    partes.append(f"Servicios, precios y duración: {valores['{servicios_precios}']}.")
+    if contexto['horarios']:
+        partes.append(f"Horarios próximos: {valores['{horarios}']}.")
+    return ' '.join(partes)
 
 
 def format_ia_template(template, variables):

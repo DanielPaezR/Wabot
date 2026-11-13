@@ -376,8 +376,14 @@
             }
         }
     </style>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-dir.css') }}?v=1">
 </head>
-<body>
+<body class="wb-map">
     <div id="map"></div>
     
     <!-- Panel de filtros -->
@@ -393,10 +399,11 @@
             </div>
             <div class="quick-filters">
                 <span class="filter-chip active" data-tipo="todos">Todos</span>
-                <span class="filter-chip" data-tipo="barberia">💈 Barberías</span>
-                <span class="filter-chip" data-tipo="spa_unas">💅 Spa de Uñas</span>
-                <span class="filter-chip" data-tipo="estetica">💆 Centro Estético</span>
-                <span class="filter-chip" data-tipo="peluqueria">✂️ Peluquerías</span>
+                <span class="filter-chip" data-tipo="barberia"><i class="fas fa-scissors"></i> Barberías</span>
+                <span class="filter-chip" data-tipo="spa_unas"><i class="fas fa-hand-sparkles"></i> Spa de uñas</span>
+                <span class="filter-chip" data-tipo="estetica"><i class="fas fa-spa"></i> Centro estético</span>
+                <span class="filter-chip" data-tipo="peluqueria"><i class="fas fa-user-tie"></i> Peluquerías</span>
+                <span class="filter-chip" data-tipo="renta_autos"><i class="fas fa-car"></i> Renta de autos</span>
             </div>
             <div class="price-range">
                 <input type="number" id="minPrice" placeholder="Precio mín." step="1000">
@@ -441,11 +448,10 @@
         function initMap() {
             map = L.map('map').setView([6.24420, -75.58121], 13); // Vista temporal Medellín
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
-                subdomains: 'abcd',
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 maxZoom: 19,
-                minZoom: 10
+                minZoom: 3
             }).addTo(map);
             
             cargarNegocios();
@@ -499,18 +505,18 @@
                     L.marker([latitude, longitude], {
                         icon: L.divIcon({
                             className: 'current-location-marker',
-                            html: '<i class="fas fa-location-dot" style="color: #667eea; font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));"></i>',
+                            html: '<i class="fas fa-location-dot" style="color: var(--wb-accent); font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"></i>',
                             iconSize: [24, 24],
                             popupAnchor: [0, -12]
                         })
-                    }).addTo(map).bindPopup('📍 Tu ubicación').openPopup();
+                    }).addTo(map).bindPopup('Tu ubicación').openPopup();
                     
                     hideLoader();
                     
                     // Aplicar filtros (esto solo mostrará negocios cerca)
                     aplicarFiltros();
                     
-                    mostrarToast(`📍 Mostrando negocios cerca de tu ubicación`);
+                    mostrarToast('Mostrando negocios cerca de tu ubicación');
                 },
                 (error) => {
                     console.error('Error de geolocalización:', error);
@@ -524,10 +530,10 @@
                     let mensaje = '';
                     switch(error.code) {
                         case error.PERMISSION_DENIED:
-                            mensaje = '📍 Permiso denegado. Mostrando negocios en Medellín';
+                            mensaje = 'Ubicación no permitida. Mostrando todos los negocios';
                             break;
                         default:
-                            mensaje = '📍 No se pudo obtener ubicación. Mostrando Medellín';
+                            mensaje = 'No se pudo obtener tu ubicación. Mostrando todos los negocios';
                     }
                     mostrarToast(mensaje);
                 },
@@ -543,7 +549,16 @@
 
         function centrarEnMedellin() {
             const MEDELLIN_CENTER = [6.24420, -75.58121];
-            map.setView(MEDELLIN_CENTER, 13);
+            const puntos = (allNegocios || [])
+                .filter(n => n.latitud && n.longitud)
+                .map(n => [parseFloat(n.latitud), parseFloat(n.longitud)]);
+            const lats = puntos.map(p => p[0]), lngs = puntos.map(p => p[1]);
+            const abierto = puntos.length > 1 && (Math.max(...lats) - Math.min(...lats) > 2 || Math.max(...lngs) - Math.min(...lngs) > 2);
+            if (abierto) {
+                map.fitBounds(puntos, { padding: [60, 60], maxZoom: 6 });
+            } else {
+                map.setView(MEDELLIN_CENTER, 13);
+            }
         }
 
 
@@ -609,8 +624,9 @@
                     bottom: 80px;
                     left: 20px;
                     right: 20px;
-                    background: rgba(0,0,0,0.85);
-                    color: white;
+                    background: var(--wb-surface-3);
+                    color: var(--wb-text);
+                    border: 1px solid var(--wb-line-strong);
                     padding: 12px 16px;
                     border-radius: 40px;
                     font-size: 13px;
@@ -631,6 +647,15 @@
             }, 3000);
         }
 
+        const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+        const pinIcon = L.divIcon({
+            className: 'wb-pin',
+            html: '<svg viewBox="0 0 32 40" width="32" height="40"><path d="M16 1C8.3 1 2 7.1 2 14.7 2 24.9 16 39 16 39s14-14.1 14-24.3C30 7.1 23.7 1 16 1Z"/><circle cx="16" cy="14.5" r="5.2"/></svg>',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -36]
+        });
+
         // Actualizar marcadores en el mapa
         function actualizarMapa(negocios) {
             // Limpiar marcadores existentes
@@ -640,16 +665,16 @@
             // Crear nuevos marcadores
             negocios.forEach(negocio => {
                 if (negocio.latitud && negocio.longitud) {
-                    const marker = L.marker([negocio.latitud, negocio.longitud])
+                    const marker = L.marker([negocio.latitud, negocio.longitud], { icon: pinIcon })
                         .addTo(map)
                         .bindPopup(`
                             <div class="custom-popup">
-                                <div class="popup-name"><strong>${negocio.nombre}</strong></div>
+                                <div class="popup-name"><strong>${esc(negocio.nombre)}</strong></div>
                                 <div class="popup-rating">
                                     ${'★'.repeat(Math.round(negocio.calificacion))}${'☆'.repeat(5-Math.round(negocio.calificacion))}
                                     (${negocio.total_opiniones})
                                 </div>
-                                <div>${negocio.direccion || 'Sin dirección'}</div>
+                                <div>${esc(negocio.direccion) || 'Sin dirección'}</div>
                                 <a href="/negocio/${negocio.id}" class="popup-btn" target="_blank">Ver más →</a>
                             </div>
                         `, { maxWidth: 220 });
@@ -692,7 +717,7 @@
             resultsCount.textContent = negocios.length;
             
             if (negocios.length === 0) {
-                resultsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8;">No se encontraron negocios</div>';
+                resultsList.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--wb-text-3);">No se encontraron negocios</div>';
             } else {
                 resultsList.innerHTML = negocios.map(negocio => `
                     <div class="result-item" onclick="irANegocio(${negocio.id}, ${negocio.latitud}, ${negocio.longitud})">
@@ -700,8 +725,8 @@
                             ${getEmojiByTipo(negocio.tipo_negocio)}
                         </div>
                         <div class="result-info">
-                            <div class="result-name">${negocio.nombre}</div>
-                            <div class="result-address">${negocio.direccion || 'Sin dirección'}</div>
+                            <div class="result-name">${esc(negocio.nombre)}</div>
+                            <div class="result-address">${esc(negocio.direccion) || 'Sin dirección'}</div>
                             <div class="result-rating">
                                 <span class="stars">${'★'.repeat(Math.round(negocio.calificacion))}${'☆'.repeat(5-Math.round(negocio.calificacion))}</span>
                                 <span>(${negocio.total_opiniones})</span>
@@ -718,14 +743,15 @@
         }
         
         function getEmojiByTipo(tipo) {
-            const emojis = {
-                'barberia': '💈',
-                'spa_unas': '💅',
-                'estetica': '💆',
-                'peluqueria': '✂️',
-                'general': '🏪'
+            const iconos = {
+                'barberia': 'fa-scissors',
+                'spa_unas': 'fa-hand-sparkles',
+                'estetica': 'fa-spa',
+                'peluqueria': 'fa-user-tie',
+                'renta_autos': 'fa-car',
+                'general': 'fa-store'
             };
-            return emojis[tipo] || '🏪';
+            return `<i class="fas ${iconos[tipo] || 'fa-store'}"></i>`;
         }
         
         function irANegocio(id, lat, lng) {
