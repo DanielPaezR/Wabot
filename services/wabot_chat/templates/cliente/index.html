@@ -1282,7 +1282,23 @@
                 });
                 const data = await res.json();
                 if (data.error) addBotMsg(data.error);
-                else addBotMsg(data.message, data.options);
+                else {
+                    addBotMsg(data.message, data.options);
+                    if (data.link) {
+                        const fila = document.createElement('div');
+                        fila.className = 'options-row';
+                        const a = document.createElement('a');
+                        a.className = 'option-chip';
+                        a.href = data.link.url;
+                        a.target = '_blank';
+                        a.rel = 'noopener';
+                        a.style.cssText = 'text-decoration:none;font-weight:700;';
+                        a.textContent = data.link.texto;
+                        fila.appendChild(a);
+                        chatMessages.appendChild(fila);
+                        scrollToBottomChat();
+                    }
+                }
             } catch(e) {
                 addBotMsg('Error de conexión. Intenta de nuevo.');
             }
@@ -1557,7 +1573,9 @@
             html += lista.map(c => {
                 const claseEstado = (c.es_proxima || c.estado_texto === 'En curso') ? 'pendiente' : (c.estado === 'completado' ? 'completada' : (c.estado === 'cancelado' ? 'cancelada' : 'pasada'));
                 const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
-                const pie = puedeCalificar
+                const pie = c.enlace_docs
+                    ? `<div class="cita-card-footer">${c.observacion ? `<div style="font-size:.82rem;margin-bottom:8px;color:var(--warning,#f59e0b);">⚠️ ${escapeHtml(c.observacion)}</div>` : ''}<a class="btn-calificar" style="text-decoration:none;display:inline-block;" href="${c.enlace_docs}" target="_blank" rel="noopener">📎 Completar mis documentos</a></div>`
+                    : puedeCalificar
                     ? `<div class="cita-card-footer"><button class="btn-calificar" onclick="calificarCita(${c.id})">Calificar</button></div>`
                     : (c.ya_calificada && c.estado === 'completado'
                         ? `<div class="cita-card-footer"><button class="btn-calificar calificado" disabled>Ya calificada</button></div>` : '');

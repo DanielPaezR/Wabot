@@ -1,0 +1,74 @@
+{% extends 'negocio/_alquiler_base.html' %}
+{% set activa = 'reservas' %}{% set titulo_pagina = 'Solicitud #' ~ r.id %}{% set subtitulo_pagina = r.vehiculo_nombre ~ ' · ' ~ r.cliente_nombre %}
+{% block titulo %}Solicitud #{{ r.id }}{% endblock %}
+{% block acciones %}<a class="wb-btn wb-btn-ghost" href="{{ url_for('alquiler.reservas') }}">Volver</a>{% endblock %}
+{% block contenido %}
+<div class="det-grid">
+    <div class="alq-card">
+        <h2>Alquiler</h2>
+        <div class="alq-fila"><div class="quien"><strong>{{ r.vehiculo_nombre }}</strong><span>{{ r.categoria }}{% if r.placa %} · {{ r.placa }}{% endif %}</span></div><span class="alq-badge est-{{ r.estado_vista }}">{{ etiquetas.get(r.estado_vista, r.estado_vista) }}</span></div>
+        <div class="alq-fila"><div class="quien"><span>Cliente</span><strong>{{ r.cliente_nombre }}</strong></div><span>{{ r.cliente_telefono }}</span></div>
+        <div class="alq-fila"><div class="quien"><span>Recogida</span><strong>{{ fmt(r.fecha_inicio) }} · {{ r.hora[:5] }}</strong></div></div>
+        <div class="alq-fila"><div class="quien"><span>Devolución</span><strong>{{ fmt(r.fecha_fin) }} · {{ r.hora[:5] }}</strong></div></div>
+        <div class="alq-fila"><div class="quien"><span>Total ({{ r.dias }} día{{ 's' if r.dias != 1 }})</span><strong>{{ dinero(r.total) }}</strong></div>{% if r.deposito %}<span>Depósito {{ dinero(r.deposito) }}</span>{% endif %}</div>
+        {% if r.notas %}<div class="alq-fila"><div class="quien"><span>Notas</span><strong style="white-space:normal">{{ r.notas }}</strong></div></div>{% endif %}
+        {% if r.observacion %}<div class="alq-fila"><div class="quien"><span>{{ 'Motivo' if r.estado == 'cancelada' else 'Corrección pedida' }}</span><strong style="white-space:normal">{{ r.observacion }}</strong></div></div>{% endif %}
+
+        {% if r.estado in ('pendiente', 'confirmada', 'en_curso') %}
+        <div class="det-decision">
+            {% if r.estado == 'pendiente' %}
+            <form method="POST" action="{{ url_for('alquiler.reserva_accion', reserva_id=r.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="confirmar"><input type="hidden" name="volver" value="/negocio/reservas/{{ r.id }}">
+                <button class="wb-btn wb-btn-primary" type="submit" style="width:100%;justify-content:center">Aprobar solicitud</button>
+                {% if not r.docs_completos %}<small style="color:var(--wb-warn-text);display:block;margin-top:6px">Aún faltan documentos del cliente. Puedes aprobarla igual o pedírselos primero.</small>{% endif %}
+            </form>
+            {% endif %}
+            {% if r.estado in ('pendiente', 'confirmada') %}
+            <form method="POST" action="{{ url_for('alquiler.reserva_accion', reserva_id=r.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="observar"><input type="hidden" name="volver" value="/negocio/reservas/{{ r.id }}">
+                <textarea name="mensaje" rows="2" maxlength="300" placeholder="Pide una corrección: Ej: La foto de la licencia no se ve, súbela de nuevo"></textarea>
+                <button class="alq-btn" type="submit" style="margin-top:6px">Pedir corrección al cliente</button>
+            </form>
+            {% endif %}
+            {% if r.estado == 'confirmada' %}
+            <form method="POST" action="{{ url_for('alquiler.reserva_accion', reserva_id=r.id) }}" class="alq-form-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="entregar"><input type="hidden" name="volver" value="/negocio/reservas/{{ r.id }}">
+                <button class="alq-btn primario" type="submit">Entregar vehículo</button>
+            </form>
+            {% endif %}
+            {% if r.estado == 'en_curso' %}
+            <form method="POST" action="{{ url_for('alquiler.reserva_accion', reserva_id=r.id) }}" class="alq-form-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="devolver"><input type="hidden" name="volver" value="/negocio/reservas/{{ r.id }}">
+                <button class="alq-btn primario" type="submit">Marcar como devuelto</button>
+            </form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('alquiler.reserva_accion', reserva_id=r.id) }}" onsubmit="return confirm('¿Rechazar o cancelar esta reserva? Se avisará al cliente.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="cancelar"><input type="hidden" name="volver" value="/negocio/reservas/{{ r.id }}">
+                <textarea name="mensaje" rows="2" maxlength="300" placeholder="Motivo (el cliente lo recibe): Ej: No cumple la edad mínima"></textarea>
+                <button class="alq-btn peligro" type="submit" style="margin-top:6px">{{ 'Rechazar solicitud' if r.estado == 'pendiente' else 'Cancelar reserva' }}</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="alq-card">
+        <h2>Datos y documentos del cliente</h2>
+        <p style="margin:-6px 0 14px">
+            {% if r.docs_completos %}<span class="alq-badge est-activo">Completos</span>{% elif r.estado in ('pendiente', 'confirmada') %}<span class="alq-badge est-pendiente">Faltan datos obligatorios</span>{% endif %}
+            {% if r.docs_enviados %}<small style="color:var(--wb-text-3)"> · enviados {{ r.docs_enviados.strftime('%d/%m %H:%M') }}</small>{% endif %}
+        </p>
+        <div class="det-resp">
+        {% for f in respuestas %}
+            <div class="it">
+                <div class="et">{{ f.etiqueta }}{% if not f.activo %} (campo ya oculto){% endif %}</div>
+                {% if not f.valor %}<div class="va falta">Sin responder{% if f.obligatorio %} (obligatorio){% endif %}</div>
+                {% elif f.tipo == 'foto' %}<div class="va"><a href="{{ f.valor }}" target="_blank" rel="noopener"><img src="{{ f.valor }}" alt="{{ f.etiqueta }}" loading="lazy"></a></div>
+                {% else %}<div class="va">{{ f.valor }}</div>{% endif %}
+            </div>
+        {% else %}
+            <div class="alq-vacio">Este negocio no pide datos adicionales.</div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

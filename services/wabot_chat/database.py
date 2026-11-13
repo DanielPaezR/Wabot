@@ -1119,20 +1119,22 @@ def crear_negocio(nombre, telefono_whatsapp, tipo_negocio='general', configuraci
                 VALUES (?, ?, ?, ?, ?)
             ''', (negocio_id, 'Propietario', email_propietario, generate_password_hash('propietario123'), 'propietario'))
         
-        # Crear servicios por defecto
-        _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio)
+        # El alquiler de vehículos no usa servicios ni profesionales: sus artículos son los vehículos
+        if tipo_negocio != 'alquiler_vehiculos':
+            # Crear servicios por defecto
+            _crear_servicios_por_defecto_negocio(cursor, negocio_id, tipo_negocio)
         
-        # Crear profesional por defecto
-        if is_postgresql():
-            cursor.execute('''
-                INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
-                VALUES (%s, %s, %s, %s)
-            ''', (negocio_id, 'Principal', 'Especialista', '0000'))
-        else:
-            execute_sql(cursor, '''
-                INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
-                VALUES (?, ?, ?, ?)
-            ''', (negocio_id, 'Principal', 'Especialista', '0000'))
+            # Crear profesional por defecto
+            if is_postgresql():
+                cursor.execute('''
+                    INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
+                    VALUES (%s, %s, %s, %s)
+                ''', (negocio_id, 'Principal', 'Especialista', '0000'))
+            else:
+                execute_sql(cursor, '''
+                    INSERT INTO profesionales (negocio_id, nombre, especialidad, pin)
+                    VALUES (?, ?, ?, ?)
+                ''', (negocio_id, 'Principal', 'Especialista', '0000'))
         
         conn.commit()
         

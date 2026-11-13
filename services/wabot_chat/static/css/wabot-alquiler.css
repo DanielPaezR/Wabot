@@ -107,3 +107,56 @@
 .alq-form .pie { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
 .alq-foto { display: flex; gap: 14px; align-items: center; }
 .alq-foto .vista { width: 120px; flex-shrink: 0; border-radius: 10px; overflow: hidden; }
+
+/* ---------- Formulario público de solicitud ---------- */
+.sol-body { margin: 0; background: var(--wb-bg); color: var(--wb-text); font-family: var(--wb-font); }
+.sol-wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 60px; display: grid; gap: 16px; }
+.sol-cab { display: flex; align-items: center; gap: 12px; }
+.sol-marca { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--wb-accent); color: var(--wb-accent-ink); font-family: var(--wb-display); font-weight: 600; font-size: 1.2rem; }
+.sol-negocio { font-family: var(--wb-display); font-size: 1.15rem; font-weight: 600; }
+.sol-sub { color: var(--wb-text-3); font-size: .82rem; }
+.sol-resumen, .sol-instr, .sol-form { background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r-lg); padding: 18px; }
+.sol-resumen .veh-nombre { font-family: var(--wb-display); font-size: 1.3rem; margin-bottom: 8px; }
+.sol-fila { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--wb-line); font-size: .9rem; }
+.sol-fila span { color: var(--wb-text-3); }
+.sol-estado { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.sol-instr p { margin: 6px 0 0; white-space: pre-line; color: var(--wb-text-2); font-size: .9rem; }
+.sol-aviso { padding: 12px 14px; border-radius: var(--wb-r); font-size: .9rem; border: 1px solid var(--wb-line-strong); background: var(--wb-surface-2); }
+.sol-aviso.success { background: var(--wb-ok-soft); border-color: var(--wb-ok-line); color: var(--wb-ok-text); }
+.sol-aviso.error { background: var(--wb-bad-soft); border-color: var(--wb-bad-line); color: var(--wb-bad-text); }
+.sol-aviso.warn { background: var(--wb-warn-soft); border-color: var(--wb-warn-line); color: var(--wb-warn-text); }
+.sol-form h2 { font-family: var(--wb-display); font-size: 1.15rem; margin: 0 0 14px; }
+.sol-campo { margin-bottom: 16px; }
+.sol-campo label { display: block; font-weight: 600; font-size: .86rem; margin-bottom: 6px; color: var(--wb-text-2); }
+.sol-campo .req { color: var(--wb-bad-text); }
+.sol-campo .opc { color: var(--wb-text-3); font-weight: 400; }
+.sol-campo input, .sol-campo select, .sol-campo textarea { width: 100%; box-sizing: border-box; background: var(--wb-surface-2); color: var(--wb-text); border: 1px solid var(--wb-line-strong); border-radius: var(--wb-r-sm); padding: 12px; font: inherit; font-size: 1rem; }
+.sol-campo input:focus, .sol-campo select:focus, .sol-campo textarea:focus { outline: 2px solid var(--wb-accent-line); border-color: var(--wb-accent); }
+.sol-campo small { display: block; margin-top: 5px; color: var(--wb-text-3); font-size: .78rem; }
+.sol-campo.con-error input, .sol-campo.con-error select, .sol-campo.con-error textarea { border-color: var(--wb-bad); }
+.sol-campo .error-txt { color: var(--wb-bad-text); font-weight: 600; }
+.sol-foto-actual { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; text-decoration: none; color: var(--wb-text-3); font-size: .78rem; }
+.sol-foto-actual img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid var(--wb-line); }
+.sol-enviar { width: 100%; justify-content: center; padding: 14px; font-size: 1rem; }
+.sol-nota { color: var(--wb-text-3); font-size: .76rem; text-align: center; margin: 12px 0 0; }
+.sol-volver { color: var(--wb-text-3); text-align: center; font-size: .85rem; text-decoration: none; }
+
+/* ---------- Editor del formulario y detalle de reserva (panel) ---------- */
+.frm-lista { display: grid; gap: 10px; margin-bottom: 22px; }
+.frm-item { display: flex; align-items: center; gap: 12px; background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r); padding: 12px 14px; }
+.frm-item.inactivo { opacity: .55; }
+.frm-item .info { flex: 1; min-width: 0; }
+.frm-item .info strong { display: block; color: var(--wb-text); }
+.frm-item .info span { color: var(--wb-text-3); font-size: .8rem; }
+.frm-item .acc { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.det-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .det-grid { grid-template-columns: 1fr; } }
+.det-resp { display: grid; gap: 12px; }
+.det-resp .it { padding-bottom: 10px; border-bottom: 1px solid var(--wb-line); }
+.det-resp .it:last-child { border-bottom: 0; }
+.det-resp .et { color: var(--wb-text-3); font-size: .78rem; }
+.det-resp .va { color: var(--wb-text); font-size: .95rem; word-break: break-word; }
+.det-resp .falta { color: var(--wb-warn-text); font-weight: 600; }
+.det-resp img { max-width: 100%; max-height: 260px; border-radius: 10px; border: 1px solid var(--wb-line); margin-top: 6px; display: block; }
+.det-decision { display: grid; gap: 10px; margin-top: 16px; }
+.det-decision textarea { width: 100%; box-sizing: border-box; background: var(--wb-surface-2); color: var(--wb-text); border: 1px solid var(--wb-line-strong); border-radius: var(--wb-r-sm); padding: 10px; font: inherit; }

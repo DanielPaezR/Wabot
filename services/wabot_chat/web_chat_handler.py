@@ -1739,6 +1739,10 @@ def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         if opciones_extra:
             respuesta['options'] = opciones_extra
 
+        enlace = (conversaciones_activas.get(clave_conversacion) or {}).pop('alq_enlace', None)    # solicitud de alquiler: botón al formulario
+        if enlace:
+            respuesta['link'] = enlace
+
         print(f"🔧 [CHAT WEB] Respuesta generada - Paso: {paso_actual}, Opciones: {opciones_extra}")
         
         return respuesta

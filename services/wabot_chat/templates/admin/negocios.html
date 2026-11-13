@@ -385,6 +385,10 @@
     {% from '_panel_header.html' import panel_header with context %}
     <!-- Header -->
     {% call panel_header('admin', 'negocios', 'Negocios') %}
+        <form method="POST" action="{{ url_for('admin_demo_alquiler') }}" style="display:inline" onsubmit="return confirm('Crea (o repone) el negocio de demostración de alquiler de vehículos con datos de ejemplo. ¿Continuar?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="wb-btn wb-btn-ghost" type="submit">Crear demo de alquiler</button>
+        </form>
         <a class="wb-btn wb-btn-primary" href="{{ url_for('admin_nuevo_negocio') }}">Nuevo Negocio</a>
     {% endcall %}
 

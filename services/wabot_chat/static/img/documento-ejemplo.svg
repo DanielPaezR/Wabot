@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" role="img" aria-label="Documento de ejemplo">
+<rect width="400" height="250" rx="16" fill="#1c1c24"/><rect x="10" y="10" width="380" height="230" rx="10" fill="none" stroke="#d4a857" stroke-width="2" stroke-dasharray="6 5"/>
+<rect x="30" y="50" width="90" height="110" rx="8" fill="#2c2c38"/><circle cx="75" cy="88" r="20" fill="#454556"/><path d="M40 160c4-30 66-30 70 0z" fill="#454556"/>
+<rect x="140" y="56" width="200" height="12" rx="6" fill="#454556"/><rect x="140" y="82" width="160" height="12" rx="6" fill="#3a3a48"/><rect x="140" y="108" width="180" height="12" rx="6" fill="#3a3a48"/><rect x="140" y="134" width="120" height="12" rx="6" fill="#3a3a48"/>
+<text x="200" y="205" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="#d4a857" letter-spacing="3">DOCUMENTO DE EJEMPLO</text>
+<text x="200" y="26" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#8a8a99">Imagen ilustrativa de la demostración</text>
+</svg>

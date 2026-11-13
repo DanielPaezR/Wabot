@@ -179,9 +179,10 @@ check('elige vehículo -> horas de recogida', r['step'] == 'alq_hora' and len(r[
 r = decir('2', 'a1', ses)
 check('resumen con recogida, devolución, total y depósito', r['step'] == 'alq_confirmar' and 'Devolución' in r['message'] and '$270.000' in r['message'] and '$500.000' in r['message'], r['message'].replace('\n', ' | ')[:240])
 r = decir('1', 'a1', ses)
-check('reserva confirmada con número y requisitos', 'Reserva confirmada' in r['message'] and 'licencia' in r['message'] and r['step'] == 'menu_principal', r['message'][:60].replace('\n', ' '))
+check('solicitud recibida con número y botón al formulario', 'Solicitud recibida' in r['message'] and r.get('link', {}).get('url', '').startswith('/alquiler/solicitud/') and r['step'] == 'menu_principal', r['message'][:60].replace('\n', ' '))
+ENLACE_SOLICITUD = r.get('link', {}).get('url', '')
 fila = sql("SELECT * FROM reservas_vehiculo WHERE cliente_telefono = '3002220001'")
-check('guardada: vehículo, fechas, total y estado', len(fila) == 1 and fila[0]['vehiculo_id'] == v2 and fila[0]['fecha_inicio'] == fecha_elegida and fila[0]['dias'] == 3 and float(fila[0]['total']) == 270000.0 and fila[0]['estado'] == 'confirmada')
+check('guardada: vehículo, fechas, total y estado', len(fila) == 1 and fila[0]['vehiculo_id'] == v2 and fila[0]['fecha_inicio'] == fecha_elegida and fila[0]['dias'] == 3 and float(fila[0]['total']) == 270000.0 and fila[0]['estado'] == 'pendiente' and not fila[0]['docs_completos'])
 check('aviso al dueño y confirmación al cliente', [e[0] for e in enviados] == ['dueño', 'cliente'] and 'Cliente Uno' in enviados[0][2] and 'Corolla' in enviados[0][2], str(enviados)[:200])
 
 # otro cliente, mismas fechas: ya no ve el Corolla
@@ -200,7 +201,7 @@ check('si le ganaron el vehículo mientras decidía, se le avisa sin romper nada
 
 # mis reservas y cancelar
 r = decir('2', 'a1', ses)
-check('2 = mis reservas', 'Corolla' in r['message'] and '$270.000' in r['message'] and 'Confirmada' in r['message'], r['message'].replace('\n', ' | ')[:160])
+check('2 = mis reservas', 'Corolla' in r['message'] and '$270.000' in r['message'] and 'Pendiente' in r['message'] and 'faltan tus documentos' in r['message'], r['message'].replace('\n', ' | ')[:160])
 r = decir('3', 'a1', ses)
 check('3 = cancelar: lista las reservas cancelables', r['step'] == 'alq_cancelar' and len(r['options']) == 1)
 enviados.clear()
@@ -311,6 +312,104 @@ with cli2.session_transaction() as s:
 check('rol profesional no entra al panel de alquiler', cli2.get('/negocio/reservas').status_code == 302)
 mis = A.citas_cliente_api('3001110000', NEG, hoy)
 check('"mis citas" del cliente devuelve estructura de reservas', isinstance(mis, dict) and mis.get('success'), str(mis)[:200])
+
+# ---------------------------------------------------------------- solicitud de arrendamiento (formulario editable)
+import alquiler_solicitud as AS
+import io, re
+R._cache_tipos.clear()
+cs = AS.campos(NEG)
+check('formulario base sembrado (8 campos habituales)', len(cs) == 8 and {c['clave'] for c in cs} >= {'documento_foto', 'licencia_numero', 'licencia_vencimiento'}, str(len(cs)))
+check('...no se vuelve a sembrar', len(AS.campos(NEG)) == 8)
+sql("DELETE FROM reservas_vehiculo WHERE negocio_id = %s", (NEG,))
+sol = A.crear_reserva(NEG, v1, '3004440000', 'Luis Solicitud', INI, 2, '10:00', hoy, estado='pendiente')
+check('solicitud nace pendiente, con token y sin documentos', sol['estado'] == 'pendiente' and re.fullmatch(r'[0-9a-f]{32}', sol['token']) and not sol['docs_completos'])
+check('pendiente aparece en "mis citas" con enlace al formulario y texto claro', (lambda m: m['citas'][0]['estado_texto'] == 'Pendiente de aprobación' and m['citas'][0]['enlace_docs'] == f"/alquiler/solicitud/{sol['token']}")(A.citas_cliente_api('3004440000', NEG, hoy)))
+pub = app_t.test_client()
+URL = f"/alquiler/solicitud/{sol['token']}"
+check('formulario público abre y muestra los campos', pub.get(URL).status_code == 200 and 'Número de licencia' in pub.get(URL).get_data(as_text=True))
+check('token inventado = 404', pub.get('/alquiler/solicitud/' + 'a' * 32).status_code == 404 and pub.get('/alquiler/solicitud/xyz').status_code == 404)
+pub.get(URL)
+with pub.session_transaction() as s:
+    s['csrf_token'] = 'tok'
+r = pub.post(URL, data={'csrf_token': 'tok'})
+check('enviar vacío: marca los obligatorios y no guarda', r.status_code == 200 and 'obligatorio' in r.get_data(as_text=True) and A.obtener_reserva(sol['id'], NEG)['respuestas'] == '{}')
+r = pub.post(URL, data={'csrf_token': 'mal', 'documento_numero': '123'})
+check('CSRF inválido no guarda', A.obtener_reserva(sol['id'], NEG)['respuestas'] == '{}')
+
+import cloudinary.uploader as _cu
+_subidas = []
+_cu.upload = lambda f, **k: (_subidas.append(k.get('folder')) or {'secure_url': f"https://res.cloudinary.com/demo/{len(_subidas)}.png"})
+os.environ['CLOUDINARY_CLOUD_NAME'] = 'demo'
+datos = {'csrf_token': 'tok', 'documento_numero': '1020304050', 'licencia_numero': 'LIC-77', 'licencia_vencimiento': '2030-05-01', 'lugar_entrega': 'En el aeropuerto'}
+r = pub.post(URL, data=dict(datos, documento_foto=(io.BytesIO(b'x'), 'doc.txt', 'text/plain')), content_type='multipart/form-data')
+check('archivo que no es imagen se rechaza', r.status_code == 200 and 'JPG, PNG' in r.get_data(as_text=True) and not _subidas)
+r = pub.post(URL, data=dict(datos, licencia_vencimiento='no-es-fecha', documento_foto=(io.BytesIO(b'x'), 'doc.png', 'image/png'), licencia_foto=(io.BytesIO(b'y'), 'lic.png', 'image/png')), content_type='multipart/form-data')
+check('fecha inválida se rechaza', r.status_code == 200 and 'fecha válida' in r.get_data(as_text=True))
+r = pub.post(URL, data=dict(datos, documento_foto=(io.BytesIO(b'x'), 'doc.png', 'image/png'), licencia_foto=(io.BytesIO(b'y'), 'lic.png', 'image/png')), content_type='multipart/form-data')
+fila = A.obtener_reserva(sol['id'], NEG)
+resp = json.loads(fila['respuestas'])
+check('envío completo guarda respuestas y fotos', r.status_code == 302 and resp.get('licencia_numero') == 'LIC-77' and resp['documento_foto'].startswith('https://res.cloudinary.com/') and fila['docs_completos'], str(resp)[:200])
+check('...fotos van a la carpeta del negocio', all(f == f'wabot/negocio_{NEG}/documentos' for f in _subidas) and _subidas)
+fila_antes = resp['documento_foto']
+r = pub.post(URL, data=dict(datos, licencia_numero='LIC-88'), content_type='multipart/form-data')
+resp2 = json.loads(A.obtener_reserva(sol['id'], NEG)['respuestas'])
+check('reenviar sin nuevas fotos conserva las anteriores', r.status_code == 302 and resp2['documento_foto'] == fila_antes and resp2['licencia_numero'] == 'LIC-88')
+
+# el propietario revisa
+r = cli.get(f"/negocio/reservas/{sol['id']}")
+html = r.get_data(as_text=True)
+check('detalle de la solicitud muestra datos y foto', r.status_code == 200 and 'LIC-88' in html and fila_antes in html and 'Aprobar solicitud' in html)
+check('un propietario no ve solicitudes de otro negocio', cli.get('/negocio/reservas/999999').status_code == 404)
+check('listado marca documentos completos', 'Documentos completos' in cli.get('/negocio/reservas?vista=todas').get_data(as_text=True))
+cli.post(f"/negocio/reservas/{sol['id']}/accion", data={'csrf_token': 'tok', 'accion': 'observar', 'mensaje': ''})
+check('pedir corrección sin mensaje no hace nada', A.obtener_reserva(sol['id'], NEG)['docs_completos'])
+cli.post(f"/negocio/reservas/{sol['id']}/accion", data={'csrf_token': 'tok', 'accion': 'observar', 'mensaje': 'La foto de la licencia no se ve'})
+fila = A.obtener_reserva(sol['id'], NEG)
+check('pedir corrección: queda anotada y los documentos vuelven a pendientes', fila['observacion'] == 'La foto de la licencia no se ve' and not fila['docs_completos'])
+check('el cliente ve la corrección pedida', 'La foto de la licencia no se ve' in pub.get(URL).get_data(as_text=True))
+pub.post(URL, data=datos, content_type='multipart/form-data')
+check('al reenviar completo se limpia la corrección', A.obtener_reserva(sol['id'], NEG)['observacion'] is None)
+check('no se entrega una solicitud sin aprobar', A.aplicar_accion(sol['id'], NEG, 'entregar') is None)
+cli.post(f"/negocio/reservas/{sol['id']}/accion", data={'csrf_token': 'tok', 'accion': 'confirmar'})
+check('aprobar: pasa a confirmada', A.obtener_reserva(sol['id'], NEG)['estado'] == 'confirmada')
+
+# rechazo con motivo
+sol2 = A.crear_reserva(NEG, v1, '3004440001', 'Otro Cliente', (dt.date.fromisoformat(INI) + dt.timedelta(days=20)).isoformat(), 1, '10:00', hoy, estado='pendiente') if A.negocio_abre(NEG, dt.date.fromisoformat(INI) + dt.timedelta(days=20)) and A.negocio_abre(NEG, dt.date.fromisoformat(INI) + dt.timedelta(days=21)) else None
+if sol2:
+    cli.post(f"/negocio/reservas/{sol2['id']}/accion", data={'csrf_token': 'tok', 'accion': 'cancelar', 'mensaje': 'No cumple la edad mínima'})
+    f2 = A.obtener_reserva(sol2['id'], NEG)
+    check('rechazar con motivo: cancelada y el motivo queda guardado', f2['estado'] == 'cancelada' and f2['observacion'] == 'No cumple la edad mínima')
+    check('...el formulario del cliente ya no se puede editar', 'Enviar mi información' not in pub.get(f"/alquiler/solicitud/{sol2['token']}").get_data(as_text=True))
+
+# editor del formulario
+r = cli.get('/negocio/alquiler/formulario')
+check('editor del formulario abre', r.status_code == 200 and 'Formulario de solicitud' in r.get_data(as_text=True))
+cli.post('/negocio/alquiler/formulario/campo', data={'csrf_token': 'tok', 'etiqueta': 'Seguro adicional', 'tipo': 'seleccion', 'opciones': 'solo una', 'obligatorio': '1'})
+check('lista de opciones con una sola opción se rechaza', len(AS.campos(NEG, solo_activos=False)) == 8)
+cli.post('/negocio/alquiler/formulario/campo', data={'csrf_token': 'tok', 'etiqueta': 'Seguro adicional', 'tipo': 'seleccion', 'opciones': 'Básico\nCompleto', 'obligatorio': '1', 'ayuda': 'Cubre daños'})
+nuevo = [c for c in AS.campos(NEG, solo_activos=False) if c['etiqueta'] == 'Seguro adicional']
+check('agregar campo propio (lista, obligatorio)', len(nuevo) == 1 and nuevo[0]['obligatorio'] and nuevo[0]['opciones_lista'] == ['Básico', 'Completo'] and nuevo[0]['clave'].startswith('c_'))
+cli.post('/negocio/alquiler/formulario/campo', data={'csrf_token': 'mal', 'etiqueta': 'Hack', 'tipo': 'texto'})
+check('CSRF inválido no agrega campos', not [c for c in AS.campos(NEG, solo_activos=False) if c['etiqueta'] == 'Hack'])
+sol3 = A.crear_reserva(NEG, v1, '3004440002', 'Con Campo Nuevo', (dt.date.fromisoformat(INI) + dt.timedelta(days=40)).isoformat(), 1, '10:00', hoy, estado='pendiente') if A.negocio_abre(NEG, dt.date.fromisoformat(INI) + dt.timedelta(days=40)) and A.negocio_abre(NEG, dt.date.fromisoformat(INI) + dt.timedelta(days=41)) else None
+cid = nuevo[0]['id']
+cli.post(f'/negocio/alquiler/formulario/campo/{cid}/accion', data={'csrf_token': 'tok', 'accion': 'subir'})
+check('subir un campo cambia el orden', AS.campos(NEG, solo_activos=False)[-2]['id'] == cid)
+r = pub.post(URL, data=datos, content_type='multipart/form-data')
+check('campo obligatorio nuevo se exige a quien ya enviaba', r.status_code == 200 and 'obligatorio' in r.get_data(as_text=True) or json.loads(A.obtener_reserva(sol['id'], NEG)['respuestas']).get('documento_numero'))
+cli.post(f'/negocio/alquiler/formulario/campo/{cid}/accion', data={'csrf_token': 'tok', 'accion': 'desactivar'})
+check('ocultar un campo: ya no se pide', cid not in [c['id'] for c in AS.campos(NEG)])
+cli.post(f'/negocio/alquiler/formulario/campo/{cid}/accion', data={'csrf_token': 'tok', 'accion': 'eliminar'})
+check('eliminar campo', cid not in [c['id'] for c in AS.campos(NEG, solo_activos=False)])
+cli.post('/negocio/alquiler/formulario/instrucciones', data={'csrf_token': 'tok', 'instrucciones': 'Abono del 30% a la cuenta 123'})
+check('indicaciones del negocio se guardan y se muestran al cliente', AS.instrucciones(NEG) == 'Abono del 30% a la cuenta 123')
+# si el negocio no pide nada, la solicitud nace sin documentos pendientes
+for c in AS.campos(NEG, solo_activos=False):
+    AS.eliminar_campo(c['id'], NEG)
+fin_t = (dt.date.fromisoformat(INI) + dt.timedelta(days=60)).isoformat()
+if A.negocio_abre(NEG, dt.date.fromisoformat(fin_t)) and A.negocio_abre(NEG, dt.date.fromisoformat(fin_t) + dt.timedelta(days=1)):
+    s4 = A.crear_reserva(NEG, v1, '3004440003', 'Sin Requisitos', fin_t, 1, '10:00', hoy, estado='pendiente')
+    check('formulario vacío: la solicitud no queda esperando documentos', s4['docs_completos'])
 
 # limpieza
 borrar_negocio(NEG)

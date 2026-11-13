@@ -99,6 +99,68 @@ def asegurar_tablas():
         cur.execute("CREATE INDEX IF NOT EXISTS reservas_vehiculo_veh_idx ON reservas_vehiculo (vehiculo_id, fecha_inicio, fecha_fin)")
         cur.execute("CREATE INDEX IF NOT EXISTS reservas_vehiculo_neg_idx ON reservas_vehiculo (negocio_id, fecha_inicio)")
         cur.execute("CREATE INDEX IF NOT EXISTS reservas_vehiculo_cli_idx ON reservas_vehiculo (cliente_telefono, negocio_id)")
+        # Solicitud de arrendamiento: datos y documentos que pide cada negocio (formulario editable)
+        for ddl in (
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS token TEXT",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS respuestas TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS docs_completos BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS docs_enviados TIMESTAMP",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS observacion TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS reservas_vehiculo_token_idx ON reservas_vehiculo (token)",
+        ):
+            cur.execute(ddl)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS alquiler_campos (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+                clave TEXT NOT NULL,
+                etiqueta TEXT NOT NULL,
+                tipo TEXT NOT NULL DEFAULT 'texto',
+                obligatorio BOOLEAN NOT NULL DEFAULT TRUE,
+                opciones TEXT,
+                ayuda TEXT,
+                orden INTEGER NOT NULL DEFAULT 0,
+                activo BOOLEAN NOT NULL DEFAULT TRUE,
+                UNIQUE (negocio_id, clave)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS alquiler_config (
+                negocio_id INTEGER PRIMARY KEY REFERENCES negocios(id) ON DELETE CASCADE,
+                instrucciones TEXT
+            )
+        """)
+        # Solicitud de arrendamiento: datos y documentos que pide cada negocio (formulario editable)
+        for ddl in (
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS token TEXT",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS respuestas TEXT NOT NULL DEFAULT '{}'",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS docs_completos BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS docs_enviados TIMESTAMP",
+            "ALTER TABLE reservas_vehiculo ADD COLUMN IF NOT EXISTS observacion TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS reservas_vehiculo_token_idx ON reservas_vehiculo (token)",
+        ):
+            cur.execute(ddl)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS alquiler_campos (
+                id SERIAL PRIMARY KEY,
+                negocio_id INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+                clave TEXT NOT NULL,
+                etiqueta TEXT NOT NULL,
+                tipo TEXT NOT NULL DEFAULT 'texto',
+                obligatorio BOOLEAN NOT NULL DEFAULT TRUE,
+                opciones TEXT,
+                ayuda TEXT,
+                orden INTEGER NOT NULL DEFAULT 0,
+                activo BOOLEAN NOT NULL DEFAULT TRUE,
+                UNIQUE (negocio_id, clave)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS alquiler_config (
+                negocio_id INTEGER PRIMARY KEY REFERENCES negocios(id) ON DELETE CASCADE,
+                instrucciones TEXT
+            )
+        """)
         # Dispositivos push de los usuarios (propietarios): los de los profesionales viven en suscripciones_push
         cur.execute("""
             CREATE TABLE IF NOT EXISTS suscripciones_push_usuarios (
@@ -391,6 +453,10 @@ def crear_reserva(negocio_id, vehiculo_id, telefono, nombre, fecha_inicio, dias,
     validar_rango(negocio_id, fecha_inicio, dias, hoy)
     fecha_fin = fecha_devolucion(fecha_inicio, dias)
     hora = (hora or '09:00')[:5]
+    import secrets
+    token = secrets.token_hex(16)
+    import alquiler_solicitud
+    sin_documentos = alquiler_solicitud.obligatorios_pendientes(negocio_id, {}) == 0      # el negocio no pide nada: nada que completar
 
     conn = db.get_db_connection()
     try:
@@ -411,10 +477,10 @@ def crear_reserva(negocio_id, vehiculo_id, telefono, nombre, fecha_inicio, dias,
         precio = _num(v['precio_dia'])
         cur.execute("""
             INSERT INTO reservas_vehiculo (negocio_id, vehiculo_id, cliente_telefono, cliente_nombre, fecha_inicio, fecha_fin,
-                                           hora, dias, precio_dia, total, deposito, estado, notas, origen)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *
+                                           hora, dias, precio_dia, total, deposito, estado, notas, origen, token, docs_completos)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *
         """, (negocio_id, vehiculo_id, telefono, nombre, fecha_inicio, fecha_fin, hora, dias, precio, precio * dias,
-              _num(v['deposito']), estado, (notas or None), origen))
+              _num(v['deposito']), estado, (notas or None), origen, token, sin_documentos or origen == 'panel'))
         reserva = _reserva_dict(cur.fetchone())
         conn.commit()
     except ReservaError:
@@ -489,7 +555,7 @@ def cancelar_reserva(reserva_id, negocio_id, telefono=None):
 
 _TRANSICIONES = {            # acción del propietario -> (estados de origen, estado nuevo)
     'confirmar': (('pendiente',), 'confirmada'),
-    'entregar': (('pendiente', 'confirmada'), 'en_curso'),
+    'entregar': (('confirmada',), 'en_curso'),
     'devolver': (('en_curso', 'confirmada'), 'completada'),
     'cancelar': (('pendiente', 'confirmada', 'en_curso'), 'cancelada'),
 }
@@ -563,11 +629,13 @@ def notificar_nueva_reserva(reserva):
     """Aviso al propietario (push a todos sus dispositivos) y confirmación al cliente. Nunca lanza excepciones."""
     try:
         from push_notifications import enviar_push_propietarios, enviar_notificacion_cliente
-        enviar_push_propietarios(reserva['negocio_id'], 'Nueva reserva', _resumen_corto(reserva), url='/negocio/reservas')
+        solicitud = reserva['estado'] == 'pendiente'
+        enviar_push_propietarios(reserva['negocio_id'], 'Nueva solicitud de alquiler' if solicitud else 'Nueva reserva', _resumen_corto(reserva),
+                                 url=f"/negocio/reservas/{reserva['id']}")
         enviar_notificacion_cliente(
-            reserva['cliente_telefono'], reserva['negocio_id'], 'Reserva confirmada',
+            reserva['cliente_telefono'], reserva['negocio_id'], 'Solicitud recibida' if solicitud else 'Reserva confirmada',
             f"{reserva['vehiculo_nombre']}: recoges el {formatear_fecha(reserva['fecha_inicio'])} a las {reserva['hora']} "
-            f"y devuelves el {formatear_fecha(reserva['fecha_fin'])}",
+            f"y devuelves el {formatear_fecha(reserva['fecha_fin'])}" + (". El negocio la revisará y te avisará." if solicitud else ''),
             cita_id=reserva['id'], url=f"/cliente/{reserva['negocio_id']}")
     except Exception as e:
         print(f"⚠️ [ALQUILER] No se pudo avisar de la nueva reserva: {type(e).__name__}: {e}")
@@ -687,9 +755,12 @@ def citas_cliente_api(telefono, negocio_id, hoy):
             'hora': r['hora'][:5],
             'estado': 'confirmado' if r['estado'] in ESTADOS_ACTIVOS else r['estado'],
             'es_proxima': bool(activa),
-            'estado_texto': ETIQUETAS_ESTADO['confirmada'] if (activa and efectivo != 'en_curso' and r['estado'] != 'pendiente')
-                            else ETIQUETAS_ESTADO['en_curso'] if (activa and efectivo == 'en_curso')
-                            else ('Pasada' if r['estado'] in ('confirmada', 'en_curso', 'pendiente') else ETIQUETAS_ESTADO.get(r['estado'], r['estado'])),
+            'estado_texto': ('En curso' if (activa and efectivo == 'en_curso') else
+                             'Pendiente de aprobación' if (activa and r['estado'] == 'pendiente') else
+                             ETIQUETAS_ESTADO['confirmada'] if activa else
+                             'Pasada' if r['estado'] in ESTADOS_ACTIVOS else ETIQUETAS_ESTADO.get(r['estado'], r['estado'])),
+            'enlace_docs': (f"/alquiler/solicitud/{r['token']}" if (activa and r['estado'] in ('pendiente', 'confirmada') and not r.get('docs_completos') and r.get('token')) else None),
+            'observacion': r.get('observacion') if activa else None,
             'estado_icono': '🚗' if efectivo == 'en_curso' else '📅',
             'servicio': f"Alquiler por {r['dias']} día(s)",
             'precio': r['total'],

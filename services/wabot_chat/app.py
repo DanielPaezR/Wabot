@@ -1739,6 +1739,24 @@ def admin_nuevo_negocio():
     
     return render_template('admin/nuevo_negocio.html')
 
+@app.route('/admin/alquiler/demo', methods=['POST'])
+@role_required(['superadmin'])
+def admin_demo_alquiler():
+    """Crea (o repone) el negocio de demostración de alquiler de vehículos y muestra sus datos de acceso una sola vez."""
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+        return redirect(url_for('admin_negocios'))
+    try:
+        import alquiler_demo
+        resultado = alquiler_demo.crear_demo()
+    except Exception as e:
+        monitoreo.registrar_error(e, '/admin/alquiler/demo', 'POST', 'admin')
+        flash(f'No se pudo crear la demo: {type(e).__name__}', 'error')
+        return redirect(url_for('admin_negocios'))
+    respuesta = app.make_response(render_template('admin/demo_alquiler.html', r=resultado, base=request.host_url.rstrip('/')))
+    respuesta.headers['Cache-Control'] = 'no-store'
+    return respuesta
+
 @app.route('/admin/negocios/<int:negocio_id>/editar', methods=['GET', 'POST'])
 @role_required(['superadmin'])
 def admin_editar_negocio(negocio_id):
