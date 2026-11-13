@@ -37,7 +37,8 @@ Estado: Confirmado"""
             'timestamp': datetime.now().isoformat()
         }
         
-        return self._save_notification_db(profesional_id, titulo, mensaje, 'success', metadata)
+        return self._guardar_y_enviar(profesional_id, titulo, mensaje, 'success', metadata,
+            cuerpo_push=f"{cita_data.get('cliente_nombre', 'Cliente')} - {cita_data.get('fecha', '')} {cita_data.get('hora', '')}", cita_id=cita_data.get('id'))
     
     def notify_appointment_today(self, profesional_id, cita_data):
         """Notificar citas de HOY al profesional"""
@@ -87,8 +88,25 @@ Servicio: {cita_data.get('servicio_nombre', 'Servicio')}"""
             'timestamp': datetime.now().isoformat()
         }
         
-        return self._save_notification_db(profesional_id, titulo, mensaje, 'warning', metadata)
+        return self._guardar_y_enviar(profesional_id, titulo, mensaje, 'warning', metadata,
+            cuerpo_push=f"{cita_data.get('hora', '')} - {cita_data.get('cliente_nombre', 'Cliente')} ({cita_data.get('servicio_nombre', 'Servicio')})", cita_id=cita_data.get('id'))
     
+    def _guardar_y_enviar(self, profesional_id, titulo, mensaje, tipo, metadata, cuerpo_push=None, cita_id=None):
+        """Guarda la notificación en la lista interna y, además, la envía como push a los dispositivos del profesional."""
+        notif_id = self._save_notification_db(profesional_id, titulo, mensaje, tipo, metadata)
+        if notif_id:
+            self.enviar_push(profesional_id, titulo, cuerpo_push or mensaje, cita_id=cita_id)
+        return notif_id
+
+    def enviar_push(self, profesional_id, titulo, cuerpo, cita_id=None):
+        """Push a todos los dispositivos del profesional (sin volver a guardar). Nunca lanza excepciones."""
+        try:
+            from push_notifications import enviar_push_profesional
+            return enviar_push_profesional(profesional_id, titulo, cuerpo, cita_id=cita_id, guardar=False)
+        except Exception as e:
+            print(f"⚠️ No se pudo enviar el push al profesional {profesional_id}: {type(e).__name__}: {e}")
+            return None
+
     # ==================== FUNCIONES DE BASE DE DATOS ====================
     
     def _save_notification_db(self, profesional_id, titulo, mensaje, tipo, metadata=None):

@@ -238,8 +238,21 @@ def pagina_negocio(negocio_id):
         Producto.disponible == True
     ).all()
     
+    # Flota (negocios de alquiler de vehículos). Si la tabla aún no existe se muestra vacía.
+    vehiculos = []
+    if negocio.tipo_negocio == 'alquiler_vehiculos':
+        try:
+            from sqlalchemy import text
+            filas = db_session.execute(text(
+                "SELECT id, nombre, categoria, pasajeros, transmision, combustible, precio_dia, foto_url FROM vehiculos "
+                "WHERE negocio_id = :n AND activo = TRUE ORDER BY precio_dia, nombre"), {'n': negocio_id}).mappings().all()
+            vehiculos = [dict(f) for f in filas]
+        except Exception:
+            db_session.rollback()
+
     acento, acento_tinta = acento_del_negocio(negocio)
     return render_template('directorio/negocio.html',
+                         vehiculos=vehiculos,
                          acento=acento,
                          acento_tinta=acento_tinta,
                          negocio=negocio,

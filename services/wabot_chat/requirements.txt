@@ -12,3 +12,4 @@ pywebpush==2.1.2
 cloudinary==1.36.0
 openai>=1.0.0
 qrcode[pil]>=7.4.2
+sentry-sdk[flask]>=2.0,<3

@@ -421,6 +421,7 @@
                                placeholder="Puedes cancelar hasta 2 horas antes">
                     </div>
 
+{% if whatsapp_activo %}
                     <div class="form-group">
                         <label class="form-label" for="numero_api_whatsapp">Número API WhatsApp</label>
                         <input class="form-input" type="text" id="numero_api_whatsapp" name="numero_api_whatsapp"
@@ -428,6 +429,7 @@
                                placeholder="573001234567">
                         <span class="form-hint">Solo dígitos. Número asignado por Meta para la API de WhatsApp Business.</span>
                     </div>
+{% endif %}
 
                     <div class="form-group full">
                         <label class="form-label" for="saludo_personalizado">Saludo personalizado</label>

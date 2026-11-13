@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0a0d">
+    <title>Estado y errores - Wabot Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
+    <style>
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+        .estado-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 26px; }
+        .dato { background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r); padding: 16px 18px; }
+        .dato small { display: block; color: var(--wb-text-3); font-size: 0.78rem; margin-bottom: 6px; letter-spacing: 0.02em; }
+        .dato strong { font-size: 1.15rem; color: var(--wb-text); }
+        .ok { color: var(--wb-ok-text) !important; }
+        .mal { color: var(--wb-bad-text) !important; }
+        .aviso { color: var(--wb-warn-text) !important; }
+        .problemas { background: var(--wb-bad-soft); border: 1px solid var(--wb-bad-line); color: var(--wb-bad-text); border-radius: var(--wb-r); padding: 14px 18px; margin-bottom: 22px; }
+        .problemas ul { margin: 6px 0 0 18px; padding: 0; }
+        h2 { font-family: var(--wb-display); font-size: 1.3rem; margin: 0 0 14px; }
+        .tabla { width: 100%; border-collapse: collapse; background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r); overflow: hidden; }
+        .tabla th, .tabla td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--wb-line); font-size: 0.88rem; vertical-align: top; }
+        .tabla th { color: var(--wb-text-3); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; background: var(--wb-surface-2); }
+        .veces { display: inline-block; min-width: 28px; text-align: center; padding: 2px 8px; border-radius: 999px; background: var(--wb-bad-soft); color: var(--wb-bad-text); font-weight: 700; }
+        details summary { cursor: pointer; color: var(--wb-accent); }
+        pre { white-space: pre-wrap; word-break: break-word; font-size: 0.76rem; color: var(--wb-text-2); background: var(--wb-surface-2); padding: 10px; border-radius: 8px; margin: 8px 0 0; max-height: 260px; overflow: auto; }
+        .vacio { text-align: center; padding: 34px 16px; color: var(--wb-text-3); background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r); }
+        .ayuda { margin-top: 26px; color: var(--wb-text-2); font-size: 0.88rem; line-height: 1.6; }
+        .ayuda code { background: var(--wb-surface-2); padding: 2px 7px; border-radius: 6px; color: var(--wb-accent); }
+        .cab { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .acceso { white-space: nowrap; }
+        @media (max-width: 700px) { .tabla thead { display: none; } .tabla tr { display: block; border-bottom: 1px solid var(--wb-line); } .tabla td { display: block; border: 0; padding: 6px 14px; } }
+    </style>
+</head>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('admin', 'errores', 'Estado y errores', subtitulo='Salud de la aplicación y errores recientes') }}
+
+    <div class="wrap">
+        {% for categoria, mensaje in get_flashed_messages(with_categories=true) %}
+        <div class="wb-alert wb-alert-{{ 'success' if categoria == 'success' else 'error' }}" style="margin-bottom:16px;">{{ mensaje }}</div>
+        {% endfor %}
+
+        {% if estado.problemas %}
+        <div class="problemas"><strong>Atención</strong>
+            <ul>{% for p in estado.problemas %}<li>{{ p }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+
+        <div class="estado-grid">
+            <div class="dato"><small>Estado general</small>
+                <strong class="{{ 'ok' if estado.estado == 'ok' else ('aviso' if estado.estado == 'degradado' else 'mal') }}">
+                    {{ {'ok': 'Todo en orden', 'degradado': 'Con problemas', 'caida': 'Caída'}.get(estado.estado, estado.estado) }}</strong></div>
+            <div class="dato"><small>Base de datos</small>
+                <strong class="{{ 'ok' if estado.bd.ok else 'mal' }}">{{ 'Responde' if estado.bd.ok else 'No responde' }} · {{ estado.bd.ms }} ms</strong></div>
+            <div class="dato"><small>Recordatorios (programador)</small>
+                {% if estado.scheduler %}
+                <strong class="{{ 'ok' if estado.scheduler.ok else 'mal' }}">
+                    {% if estado.scheduler.ultimo_latido_seg is none %}Sin señal{% else %}{{ 'Activo' if estado.scheduler.ok else 'Detenido' }} · hace {{ estado.scheduler.ultimo_latido_seg }} s{% endif %}</strong>
+                {% else %}<strong>—</strong>{% endif %}</div>
+            <div class="dato"><small>Notificaciones push</small>
+                <strong class="{{ 'ok' if estado.push_configurado else 'aviso' }}">{{ 'Configuradas' if estado.push_configurado else 'Faltan claves VAPID' }}</strong></div>
+            <div class="dato"><small>Errores (10 min / 1 h)</small>
+                <strong>{{ estado.errores.ultimos_10_min if estado.errores else '—' }} / {{ estado.errores.ultima_hora if estado.errores else '—' }}</strong></div>
+            <div class="dato"><small>Versión · en marcha</small>
+                <strong>{{ estado.version }} · {{ (estado.activa_hace_seg // 3600) }} h {{ ((estado.activa_hace_seg % 3600) // 60) }} min</strong></div>
+        </div>
+
+        <div class="cab">
+            <h2>Errores recientes</h2>
+            {% if errores %}
+            <form method="post" action="{{ url_for('admin_errores_limpiar') }}" onsubmit="return confirm('¿Borrar todo el registro de errores?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="wb-btn wb-btn-ghost" type="submit">Limpiar registro</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if errores %}
+        <table class="tabla">
+            <thead><tr><th>Última vez</th><th>Veces</th><th>Dónde</th><th>Error</th></tr></thead>
+            <tbody>
+            {% for e in errores %}
+                <tr>
+                    <td class="acceso">{{ e.ultima.strftime('%d/%m %H:%M') }}</td>
+                    <td><span class="veces">{{ e.veces }}</span></td>
+                    <td>{{ e.metodo }} {{ e.ruta or e.contexto or '—' }}</td>
+                    <td><strong>{{ e.tipo }}</strong>: {{ e.mensaje }}
+                        <details><summary>Ver detalle</summary><pre>{{ e.traza }}</pre></details></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="vacio">No hay errores registrados. Si algo falla, aparecerá aquí agrupado.</div>
+        {% endif %}
+
+        <div class="ayuda">
+            <strong>Avisos automáticos:</strong> crea un monitor gratuito (por ejemplo en UptimeRobot) que consulte
+            <code>{{ request.host_url }}health/completo</code> cada 5 minutos. Responde 200 cuando todo está bien y 503 si cae la base de datos,
+            se detiene el programador de recordatorios o hay una ráfaga de errores; el servicio te avisa por correo.
+            Para recibir cada error por correo con más detalle, define la variable <code>SENTRY_DSN</code> en Railway (opcional).
+        </div>
+    </div>
+</body>
+</html>

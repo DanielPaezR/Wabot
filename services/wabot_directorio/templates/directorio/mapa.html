@@ -404,6 +404,7 @@
                 <span class="filter-chip" data-tipo="estetica"><i class="fas fa-spa"></i> Centro estético</span>
                 <span class="filter-chip" data-tipo="peluqueria"><i class="fas fa-user-tie"></i> Peluquerías</span>
                 <span class="filter-chip" data-tipo="renta_autos"><i class="fas fa-car"></i> Renta de autos</span>
+                <span class="filter-chip" data-tipo="alquiler_vehiculos"><i class="fas fa-car-side"></i> Alquiler de vehículos</span>
             </div>
             <div class="price-range">
                 <input type="number" id="minPrice" placeholder="Precio mín." step="1000">
@@ -749,6 +750,7 @@
                 'estetica': 'fa-spa',
                 'peluqueria': 'fa-user-tie',
                 'renta_autos': 'fa-car',
+                'alquiler_vehiculos': 'fa-car-side',
                 'general': 'fa-store'
             };
             return `<i class="fas ${iconos[tipo] || 'fa-store'}"></i>`;

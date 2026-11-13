@@ -285,6 +285,7 @@
                     <small>Formato: +573001234567</small>
                 </div>
 
+{% if whatsapp_activo %}
                 <div class="form-group">
                     <label for="numero_api_whatsapp">Número de API de WhatsApp (Opcional)</label>
                     <input type="text" id="numero_api_whatsapp" name="numero_api_whatsapp" 
@@ -292,6 +293,7 @@
                            placeholder="Ej: 573001234567">
                     <small>Número que Meta asignó a este negocio para la API (solo dígitos, sin +)</small>
                 </div>
+{% endif %}
                 
                 <div class="form-row">
                     <div class="form-group">
@@ -306,7 +308,8 @@
                             <option value="yoga" {% if negocio.tipo_negocio == 'yoga' %}selected{% endif %}>Estudio de Yoga</option>
                             <option value="masajes" {% if negocio.tipo_negocio == 'masajes' %}selected{% endif %}>Centro de Masajes</option>
                             <option value="tattoo" {% if negocio.tipo_negocio == 'tattoo' %}selected{% endif %}>Estudio de Tattoo</option>
-                            <option value="otros" {% if negocio.tipo_negocio == 'otros' %}selected{% endif %}>Otros Servicios</option>
+                            <option value="alquiler_vehiculos" {% if negocio.tipo_negocio == 'alquiler_vehiculos' %}selected{% endif %}>Alquiler de vehículos</option>
+                        <option value="otros" {% if negocio.tipo_negocio == 'otros' %}selected{% endif %}>Otros Servicios</option>
                         </select>
                     </div>
                     

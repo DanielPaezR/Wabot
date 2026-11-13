@@ -72,6 +72,13 @@ import localizacion
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 
+import monitoreo
+monitoreo.iniciar_sentry()          # opcional: solo si existe SENTRY_DSN
+
+import alquiler
+import alquiler_rutas
+app.register_blueprint(alquiler_rutas.bp)
+
 # Detrás del proxy de Railway, request.remote_addr sería la IP del proxy para TODOS los visitantes: el límite de
 # mensajes y de intentos de login y la deduplicación de votos del concurso (por IP) valdrían para todo el sitio a la vez.
 # ProxyFix toma la IP real del encabezado X-Forwarded-For que añade Railway (un solo proxy de confianza).
@@ -130,76 +137,14 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_id=None):
-    """SOLUCIÓN DEFINITIVA - Funciona con Base64 puro"""
+    """Aviso al profesional (lista interna + push a todos sus dispositivos)."""
     try:
-        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}")
-        
-        # Solo lo esencial
-        import json
-        import os
-        
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '')
-        
-        if not VAPID_PRIVATE_KEY:
-            print("⚠️ No hay clave privada")
-            return False
-        
-        # Obtener suscripciones
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push WHERE profesional_id = %s AND activa = TRUE', (profesional_id,))
-        suscripciones = cursor.fetchall()
-        conn.close()
-        
-        if not suscripciones:
-            print(f"⚠️ Profesional {profesional_id} no tiene suscripciones")
-            return False
-        
-        # 1. Guardar notificación en BD (SIEMPRE funciona)
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-                VALUES (%s, 'push', %s, %s, FALSE, %s)
-            ''', (profesional_id, titulo, mensaje, cita_id))
-            conn.commit()
-            conn.close()
-            print(f"✅ Notificación guardada en BD")
-        except Exception:
-            pass
-        
-        # 2. Intentar push (opcional)
-        try:
-            import pywebpush
-            subscription = json.loads(suscripciones[0][0])
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png'
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": int(time.time()) + (12 * 60 * 60)  # 12 horas máximo
-                }
-            )
-            print(f"🔥 ¡PUSH ENVIADO CON ÉXITO!")
-            return True
-        except Exception as e:
-            print(f"⚠️ Push falló (pero notificación en BD sí): {type(e).__name__}")
-            # Igual devolvemos True porque la notificación se guardó en BD
-            return True
-            
+        from push_notifications import enviar_push_profesional
+        r = enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=cita_id)
+        return r['enviados'] > 0
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
-        return False  # Solo False si falla todo
+        print(f"⚠️ No se pudo avisar al profesional {profesional_id}: {type(e).__name__}: {e}")
+        return False
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
@@ -218,6 +163,12 @@ def validate_csrf_token(token_from_form):
     return secrets.compare_digest(session['csrf_token'], token_from_form)
 
 # Context processor para agregar CSRF a todas las templates
+@app.context_processor
+def inject_whatsapp_flag():
+    """Los campos de la integración con WhatsApp se muestran solo si WHATSAPP_ACTIVO=1 (hoy está suspendida)."""
+    return {'whatsapp_activo': os.getenv('WHATSAPP_ACTIVO', '').strip().lower() in ('1', 'true', 'si', 'sí')}
+
+
 @app.context_processor
 def inject_csrf_token():
     return dict(csrf_token=generate_csrf_token)
@@ -1092,8 +1043,41 @@ def index():
 
 @app.route('/health')
 def health_check():
-    """Health check para Railway"""
-    return jsonify({"status": "healthy", "timestamp": datetime.now(tz_negocio).isoformat()})
+    """Salud básica (Railway): ¿la app responde y llega a la base de datos? 200 si sí, 503 si no."""
+    import monitoreo
+    info, codigo = monitoreo.salud(completo=False)
+    info['status'] = 'healthy' if codigo == 200 else 'unhealthy'
+    return jsonify(info), codigo
+
+
+@app.route('/health/completo')
+def health_completo():
+    """Salud completa para el monitor externo (UptimeRobot, etc.): además de la base de datos revisa que el programador
+    de recordatorios esté vivo, que las claves de push existan y que no haya una ráfaga de errores. 503 si algo falla."""
+    import monitoreo
+    info, codigo = monitoreo.salud(completo=True)
+    return jsonify(info), codigo
+
+
+@app.route('/admin/errores')
+@role_required(['superadmin'])
+def admin_errores():
+    """Estado de la aplicación y registro de errores recientes."""
+    import monitoreo
+    estado, _ = monitoreo.salud(completo=True)
+    return render_template('admin/errores.html', estado=estado, errores=monitoreo.errores_recientes(100))
+
+
+@app.route('/admin/errores/limpiar', methods=['POST'])
+@role_required(['superadmin'])
+def admin_errores_limpiar():
+    import monitoreo
+    if not validate_csrf_token(request.form.get('csrf_token', '')):
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+    else:
+        monitoreo.limpiar_errores()
+        flash('Registro de errores limpiado', 'success')
+    return redirect(url_for('admin_errores'))
 
 
 # =============================================================================
@@ -1171,6 +1155,7 @@ def chat_send():
         
     except Exception as e:
         print(f"❌ Error en chat_send: {e}")
+        monitoreo.registrar_error(e, '/cliente/send', 'POST', 'chat')
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -1374,6 +1359,10 @@ def login():
             session['usuario_rol'] = usuario['rol']
             session['negocio_id'] = usuario['negocio_id']
             session['negocio_nombre'] = usuario['negocio_nombre']
+            try:
+                session['negocio_tipo'] = dict(db.obtener_negocio_por_id(usuario['negocio_id']) or {}).get('tipo_negocio') or ''
+            except Exception:
+                session['negocio_tipo'] = ''
             
             print(f"🔐 LOGIN: {usuario['nombre']} (Rol: {usuario['rol']})")
             
@@ -1837,7 +1826,7 @@ def admin_editar_negocio(negocio_id):
             if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                 flash('Este número de API ya está registrado para otro negocio', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
-        else:
+        elif 'numero_api_whatsapp' in request.form:
             # Si se vació el campo, eliminar el registro
             db.eliminar_numero_whatsapp_negocio(negocio_id)
         
@@ -2341,6 +2330,7 @@ def admin_editar_usuario(usuario_id):
                              negocios=negocios)
     
 @app.route('/admin/reset-db')
+@role_required(['superadmin'])
 def admin_reset_db():
     """Ruta de emergencia para resetear la base de datos (SOLO DESARROLLO)"""
     if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PYTHONANYWHERE_SITE'):
@@ -2528,6 +2518,8 @@ def negocio_dashboard():
     """Panel principal del negocio - VERSIÓN CORREGIDA"""
     if session.get('usuario_rol') == 'superadmin':
         return redirect(url_for('negocio_estadisticas'))
+    if alquiler_rutas.es_alquiler(session.get('negocio_id')):
+        return redirect(url_for('alquiler.dashboard'))
     
     negocio_id = session.get('negocio_id', 1)
     
@@ -3202,7 +3194,7 @@ def negocio_configuracion():
                     if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                         flash('Este número de API ya está registrado para otro negocio', 'error')
                         return redirect(url_for('negocio_configuracion'))
-                else:
+                elif 'numero_api_whatsapp' in request.form:
                     db.eliminar_numero_whatsapp_negocio(negocio_id)
                 
                 flash('Configuración actualizada exitosamente', 'success')
@@ -3310,6 +3302,7 @@ def negocio_prompt_ia():
                          max_caracteres=PROMPT_IA_MAX_CARACTERES)
 
 @app.route('/actualizar-cache/<int:negocio_id>')
+@role_required(['superadmin', 'propietario'])
 def actualizar_cache(negocio_id):
     """Forzar actualización de cache para un negocio"""
     from database import notificar_cambio_horarios
@@ -5214,10 +5207,23 @@ def subscribe_push():
         data = request.json
         subscription = data.get('subscription')
         profesional_id = session.get('profesional_id')
-        
+
+        # Propietario (sin cuenta de profesional): sus dispositivos reciben los avisos del negocio (p. ej. nuevas reservas)
+        if subscription and not profesional_id and session.get('usuario_rol') == 'propietario' and session.get('usuario_id'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO suscripciones_push_usuarios (usuario_id, subscription_json, dispositivo_info, activa)
+                VALUES (%s, %s, %s, TRUE)
+                ON CONFLICT (usuario_id, subscription_json) DO UPDATE SET activa = TRUE
+            ''', (session['usuario_id'], json.dumps(subscription), request.headers.get('User-Agent', '')[:500]))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
+
         if not subscription or not profesional_id:
             return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
-        
+
         print(f"📱 Suscribiendo profesional {profesional_id} a notificaciones push")
         
         # Guardar en base de datos
@@ -5245,38 +5251,6 @@ def subscribe_push():
 # =============================================================================
 # RUTAS DE DEBUG PARA CONTRASEÑAS - VERSIÓN CORREGIDA
 # =============================================================================
-@app.route('/api/debug/recreate-push-table', methods=['GET', 'POST'])
-def recreate_push_table():
-    """Recrear tabla de suscripciones push correctamente"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        print("🗑️ Eliminando tabla existente...")
-        cursor.execute('DROP TABLE IF EXISTS suscripciones_push')
-        
-        print("🔧 Creando nueva tabla...")
-        cursor.execute('''
-            CREATE TABLE suscripciones_push (
-                id SERIAL PRIMARY KEY,
-                profesional_id INTEGER NOT NULL,
-                subscription_json TEXT NOT NULL,
-                dispositivo_info TEXT,
-                activa BOOLEAN DEFAULT TRUE,
-                UNIQUE(profesional_id, subscription_json)
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Tabla recreada con constraint UNIQUE'})
-        
-    except Exception as e:
-        print(f"❌ Error recreando tabla: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 # =============================================================================
 # MANIFEST ÚNICO - DETECTA AUTOMÁTICAMENTE
 # =============================================================================
@@ -6050,40 +6024,11 @@ def obtener_configuracion_horarios():
 
 @app.route('/api/push/public-key')
 def get_public_key():
-    """Obtener clave pública VAPID para notificaciones push"""
-    try:
-        VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
-        
-        # DEBUG: Mostrar qué hay en la variable
-        print(f"🔑 [DEBUG] VAPID_PUBLIC_KEY: {VAPID_PUBLIC_KEY[:50]}...")
-        print(f"🔑 [DEBUG] Longitud: {len(VAPID_PUBLIC_KEY)}")
-        print(f"🔑 [DEBUG] Tipo: {type(VAPID_PUBLIC_KEY)}")
-        
-        if not VAPID_PUBLIC_KEY:
-            return jsonify({'error': 'VAPID no configurado'}), 500
-        
-        # Verificar que sea string Base64 válido
-        import base64
-        try:
-            # Intentar decodificar para verificar
-            if '=' in VAPID_PUBLIC_KEY:
-                # Tiene padding, verificar
-                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
-            else:
-                # Sin padding
-                test = base64.urlsafe_b64decode(VAPID_PUBLIC_KEY + '=' * (4 - len(VAPID_PUBLIC_KEY) % 4))
-            print(f"✅ Clave válida, longitud decodificada: {len(test)}")
-        except Exception as decode_error:
-            print(f"❌ Clave inválida: {decode_error}")
-            return jsonify({'error': 'Clave VAPID inválida'}), 500
-        
-        return jsonify({
-            'success': True,
-            'publicKey': VAPID_PUBLIC_KEY
-        })
-    except Exception as e:
-        print(f"❌ Error get_public_key: {e}")
-        return jsonify({'error': 'Error interno'}), 500
+    """Clave pública VAPID para suscribirse a notificaciones push."""
+    clave = (os.getenv('VAPID_PUBLIC_KEY') or '').strip()
+    if not clave:
+        return jsonify({'error': 'VAPID no configurado'}), 500
+    return jsonify({'success': True, 'publicKey': clave})
 
 @app.route('/api/push/unsubscribe', methods=['POST'])
 @login_required
@@ -6123,7 +6068,10 @@ def manifest():
 
 @app.route('/service-worker.js')
 def serve_service_worker():
-    return send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
+    respuesta = send_from_directory('.', 'service-worker.js', mimetype='application/javascript')
+    respuesta.headers['Cache-Control'] = 'no-cache'          # el navegador debe revisar siempre si hay una versión nueva
+    respuesta.headers['Service-Worker-Allowed'] = '/'
+    return respuesta
 
     
 @app.route('/profesional/perfil')
@@ -7832,29 +7780,9 @@ def calificar_servicio(cita_id):
 
 @app.route('/api/push/subscribe-cliente', methods=['POST'])
 def subscribe_cliente_push_direct():
-    """Ruta directa para suscribir clientes (sin prefijo /push)"""
-    try:
-        data = request.json
-        subscription = data.get('subscription')
-        telefono = data.get('telefono')
-        negocio_id = data.get('negocio_id')
-        
-        if not subscription or not telefono or not negocio_id:
-            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
-        
-        from push_notifications import guardar_suscripcion_cliente
-        dispositivo_info = request.headers.get('User-Agent', '')[:500]
-        
-        success = guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_info)
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Notificaciones activadas'})
-        else:
-            return jsonify({'success': False, 'error': 'Error al guardar'}), 500
-            
-    except Exception as e:
-        print(f"❌ Error en subscribe_cliente_push_direct: {e}")
-        return jsonify({'success': False, 'error': 'Error interno'}), 500
+    """Suscribir al cliente a las notificaciones push. Su teléfono es el que verificó el chat (sesión), no el del cuerpo."""
+    from push_notifications import subscribe_cliente_push
+    return subscribe_cliente_push()
 
 @app.route('/api/cliente/mis-citas', methods=['GET'])
 def api_cliente_citas():
@@ -7869,12 +7797,15 @@ def api_cliente_citas():
 
         if not telefono or len(telefono) < 10:
             return jsonify({'success': False, 'error': 'Debes identificarte en el chat antes de consultar tus citas'}), 401
+
+        if alquiler_rutas.es_alquiler(negocio_id):
+            return jsonify(alquiler.citas_cliente_api(telefono, negocio_id, datetime.now(tz_negocio).date()))
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         cursor.execute('''
-            SELECT c.id, c.fecha, c.hora, c.estado,
+            SELECT c.id, c.fecha, c.fecha_fin, c.hora, c.estado,
                 s.nombre as servicio_nombre, s.precio,
                 p.nombre as profesional_nombre,
                 p.id as profesional_id,
@@ -7904,6 +7835,7 @@ def api_cliente_citas():
         
         # Formatear citas ("próxima" se decide aquí, con la hora local del negocio, no en el navegador)
         ahora_negocio = datetime.now(tz_negocio).replace(tzinfo=None)
+        from renta import dias_de_renta as renta_dias
         citas_formateadas = []
         for cita in citas:
             # Formatear hora
@@ -7923,14 +7855,23 @@ def api_cliente_citas():
             # ¿Es una cita pendiente que todavía no ocurre?
             estado = cita['estado'] or 'confirmado'
             es_proxima = False
+            en_curso = False
+            fecha_fin_iso = str(cita['fecha_fin'])[:10] if cita.get('fecha_fin') else ''
             if estado in ('confirmado', 'confirmada', 'pendiente') and fecha_str and hora_str:
                 try:
-                    es_proxima = datetime.strptime(f"{fecha_str[:10]} {hora_str}", '%Y-%m-%d %H:%M') >= ahora_negocio
+                    inicio_dt = datetime.strptime(f"{fecha_str[:10]} {hora_str}", '%Y-%m-%d %H:%M')
+                    # una renta de varios días sigue vigente hasta la hora de devolución
+                    fin_dt = datetime.strptime(f"{fecha_fin_iso} {hora_str}", '%Y-%m-%d %H:%M') if fecha_fin_iso else inicio_dt
+                    es_proxima = fin_dt >= ahora_negocio
+                    en_curso = bool(fecha_fin_iso) and inicio_dt < ahora_negocio <= fin_dt
                 except ValueError:
                     es_proxima = False
 
             # Determinar estado visual
-            if estado in ('confirmado', 'confirmada', 'pendiente') and not es_proxima:
+            if en_curso:
+                estado_icono = '🚗'
+                estado_texto = 'En curso'
+            elif estado in ('confirmado', 'confirmada', 'pendiente') and not es_proxima:
                 estado_icono = '🕘'
                 estado_texto = 'Pasada'
             elif estado == 'completado':
@@ -7955,7 +7896,8 @@ def api_cliente_citas():
                 'estado_icono': estado_icono,
                 'estado_texto': estado_texto,
                 'servicio': cita['servicio_nombre'],
-                'precio': float(cita['precio'] or 0),
+                'precio': float(cita['precio'] or 0) * (renta_dias(fecha_str, fecha_fin_iso) if fecha_fin_iso else 1),
+                'fecha_fin': datetime.strptime(fecha_fin_iso, '%Y-%m-%d').strftime('%d/%m/%Y') if fecha_fin_iso else '',
                 'profesional': cita['profesional_nombre'],
                 'profesional_id': cita['profesional_id'],
                 'negocio': cita['negocio_nombre'],
@@ -8075,7 +8017,7 @@ def generar_flyer_promocion(promocion_id):
 
 WHATSAPP_SECRETO = os.getenv('WHATSAPP_WEBHOOK_SECRET', '')
 if not WHATSAPP_SECRETO:
-    print("⚠️ [WHATSAPP] WHATSAPP_WEBHOOK_SECRET no está configurada: los endpoints /api/whatsapp/* aceptan cualquier llamada")
+    print("ℹ️ [WHATSAPP] WHATSAPP_WEBHOOK_SECRET no está configurada: los endpoints /api/whatsapp/* están desactivados")
 
 _WA_DEDUPE_SEGUNDOS = 600
 _WA_SESION_SEGUNDOS = 24 * 3600
@@ -8083,9 +8025,9 @@ _wa_respuestas_recientes = {}
 
 
 def _webhook_whatsapp_autorizado():
-    """Si WHATSAPP_WEBHOOK_SECRET está definida, exige el header X-Webhook-Secret (n8n)."""
+    """Endpoints de n8n: exigen el header X-Webhook-Secret. Sin WHATSAPP_WEBHOOK_SECRET quedan APAGADOS (la integración con WhatsApp está suspendida)."""
     if not WHATSAPP_SECRETO:
-        return True
+        return False
     enviado = request.headers.get('X-Webhook-Secret', '')
     return hmac.compare_digest(enviado.encode('utf-8'), WHATSAPP_SECRETO.encode('utf-8'))
 
@@ -8251,6 +8193,7 @@ def procesar_whatsapp_entrante(data):
 
     except Exception as e:
         print(f"❌ [WHATSAPP] Error: {e}")
+        monitoreo.registrar_error(e, '/api/whatsapp/webhook', 'POST', 'whatsapp')
         import traceback
         traceback.print_exc()
         return {'error': 'Error interno'}, 500
@@ -8407,6 +8350,8 @@ def error_404(_e):
 
 @app.errorhandler(500)
 def error_500(_e):
+    # Los errores no controlados quedan registrados (y se ven en /admin/errores)
+    monitoreo.registrar_error(getattr(_e, 'original_exception', None) or _e, request.path, request.method)
     return _pagina_error(500)
 
 

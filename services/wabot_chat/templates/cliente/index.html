@@ -859,7 +859,7 @@
                 <div class="negocio-avatar">{{ (negocio.nombre or 'W')[:1]|upper }}</div>
                 <div>
                     <div class="negocio-name">{{ negocio.nombre }}</div>
-                    <div class="negocio-sub">{{ 'Reserva tu vehículo en segundos' if negocio.tipo_negocio == 'renta_autos' else 'Agenda tu cita en segundos' }}</div>
+                    <div class="negocio-sub">{{ 'Reserva tu vehículo en segundos' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'Agenda tu cita en segundos' }}</div>
                 </div>
             </div>
             <div class="header-right">
@@ -879,7 +879,7 @@
             <!-- PANEL PROMOCIONES -->
             <div id="panelPromociones" class="panel">
                 <div class="panel-scroll">
-                    <div class="panel-title">Promociones activas</div>
+                    <div class="panel-title">{{ 'Nuestra flota' if negocio.tipo_negocio == 'alquiler_vehiculos' else 'Promociones activas' }}</div>
                     <div id="promocionesList">
                         <div class="empty-state">
                             <div class="empty-state-icon"><svg class="ic"><use href="#i-gift"/></svg></div>
@@ -892,7 +892,7 @@
             <!-- PANEL MIS CITAS -->
             <div id="panelMisCitas" class="panel">
                 <div class="panel-scroll" id="misCitasScroll">
-                    <div class="panel-title">{{ 'Mis Reservas' if negocio.tipo_negocio == 'renta_autos' else 'Mis Citas' }}</div>
+                    <div class="panel-title">{{ 'Mis Reservas' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'Mis Citas' }}</div>
                     <div id="misCitasList">
                         <div class="empty-state">
                             <div class="empty-state-icon"><svg class="ic"><use href="#i-calendar"/></svg></div>
@@ -935,11 +935,11 @@
         </button>
         <button class="nav-item" id="navCitas" onclick="irASeccion('citas')">
             <span class="nav-icon"><svg class="ic"><use href="#i-calendar"/></svg></span>
-            <span class="nav-label">{{ 'Reservas' if negocio.tipo_negocio == 'renta_autos' else 'Citas' }}</span>
+            <span class="nav-label">{{ 'Reservas' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'Citas' }}</span>
         </button>
         <button class="nav-item" id="navPromos" onclick="irASeccion('promociones')">
             <span class="nav-icon"><svg class="ic"><use href="#i-gift"/></svg></span>
-            <span class="nav-label">Promos</span>
+            <span class="nav-label">{{ 'Flota' if negocio.tipo_negocio == 'alquiler_vehiculos' else 'Promos' }}</span>
         </button>
         <!-- FAB central -->
         <button class="nav-item nav-fab" id="fabBtn" onclick="toggleFab()" aria-label="Más opciones">
@@ -962,6 +962,45 @@
     
 
     <script>
+        const ES_ALQUILER = {{ 'true' if negocio.tipo_negocio == 'alquiler_vehiculos' else 'false' }};
+
+        // ==================== FLOTA (alquiler de vehículos) ====================
+        async function cargarFlota() {
+            const negocioId = document.getElementById('negocioId').value;
+            const cont = document.getElementById('promocionesList');
+            cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('clock', 'ic')}</div><h4>Cargando...</h4></div>`;
+            try {
+                const res = await fetch(`/api/negocio/${negocioId}/vehiculos`);
+                const data = await res.json();
+                if (!data.success || !data.vehiculos.length) {
+                    cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('car', 'ic')}</div><h4>Aún no hay vehículos</h4><p>Vuelve pronto</p></div>`;
+                    return;
+                }
+                const dinero = n => '$' + Math.round(n).toLocaleString('es-CO');
+                cont.innerHTML = data.vehiculos.map(v => {
+                    const foto = v.foto_url
+                        ? `<img src="${escapeHtml(v.foto_url)}" alt="${escapeHtml(v.nombre)}" loading="lazy" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:12px;">`
+                        : `<div style="width:100%;aspect-ratio:16/10;border-radius:12px;display:grid;place-items:center;background:rgba(127,127,127,.12);color:var(--accent,#d4a857);"><svg class="ic" style="width:64px;height:64px"><use href="#i-car"/></svg></div>`;
+                    const chips = [v.categoria, v.pasajeros + ' pasajeros', v.transmision, v.combustible].filter(Boolean)
+                        .map(t => `<span style="background:rgba(127,127,127,.15);border-radius:999px;padding:3px 10px;font-size:.75rem;">${escapeHtml(String(t))}</span>`).join(' ');
+                    return `<div class="cita-card" style="margin-bottom:14px;">
+                        ${foto}
+                        <div class="cita-card-body" style="padding-top:10px;">
+                            <div style="font-weight:700;font-size:1.02rem;">${escapeHtml(v.nombre)}</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;">${chips}</div>
+                            ${v.descripcion ? `<div style="font-size:.85rem;opacity:.8;margin-bottom:8px;">${escapeHtml(v.descripcion)}</div>` : ''}
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                                <div><strong style="font-size:1.15rem;">${dinero(v.precio_dia)}</strong> <span style="opacity:.7;font-size:.8rem;">por día</span></div>
+                                <button class="btn-promo btn-promo-primary" onclick="irASeccion('chat'); enviarMensaje('1')">Reservar</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${ic('x', 'ic')}</div><h4>Error</h4><p>No se pudo cargar la flota</p></div>`;
+            }
+        }
+
         // ==================== HELPERS ====================
         function toast(msg, tipo) {
             const t = document.getElementById('toast');
@@ -1002,64 +1041,13 @@
             btn.classList.add('cargando');
             
             try {
-                // ✅ FORZAR registro del Service Worker
-                const registration = await navigator.serviceWorker.register('/service-worker.js');
-                await navigator.serviceWorker.ready;
-                console.log('✅ SW listo');
-                
-                // ✅ LIMPIAR suscripción antigua (si existe)
-                let subscription = await registration.pushManager.getSubscription();
-                if (subscription) {
-                    console.log('🗑️ Eliminando suscripción antigua...');
-                    await subscription.unsubscribe();
-                    console.log('✅ Suscripción antigua eliminada');
-                }
-                
-                // Pedir permiso
-                let permiso = Notification.permission;
-                if (permiso === 'default') {
-                    permiso = await Notification.requestPermission();
-                }
-                
-                if (permiso !== 'granted') {
-                    toast('❌ Debes permitir notificaciones en la configuración del sitio', 'error');
-                    btn.disabled = false;
-                    setBell(btn, false);
-                    return;
-                }
-                
-                // ✅ USAR LA MISMA CLAVE QUE EL PROFESIONAL
-                const publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
-                
-                // Crear NUEVA suscripción
-                console.log('🔐 Creando nueva suscripción...');
-                subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(publicKey)
-                });
-                
-                console.log('✅ Suscripción creada');
-                
-                // Guardar en BD
-                const response = await fetch('/api/push/subscribe-cliente', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        subscription: subscription,
-                        telefono: telefono,
-                        negocio_id: parseInt(negocioId)
-                    })
-                });
-                
-                const data = await response.json();
-                console.log('📥 Respuesta:', data);
-                
-                if (data.success) {
+                const resultado = await window.suscribirCliente(telefono, parseInt(negocioId));
+                if (resultado.ok) {
                     setBell(btn, true);
                     localStorage.setItem('notificaciones_activadas', 'true');
-                    toast('✅ Notificaciones activadas');
+                    toast('Notificaciones activadas');
                 } else {
-                    toast('❌ Error: ' + (data.error || 'desconocido'), 'error');
+                    toast(resultado.error || 'No se pudieron activar las notificaciones', 'error');
                     setBell(btn, false);
                 }
 
@@ -1129,7 +1117,7 @@
             };
             document.getElementById(navMap[s])?.classList.add('active');
 
-            if (s === 'promociones') cargarPromociones();
+            if (s === 'promociones') (ES_ALQUILER ? cargarFlota : cargarPromociones)();
             if (s === 'citas') cargarMisCitas();  // ✅ NUEVO
         }
 
@@ -1206,7 +1194,7 @@
                 if (tel) {
                     localStorage.setItem('telefono_cliente', tel);
                     telefonoGuardado = true;
-                    if (seccionActiva === 'promociones') cargarPromociones();
+                    if (seccionActiva === 'promociones' && !ES_ALQUILER) cargarPromociones();
                 }
             });
             observer.observe(document.getElementById('chatMessages'), { childList: true, subtree: true });
@@ -1362,7 +1350,7 @@
                                     ` : elegible ? `
                                         <button class="btn-promo btn-promo-primary" onclick="abrirSheetParticipar(${promo.id})">Participar</button>
                                     ` : `
-                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">{{ 'Reservar vehículo' if negocio.tipo_negocio == 'renta_autos' else 'Agendar cita' }}</button>
+                                        <button class="btn-promo btn-promo-warning" onclick="irAAgendarCita()">{{ 'Reservar vehículo' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'Agendar cita' }}</button>
                                     `}
                                 </div>
                             </div>
@@ -1480,7 +1468,7 @@
             const container = document.getElementById('misCitasList');
             const tel = localStorage.getItem('telefono_cliente');
             const negocioId = document.getElementById('negocioId').value;
-            const esAutos = {{ 'true' if negocio.tipo_negocio == 'renta_autos' else 'false' }};
+            const esAutos = {{ 'true' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'false' }};
             const txtCitas = esAutos ? 'reservas' : 'citas';
             const iconoServicio = esAutos ? ic('calendar') : ic('scissors');
             const iconoProfesional = esAutos ? ic('car') : ic('user');
@@ -1567,7 +1555,7 @@
             }
 
             html += lista.map(c => {
-                const claseEstado = c.es_proxima ? 'pendiente' : (c.estado === 'completado' ? 'completada' : (c.estado === 'cancelado' ? 'cancelada' : 'pasada'));
+                const claseEstado = (c.es_proxima || c.estado_texto === 'En curso') ? 'pendiente' : (c.estado === 'completado' ? 'completada' : (c.estado === 'cancelado' ? 'cancelada' : 'pasada'));
                 const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
                 const pie = puedeCalificar
                     ? `<div class="cita-card-footer"><button class="btn-calificar" onclick="calificarCita(${c.id})">Calificar</button></div>`
@@ -1581,6 +1569,7 @@
                     </div>
                     <div class="cita-card-body">
                         <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
+                        ${c.fecha_fin ? `<div class="cita-info-row">${ic('calendar')} Devolución: <strong>${c.fecha_fin}</strong> · ${ic('clock')} ${c.hora}</div>` : ''}
                         <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
                         <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
                     </div>

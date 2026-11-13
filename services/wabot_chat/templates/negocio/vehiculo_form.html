@@ -1,0 +1,59 @@
+{% extends 'negocio/_alquiler_base.html' %}
+{% set activa = 'vehiculos' %}{% set titulo_pagina = 'Agregar vehículo' if nuevo else 'Editar vehículo' %}{% set subtitulo_pagina = '' %}
+{% block titulo %}Vehículo{% endblock %}
+{% block acciones %}<a class="wb-btn wb-btn-ghost" href="{{ url_for('alquiler.vehiculos') }}">Volver</a>{% endblock %}
+{% block contenido %}
+<form class="alq-form" method="POST" action="">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid">
+        <div class="completo"><label for="nombre">Nombre para mostrar *</label><input id="nombre" name="nombre" required maxlength="80" value="{{ vehiculo.nombre or '' }}" placeholder="Ej: Kia Picanto 2023"></div>
+        <div><label for="marca">Marca</label><input id="marca" name="marca" maxlength="40" value="{{ vehiculo.marca or '' }}"></div>
+        <div><label for="modelo">Modelo</label><input id="modelo" name="modelo" maxlength="40" value="{{ vehiculo.modelo or '' }}"></div>
+        <div><label for="anio">Año</label><input id="anio" name="anio" type="number" min="1990" max="2100" value="{{ vehiculo.anio or '' }}"></div>
+        <div><label for="categoria">Categoría</label><select id="categoria" name="categoria">{% for c in categorias %}<option {{ 'selected' if vehiculo.categoria == c }}>{{ c }}</option>{% endfor %}</select></div>
+        <div><label for="transmision">Transmisión</label><select id="transmision" name="transmision">{% for c in transmisiones %}<option {{ 'selected' if vehiculo.transmision == c }}>{{ c }}</option>{% endfor %}</select></div>
+        <div><label for="combustible">Combustible</label><select id="combustible" name="combustible">{% for c in combustibles %}<option {{ 'selected' if vehiculo.combustible == c }}>{{ c }}</option>{% endfor %}</select></div>
+        <div><label for="pasajeros">Pasajeros</label><input id="pasajeros" name="pasajeros" type="number" min="1" max="20" value="{{ vehiculo.pasajeros or 5 }}"></div>
+        <div><label for="maletas">Maletas</label><input id="maletas" name="maletas" type="number" min="0" max="20" value="{{ vehiculo.maletas if vehiculo.maletas is not none else 2 }}"></div>
+        <div><label for="puertas">Puertas</label><input id="puertas" name="puertas" type="number" min="2" max="6" value="{{ vehiculo.puertas or 4 }}"></div>
+        <div><label for="color">Color</label><input id="color" name="color" maxlength="30" value="{{ vehiculo.color or '' }}"></div>
+        <div><label for="placa">Placa</label><input id="placa" name="placa" maxlength="20" value="{{ vehiculo.placa or '' }}"><small>Solo la ves tú.</small></div>
+        <div><label for="precio_dia">Precio por día *</label><input id="precio_dia" name="precio_dia" type="number" min="0" step="any" required value="{{ vehiculo.precio_dia or '' }}"></div>
+        <div><label for="deposito">Depósito en garantía</label><input id="deposito" name="deposito" type="number" min="0" step="any" value="{{ vehiculo.deposito or '' }}"></div>
+        <div class="completo"><label for="descripcion">Descripción</label><textarea id="descripcion" name="descripcion" rows="3" maxlength="600" placeholder="Ej: Ideal para ciudad, aire acondicionado, Bluetooth…">{{ vehiculo.descripcion or '' }}</textarea></div>
+        <div class="completo">
+            <label for="foto_url">Foto</label>
+            <div class="alq-foto">
+                <div class="vista" id="vista">{% if vehiculo.foto_url %}{{ vehiculo_img(vehiculo) }}{% endif %}</div>
+                <div style="flex:1">
+                    <input id="foto_url" name="foto_url" maxlength="500" value="{{ vehiculo.foto_url or '' }}" placeholder="Dirección (URL) de la imagen">
+                    <input id="archivo" type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:8px">
+                    <small id="estado_foto">Sube una imagen (máx. 5 MB) o pega su dirección. Si no pones foto se muestra una silueta.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="pie"><button class="wb-btn wb-btn-primary" type="submit">Guardar</button><a class="wb-btn wb-btn-ghost" href="{{ url_for('alquiler.vehiculos') }}">Cancelar</a></div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('archivo').addEventListener('change', async function () {
+    const estado = document.getElementById('estado_foto');
+    if (!this.files[0]) return;
+    const datos = new FormData();
+    datos.append('foto', this.files[0]);
+    datos.append('csrf_token', '{{ csrf_token() }}');
+    estado.textContent = 'Subiendo…';
+    try {
+        const r = await fetch('{{ url_for("alquiler.vehiculo_subir_foto") }}', {method: 'POST', body: datos});
+        const j = await r.json();
+        if (j.success) {
+            document.getElementById('foto_url').value = j.url;
+            document.getElementById('vista').innerHTML = '<img class="veh-img" src="' + j.url + '" alt="">';
+            estado.textContent = 'Foto subida.';
+        } else { estado.textContent = j.error || 'No se pudo subir.'; }
+    } catch (e) { estado.textContent = 'No se pudo subir la imagen.'; }
+});
+</script>
+{% endblock %}

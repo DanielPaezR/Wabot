@@ -300,6 +300,7 @@
                     <small>Formato internacional: +573001234567 (sin 'whatsapp:')</small>
                 </div>
 
+{% if whatsapp_activo %}
                 <div class="form-group">
                     <label for="numero_api_whatsapp">Número de API de WhatsApp (Opcional)</label>
                     <input type="text" id="numero_api_whatsapp" name="numero_api_whatsapp" 
@@ -307,6 +308,7 @@
                            value="{{ request.form.numero_api_whatsapp if request.form }}">
                     <small>Número que Meta asignó a este negocio para la API (solo dígitos, sin +)</small>
                 </div>
+{% endif %}
                 
                 <div class="form-group">
                     <label for="tipo_negocio">Tipo de Negocio *</label>
@@ -320,6 +322,7 @@
                         <option value="yoga" {% if request.form and request.form.tipo_negocio == 'yoga' %}selected{% endif %}>Estudio de Yoga</option>
                         <option value="masajes" {% if request.form and request.form.tipo_negocio == 'masajes' %}selected{% endif %}>Centro de Masajes</option>
                         <option value="tattoo" {% if request.form and request.form.tipo_negocio == 'tattoo' %}selected{% endif %}>Estudio de Tattoo</option>
+                        <option value="alquiler_vehiculos" {% if request.form and request.form.tipo_negocio == 'alquiler_vehiculos' %}selected{% endif %}>Alquiler de vehículos</option>
                         <option value="otros" {% if request.form and request.form.tipo_negocio == 'otros' %}selected{% endif %}>Otros Servicios</option>
                     </select>
                     <small>Selecciona la categoría que mejor describa tu negocio</small>

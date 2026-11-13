@@ -46,6 +46,24 @@ web_chat_bp = Blueprint('web_chat', __name__)
 # Estado de las conversaciones: copia de trabajo en memoria para cada mensaje; la fuente de verdad es la base
 # de datos (estado_conversacion.py), así sobrevive a los despliegues y funciona con varios procesos.
 conversaciones_activas = {}
+import renta   # renta de vehículos por días (tipo_negocio = 'renta_autos')
+import alquiler_chat   # alquiler de vehículos como elementos alquilables (tipo_negocio = 'alquiler_vehiculos')
+TIPO_ALQUILER = 'alquiler_vehiculos'
+
+
+def _registrar_error(exc, contexto):
+    try:
+        import monitoreo
+        monitoreo.registrar_error(exc, '/cliente/send', 'POST', contexto)
+    except Exception:
+        pass
+
+
+def _tipo_negocio(negocio_id):
+    try:
+        return dict(db.obtener_negocio_por_id(negocio_id) or {}).get('tipo_negocio')
+    except Exception:
+        return None
 _CONVERSACION_TTL_MINUTOS = 30
 MENSAJE_HORARIO_OCUPADO = (
     "😕 Lo siento, ese horario ya no está disponible para {profesional}. "
@@ -58,7 +76,6 @@ _VOCABULARIO_POR_TIPO = {
     'renta_autos': {
         'reemplazos_especiales': [
             (r'\bagendar (?:una )?cita\b', 'reservar vehículo'),
-            (r'comun[ií]cate con el profesional v[ií]a whatsapp', 'comunícate con nuestro equipo por WhatsApp'),
             (r'💈|👨‍💼', '🚗'),
         ],
         'reemplazos': [
@@ -73,6 +90,7 @@ _VOCABULARIO_POR_TIPO = {
         'palabras_servicio': ['plan de renta', 'planes de renta', 'plan '],
     },
 }
+_VOCABULARIO_POR_TIPO['alquiler_vehiculos'] = _VOCABULARIO_POR_TIPO['renta_autos']
 
 
 def _vocabulario_negocio(tipo_negocio):
@@ -141,204 +159,14 @@ def convertir_a_formato_12_horas(hora_24):
 # =============================================================================
 
 def enviar_notificacion_push_local(profesional_id, titulo, mensaje, cita_id=None):
-    """Función FINAL de push notificaciones - Versión simplificada y robusta"""
+    """Aviso al profesional (lista interna + push a todos sus dispositivos). Ver push_notifications.enviar_push_profesional."""
     try:
-        print(f"🔥 [PUSH-FINAL] Para profesional {profesional_id}, cita {cita_id}")
-        
-        # 1. SIEMPRE guardar en BD (esto ya funciona)
-        guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id)
-        print(f"✅ Notificación guardada en BD")
-        
-        # 2. Intentar push si tenemos todo configurado
-        try:
-            import os
-            import json
-            import time
-            from database import get_db_connection
-            
-            # Verificar VAPID
-            VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-            if not VAPID_PRIVATE_KEY:
-                print("⚠️ No hay VAPID_PRIVATE_KEY - push omitido")
-                return True
-            
-            # Obtener la última suscripción activa
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT subscription_json 
-                FROM suscripciones_push 
-                WHERE profesional_id = %s AND activa = TRUE
-                ORDER BY id DESC LIMIT 1
-            ''', (profesional_id,))
-            
-            result = cursor.fetchone()
-            conn.close()
-            
-            if not result:
-                print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
-                return True
-            
-            # Extraer suscripción (maneja tuplas o diccionarios)
-            subscription_json = None
-            if isinstance(result, tuple):
-                subscription_json = result[0]
-            elif isinstance(result, dict):
-                subscription_json = result.get('subscription_json')
-            
-            if not subscription_json:
-                print(f"⚠️ No se pudo extraer subscription_json")
-                return True
-            
-            subscription = json.loads(subscription_json)
-            
-            # Enviar push
-            import pywebpush
-            
-            current_time = int(time.time())
-            expiration_time = current_time + (12 * 60 * 60)  # 12 horas máximo para Google FCM
-            
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": os.getenv('VAPID_SUBJECT', ''),
-                    "exp": expiration_time
-                },
-                ttl=86400  # 24 horas en segundos
-            )
-            
-            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE!")
-            return True
-            
-        except Exception as push_error:
-            error_msg = str(push_error)
-            print(f"⚠️ Push falló (pero notificación en BD OK): {type(push_error).__name__}")
-            
-            # Solo log breve, no detalles que saturan logs
-            if '403' in error_msg and 'credentials' in error_msg:
-                print(f"🔍 Diagnóstico: Problema de claves VAPID (las suscripciones fueron creadas con claves diferentes)")
-            elif '404' in error_msg or '410' in error_msg:
-                print(f"🔍 Diagnóstico: Suscripción expirada o inválida")
-            
-            return True
-            
+        from push_notifications import enviar_push_profesional
+        r = enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=cita_id)
+        print(f"🔔 Push al profesional {profesional_id}: {r['enviados']}/{r['suscripciones']} dispositivos")
     except Exception as e:
-        print(f"❌ Error crítico (pero continuamos): {type(e).__name__}")
-        return True  # Importante: siempre devolver True porque la notificación YA está en BD
-
-def try_push_immediately(profesional_id, titulo, mensaje):
-    """Intentar enviar push inmediatamente"""
-    try:
-        import os
-        import json
-        import time
-        from database import get_db_connection
-        
-        # Verificar VAPID
-        VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '').strip()
-        VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', '').strip()
-        
-        if not VAPID_PRIVATE_KEY:
-            print("❌ No hay VAPID_PRIVATE_KEY - saltando push")
-            return False
-        
-        # Obtener la última suscripción activa
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT subscription_json 
-            FROM suscripciones_push 
-            WHERE profesional_id = %s AND activa = TRUE
-            ORDER BY id DESC LIMIT 1
-        ''', (profesional_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result or not result[0]:
-            print(f"⚠️ No hay suscripciones activas para profesional {profesional_id}")
-            return False
-        
-        # Parsear suscripción
-        try:
-            subscription = json.loads(result[0])
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON inválido en suscripción: {e}")
-            return False
-        
-        # Verificar estructura
-        if not subscription.get('endpoint'):
-            print("❌ Suscripción no tiene endpoint")
-            return False
-        
-        # Intentar enviar con pywebpush
-        try:
-            import pywebpush
-        
-            # Configurar tiempo de expiración (12 horas máximo)
-            current_time = int(time.time())
-            expiration_time = current_time + (12 * 60 * 60)
-            
-            print(f"🚀 Enviando push a: {subscription.get('endpoint')[:50]}...")
-            print(f"   Expiración: {expiration_time} ({time.ctime(expiration_time)})")
-            
-            # Enviar push
-            pywebpush.webpush(
-                subscription_info=subscription,
-                data=json.dumps({
-                    'title': titulo,
-                    'body': mensaje,
-                    'icon': '/static/icons/icon-192x192.png',
-                    'timestamp': current_time * 1000
-                }),
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims={
-                    "sub": VAPID_SUBJECT,
-                    "exp": expiration_time
-                },
-                ttl=86400,
-                timeout=5
-            )
-            
-            print(f"🎉 ¡PUSH ENVIADO EXITOSAMENTE a profesional {profesional_id}!")
-            return True
-            
-        except ImportError:
-            print("❌ pywebpush no está instalado")
-            return False
-        except Exception as push_error:
-            print(f"⚠️ Error en pywebpush: {type(push_error).__name__}: {push_error}")
-            return False
-            
-    except Exception as e:
-        print(f"⚠️ Error en try_push_immediately: {type(e).__name__}: {e}")
-        return False
-
-def guardar_notificacion_bd_solo(profesional_id, titulo, mensaje, cita_id=None):
-    """Función auxiliar solo para guardar notificación en BD"""
-    try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO notificaciones_profesional 
-            (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-            VALUES (%s, 'push', %s, %s, FALSE, %s)
-        ''', (profesional_id, titulo, mensaje, cita_id))
-        conn.commit()
-        conn.close()
-        print(f"✅ Notificación guardada en BD")
-        return True
-    except Exception as e:
-        print(f"⚠️ Error guardando en BD: {e}")
-        return False
+        print(f"⚠️ No se pudo avisar al profesional {profesional_id}: {type(e).__name__}: {e}")
+    return True
 
 def renderizar_plantilla(nombre_plantilla, negocio_id, variables_extra=None):
     """Motor principal de plantillas - CORREGIDO PARA POSTGRESQL"""
@@ -738,13 +566,14 @@ VARIABLES_PROMPT = [
     ('{horario_atencion}', 'Horario de atención (texto)'),
     ('{horarios}', 'Horarios de los próximos 7 días'),
     ('{politica_cancelacion}', 'Política de cancelación'),
+    ('{vehiculos}', 'Vehículos con precio (alquiler)'),
 ]
 
 _TIPOS_LEGIBLES = {
     'barberia': 'barbería', 'spa_unas': 'spa de uñas', 'peluqueria': 'peluquería',
     'estetica': 'centro estético', 'consultorio': 'consultorio', 'gimnasio': 'gimnasio',
     'yoga': 'estudio de yoga', 'masajes': 'centro de masajes', 'tattoo': 'estudio de tattoo',
-    'renta_autos': 'renta de vehículos',
+    'renta_autos': 'renta de vehículos', 'alquiler_vehiculos': 'alquiler de vehículos',
 }
 
 
@@ -796,7 +625,9 @@ def valores_variables_prompt(negocio_id, contexto=None):
     if not telefono:
         telefono = re.sub(r'^whatsapp:', '', negocio.get('telefono') or '').strip()
     detalle = contexto.get('servicios_detalle') or []
-    return {
+    es_alquiler = negocio.get('tipo_negocio') == TIPO_ALQUILER
+    flota = alquiler_chat.descripcion_flota(negocio_id) if es_alquiler else 'No aplica'
+    valores = {
         '{nombre_negocio}': negocio['nombre'],
         '{descripcion}': _leer_columna_negocio(negocio_id, 'descripcion') or 'No disponible',
         '{direccion}': negocio['direccion'] or 'No disponible',
@@ -807,7 +638,12 @@ def valores_variables_prompt(negocio_id, contexto=None):
         '{horario_atencion}': config.get('horario_atencion') or 'No disponible',
         '{horarios}': ', '.join(contexto['horarios']) if contexto['horarios'] else 'No disponible',
         '{politica_cancelacion}': config.get('politica_cancelacion') or 'No disponible',
+        '{vehiculos}': flota,
     }
+    if es_alquiler:     # en el alquiler los "servicios" y "profesionales" son los vehículos
+        valores['{servicios}'] = valores['{servicios_precios}'] = flota
+        valores['{profesionales}'] = 'No aplica'
+    return valores
 
 
 def construir_prompt_negocio(negocio_id):
@@ -839,8 +675,11 @@ def construir_prompt_negocio(negocio_id):
     ]:
         if valores[clave] != 'No disponible':
             partes.append(f"{etiqueta}: {valores[clave]}.")
-    partes.append(f"Profesionales disponibles: {valores['{profesionales}']}.")
-    partes.append(f"Servicios, precios y duración: {valores['{servicios_precios}']}.")
+    if negocio['tipo_negocio'] == TIPO_ALQUILER:
+        partes.append(f"Vehículos para alquilar (precio por día): {valores['{vehiculos}']}.")
+    else:
+        partes.append(f"Profesionales disponibles: {valores['{profesionales}']}.")
+        partes.append(f"Servicios, precios y duración: {valores['{servicios_precios}']}.")
     if contexto['horarios']:
         partes.append(f"Horarios próximos: {valores['{horarios}']}.")
     return ' '.join(partes)
@@ -977,7 +816,18 @@ def sanitizar_mensaje(mensaje):
     return mensaje
 
 
+for _herramienta in OPENAI_TOOLS:
+    if _herramienta['name'] in ('agendar_cita', 'confirmar_agendamiento'):
+        _herramienta['parameters']['properties']['dias'] = {
+            "type": "integer",
+            "description": "SOLO renta de vehículos con un plan por día: cuántos días quiere el cliente (1 a 30). "
+                           "Si el plan es por día y el cliente no lo dijo, pregúntalo antes de continuar."
+        }
+
+
 def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente):
+    if _tipo_negocio(negocio_id) == TIPO_ALQUILER:
+        return alquiler_chat.responder_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     if not _openai_client:
         return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
 
@@ -1220,6 +1070,21 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     except (TypeError, ValueError):
         precio = 0
 
+    # Renta por días: se necesita cuántos días y que el vehículo esté libre en todo ese rango
+    dias = None
+    if servicio_bd and renta.es_renta_por_dias(_tipo_negocio(negocio_id), servicio_bd.get('duracion')):
+        try:
+            dias = int(arguments.get('dias') or 0)
+        except (TypeError, ValueError):
+            dias = 0
+        if not (1 <= dias <= renta.MAX_DIAS):
+            return f"¿Por cuántos días necesitas el vehículo? (de 1 a {renta.MAX_DIAS}). Lo recoges y devuelves a la misma hora."
+        fecha_norm = normalizar_fecha_usuario(fecha)
+        vehiculo = buscar_profesional_por_nombre_estricto(profesional_nombre, db.obtener_profesionales(negocio_id))
+        if fecha_norm and vehiculo and not db.profesional_libre_en_rango(vehiculo['id'], fecha_norm, renta.fecha_devolucion(fecha_norm, dias)):
+            return (f"😕 {vehiculo['nombre']} no está disponible del {renta.formatear_fecha(fecha_norm)} al "
+                    f"{renta.formatear_fecha(renta.fecha_devolucion(fecha_norm, dias))}. Elige otras fechas u otro vehículo.")
+
     # ✅ BUSCAR la clave de conversación correcta (no construirla)
     clave_conversacion = None
     
@@ -1262,7 +1127,8 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
             'servicio_nombre': servicio_nombre,
             'fecha': fecha,
             'hora': hora,
-            'precio': precio
+            'precio': precio,
+            'dias': dias
         }
         conversaciones_activas[clave_conversacion]['estado'] = 'confirmando_cita'
         print(f"✅ [IA] pending_agendamiento guardado en: {clave_conversacion}")
@@ -1280,6 +1146,23 @@ def ia_confirmar_agendamiento(arguments, negocio_id, telefono_cliente, nombre_cl
     
     # Formatear precio
     precio_str = f"${precio:,.0f}" if precio else "No especificado"
+
+    if dias:
+        f_ini = normalizar_fecha_usuario(fecha) or fecha
+        try:
+            recogida = renta.formatear_fecha(f_ini)
+            devolucion = renta.formatear_fecha(renta.fecha_devolucion(f_ini, dias))
+        except Exception:
+            recogida = devolucion = fecha
+        return (f"📋 RESUMEN DE TU RESERVA\n\n"
+                f"👤 Cliente: {nombre_cliente or 'Cliente'}\n"
+                f"🚗 Vehículo: {profesional_nombre}\n"
+                f"💼 Plan: {servicio_nombre}\n"
+                f"📅 Recogida: {recogida} a las {hora}\n"
+                f"📅 Devolución: {devolucion} a las {hora}\n"
+                f"🗓️ Duración: {dias} día(s)\n"
+                f"💰 Total: ${renta.precio_total(precio, dias):,.0f} (${precio:,.0f} por día)\n\n"
+                f"¿Confirmas esta reserva?")
     
     # ✅ Mensaje completo con toda la info
     mensaje = (
@@ -1348,11 +1231,24 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
     if not duracion:
         duracion = servicio.get('duracion', 0)
 
+    dias = None
+    fecha_fin = None
+    if renta.es_renta_por_dias(_tipo_negocio(negocio_id), duracion):
+        try:
+            dias = int(arguments.get('dias') or 0)
+        except (TypeError, ValueError):
+            dias = 0
+        if not (1 <= dias <= renta.MAX_DIAS):
+            return f"¿Por cuántos días necesitas el vehículo? (de 1 a {renta.MAX_DIAS})."
+        fecha_fin = renta.fecha_devolucion(fecha, dias)
+        if not db.profesional_libre_en_rango(profesional.get('id'), fecha, fecha_fin):
+            return f"Lo siento, {profesional.get('nombre')} no está disponible del {fecha} al {fecha_fin}. Elige otras fechas u otro vehículo."
+
     print(f"🔍 [IA] Verificando disponibilidad para {profesional.get('nombre')} el {fecha} a las {hora} (duración {duracion})")
-    if not db.verificar_disponibilidad(profesional.get('id'), fecha, hora, duracion):
+    if not dias and not db.verificar_disponibilidad(profesional.get('id'), fecha, hora, duracion):
         return f'Lo siento, {profesional.get("nombre")} no tiene disponibilidad en {fecha} a las {hora}. Por favor elige otra hora o un día diferente.'
 
-    cita_id = db.agregar_cita(negocio_id, profesional.get('id'), cliente_telefono, fecha, hora, servicio.get('id'), cliente_nombre)
+    cita_id = db.agregar_cita(negocio_id, profesional.get('id'), cliente_telefono, fecha, hora, servicio.get('id'), cliente_nombre, fecha_fin=fecha_fin)
     if cita_id:
         # ✅ Notificar al profesional y al cliente (el flujo por IA no lo hacía,
         # a diferencia del flujo por menú numérico)
@@ -1379,6 +1275,18 @@ def ia_agendar_cita(arguments, negocio_id, telefono_cliente, nombre_cliente):
             )
         except Exception as e:
             print(f"❌ [IA-PUSH-ERROR] Error enviando push al cliente: {e}")
+
+        if dias:
+            return (f"✅ ¡Perfecto {cliente_nombre}!\n\n"
+                    f"Tu reserva quedó confirmada:\n\n"
+                    f"🚗 Vehículo: {profesional.get('nombre')}\n"
+                    f"💼 Plan: {servicio.get('nombre')}\n"
+                    f"📅 Recogida: {fecha} a las {hora}\n"
+                    f"📅 Devolución: {fecha_fin} a las {hora}\n"
+                    f"🗓️ Duración: {dias} día(s)\n"
+                    f"💰 Total: ${renta.precio_total(servicio.get('precio'), dias):,.0f}\n"
+                    f"🎫 ID de reserva: #{cita_id}\n\n"
+                    f"¡Te esperamos!")
 
         mensaje_confirmacion = (
             f"✅ ¡Perfecto {cliente_nombre}!\n\n"
@@ -1409,7 +1317,7 @@ def ia_cancelar_cita(arguments, negocio_id, telefono_cliente):
     print(f"🔍 [IA] ia_cancelar_cita - cita_id: {cita_id}, telefono_cliente: {telefono_cliente}")
     if not cita_id.isdigit():
         return 'Necesito un ID de cita válido para cancelar la reserva.'
-    return procesar_cancelacion_directa(telefono_cliente or cita_id, cita_id, negocio_id)
+    return procesar_cancelacion_directa(telefono_cliente or cita_id, cita_id, negocio_id, telefono_verificado=telefono_cliente)
 
 
 def ia_consultar_horarios(arguments, negocio_id):
@@ -1790,6 +1698,8 @@ def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
                 respuesta['pagination'] = conversaciones_activas[clave_conversacion]['info_paginacion']
         elif paso_actual == 'confirmando_cita':
             opciones_extra = generar_opciones_confirmacion()
+        elif paso_actual == 'seleccionando_dias':
+            opciones_extra = [{'value': str(n), 'text': f'{n} día' if n == 1 else f'{n} días'} for n in renta.OPCIONES_DIAS]
         elif paso_actual == 'menu_principal':
             opciones_extra = generar_opciones_menu_principal()
         elif paso_actual == 'ia_libre':
@@ -1815,6 +1725,9 @@ def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         elif paso_actual == 'ia_libre':
             opciones_extra = generar_opciones_menu_principal()
 
+        if paso_actual in alquiler_chat.ESTADOS:
+            opciones_extra = alquiler_chat.opciones(paso_actual, conversaciones_activas.get(clave_conversacion))
+
         if opciones_extra and paso_actual in (
             'menu_principal', 'ia_libre', 'confirmando_cita', 'seleccionando_servicio_personalizado'
         ):
@@ -1832,6 +1745,7 @@ def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         
     except Exception as e:
         print(f"❌ [CHAT WEB] Error procesando mensaje: {e}")
+        _registrar_error(e, f'chat negocio {negocio_id}')
         import traceback
         traceback.print_exc()
         
@@ -1924,7 +1838,15 @@ def procesar_mensaje(mensaje, numero, negocio_id, session=None, es_whatsapp=Fals
 def procesar_opcion_menu(numero, opcion, negocio_id):
     """Procesar opción del menú principal - SIN CAMBIOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
-    
+
+    if _tipo_negocio(negocio_id) == TIPO_ALQUILER:
+        if opcion == '1':
+            return alquiler_chat.iniciar(numero, negocio_id)
+        if opcion == '2':
+            return alquiler_chat.mis_reservas(numero, negocio_id)
+        if opcion == '3':
+            return alquiler_chat.listar_para_cancelar(numero, negocio_id)
+
     if opcion == '1':
         print(f"🔧 [DEBUG] Comando '1' detectado - Mostrando profesionales")
         return mostrar_profesionales(numero, negocio_id)
@@ -2622,97 +2544,6 @@ def mostrar_servicios(numero, profesional_nombre, negocio_id):
         traceback.print_exc()
         return renderizar_plantilla('error_generico', negocio_id)
     
-def procesar_seleccion_servicio(numero, mensaje, negocio_id):
-    """Procesar selección de servicio"""
-    clave_conversacion = f"{numero}_{negocio_id}"
-    
-    print(f"🔍 [SELECCION_SERVICIO] Procesando mensaje: '{mensaje}'")
-    
-    # Manejar el comando "0" para volver al menú principal
-    if mensaje == '0':
-        if clave_conversacion in conversaciones_activas:
-            conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-        return "Volviendo al menú principal..."
-    
-    # Verificar si está en modo servicio personalizado
-    if conversaciones_activas[clave_conversacion].get('tiene_personalizado'):
-        print(f"🔍 [SERVICIO-PERSONALIZADO] Procesando selección: {mensaje}")
-        
-        if mensaje == '0':
-            if clave_conversacion in conversaciones_activas:
-                conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-            return "Volviendo al menú principal..."
-        
-        if 'servicio_personalizado' not in conversaciones_activas[clave_conversacion]:
-            return renderizar_plantilla('error_generico', negocio_id)
-        
-        servicio_personalizado = conversaciones_activas[clave_conversacion]['servicio_personalizado']
-        
-        if mensaje == '1':
-            # Cliente selecciona su servicio personalizado
-            print(f"✅ [SERVICIO-PERSONALIZADO] Cliente seleccionó servicio personalizado")
-            
-            # Guardar el servicio personalizado como seleccionado
-            conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_personalizado['servicio_base_id']
-            conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_personalizado['nombre_personalizado']
-            conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_personalizado['precio_personalizado']
-            conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_personalizado['duracion_personalizada']
-            conversaciones_activas[clave_conversacion]['servicios_adicionales'] = servicio_personalizado.get('servicios_adicionales', [])
-            conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-            conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
-            
-            # Limpiar el flag de servicio personalizado para continuar normal
-            if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['tiene_personalizado']
-            if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-            
-            return mostrar_fechas_disponibles(numero, negocio_id)
-        
-        elif mensaje == '2':
-            # Cliente quiere ver todos los servicios
-            print(f"📋 [SERVICIO-PERSONALIZADO] Cliente quiere ver todos los servicios")
-            
-            # Limpiar el servicio personalizado para mostrar todos los servicios
-            if 'servicio_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['servicio_personalizado']
-            if 'tiene_personalizado' in conversaciones_activas[clave_conversacion]:
-                del conversaciones_activas[clave_conversacion]['tiene_personalizado']
-            
-            # Obtener nombre del profesional para mostrar servicios normales
-            profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
-            
-            return mostrar_servicios(numero, profesional_nombre, negocio_id)
-        
-        else:
-            return "❌ Opción no válida. Responde con *1* para tu servicio personalizado o *2* para ver todos los servicios."
-    
-    # Procesar selección de servicios normales
-    if 'servicios' not in conversaciones_activas[clave_conversacion]:
-        if clave_conversacion in conversaciones_activas:
-            del conversaciones_activas[clave_conversacion]
-        return renderizar_plantilla('error_generico', negocio_id)
-    
-    servicios = conversaciones_activas[clave_conversacion]['servicios']
-    
-    if not mensaje.isdigit() or int(mensaje) < 1 or int(mensaje) > len(servicios):
-        return f"❌ Número inválido. Por favor, elige entre 1 y {len(servicios)}"
-    
-    # Guardar servicio seleccionado
-    servicio_index = int(mensaje) - 1
-    servicio_seleccionado = servicios[servicio_index]
-    
-    print(f"✅ [SELECCION_SERVICIO] Servicio seleccionado: {servicio_seleccionado['nombre']}")
-    
-    conversaciones_activas[clave_conversacion]['servicio_id'] = servicio_seleccionado['id']
-    conversaciones_activas[clave_conversacion]['servicio_nombre'] = servicio_seleccionado['nombre']
-    conversaciones_activas[clave_conversacion]['servicio_precio'] = servicio_seleccionado['precio']
-    conversaciones_activas[clave_conversacion]['servicio_duracion'] = servicio_seleccionado['duracion']
-    conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
-    conversaciones_activas[clave_conversacion]['timestamp'] = datetime.now(tz_reloj)
-    
-    return mostrar_fechas_disponibles(numero, negocio_id)
-
 def procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id):
     """Procesar selección cuando el cliente tiene servicio personalizado"""
     clave_conversacion = f"{numero}_{negocio_id}"
@@ -2820,7 +2651,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         if not verificar_disponibilidad_basica(negocio_id, fecha_seleccionada):
             print("❌ No pasó verificación básica")
             fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente comunicate con el Profesional via Whatsapp para explorar opciones"
+            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente, prueba con otra fecha o contacta directamente al negocio."
         
         # Verificar profesional_id
         if 'profesional_id' not in conversaciones_activas[clave_conversacion]:
@@ -2842,7 +2673,7 @@ def mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada=None):
         if not horarios_disponibles:
             print("❌ No se generaron horarios")
             fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
-            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente comunicate con el Profesional via Whatsapp para explorar opciones"
+            return f"❌ No hay horarios disponibles para el {fecha_formateada}. Si necesitas una cita urgente, prueba con otra fecha o contacta directamente al negocio."
         
         # Obtener datos para la plantilla
         profesional_nombre = conversaciones_activas[clave_conversacion].get('profesional_nombre', 'Profesional')
@@ -3247,6 +3078,11 @@ def procesar_confirmacion_cita(numero, mensaje, negocio_id):
                 print(f"❌ [SYNC] No se pudo resolver profesional o servicio desde IA: {pending}")
                 return "❌ No pude validar el profesional o servicio de la cita. Por favor elige nuevamente desde los botones."
             
+            if pending.get('dias'):
+                conversacion['dias_renta'] = int(pending['dias'])
+            else:
+                conversacion.pop('dias_renta', None)
+
             # Limpiar pending
             del conversacion['pending_agendamiento']
             print(f"🔧 [SYNC] Datos sincronizados correctamente")
@@ -3343,6 +3179,8 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
         print(f"   - Duración: {duracion} min")
         
         # Crear la cita en la base de datos
+        dias_renta = conversacion.get('dias_renta')
+        fecha_fin_renta = renta.fecha_devolucion(fecha, dias_renta) if dias_renta else None
         print(f"🔧 [DEBUG] Creando cita en BD...")
         cita_id = db.agregar_cita(
             negocio_id=negocio_id,
@@ -3351,7 +3189,8 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             fecha=fecha,
             hora=hora,
             servicio_id=servicio_id,
-            cliente_nombre=nombre_cliente
+            cliente_nombre=nombre_cliente,
+            fecha_fin=fecha_fin_renta
         )
         
         if cita_id and cita_id > 0:
@@ -3365,6 +3204,8 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             # ============================================
             try:
                 mensaje_push = f"{nombre_cliente} - {fecha_formateada} {hora} - {servicio_nombre}"
+                if fecha_fin_renta:
+                    mensaje_push += f" ({dias_renta} día(s), devuelve el {renta.formatear_fecha(fecha_fin_renta)})"
                 print(f"🚀 [PUSH-ENVIO] Enviando notificación push al profesional...")
                 print(f"   👨‍💼 Profesional ID: {profesional_id}")
                 print(f"   📝 Mensaje: {mensaje_push}")
@@ -3388,6 +3229,9 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
                 
                 titulo_cliente = "✅ ¡Cita Confirmada!"
                 mensaje_cliente = f"Hola {nombre_cliente}, tu cita ha sido agendada para el {fecha_formateada} a las {hora} con {profesional_nombre} para {servicio_nombre}"
+                if fecha_fin_renta:
+                    mensaje_cliente = (f"Hola {nombre_cliente}, tu reserva de {profesional_nombre} quedó confirmada: recoges el {fecha_formateada} "
+                                       f"a las {hora} y devuelves el {renta.formatear_fecha(fecha_fin_renta)}")
                 
                 print(f"🚀 [PUSH-ENVIO] Enviando notificación push al cliente...")
                 print(f"   👤 Cliente teléfono: {telefono}")
@@ -3413,6 +3257,18 @@ def procesar_confirmacion_directa(numero, negocio_id, conversacion):
             # ✅ LIMPIAR CONVERSACIÓN Y MOSTRAR CONFIRMACIÓN
             del conversaciones_activas[clave_conversacion]
             
+            if fecha_fin_renta:
+                return (f"✅ Reserva confirmada\n\n"
+                        f"Hola {nombre_cliente}, tu reserva quedó lista:\n\n"
+                        f"🚗 Vehículo: {profesional_nombre}\n"
+                        f"💼 Plan: {servicio_nombre}\n"
+                        f"📅 Recogida: {fecha_formateada} a las {hora}\n"
+                        f"📅 Devolución: {renta.formatear_fecha(fecha_fin_renta)} a las {hora}\n"
+                        f"🗓️ Duración: {dias_renta} día(s)\n"
+                        f"💰 Total: ${renta.precio_total(servicio_precio, dias_renta):,.0f}\n"
+                        f"🎫 ID de reserva: #{cita_id}\n\n"
+                        f"¡Te esperamos!")
+
             # ✅ USAR PLANTILLA PARA CITA CONFIRMADA
             return renderizar_plantilla('cita_confirmada_exito', negocio_id, {
                 'nombre_cliente': nombre_cliente,
@@ -3469,6 +3325,10 @@ def continuar_conversacion(numero, mensaje, negocio_id):
             return procesar_seleccion_servicio(numero, mensaje, negocio_id)
         elif estado == 'seleccionando_servicio_personalizado':  # ✅ ESTA ES LA QUE FALTA
             return procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id)
+        elif estado in alquiler_chat.ESTADOS:
+            return alquiler_chat.continuar(numero, mensaje, negocio_id)
+        elif estado == 'seleccionando_dias':
+            return procesar_seleccion_dias(numero, mensaje, negocio_id)
         elif estado == 'seleccionando_fecha':
             return procesar_seleccion_fecha(numero, mensaje, negocio_id)
         elif estado == 'agendando_hora':
@@ -3508,6 +3368,7 @@ def continuar_conversacion(numero, mensaje, negocio_id):
         
     except Exception as e:
         print(f"❌ Error en continuar_conversacion: {e}")
+        _registrar_error(e, f'chat negocio {negocio_id} estado {estado}')
         import traceback
         traceback.print_exc()
         if clave_conversacion in conversaciones_activas:
@@ -3597,7 +3458,15 @@ def procesar_seleccion_servicio(numero, mensaje, negocio_id):
     guardar_historial_ia(clave_conversacion, 'user', f'Quiero el servicio {servicio_seleccionado["nombre"]}')
     
     print(f"🔧 [SYNC] Servicio '{servicio_seleccionado['nombre']}' guardado en historial de IA")
-    
+
+    # Plan por días de una renta de vehículos: primero se pregunta cuántos días
+    conversaciones_activas[clave_conversacion].pop('dias_renta', None)
+    if renta.es_renta_por_dias(_tipo_negocio(negocio_id), servicio_seleccionado['duracion']):
+        conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_dias'
+        return (f"🚗 {servicio_seleccionado['nombre']} - ${float(servicio_seleccionado['precio'] or 0):,.0f} por día\n\n"
+                f"¿Por cuántos días necesitas el vehículo? Elige una opción o escribe un número del 1 al {renta.MAX_DIAS}.\n"
+                f"Recoges y devuelves a la misma hora.")
+
     return mostrar_fechas_disponibles(numero, negocio_id)
 
 def procesar_seleccion_fecha(numero, mensaje, negocio_id):
@@ -3634,8 +3503,83 @@ def procesar_seleccion_fecha(numero, mensaje, negocio_id):
     guardar_historial_ia(clave_conversacion, 'user', f'Quiero la fecha {fecha_seleccionada}')
     
     print(f"🔧 [SYNC] Fecha '{fecha_seleccionada}' guardada en historial de IA")
-    
+
+    if conversaciones_activas[clave_conversacion].get('dias_renta'):
+        return mostrar_horas_recogida(numero, negocio_id, fecha_seleccionada)
+
     return mostrar_disponibilidad(numero, negocio_id, fecha_seleccionada)
+
+def procesar_seleccion_dias(numero, mensaje, negocio_id):
+    """Renta de vehículos: el cliente dice por cuántos días quiere el vehículo."""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    conversacion = conversaciones_activas[clave_conversacion]
+
+    if mensaje == '0':
+        conversacion['estado'] = 'menu_principal'
+        return "Volviendo al menú principal..."
+
+    if not mensaje.isdigit() or not (1 <= int(mensaje) <= renta.MAX_DIAS):
+        return f"❌ Escribe cuántos días necesitas el vehículo (un número del 1 al {renta.MAX_DIAS})."
+
+    conversacion['dias_renta'] = int(mensaje)
+    conversacion['timestamp'] = datetime.now(tz_reloj)
+    return mostrar_fechas_renta(numero, negocio_id)
+
+
+def mostrar_fechas_renta(numero, negocio_id):
+    """Renta de vehículos: fechas de recogida en las que el vehículo está libre todos los días que dura la renta."""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    conversacion = conversaciones_activas[clave_conversacion]
+    dias = conversacion['dias_renta']
+    vehiculo = conversacion.get('profesional_nombre', 'El vehículo')
+
+    ahora = datetime.now(tz_negocio)
+    candidatas = renta.candidatas_recogida(negocio_id, conversacion['profesional_id'], dias, ahora.date(), ahora)
+    if not candidatas:
+        conversacion['estado'] = 'seleccionando_dias'
+        return (f"😕 {vehiculo} no está libre {dias} día(s) seguidos en los próximos {renta.VENTANA_DIAS} días.\n\n"
+                f"Escribe otro número de días (menos días) o *0* para volver al menú y elegir otro vehículo.")
+
+    conversacion['fechas_disponibles'] = candidatas
+    conversacion['estado'] = 'seleccionando_fecha'
+    conversacion['timestamp'] = datetime.now(tz_reloj)
+    precio = float(conversacion.get('servicio_precio') or 0)
+    lineas = '\n'.join(f"{i}. {c['mostrar']}" for i, c in enumerate(candidatas, 1))
+    return (f"📅 {vehiculo} por {dias} día(s)\n"
+            f"💰 Total: ${renta.precio_total(precio, dias):,.0f} (${precio:,.0f} por día)\n\n"
+            f"Elige la fecha de recogida:\n\n{lineas}")
+
+
+def mostrar_horas_recogida(numero, negocio_id, fecha):
+    """Renta de vehículos: horas de recogida del día elegido."""
+    clave_conversacion = f"{numero}_{negocio_id}"
+    conversacion = conversaciones_activas[clave_conversacion]
+    horas = renta.horas_recogida(negocio_id, fecha, datetime.now(tz_negocio))
+    if not horas:
+        return f"❌ Ya no hay horas de recogida para el {renta.formatear_fecha(fecha)}. Elige otra fecha."
+    conversacion['todos_horarios'] = [convertir_a_formato_12_horas(h) for h in horas]
+    conversacion['fecha_seleccionada'] = fecha
+    conversacion['pagina_horarios'] = 0
+    conversacion['estado'] = 'agendando_hora'
+    conversacion['timestamp'] = datetime.now(tz_reloj)
+    return (f"⏰ ¿A qué hora recoges el vehículo el {renta.formatear_fecha(fecha)}?\n\n"
+            f"Devolverás el {renta.formatear_fecha(renta.fecha_devolucion(fecha, conversacion['dias_renta']))} a la misma hora.")
+
+
+def _resumen_renta(conversacion, nombre_cliente):
+    dias = conversacion['dias_renta']
+    fecha = conversacion['fecha_seleccionada']
+    precio = float(conversacion.get('servicio_precio') or 0)
+    hora = conversacion['hora_seleccionada']
+    return (f"✅ Confirmar reserva\n\n"
+            f"Hola {nombre_cliente}, ¿confirmas tu reserva?\n\n"
+            f"🚗 Vehículo: {conversacion['profesional_nombre']}\n"
+            f"💼 Plan: {conversacion['servicio_nombre']}\n"
+            f"📅 Recogida: {renta.formatear_fecha(fecha)} a las {hora}\n"
+            f"📅 Devolución: {renta.formatear_fecha(renta.fecha_devolucion(fecha, dias))} a las {hora}\n"
+            f"🗓️ Duración: {dias} día(s)\n"
+            f"💰 Total: ${renta.precio_total(precio, dias):,.0f} (${precio:,.0f} por día)")
+
 
 def procesar_seleccion_hora(numero, mensaje, negocio_id):
     """Procesar selección de horario - ACTUALIZADO"""
@@ -3649,6 +3593,8 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     # ✅ Navegación de horarios y cambio de fecha
     if mensaje == '7':  # Cambiar fecha
         conversaciones_activas[clave_conversacion]['estado'] = 'seleccionando_fecha'
+        if conversaciones_activas[clave_conversacion].get('dias_renta'):
+            return mostrar_fechas_renta(numero, negocio_id)
         return mostrar_fechas_disponibles(numero, negocio_id)
         
     elif mensaje == '8':  # Página anterior
@@ -3709,6 +3655,9 @@ def procesar_seleccion_hora(numero, mensaje, negocio_id):
     fecha_seleccionada = conversaciones_activas[clave_conversacion]['fecha_seleccionada']
     fecha_formateada = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
     
+    if conversaciones_activas[clave_conversacion].get('dias_renta'):
+        return _resumen_renta(conversaciones_activas[clave_conversacion], nombre_cliente)
+
     # ✅ USAR PLANTILLA PARA CONFIRMACIÓN DE CITA
     return renderizar_plantilla('confirmacion_cita', negocio_id, {
         'nombre_cliente': nombre_cliente,
@@ -3782,6 +3731,8 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
                 conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
             return renderizar_plantilla('error_generico', negocio_id)
         
+        _avisar_cancelacion_al_profesional(int(cita_id), negocio_id)
+
         # Limpiar datos de cancelación pero mantener la conversación
         if clave_conversacion in conversaciones_activas:
             # Eliminar solo los datos de cancelación
@@ -3824,77 +3775,77 @@ def procesar_cancelacion_cita(numero, mensaje, negocio_id):
         
         return renderizar_plantilla('error_generico', negocio_id)
 
-def procesar_cancelacion_directa(numero, cita_id, negocio_id):
-    """Procesar cancelación cuando solo hay una cita"""
+def _avisar_cancelacion_al_profesional(cita_id, negocio_id):
+    """Cuando un cliente cancela, el profesional recibe el aviso (lista interna + push)."""
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT profesional_id, cliente_nombre, fecha, hora FROM citas WHERE id = %s AND negocio_id = %s', (cita_id, negocio_id))
+        fila = cursor.fetchone()
+        conn.close()
+        if not fila:
+            return
+        d = dict(fila) if hasattr(fila, 'keys') else {'profesional_id': fila[0], 'cliente_nombre': fila[1], 'fecha': fila[2], 'hora': fila[3]}
+        fecha = d['fecha'].strftime('%d/%m') if hasattr(d['fecha'], 'strftime') else str(d['fecha'])[:10]
+        hora = d['hora'].strftime('%H:%M') if hasattr(d['hora'], 'strftime') else str(d['hora'])[:5]
+        enviar_notificacion_push_local(
+            d['profesional_id'], 'Cita cancelada',
+            f"{d.get('cliente_nombre') or 'Un cliente'} canceló su cita del {fecha} a las {hora}", cita_id=cita_id)
+    except Exception as e:
+        print(f"⚠️ No se pudo avisar la cancelación al profesional: {type(e).__name__}: {e}")
+
+
+def procesar_cancelacion_directa(numero, cita_id, negocio_id, telefono_verificado=None):
+    """Cancela una cita SOLO si pertenece al cliente identificado en la conversación (o ``telefono_verificado``).
+
+    Antes, sin teléfono conocido, tomaba el teléfono de la propia cita y la cancelaba: cualquiera podía cancelar
+    la cita de otra persona con solo conocer su número de cita. Tampoco decía la verdad si no cancelaba nada.
+    """
     print(f"🔧 [DEBUG-CANCELAR-DIRECTO] Cancelando cita ID: {cita_id}")
-    
-    if cita_id == '0':
-        clave_conversacion = f"{numero}_{negocio_id}"
+    clave_conversacion = f"{numero}_{negocio_id}"
+
+    if str(cita_id) == '0':
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
         return "Volviendo al menú principal..."
-    
-    # Cancelar cita directamente
+
+    if not str(cita_id).isdigit():
+        return 'Necesito un ID de cita válido para cancelar la reserva.'
+
+    conversacion = conversaciones_activas.get(clave_conversacion, {})
+    telefono_real = telefono_verificado or conversacion.get('telefono_cliente')
+    if not telefono_real:
+        return "Para cancelar una cita primero necesito identificarte con tu número de teléfono. Escribe *hola* para empezar."
+
     try:
-        from database import get_db_connection
-        conn = get_db_connection()
+        conn = db.get_db_connection()
         cursor = conn.cursor()
-        
-        # Obtener teléfono REAL de la conversación
-        clave_conversacion = f"{numero}_{negocio_id}"
-        telefono_real = None
-        if clave_conversacion in conversaciones_activas:
-            telefono_real = conversaciones_activas[clave_conversacion].get('telefono_cliente')
-        
-        if not telefono_real:
-            print(f"⚠️ [DEBUG-CANCELAR-DIRECTO] No hay teléfono, buscando en BD...")
-            # Buscar teléfono de la cita
-            cursor.execute('''
-                SELECT cliente_telefono FROM citas WHERE id = %s AND negocio_id = %s
-            ''', (cita_id, negocio_id))
-            
-            resultado = cursor.fetchone()
-            if resultado:
-                telefono_real = resultado[0] if isinstance(resultado, tuple) else resultado.get('cliente_telefono')
-                print(f"✅ [DEBUG-CANCELAR-DIRECTO] Teléfono obtenido de BD: {telefono_real}")
-        
-        # Cancelar la cita
-        if telefono_real:
-            cursor.execute('''
-                UPDATE citas SET estado = %s 
-                WHERE id = %s AND negocio_id = %s AND cliente_telefono = %s
-            ''', ('cancelado', int(cita_id), negocio_id, telefono_real))
-        else:
-            cursor.execute('''
-                UPDATE citas SET estado = %s 
-                WHERE id = %s AND negocio_id = %s
-            ''', ('cancelado', int(cita_id), negocio_id))
-        
+        cursor.execute('''
+            UPDATE citas SET estado = 'cancelado'
+            WHERE id = %s AND negocio_id = %s AND cliente_telefono = %s AND estado IN ('confirmado', 'confirmada')
+        ''', (int(cita_id), negocio_id, telefono_real))
         filas_afectadas = cursor.rowcount
         conn.commit()
         conn.close()
-        
-        print(f"✅ [DEBUG-CANCELAR-DIRECTO] Cita cancelada. Filas afectadas: {filas_afectadas}")
-        
-        # Obtener nombre del cliente
-        nombre_cliente = 'Cliente'
-        if clave_conversacion in conversaciones_activas:
-            nombre_cliente = conversaciones_activas[clave_conversacion].get('cliente_nombre', 'Cliente')
-        
+
         if clave_conversacion in conversaciones_activas:
             conversaciones_activas[clave_conversacion]['estado'] = 'menu_principal'
-        
+
+        if filas_afectadas == 0:
+            return f"No encontré una cita activa tuya con el ID #{cita_id}. Escribe *2* para ver tus citas."
+
+        _avisar_cancelacion_al_profesional(int(cita_id), negocio_id)
+        nombre_cliente = conversacion.get('cliente_nombre', 'Cliente')
         return f'''❌ **Cita cancelada exitosamente**
 
 Hola {nombre_cliente}, has cancelado tu cita (ID: #{cita_id}).
 
 Esperamos verte pronto en otra ocasión.'''
-        
+
     except Exception as e:
         print(f"❌ [DEBUG-CANCELAR-DIRECTO] Error cancelando cita: {e}")
         import traceback
         traceback.print_exc()
-        
         return renderizar_plantilla('error_generico', negocio_id)
 
 def obtener_proximas_fechas_disponibles(negocio_id, dias_a_mostrar=7):

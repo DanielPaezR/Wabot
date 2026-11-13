@@ -490,9 +490,14 @@
             
             <a href="{{ url_for('admin_plantillas') }}" class="nav-card nav-card-plantillas">
                 <h2>Plantillas Base</h2>
-                <p>Gestiona las plantillas base de WhatsApp para todos los negocios del sistema.</p>
+                <p>Gestiona las plantillas base de mensajes para todos los negocios del sistema.</p>
             </a>
             
+            <a href="{{ url_for('admin_errores') }}" class="nav-card nav-card-plantillas">
+                <h2>Estado y errores</h2>
+                <p>Salud de la aplicación, recordatorios, notificaciones y errores recientes.</p>
+            </a>
+
             <!-- NUEVO: Card para Base de Datos -->
             <a href="#" class="nav-card nav-card-base-datos" onclick="openDatabaseModal(event)">
                 <h2>Base de Datos</h2>
@@ -523,10 +528,12 @@
                 <span class="status-name">Sistema de Citas</span>
                 <span class="status-value status-online">Operativo</span>
             </div>
+{% if whatsapp_activo %}
             <div class="status-item">
                 <span class="status-name">Integración WhatsApp</span>
                 <span class="status-value status-online">Configurado</span>
             </div>
+{% endif %}
         </div>
 
         <!-- Usuarios Recientes -->

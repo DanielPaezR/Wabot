@@ -20,7 +20,8 @@ def get_db_connection():
 def _es_suscripcion_muerta(webpush_exception):
     """404/410 significa que el navegador invalidó la suscripción: ya no sirve reintentar"""
     response = getattr(webpush_exception, 'response', None)
-    return bool(response) and response.status_code in (404, 410)
+    # OJO: bool(response) es False para respuestas 4xx/5xx de requests, por eso se compara con None
+    return response is not None and response.status_code in (404, 410)
 
 def _desactivar_suscripcion(tabla, suscripcion_id):
     """Marcar una suscripción push como inactiva para dejar de reintentarle envíos muertos"""
@@ -33,6 +34,105 @@ def _desactivar_suscripcion(tabla, suscripcion_id):
         print(f"🗑️ Suscripción {suscripcion_id} de {tabla} desactivada (expirada/inválida)")
     except Exception as e:
         print(f"⚠️ Error desactivando suscripción {suscripcion_id}: {e}")
+
+def _clave_privada():
+    return (os.getenv('VAPID_PRIVATE_KEY') or '').strip()
+
+
+def _vapid_subject():
+    """Identificación que exigen los servicios push (mailto: o https://). Apple rechaza el envío si está vacía."""
+    s = (os.getenv('VAPID_SUBJECT') or '').strip()
+    if s.startswith('mailto:') or s.startswith('https://'):
+        return s
+    if '@' in s:
+        return 'mailto:' + s
+    return (os.getenv('APP_BASE_URL') or 'https://wabot-production-d544.up.railway.app').strip()
+
+
+def _enviar_a_suscripciones(tabla, suscripciones, payload, ttl=86400):
+    """Envía ``payload`` a TODOS los dispositivos. Devuelve (enviados, fallidos).
+
+    - Cada envío lleva sus propios claims VAPID: pywebpush les añade el destino ('aud') del servicio push, y
+      reutilizar el mismo diccionario hacía que los dispositivos de otro servicio (Android/Apple/Firefox) fallaran.
+    - Las suscripciones que el servicio da por muertas (404/410) se desactivan para no reintentarlas.
+    """
+    clave = _clave_privada()
+    if not clave:
+        print("⚠️ VAPID_PRIVATE_KEY no configurada: push omitido")
+        return 0, len(suscripciones)
+    cuerpo = json.dumps(payload, ensure_ascii=False)
+    enviados = fallidos = 0
+    for s in suscripciones:
+        try:
+            info = s.get('subscription_json')
+            info = json.loads(info) if isinstance(info, str) else info
+            webpush(subscription_info=info, data=cuerpo, vapid_private_key=clave,
+                    vapid_claims={'sub': _vapid_subject()}, ttl=ttl, timeout=10)
+            enviados += 1
+        except WebPushException as e:
+            fallidos += 1
+            if _es_suscripcion_muerta(e):
+                _desactivar_suscripcion(tabla, s.get('id'))
+            else:
+                print(f"❌ Error enviando push: {type(e).__name__}: {str(e)[:200]}")
+        except Exception as e:
+            fallidos += 1
+            print(f"❌ Error enviando push: {type(e).__name__}: {str(e)[:200]}")
+    return enviados, fallidos
+
+
+def enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=None, url=None, guardar=True):
+    """Aviso a un profesional: queda en su lista de notificaciones (si ``guardar``) y se envía push a TODOS sus dispositivos.
+
+    Devuelve {'enviados': n, 'fallidos': m, 'suscripciones': k}.
+    """
+    if guardar:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO notificaciones_profesional (profesional_id, tipo, titulo, mensaje, leida, cita_id)
+                VALUES (%s, 'push', %s, %s, FALSE, %s)
+            ''', (profesional_id, titulo, mensaje, cita_id))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar la notificación del profesional {profesional_id}: {e}")
+    suscripciones = obtener_suscripciones_profesional(profesional_id)
+    if not suscripciones:
+        return {'enviados': 0, 'fallidos': 0, 'suscripciones': 0}
+    payload = {
+        'title': titulo,
+        'body': mensaje,
+        'url': url or ('/profesional?cita=%s' % cita_id if cita_id else '/profesional'),
+        'citaId': cita_id,
+        'tag': ('cita-%s' % cita_id) if cita_id else None,
+        'icon': '/static/icons/icon-192x192.png',
+        'timestamp': datetime.now().isoformat(),
+    }
+    enviados, fallidos = _enviar_a_suscripciones('suscripciones_push', suscripciones, payload)
+    return {'enviados': enviados, 'fallidos': fallidos, 'suscripciones': len(suscripciones)}
+
+def enviar_push_propietarios(negocio_id, titulo, mensaje, url='/negocio'):
+    """Push a todos los dispositivos de los propietarios del negocio. Devuelve cuántos dispositivos lo recibieron."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT s.id, s.subscription_json
+            FROM suscripciones_push_usuarios s JOIN usuarios u ON u.id = s.usuario_id
+            WHERE u.negocio_id = %s AND u.rol = 'propietario' AND COALESCE(u.activo, TRUE) = TRUE AND s.activa = TRUE
+        ''', (negocio_id,))
+        suscripciones = [dict(f) if hasattr(f, 'keys') else {'id': f[0], 'subscription_json': f[1]} for f in cursor.fetchall()]
+    finally:
+        conn.close()
+    if not suscripciones:
+        return 0
+    payload = {'title': titulo, 'body': mensaje, 'url': url, 'icon': '/static/icons/icon-192x192.png',
+               'tag': 'negocio-%s' % negocio_id, 'timestamp': datetime.now().isoformat()}
+    enviados, _ = _enviar_a_suscripciones('suscripciones_push_usuarios', suscripciones, payload)
+    return enviados
+
 
 # ==================== FUNCIONES PARA PROFESIONALES ====================
 
@@ -137,57 +237,23 @@ def guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_
         conn.close()
 
 def enviar_notificacion_cliente(telefono, negocio_id, titulo, mensaje, cita_id=None, url=None):
-    """Enviar notificación push a un cliente"""
+    """Enviar notificación push a un cliente (todos sus dispositivos suscritos)."""
     try:
-        if not VAPID_PRIVATE_KEY:
-            print("⚠️ VAPID_PRIVATE_KEY no configurada")
-            return False
-        
         suscripciones = obtener_suscripciones_cliente(telefono, negocio_id)
-        
         if not suscripciones:
-            print(f"⚠️ Cliente {telefono} no tiene suscripciones push")
+            print(f"⚠️ Cliente ...{str(telefono)[-4:]} no tiene suscripciones push")
             return False
-        
-        vapid_claims = {
-            "sub": VAPID_SUBJECT,
-            "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
-        }
-        
         payload = {
             'title': titulo,
             'body': mensaje,
             'url': url or f'/cliente/{negocio_id}',
             'citaId': cita_id,
+            'tag': ('cita-%s' % cita_id) if cita_id else None,
             'icon': '/static/icons/icon-192x192.png',
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
         }
-        
-        enviados = 0
-        for suscripcion in suscripciones:
-            try:
-                subscription_data = suscripcion.get('subscription_json')
-                if isinstance(subscription_data, str):
-                    subscription = json.loads(subscription_data)
-                else:
-                    subscription = subscription_data
-                
-                webpush(
-                    subscription_info=subscription,
-                    data=json.dumps(payload),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims=vapid_claims
-                )
-                enviados += 1
-            except WebPushException as e:
-                print(f"❌ Error enviando push a cliente: {e}")
-                if _es_suscripcion_muerta(e):
-                    _desactivar_suscripcion('suscripciones_push_clientes', suscripcion.get('id'))
-            except Exception as e:
-                print(f"❌ Error enviando push a cliente: {e}")
-
+        enviados, _ = _enviar_a_suscripciones('suscripciones_push_clientes', suscripciones, payload)
         return enviados > 0
-
     except Exception as e:
         print(f"❌ Error en enviar_notificacion_cliente: {e}")
         return False
@@ -229,55 +295,11 @@ def enviar_notificacion_cita_creada(cita_data):
         return False
 
 def enviar_notificacion_profesional_cita_creada(profesional_id, cliente_nombre, fecha, hora, cita_id=None):
-    """Enviar notificación push a profesional cuando se crea una cita"""
+    """Push al profesional cuando se crea una cita (sin duplicar la entrada de su lista)."""
     try:
-        if not VAPID_PRIVATE_KEY:
-            return False
-        
-        suscripciones = obtener_suscripciones_profesional(profesional_id)
-        
-        if not suscripciones:
-            return False
-        
-        vapid_claims = {
-            "sub": VAPID_SUBJECT,
-            "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
-        }
-        
-        payload = {
-            'title': '📅 Nueva Cita Agendada',
-            'body': f"{cliente_nombre} - {fecha} {hora}",
-            'url': f"/profesional?cita={cita_id}",
-            'citaId': cita_id,
-            'icon': '/static/icons/icon-192x192.png',
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        enviados = 0
-        for suscripcion in suscripciones:
-            try:
-                subscription_data = suscripcion.get('subscription_json')
-                if isinstance(subscription_data, str):
-                    subscription = json.loads(subscription_data)
-                else:
-                    subscription = subscription_data
-                
-                webpush(
-                    subscription_info=subscription,
-                    data=json.dumps(payload),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims=vapid_claims
-                )
-                enviados += 1
-            except WebPushException as e:
-                print(f"❌ Error enviando push a profesional: {e}")
-                if _es_suscripcion_muerta(e):
-                    _desactivar_suscripcion('suscripciones_push', suscripcion.get('id'))
-            except Exception as e:
-                print(f"❌ Error enviando push a profesional: {e}")
-        
-        return enviados > 0
-        
+        r = enviar_push_profesional(profesional_id, 'Nueva cita agendada', f"{cliente_nombre} - {fecha} {hora}",
+                                    cita_id=cita_id, guardar=False)
+        return r['enviados'] > 0
     except Exception as e:
         print(f"❌ Error en enviar_notificacion_profesional_cita_creada: {e}")
         return False
@@ -319,245 +341,70 @@ def enviar_recordatorio_cita(cita_data, horas_antes=1):
 
 @push_bp.route('/api/push/subscribe', methods=['POST'])
 def subscribe_push():
-    """Registrar suscripción push (detecta automáticamente si es profesional o cliente)"""
+    """Registrar suscripción push. La identidad sale SIEMPRE de la sesión del servidor, nunca del cuerpo de la petición
+    (si no, cualquiera podría suscribir su dispositivo a las notificaciones de otro profesional o cliente)."""
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         subscription = data.get('subscription')
-        tipo = data.get('tipo', 'profesional')  # 'profesional' o 'cliente'
-        
-        if not subscription:
+        if not isinstance(subscription, dict) or not subscription.get('endpoint'):
             return jsonify({'success': False, 'error': 'Suscripción no proporcionada'}), 400
-        
         dispositivo_info = request.headers.get('User-Agent', '')[:500]
-        
-        if tipo == 'profesional':
-            profesional_id = data.get('profesional_id') or session.get('profesional_id')
-            if not profesional_id:
-                return jsonify({'success': False, 'error': 'Profesional ID requerido'}), 400
-            
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
-                VALUES (%s, %s, %s, TRUE)
-                ON CONFLICT (profesional_id, subscription_json) 
-                DO UPDATE SET activa = TRUE
-            ''', (profesional_id, json.dumps(subscription), dispositivo_info))
-            conn.commit()
-            conn.close()
-            
-        elif tipo == 'cliente':
-            telefono = data.get('telefono')
-            negocio_id = data.get('negocio_id')
-            
+
+        if data.get('tipo') == 'cliente':
+            telefono = session.get('cliente_telefono')
+            negocio_id = data.get('negocio_id') or session.get('negocio_id')
             if not telefono or not negocio_id:
-                return jsonify({'success': False, 'error': 'Teléfono y negocio requeridos'}), 400
-            
-            guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_info)
-        
+                return jsonify({'success': False, 'error': 'Identifícate en el chat con tu teléfono primero'}), 401
+            ok = guardar_suscripcion_cliente(telefono, int(negocio_id), subscription, dispositivo_info)
+            return jsonify({'success': ok}), (200 if ok else 500)
+
+        profesional_id = session.get('profesional_id')
+        if not profesional_id:
+            return jsonify({'success': False, 'error': 'No autenticado'}), 401
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info, activa)
+            VALUES (%s, %s, %s, TRUE)
+            ON CONFLICT (profesional_id, subscription_json) DO UPDATE SET activa = TRUE
+        ''', (profesional_id, json.dumps(subscription), dispositivo_info))
+        conn.commit()
+        conn.close()
         return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
-            
     except Exception as e:
         print(f"❌ Error en subscribe_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
 @push_bp.route('/api/push/subscribe-cliente', methods=['POST'])
 def subscribe_cliente_push():
-    """Registrar suscripción push de un cliente"""
+    """Suscripción push de un cliente: el teléfono sale de la sesión (el que verificó el chat), no del cuerpo."""
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         subscription = data.get('subscription')
-        telefono = data.get('telefono')
-        negocio_id = data.get('negocio_id')
-        
-        if not subscription or not telefono or not negocio_id:
-            return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
-        
-        dispositivo_info = request.headers.get('User-Agent', '')[:500]
-        
-        success = guardar_suscripcion_cliente(telefono, negocio_id, subscription, dispositivo_info)
-        
-        if success:
+        telefono = session.get('cliente_telefono')
+        negocio_id = data.get('negocio_id') or session.get('negocio_id')
+        if not telefono or not negocio_id:
+            return jsonify({'success': False, 'error': 'Identifícate en el chat con tu teléfono primero'}), 401
+        if not isinstance(subscription, dict) or not subscription.get('endpoint'):
+            return jsonify({'success': False, 'error': 'Suscripción no proporcionada'}), 400
+        ok = guardar_suscripcion_cliente(telefono, int(negocio_id), subscription, request.headers.get('User-Agent', '')[:500])
+        if ok:
             return jsonify({'success': True, 'message': 'Notificaciones activadas'})
-        else:
-            return jsonify({'success': False, 'error': 'Error al guardar'}), 500
-            
+        return jsonify({'success': False, 'error': 'Error al guardar'}), 500
     except Exception as e:
         print(f"❌ Error en subscribe_cliente_push: {e}")
         return jsonify({'success': False, 'error': 'Error interno'}), 500
 
-@push_bp.route('/api/push/test-cliente', methods=['POST'])
-def test_push_cliente():
-    """Probar notificaciones push para cliente"""
-    try:
-        data = request.json
-        telefono = data.get('telefono')
-        negocio_id = data.get('negocio_id')
-        
-        if not telefono or not negocio_id:
-            return jsonify({'success': False, 'error': 'Teléfono y negocio requeridos'}), 400
-        
-        success = enviar_notificacion_cliente(
-            telefono, 
-            negocio_id,
-            "🔔 Prueba de Notificación",
-            "¡Las notificaciones push funcionan correctamente!",
-            url=f"/cliente/{negocio_id}"
-        )
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Notificación de prueba enviada'})
-        else:
-            return jsonify({'success': False, 'message': 'No hay suscripciones activas'})
-            
-    except Exception as e:
-        print(f"❌ Error en test_push_cliente: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 # ==================== RUTAS EXISTENTES ====================
-
-@push_bp.route('/api/push/send', methods=['POST'])
-def send_push_notification():
-    """Enviar notificación push (para uso interno)"""
-    try:
-        data = request.json
-        profesional_id = data.get('profesional_id')
-        title = data.get('title', '📅 Nueva Cita')
-        body = data.get('body', '')
-        url = data.get('url', '/profesional')
-        cita_id = data.get('cita_id')
-        
-        if not profesional_id:
-            return jsonify({'success': False, 'error': 'Profesional ID requerido'}), 400
-        
-        if not VAPID_PRIVATE_KEY:
-            return jsonify({'success': False, 'error': 'VAPID_PRIVATE_KEY no configurada'}), 500
-        
-        suscripciones = obtener_suscripciones_profesional(profesional_id)
-        
-        if not suscripciones:
-            return jsonify({'success': False, 'error': 'No hay suscripciones activas'}), 404
-        
-        vapid_claims = {
-            "sub": VAPID_SUBJECT,
-            "exp": int((datetime.now(timezone.utc) + timedelta(hours=12)).timestamp())
-        }
-        
-        payload = {
-            'title': title,
-            'body': body,
-            'url': url,
-            'citaId': cita_id,
-            'icon': '/static/icons/icon-192x192.png',
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        resultados = []
-        for suscripcion in suscripciones:
-            try:
-                subscription_data = suscripcion.get('subscription_json')
-                if isinstance(subscription_data, str):
-                    subscription = json.loads(subscription_data)
-                else:
-                    subscription = subscription_data
-                
-                webpush(
-                    subscription_info=subscription,
-                    data=json.dumps(payload),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
-                    vapid_claims=vapid_claims
-                )
-                resultados.append({'success': True, 'dispositivo': suscripcion.get('dispositivo_info', '')})
-            except WebPushException as e:
-                print(f"❌ Error enviando push: {e}")
-                if _es_suscripcion_muerta(e):
-                    _desactivar_suscripcion('suscripciones_push', suscripcion.get('id'))
-                resultados.append({'success': False, 'error': str(e)})
-            except Exception as e:
-                print(f"❌ Error enviando push: {e}")
-                resultados.append({'success': False, 'error': str(e)})
-        
-        return jsonify({
-            'success': True,
-            'enviados': len([r for r in resultados if r['success']]),
-            'fallidos': len([r for r in resultados if not r['success']]),
-            'detalles': resultados
-        })
-        
-    except Exception as e:
-        print(f"❌ Error en send_push_notification: {e}")
-        return jsonify({'success': False, 'error': 'Error interno'}), 500
-
-@push_bp.route('/api/push/test-simple')
-def test_push_simple():
-    """Test SUPER SIMPLE de push"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT subscription_json FROM suscripciones_push LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
-            return jsonify({'error': 'No hay suscripciones'})
-        
-        if isinstance(result, dict):
-            sub_json = result.get('subscription_json')
-        else:
-            sub_json = result[0] if result else None
-        
-        if not sub_json:
-            return jsonify({'error': 'JSON vacío'})
-        
-        try:
-            subscription = json.loads(sub_json)
-        except:
-            return jsonify({'error': 'JSON inválido', 'json': sub_json[:100]})
-        
-        import time
-        
-        webpush(
-            subscription_info=subscription,
-            data=json.dumps({
-                'title': '✅ TEST SIMPLE',
-                'body': 'Funciona!',
-                'icon': '/static/icons/icon-192x192.png'
-            }),
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={
-                'sub': VAPID_SUBJECT,
-                'exp': int(time.time()) + 3600
-            }
-        )
-        
-        return jsonify({'success': True, 'message': '¡PUSH ENVIADO!'})
-        
-    except WebPushException as e:
-        error_info = {
-            'error': str(e),
-            'type': type(e).__name__,
-        }
-        
-        if hasattr(e, 'response'):
-            error_info['status_code'] = e.response.status_code if hasattr(e, 'response') else None
-            error_info['response_text'] = e.response.text[:200] if hasattr(e, 'response') and e.response.text else None
-        
-        return jsonify(error_info)
-        
-    except Exception as e:
-        return jsonify({'error': str(e), 'type': type(e).__name__})
 
 @push_bp.route('/api/push/debug-info')
 def debug_info():
-    """Información de debug de las claves (solo superadmin: expone metadatos de las claves VAPID)"""
+    """Estado de la configuración VAPID (solo superadmin; no expone las claves)."""
     if session.get('usuario_rol') != 'superadmin':
         return jsonify({'error': 'No autorizado'}), 403
-
+    publica = (os.getenv('VAPID_PUBLIC_KEY') or '').strip()
     return jsonify({
-        'VAPID_PUBLIC_KEY': VAPID_PUBLIC_KEY[:50] + '...' if VAPID_PUBLIC_KEY else None,
-        'VAPID_PUBLIC_KEY_length': len(VAPID_PUBLIC_KEY) if VAPID_PUBLIC_KEY else 0,
-        'VAPID_PRIVATE_KEY_exists': bool(VAPID_PRIVATE_KEY),
-        'VAPID_PRIVATE_KEY_length': len(VAPID_PRIVATE_KEY) if VAPID_PRIVATE_KEY else 0,
-        'VAPID_SUBJECT': VAPID_SUBJECT,
-        'claves_coinciden': VAPID_PUBLIC_KEY == 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU'
-    })
+        'VAPID_PUBLIC_KEY_length': len(publica),
+        'VAPID_PRIVATE_KEY_exists': bool(_clave_privada()),
+        'VAPID_SUBJECT_usado': _vapid_subject(),
+    })

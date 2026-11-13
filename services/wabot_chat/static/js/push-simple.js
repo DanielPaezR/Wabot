@@ -1,205 +1,118 @@
-// ============================================
-// push-simple.js - VERSIÓN PWA DEFINITIVA
-// ============================================
+// Suscripción a notificaciones push (profesionales y clientes). Una sola implementación.
+// - La clave pública VAPID se pide al servidor (antes estaba escrita a mano en dos archivos).
+// - La identidad (profesional o cliente) la determina la sesión del servidor, no lo que envíe esta página.
+(function () {
+    'use strict';
 
-console.log('🚀 PUSH PARA PWA INICIADO');
-
-// Función para convertir clave
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-    
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+    function base64AUint8(base64) {
+        const relleno = '='.repeat((4 - (base64.length % 4)) % 4);
+        const crudo = atob((base64 + relleno).replace(/-/g, '+').replace(/_/g, '/'));
+        return Uint8Array.from(crudo, c => c.charCodeAt(0));
     }
-    return outputArray;
-}
 
-// SOLUCIÓN: Esperar a que TODO esté listo
-window.addEventListener('load', function() {
-    console.log('✅ Página completamente cargada');
-    
-    setTimeout(function() {
-        inicializarPush();
-    }, 1000);
-});
-
-function inicializarPush() {
-    console.log('🔧 Inicializando sistema de push...');
-    
-    const button = document.getElementById('pushButton');
-    if (!button) {
-        console.log('ℹ️ Botón pushButton no encontrado (no es profesional)');
-        return;
+    function soportado() {
+        return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     }
-    
-    console.log('✅ Botón encontrado');
-    
-    // Mostrar información útil
-    console.log('📱 ¿Es PWA?', window.matchMedia('(display-mode: standalone)').matches);
-    console.log('🔔 Permiso actual:', Notification.permission);
-    
-    // Actualizar texto inicial del botón
-    if (Notification.permission === 'granted') {
-        button.textContent = '🔔 Notificaciones YA Activadas';
-        button.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-        button.disabled = true;
-        console.log('✅ Permiso ya concedido');
-    } else if (Notification.permission === 'denied') {
-        button.textContent = '🔔 Permitir en Configuración';
-        button.style.background = 'linear-gradient(135deg, #e74c3c, #c0392b)';
-        console.log('❌ Permiso bloqueado');
-        
-        // Cambiar comportamiento: abrir configuración
-        button.onclick = function() {
-            alert('Para activar notificaciones:\n\n1. Toca el 🔒 en la barra URL\n2. Ve a "Configuración del sitio"\n3. Busca "Notificaciones"\n4. Cambia a "Permitir"\n5. Recarga la página');
-        };
-        return;
-    }
-    
-    // Configurar evento click NORMAL
-    button.addEventListener('click', async function() {
-        console.log('🔘 Botón presionado');
-        
-        this.disabled = true;
-        this.textContent = '⏳ Activando...';
-        
-        try {
-            // 1. Registrar Service Worker (IMPORTANTE para PWA)
-            console.log('📝 Registrando Service Worker...');
-            const registration = await navigator.serviceWorker.register('/service-worker.js');
-            console.log('✅ Service Worker registrado:', registration.scope);
-            
-            // 2. Pedir permiso SOLO si es necesario
-            let permission = Notification.permission;
-            if (permission === 'default') {
-                console.log('🔔 Pidiendo permiso...');
-                permission = await Notification.requestPermission();
-                console.log('✅ Permiso:', permission);
-            }
-            
-            if (permission !== 'granted') {
-                alert('Por favor, permite las notificaciones para recibir alertas de citas.');
-                this.disabled = false;
-                this.textContent = '🔔 Activar Notificaciones';
-                return;
-            }
-            
-            // 3. Suscribirse a Push
-            console.log('🔐 Suscribiendo a push...');
-            const publicKey = 'BAMDIUN0qYyQ43XsRnO-kYKCYDXyPyKNC_nxn7wrBfbhyyxSxJYYWRYB36waU_XAoKHiD3sacxstM2YufRX7CrU';
-            
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey)
-            });
-            
-            console.log('✅ Suscrito. Endpoint:', subscription.endpoint.substring(0, 50) + '...');
-            
-            // 4. Enviar al servidor
-            const profesionalId = document.body.dataset.profesionalId;
-            console.log('👤 Profesional ID:', profesionalId);
-            
-            const response = await fetch('/push/api/push/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    subscription: subscription,
-                    profesional_id: profesionalId
-                })
-            });
-            
-            const result = await response.json();
-            console.log('📦 Respuesta:', result);
-            
-            if (result.success) {
-                // ¡ÉXITO!
-                this.textContent = '🔔 Notificaciones Activadas ✅';
-                this.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-                
-                alert('🎉 ¡LISTO! Ahora recibirás notificaciones cuando:\n• Agenden citas para ti\n• Hayan recordatorios\n• Novedades importantes');
-                
-                // Opcional: Mostrar notificación de prueba
-                if (registration.showNotification) {
-                    registration.showNotification('¡Configuración Exitosa!', {
-                        body: 'Las notificaciones push están activadas',
-                        icon: '/static/icons/icon-192x192.png'
-                    });
-                }
-                
-            } else {
-                throw new Error(result.error || 'Error del servidor');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error:', error);
-            alert('Error: ' + error.message);
-            this.disabled = false;
-            this.textContent = '🔔 Activar Notificaciones';
-        }
-    });
-    
-    console.log('✅ Sistema push listo');
-}
 
-// ============================================
-// FUNCIÓN PARA SUSCRIBIR CLIENTES (USADA POR index.html)
-// ============================================
-async function suscribirCliente(telefono, negocioId) {
-    try {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.log('❌ Push no soportado');
-            return false;
+    async function clavePublica() {
+        const r = await fetch('/api/push/public-key', { credentials: 'same-origin' });
+        const j = await r.json().catch(() => ({}));
+        if (!j.success || !j.publicKey) throw new Error('Las notificaciones no están configuradas en el servidor');
+        return j.publicKey;
+    }
+
+    function mismaClave(suscripcion, clave) {
+        const actual = suscripcion.options && suscripcion.options.applicationServerKey;
+        if (!actual) return false;
+        const a = new Uint8Array(actual);
+        return a.length === clave.length && a.every((v, i) => v === clave[i]);
+    }
+
+    /** Devuelve la suscripción push de este dispositivo (la crea si hace falta). Lanza un Error con un mensaje legible. */
+    async function obtenerSuscripcion() {
+        if (!soportado()) throw new Error('Tu navegador no admite notificaciones');
+        const registro = await navigator.serviceWorker.register('/service-worker.js');
+        await navigator.serviceWorker.ready;
+
+        let permiso = Notification.permission;
+        if (permiso === 'default') permiso = await Notification.requestPermission();
+        if (permiso !== 'granted') throw new Error('Permite las notificaciones en la configuración del sitio');
+
+        const clave = base64AUint8(await clavePublica());
+        let suscripcion = await registro.pushManager.getSubscription();
+        // Si la clave del servidor cambió, la suscripción vieja ya no funciona: se reemplaza
+        if (suscripcion && !mismaClave(suscripcion, clave)) {
+            await suscripcion.unsubscribe();
+            suscripcion = null;
         }
-        
-        // Pedir permiso
-        const permiso = await Notification.requestPermission();
-        if (permiso !== 'granted') {
-            console.log('❌ Permiso denegado');
-            return false;
-        }
-        
-        // Obtener clave pública
-        const vapidResponse = await fetch('/push/api/push/public-key');
-        const vapidData = await vapidResponse.json();
-        
-        if (!vapidData.success) {
-            console.log('❌ Error obteniendo VAPID');
-            return false;
-        }
-        
-        // Suscribirse
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey)
-        });
-        
-        console.log('✅ Suscripción creada');
-        
-        // Guardar en BD como cliente
-        const response = await fetch('/push/api/push/subscribe-cliente', {
-            method: 'POST',
+        return suscripcion || registro.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: clave });
+    }
+
+    async function enviarAlServidor(url, cuerpo) {
+        const r = await fetch(url, {
+            method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                subscription: subscription,
-                telefono: telefono,
-                negocio_id: negocioId
-            })
+            body: JSON.stringify(cuerpo),
         });
-        
-        const data = await response.json();
-        console.log('📥 Respuesta guardado:', data);
-        
-        return data.success === true;
-        
-    } catch (error) {
-        console.error('❌ Error suscribiendo cliente:', error);
-        return false;
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.success) throw new Error(j.error || 'No se pudo guardar la suscripción');
+        return j;
     }
-}
+
+    /** Profesional: activa los avisos en este dispositivo. */
+    window.suscribirProfesional = async function () {
+        const s = await obtenerSuscripcion();
+        await enviarAlServidor('/api/push/subscribe', { subscription: s.toJSON() });
+        return true;
+    };
+
+    /** Cliente: activa los avisos de sus citas. Devuelve {ok, error}. */
+    window.suscribirCliente = async function (_telefono, negocioId) {
+        try {
+            const s = await obtenerSuscripcion();
+            await enviarAlServidor('/api/push/subscribe-cliente', { subscription: s.toJSON(), negocio_id: negocioId });
+            return { ok: true };
+        } catch (e) {
+            return { ok: false, error: e.message };
+        }
+    };
+
+    function avisar(mensaje, tipo) {
+        if (typeof window.mostrarNotificacion === 'function') window.mostrarNotificacion(mensaje, tipo);
+        else alert(mensaje);
+    }
+
+    // ---- Botón "Activar avisos" del panel del profesional ----
+    function iniciarBotonProfesional() {
+        const boton = document.getElementById('pushButton');
+        if (!boton) return;
+        const poner = (texto, desactivado) => { boton.textContent = texto; boton.disabled = !!desactivado; };
+
+        if (!soportado()) { poner('Avisos no disponibles', true); return; }
+
+        if (Notification.permission === 'denied') {
+            poner('Avisos bloqueados');
+            boton.addEventListener('click', () => avisar('Para activar los avisos: abre la configuración del sitio en tu navegador, permite "Notificaciones" y recarga la página.', 'warning'));
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            // Ya hay permiso: se vuelve a registrar el dispositivo en silencio para mantener sincronizado el servidor
+            window.suscribirProfesional().then(() => poner('Avisos activados', true)).catch(() => poner('Activar avisos'));
+        }
+
+        boton.addEventListener('click', async () => {
+            poner('Activando...', true);
+            try {
+                await window.suscribirProfesional();
+                poner('Avisos activados', true);
+                avisar('Listo: recibirás avisos de citas nuevas, canceladas y recordatorios en este dispositivo');
+            } catch (e) {
+                poner('Activar avisos');
+                avisar(e.message, 'error');
+            }
+        });
+    }
+
+    window.addEventListener('load', () => setTimeout(iniciarBotonProfesional, 500));
+})();
