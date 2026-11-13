@@ -67,6 +67,69 @@
   --white: var(--wb-surface);
 }
 
+/* ---------- Modo claro (paneles; se activa con data-theme="light" en <html>) ----------
+   El acento se oscurece para que el texto dorado cumpla contraste 4.5:1 sobre blanco. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --wb-bg: #f6f5f2;
+  --wb-surface: #ffffff;
+  --wb-surface-2: #f4f3ef;
+  --wb-surface-3: #e9e7e1;
+  --wb-line: rgba(24, 20, 12, 0.1);
+  --wb-line-strong: rgba(24, 20, 12, 0.2);
+
+  --wb-text: #18181b;
+  --wb-text-2: #4b4b54;
+  --wb-text-3: #66666f;
+
+  --wb-accent: #8a6220;
+  --wb-accent-ink: #ffffff;
+  --wb-accent-hover: color-mix(in srgb, var(--wb-accent) 86%, #000);
+  --wb-accent-soft: color-mix(in srgb, var(--wb-accent) 10%, transparent);
+  --wb-accent-line: color-mix(in srgb, var(--wb-accent) 32%, transparent);
+
+  --wb-ok: #15803d;
+  --wb-ok-soft: rgba(22, 163, 74, 0.1);
+  --wb-bad: #b91c1c;
+  --wb-bad-soft: rgba(220, 38, 38, 0.08);
+  --wb-warn: #a16207;
+  --wb-warn-soft: rgba(202, 138, 4, 0.12);
+  --wb-info-soft: rgba(37, 99, 235, 0.08);
+  --wb-ok-text: #166534;
+  --wb-bad-text: #991b1b;
+  --wb-warn-text: #854d0e;
+  --wb-info-text: #1e40af;
+  --wb-ok-line: rgba(22, 163, 74, 0.3);
+  --wb-bad-line: rgba(220, 38, 38, 0.28);
+  --wb-warn-line: rgba(202, 138, 4, 0.32);
+  --wb-info-line: rgba(37, 99, 235, 0.25);
+
+  --wb-shadow: 0 14px 34px -18px rgba(24, 20, 12, 0.28);
+
+  /* más oscuros: también se usan como color de texto sobre fondo claro */
+  --wb-ok-solid: #15803d;
+  --wb-bad-solid: #b91c1c;
+
+  --primary: var(--wb-accent);
+  --primary-dark: color-mix(in srgb, var(--wb-accent) 80%, #000);
+  --primary-soft: var(--wb-accent-soft);
+  --success: var(--wb-ok-solid);
+  --success-soft: var(--wb-ok-soft);
+  --danger: var(--wb-bad-solid);
+  --danger-soft: var(--wb-bad-soft);
+  --warning: var(--wb-warn);
+  --dark: var(--wb-text);
+  --mid: var(--wb-text-2);
+  --text: #2e2e35;
+  --text-light: var(--wb-text-3);
+  --border: var(--wb-line);
+  --bg: var(--wb-bg);
+  --white: var(--wb-surface);
+}
+:root[data-theme="light"] .wb-alert-error { color: var(--wb-bad-text); border-color: var(--wb-bad-line); }
+:root[data-theme="light"] .wb-alert-success { color: var(--wb-ok-text); border-color: var(--wb-ok-line); }
+
 /* ---------- Íconos ---------- */
 .ic {
   width: 20px;
@@ -383,3 +446,34 @@ body.wb-client {
 /* En el chat y el directorio, verde/rojo claros (se usan como texto sobre fondo oscuro) */
 .wb-client,
 .wb-dir { --success: var(--wb-ok); --danger: var(--wb-bad); }
+
+/* ---------- Chat del cliente en pantallas anchas: columna centrada ---------- */
+@media (min-width: 900px) {
+  body.wb-client {
+    --col: 760px;
+    --col-borde: calc(50% - var(--col) / 2);
+    background:
+      radial-gradient(900px 520px at 50% -12%, var(--wb-accent-soft), transparent 70%),
+      var(--wb-bg);
+  }
+  .wb-client .app {
+    max-width: var(--col);
+    margin: 0 auto;
+    background: var(--wb-bg);
+    border-inline: 1px solid var(--wb-line);
+    box-shadow: 0 0 80px -30px rgba(0, 0, 0, 0.8);
+  }
+  .wb-client .chat-input-bar,
+  .wb-client .bottom-bar,
+  .wb-client .bottom-sheet {
+    left: var(--col-borde);
+    right: var(--col-borde);
+  }
+  .wb-client .bottom-bar { border-inline: 1px solid var(--wb-line); }
+  .wb-client .bottom-sheet { border-radius: var(--wb-r-lg) var(--wb-r-lg) 0 0; }
+  .wb-client .fab-menu {
+    left: calc(var(--col-borde) + 1rem);
+    right: calc(var(--col-borde) + 1rem);
+  }
+  .wb-client .msg { max-width: 72%; }
+}
