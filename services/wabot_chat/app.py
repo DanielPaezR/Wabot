@@ -8091,16 +8091,26 @@ def _wa_limpiar_estado():
 @app.route('/api/whatsapp/webhook', methods=['POST'])
 def whatsapp_webhook():
     """
-    Endpoint que n8n llamará cuando llegue un mensaje de WhatsApp
-    Reutiliza TODA la lógica de web_chat_handler.py
+    Endpoint que n8n llama cuando llega un mensaje de WhatsApp.
+    Reutiliza TODA la lógica de web_chat_handler.py (ver procesar_whatsapp_entrante).
     """
     if not _webhook_whatsapp_autorizado():
         return jsonify({'error': 'No autorizado'}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'error': 'Se esperaba un cuerpo JSON'}), 400
+    respuesta, estado = procesar_whatsapp_entrante(data)
+    return jsonify(respuesta), estado
 
+
+def procesar_whatsapp_entrante(data):
+    """Procesa un mensaje de WhatsApp ya normalizado y devuelve (respuesta, código_http).
+
+    data = {"from": "+573001234567" (cliente), "to": "+573009876543" (número del negocio),
+            "message": "Hola, quiero agendar una cita", "message_id": "wamid.123"}
+    Lo usan el endpoint de n8n y la conexión directa con Meta (whatsapp_meta.py).
+    """
     try:
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({'error': 'Se esperaba un cuerpo JSON'}), 400
         print(f"📱 [WHATSAPP] Mensaje recibido (id={data.get('message_id')}, {len(str(data.get('message') or ''))} caracteres)")
 
         # Meta/n8n reintentan entregas: un mismo message_id no se procesa dos veces
@@ -8108,34 +8118,25 @@ def whatsapp_webhook():
         _wa_limpiar_estado()
         if message_id and message_id in _wa_respuestas_recientes:
             print(f"♻️ [WHATSAPP] message_id repetido, devolviendo la respuesta anterior: {message_id}")
-            return jsonify(_wa_respuestas_recientes[message_id][1])
-        
-        # Extraer datos que n8n enviará
-        # Formato esperado:
-        # {
-        #   "from": "+573001234567",  # número del cliente
-        #   "to": "+573009876543",    # número del negocio (para identificar qué negocio es)
-        #   "message": "Hola, quiero agendar una cita",
-        #   "message_id": "wamid.123456789"
-        # }
-        
-        cliente_telefono = data.get('from', '').strip()
-        numero_negocio = data.get('to', '').strip()
-        mensaje = data.get('message', '').strip()
-        
+            return _wa_respuestas_recientes[message_id][1], 200
+
+        cliente_telefono = str(data.get('from') or '').strip()
+        numero_negocio = str(data.get('to') or '').strip()
+        mensaje = str(data.get('message') or '').strip()
+
         if not cliente_telefono or not numero_negocio or not mensaje:
-            return jsonify({'error': 'Datos incompletos'}), 400
-        
+            return {'error': 'Datos incompletos'}, 400
+
         # Limpiar número de teléfono (eliminar +, espacios, etc.)
         cliente_telefono_limpio = re.sub(r'[^0-9]', '', cliente_telefono)
-        
+
         # 1. IDENTIFICAR QUÉ NEGOCIO ES según el número de WhatsApp
         negocio_id = obtener_negocio_por_numero_whatsapp(numero_negocio)
-        
+
         if not negocio_id:
             print(f"❌ [WHATSAPP] Número {numero_negocio} no está registrado a ningún negocio")
-            return jsonify({'error': 'Número no registrado'}), 404
-        
+            return {'error': 'Número no registrado'}, 404
+
         print(f"🏢 [WHATSAPP] Negocio ID: {negocio_id}")
         fijar_negocio(negocio_id)
 
@@ -8148,16 +8149,15 @@ def whatsapp_webhook():
             cliente_telefono_limpio = normalizar_telefono(
                 cliente_telefono, negocio_id, permisivo=True
             ) or cliente_telefono_limpio
-        
+
         print(f"📱 [WHATSAPP] Teléfono terminado en ...{cliente_telefono_limpio[-4:]}")
-        
+
         # 2. CREAR O RECUPERAR SESIÓN (igual que en chat web)
         session_id = f"wa_{cliente_telefono_limpio}_{negocio_id}"
-        
-        # Inicializar sesión en memoria (similar a flask_session pero para WhatsApp)
+
         if 'whatsapp_sessions' not in app.config:
             app.config['whatsapp_sessions'] = {}
-        
+
         # La sesión se guarda en la base de datos: sobrevive a los despliegues y funciona con varios procesos
         import estado_conversacion
         clave_bd_wa = f"wa:{session_id}"
@@ -8169,7 +8169,6 @@ def whatsapp_webhook():
                 app.config['whatsapp_sessions'].pop(session_id, None)
 
         if session_id not in app.config['whatsapp_sessions']:
-            # Crear sesión nueva similar a la del chat web
             app.config['whatsapp_sessions'][session_id] = {
                 'cliente_telefono': cliente_telefono_limpio,
                 'chat_session_id': session_id,
@@ -8177,75 +8176,77 @@ def whatsapp_webhook():
                 'chat_step': 'inicio',
                 'datos_agendamiento': {}
             }
-        
+
         # 3. USAR LA MISMA FUNCIÓN QUE USA EL CHAT WEB
         from web_chat_handler import procesar_mensaje_chat
-        
+
         # Simular la sesión de Flask que espera la función
         class SimulatedSession:
             def __init__(self, data):
                 self._data = data
                 self.permanent = False
-            
+
             def get(self, key, default=None):
                 return self._data.get(key, default)
-            
+
             def __getitem__(self, key):
                 return self._data[key]
-            
+
             def __setitem__(self, key, value):
                 self._data[key] = value
-            
+
             def __contains__(self, key):
                 return key in self._data
-        
+
         app.config['whatsapp_sessions'][session_id]['_ultimo_uso'] = time_module.time()
         simulated_session = SimulatedSession(app.config['whatsapp_sessions'][session_id])
-        
-        # Procesar mensaje usando tu lógica existente
+
         respuesta = procesar_mensaje_chat(
             user_message=mensaje,
             session_id=session_id,
             negocio_id=negocio_id,
             session=simulated_session
         )
-        
+
         # Guardar cambios en la sesión simulada
         app.config['whatsapp_sessions'][session_id] = simulated_session._data
         estado_conversacion.guardar(clave_bd_wa, simulated_session._data)
-        
-        # 4. PREPARAR RESPUESTA PARA n8n
-        # n8n espera un formato específico para enviar de vuelta a WhatsApp
+
+        # 4. RESPUESTA PARA QUIEN ENVÍA EL MENSAJE (n8n o la conexión directa con Meta)
         respuesta_whatsapp = {
             'success': True,
             'to': cliente_telefono,  # Enviar respuesta al cliente
             'message': respuesta.get('message', ''),
             'session_id': session_id
         }
-        
-        # Si hay opciones (botones), incluirlas para que n8n las maneje
+
+        # Si hay opciones (botones), incluirlas
         if respuesta.get('options'):
-            # Convertir opciones al formato que WhatsApp espera (botones)
             respuesta_whatsapp['buttons'] = []
             for opt in respuesta['options']:
                 respuesta_whatsapp['buttons'].append({
                     'id': opt['value'],
                     'title': opt['text'][:20]  # WhatsApp tiene límite de 20 chars
                 })
-            # WhatsApp solo admite 3 botones de respuesta; con más opciones n8n debe enviar un mensaje de lista (máx. 10)
+            # WhatsApp solo admite 3 botones de respuesta; con más opciones se envía un mensaje de lista (máx. 10)
             respuesta_whatsapp['tipo_interactivo'] = 'botones' if len(respuesta_whatsapp['buttons']) <= 3 else 'lista'
 
-        print(f"✅ [WHATSAPP] Respuesta generada: {respuesta_whatsapp['message'][:100]}...")
+        print(f"✅ [WHATSAPP] Respuesta generada ({len(respuesta_whatsapp['message'])} caracteres)")
 
         if message_id:
             _wa_respuestas_recientes[message_id] = (time_module.time(), respuesta_whatsapp)
-        return jsonify(respuesta_whatsapp)
-        
+        return respuesta_whatsapp, 200
+
     except Exception as e:
         print(f"❌ [WHATSAPP] Error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return {'error': 'Error interno'}, 500
+
+
+# Conexión directa con la API de Meta (sin n8n). Inactiva hasta definir META_WHATSAPP_TOKEN, META_APP_SECRET y META_VERIFY_TOKEN.
+import whatsapp_meta
+whatsapp_meta.registrar(app, procesar_whatsapp_entrante, reclamar=db.reclamar_ejecucion)
 
 
 @app.route('/api/whatsapp/negocio-por-numero', methods=['GET'])
