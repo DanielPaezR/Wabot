@@ -2677,9 +2677,18 @@ def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, c
     cursor = conn.cursor()
     
     try:
+        # Conservar las claves que este formulario no maneja (color de acento, etc.)
+        actual = fetch_one(cursor, 'SELECT configuracion FROM negocios WHERE id = ?', (negocio_id,))
+        valor = (actual.get('configuracion') if isinstance(actual, dict) else (actual[0] if actual else None)) if actual else None
+        try:
+            previa = json.loads(valor) if isinstance(valor, str) and valor else (valor if isinstance(valor, dict) else {})
+        except ValueError:
+            previa = {}
+        configuracion = {**previa, **(configuracion or {})}
+
         # Actualizar información básica del negocio
         sql = '''
-            UPDATE negocios 
+            UPDATE negocios
             SET nombre = ?, tipo_negocio = ?, emoji = ?, configuracion = ?
             WHERE id = ?
         '''

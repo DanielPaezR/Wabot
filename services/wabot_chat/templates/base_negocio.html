@@ -11,34 +11,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
     {% block extra_head %}{% endblock %}
+    {# bloques para la cabecera compartida #}
+    {% if false %}{% block panel_activa %}{% endblock %}{% block panel_titulo %}{% endblock %}{% endif %}
 </head>
 <body class="wb-panel">
-    <header class="navbar navbar-expand-lg navbar-dark mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('negocio_dashboard') }}">{{ session.negocio_nombre or 'Panel de Negocio' }}</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('negocio_prompt_ia') }}">Prompt IA</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('negocio_dashboard') }}">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-danger" href="{{ url_for('logout') }}">Salir</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </header>
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('negocio', self.panel_activa() | trim, self.panel_titulo() | trim) }}
 
-    <main class="container-fluid">
+    <main class="container-fluid py-4">
         {% block content %}{% endblock %}
     </main>
 

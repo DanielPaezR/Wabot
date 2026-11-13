@@ -62,7 +62,7 @@
             bottom: calc(var(--bar-h) + var(--safe-bottom) + 12px);
             left: 1rem; right: 1rem;
             background: var(--wb-surface-3);
-            color: #fff;
+            color: var(--wb-text);
             padding: 0.75rem 1rem;
             border-radius: 40px;
             text-align: center;
@@ -77,7 +77,7 @@
 
         /* ==================== HEADER COMPACTO ==================== */
         .header {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             padding: 0.85rem 1rem 0;
             box-shadow: 0 1px 0 var(--border);
             position: sticky;
@@ -132,7 +132,7 @@
             font-size: 10px;
             display: flex; align-items: center; justify-content: center;
             font-weight: 700;
-            border: 2px solid var(--var(--wb-surface));
+            border: 2px solid var(--wb-surface);
         }
 
         /* ==================== STATS PILLS ==================== */
@@ -216,7 +216,7 @@
             font-size: 0.75rem;
             font-weight: 600;
             border: 1px solid var(--border);
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             color: var(--text-light);
             cursor: pointer;
             transition: all 0.15s;
@@ -235,7 +235,7 @@
 
         /* ==================== PANEL NOTIFICACIONES ==================== */
         .notif-panel {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border-bottom: 1px solid var(--border);
             overflow: hidden;
             max-height: 0;
@@ -312,7 +312,7 @@
 
         /* Contenedor principal del timeline */
         .timeline-wrap {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border-radius: var(--radius);
             border: 1px solid var(--border);
             overflow: hidden;
@@ -516,7 +516,7 @@
         .modal-overlay.flex { display: flex; }
 
         .modal-sheet {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             width: 100%;
             max-width: 540px;
@@ -568,7 +568,7 @@
             color: var(--dark);
             transition: border-color 0.15s;
         }
-        .form-control:focus { outline: none; border-color: var(--primary); background: var(--var(--wb-surface)); }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--wb-surface); }
 
         .modal-footer {
             padding: 0.75rem 1rem 1rem;
@@ -591,7 +591,7 @@
         .bottom-bar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border-top: 1px solid var(--border);
             padding: 8px 0 calc(8px + var(--safe-bottom));
             z-index: 500;
@@ -676,7 +676,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border: 1px solid var(--border);
             border-radius: 40px;
             padding: 8px 16px 8px 12px;
@@ -744,13 +744,18 @@
             .fab-icon       { background: var(--wb-surface-2); }
             .notif-item     { background: var(--wb-accent); }
         }
+
+        /* Cabecera compartida + resumen del día */
+        .pro-resumen { max-width: 1200px; margin: 0 auto; padding: 0.85rem 1rem 0; }
+        .pro-notif-btn { position: relative; padding-inline: 12px; }
+        .pro-notif-btn .notif-badge { position: absolute; top: -4px; right: -4px; }
     </style>
     <meta name="theme-color" content="#0a0a0d">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
 
 </head>
 
@@ -765,23 +770,23 @@
     <!-- MENÚ FLOTANTE (opciones del profesional) -->
     <div class="fab-menu" id="fabMenu">
         <a href="{{ url_for('profesional_todas_citas') }}" class="fab-item">
-            <div class="fab-icon">📋</div>
+            <div class="fab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></div>
             <div><div class="fab-text">Todas mis citas</div></div>
         </a>
         <a href="/profesional/agendar" class="fab-item">
-            <div class="fab-icon">➕</div>
+            <div class="fab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div>
             <div><div class="fab-text">Nueva cita</div></div>
         </a>
         <a href="/profesional/perfil" class="fab-item">
-            <div class="fab-icon">👤</div>
+            <div class="fab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
             <div><div class="fab-text">Mi perfil</div></div>
         </a>
         <a href="/profesional/promociones" class="fab-item">
-            <div class="fab-icon">🏆</div>
+            <div class="fab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></div>
             <div><div class="fab-text">Promociones</div></div>
         </a>
         <button class="fab-item" onclick="openPasswordModal(); closeFab();" style="width:100%; cursor:pointer; background:none; border:1px solid var(--border);">
-            <div class="fab-icon">🔑</div>
+            <div class="fab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M17 6l3 3M15 8l2 2"/></svg></div>
             <div><div class="fab-text">Cambiar contraseña</div></div>
         </button>
     </div>
@@ -818,28 +823,16 @@
         </div>
     </div>
 
-    <!-- ==================== HEADER ==================== -->
-    <div class="header">
-        <div class="header-top">
-            <div>
-                <div class="welcome-name">{{ session.usuario_nombre }}</div>
-                <div class="welcome-biz">{{ session.negocio_nombre }}</div>
-            </div>
-            <div class="header-right">
-                <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}"
-                   style="text-decoration:none;">
-                    <button class="icon-btn" title="Estadísticas">📊</button>
-                </a>
-                <button class="icon-btn" onclick="toggleNotif()" title="Notificaciones">
+    {% from '_panel_header.html' import panel_header with context %}
+    {% call panel_header('profesional', 'agenda', 'Mi agenda', subtitulo=session.negocio_nombre) %}
+        <button type="button" class="wb-btn wb-btn-ghost pro-notif-btn" onclick="toggleNotif()" title="Notificaciones" aria-label="Notificaciones">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span id="notifBadge" class="notif-badge" style="display:none;">0</span>
+        </button>
+        <button type="button" id="pushButton" class="wb-btn wb-btn-ghost" title="Recibir avisos de nuevas citas en este dispositivo">Activar avisos</button>
+    {% endcall %}
 
-                    <span id="notifBadge" class="notif-badge" style="display:none;">0</span>
-                </button>
-                <a href="{{ url_for('logout') }}" style="text-decoration:none;">
-                    <button class="icon-btn" title="Salir">🚪</button>
-                </a>
-            </div>
-        </div>
-
+    <div class="pro-resumen">
         <div class="stats-row">
             <div class="stat-pill">
                 <div class="stat-pill-num">{{ total_citas }}</div>
@@ -850,13 +843,10 @@
                 <div class="stat-pill-label" style="color:var(--wb-ok-text);">Ganancia<br>estimada</div>
             </div>
         </div>
-
         <div class="date-bar" style="padding-bottom: 0.85rem; gap: 8px;">
             <div class="date-input-wrap">
-                <input type="date" value="{{ fecha }}" onchange="cambiarFecha(this.value)">
+                <input type="date" value="{{ fecha }}" onchange="cambiarFecha(this.value)" aria-label="Fecha de la agenda">
             </div>
-            <button id="pushButton" class="icon-btn" title="Activar notificaciones"
-                    style="background:var(--wb-accent-soft); color:var(--wb-accent); flex-shrink:0; font-size:1rem;">🔔</button>
         </div>
     </div>
 
@@ -985,11 +975,11 @@
     <!-- ==================== BOTTOM BAR ==================== -->
     <nav class="bottom-bar">
         <a href="/profesional/bloqueos" class="nav-item">
-            <span class="nav-icon">🚫</span>
+            <span class="nav-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg></span>
             <span class="nav-label">Bloquear horario</span>
         </a>
         <a href="{{ url_for('profesional_estadisticas') }}?profesional_id={{ profesional_id }}" class="nav-item">
-            <span class="nav-icon">📊</span>
+            <span class="nav-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-6"/></svg></span>
             <span class="nav-label">Stats</span>
         </a>
         <!-- Botón central: menú flotante -->
@@ -997,11 +987,11 @@
             <span class="nav-icon" id="fabBtnIcon" style="font-weight:700;">+</span>
         </button>
         <a href="/profesional/agendar" class="nav-item">
-            <span class="nav-icon">➕</span>
+            <span class="nav-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
             <span class="nav-label">Agendar</span>
         </a>
         <a href="/profesional/perfil" class="nav-item">
-            <span class="nav-icon">👤</span>
+            <span class="nav-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
             <span class="nav-label">Perfil</span>
         </a>
     </nav>

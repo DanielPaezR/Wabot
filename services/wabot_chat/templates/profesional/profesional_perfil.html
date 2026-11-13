@@ -23,7 +23,8 @@
         /* Header con degradado */
         .profile-header {
             background: linear-gradient(135deg, var(--wb-accent) 0%, color-mix(in srgb, var(--wb-accent) 55%, #000) 100%);
-            padding: 2rem 1.5rem 4rem 1.5rem;
+            padding: 0 1.5rem;
+            height: 120px;
             position: relative;
         }
         
@@ -394,7 +395,7 @@
             left: 50%;
             transform: translateX(-50%);
             background: var(--wb-surface-2);
-            color: white;
+            color: var(--wb-text);
             padding: 12px 24px;
             border-radius: 50px;
             z-index: 1100;
@@ -490,30 +491,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
 
 </head>
 <body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {{ panel_header('profesional', 'perfil') }}
     {% if not profesional %}
     <div class="error-container">
         <div class="error-icon">❌</div>
         <h2>Error al cargar el perfil</h2>
         <p>No se pudo cargar la información de tu perfil.</p>
         <button class="retry-btn" onclick="window.location.reload()">Reintentar</button>
-        <button class="retry-btn" onclick="window.history.back()" style="background: var(--wb-surface-3); margin-left: 10px;">Volver</button>
+        <button class="retry-btn" onclick="window.history.back()" style="background: var(--wb-surface-3); color: var(--wb-text); margin-left: 10px;">Volver</button>
     </div>
     {% else %}
-    
-    <!-- Header con degradado -->
-    <div class="profile-header">
-        <div class="header-top">
-            <button class="back-btn" onclick="window.history.back()">
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <div style="width: 44px;"></div>
-        </div>
-    </div>
+
+    <!-- Banda de color bajo la foto -->
+    <div class="profile-header" aria-hidden="true"></div>
     
     <!-- Avatar -->
     <div class="avatar-wrapper">

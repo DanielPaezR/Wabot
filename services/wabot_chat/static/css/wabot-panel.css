@@ -224,6 +224,11 @@ body.wb-panel {
 .wb-user-nombre { max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wb-logout { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--wb-text-2); border: 1px solid var(--wb-line); text-decoration: none; transition: color 0.15s, border-color 0.15s; }
 .wb-logout:hover { color: var(--wb-bad-text); border-color: var(--wb-bad-line); }
+.wb-tema-btn { background: none; cursor: pointer; padding: 0; }
+.wb-tema-btn:hover { color: var(--wb-accent); border-color: var(--wb-accent-line); }
+.wb-tema-btn .wb-ic-luna { display: none; }
+:root[data-theme="light"] .wb-tema-btn .wb-ic-sol { display: none; }
+:root[data-theme="light"] .wb-tema-btn .wb-ic-luna { display: block; }
 
 .wb-pagehead { border-bottom: 1px solid var(--wb-line); }
 .wb-pagehead-in { max-width: 1200px; margin: 0 auto; padding: 26px 20px 20px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -243,3 +248,10 @@ body.wb-panel {
   .wb-title { font-size: 1.4rem; }
   .wb-pagehead-in { padding: 18px 14px 14px; }
 }
+
+/* Modo claro: botones de Bootstrap con colores de texto legibles sobre blanco */
+:root[data-theme="light"] .wb-panel .btn-outline-warning { color: var(--wb-warn-text); border-color: var(--wb-warn-line); }
+:root[data-theme="light"] .wb-panel .btn-outline-warning:hover { background: var(--wb-warn-soft); color: var(--wb-warn-text); }
+:root[data-theme="light"] .wb-panel .btn-outline-success { color: var(--wb-ok-text); border-color: var(--wb-ok-line); }
+:root[data-theme="light"] .wb-panel .btn-outline-danger { color: var(--wb-bad-text); border-color: var(--wb-bad-line); }
+:root[data-theme="light"] .wb-panel .btn-outline-info { color: var(--wb-info-text); border-color: var(--wb-info-line); }

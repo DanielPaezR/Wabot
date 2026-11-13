@@ -7752,7 +7752,16 @@ def negocio_editor_guardar():
         
         if 'telefono_contacto' in data and data['telefono_contacto']:
             config_actual['telefono_contacto'] = data['telefono_contacto']
-        
+
+        if 'color_acento' in data:
+            color = str(data.get('color_acento') or '').strip().lower()
+            if not color or color == ACENTO_DEFECTO:
+                config_actual.pop('color_acento', None)
+            elif re.fullmatch(r'#[0-9a-f]{6}', color):
+                config_actual['color_acento'] = color
+            else:
+                return jsonify({'success': False, 'error': 'Color de marca inválido'}), 400
+
         campos.append("configuracion = %s")
         valores.append(json.dumps(config_actual))
         print(f"  📦 Nueva config guardada")

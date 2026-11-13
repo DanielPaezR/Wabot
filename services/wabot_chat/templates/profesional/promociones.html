@@ -34,7 +34,7 @@
         .container { max-width: 600px; margin: 0 auto; }
 
         .header {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             padding: 16px;
             border-radius: var(--radius);
             margin-bottom: 20px;
@@ -70,7 +70,7 @@
 
         /* Tarjeta de promoción */
         .card {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border-radius: var(--radius);
             margin-bottom: 16px;
             overflow: hidden;
@@ -130,7 +130,7 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.15s;
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
         }
         .tipo-option:active { transform: scale(0.97); }
         .tipo-option.selected { border-color: var(--primary); background: var(--wb-info-soft); }
@@ -150,7 +150,7 @@
             background: var(--bg);
             color: var(--dark);
         }
-        .form-control:focus { outline: none; border-color: var(--primary); background: var(--var(--wb-surface)); }
+        .form-control:focus { outline: none; border-color: var(--primary); background: var(--wb-surface); }
         textarea.form-control { border-radius: var(--radius-sm); resize: vertical; }
 
         .form-row { display: flex; gap: 10px; }
@@ -196,7 +196,7 @@
         .modal.open { display: flex; }
 
         .modal-sheet {
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             border-radius: 24px 24px 0 0;
             width: 100%;
             max-width: 540px;
@@ -226,7 +226,7 @@
             align-items: center;
             position: sticky;
             top: 0;
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
             z-index: 1;
         }
 
@@ -251,7 +251,7 @@
             gap: 10px;
             position: sticky;
             bottom: 0;
-            background: var(--var(--wb-surface));
+            background: var(--wb-surface);
         }
 
         .modal-footer .btn { flex: 1; justify-content: center; }
@@ -265,8 +265,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
 
 </head>
 <body class="wb-panel">
