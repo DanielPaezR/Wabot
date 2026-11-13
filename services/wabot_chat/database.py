@@ -4,6 +4,7 @@
 import os
 import logging
 from datetime import datetime, timedelta
+import re
 import json
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -556,37 +557,6 @@ def _insertar_plantillas_base(cursor):
                 VALUES (NULL, ?, ?, ?, ?, TRUE)
             ''', (nombre, plantilla, descripcion, variables))
 
-def actualizar_plantillas_existentes():
-    """Actualizar plantillas base sin perder personalizadas"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        print("🔄 Actualizando plantillas base...")
-        
-        # Eliminar solo plantillas base (NO las personalizadas)
-        if is_postgresql():
-            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE AND negocio_id IS NULL')
-        else:
-            cursor.execute('DELETE FROM plantillas_mensajes WHERE es_base = TRUE AND negocio_id IS NULL')
-        
-        print("✅ Plantillas base eliminadas")
-        
-        # Llamar a la función que actualizaste
-        _insertar_plantillas_base(cursor)
-        
-        conn.commit()
-        print("✅ Plantillas base actualizadas exitosamente")
-        return True
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ Error actualizando plantillas: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    finally:
-        conn.close()
-
 def _insertar_configuracion_horarios(cursor):
     """Insertar configuración de horarios por día - VERSIÓN CORREGIDA"""
     postgres = is_postgresql()
@@ -979,10 +949,6 @@ def guardar_plantilla_personalizada(negocio_id, nombre_plantilla, contenido, des
     finally:
         conn.close()
 
-def obtener_todas_plantillas_negocio(negocio_id):
-    """Obtener todas las plantillas de un negocio (para el panel de admin)"""
-    return obtener_plantillas_negocio(negocio_id)
-
 def crear_plantillas_personalizadas_para_negocios():
     """Crear copias personalizadas de plantillas base para todos los negocios"""
     conn = get_db_connection()
@@ -1036,15 +1002,6 @@ def crear_plantillas_personalizadas_para_negocios():
 # =============================================================================
 # GESTIÓN DE NEGOCIOS
 # =============================================================================
-
-def obtener_negocio_por_telefono(telefono_whatsapp):
-    """Obtener un negocio por su número de WhatsApp"""
-    conn = get_db_connection()
-    sql = 'SELECT * FROM negocios WHERE telefono_whatsapp = ? AND activo = TRUE'
-    negocio = fetch_one(conn.cursor(), sql, (telefono_whatsapp,))
-    conn.close()
-    return negocio
-
 
 def obtener_negocio_por_id(negocio_id):
     """Obtener negocio por ID con todos los campos"""
@@ -1512,24 +1469,6 @@ def guardar_servicio(negocio_id, servicio_id, nombre, duracion, precio, descripc
         conn.close()
 
 
-def obtener_nombre_profesional(negocio_id, profesional_id):
-    """Obtener nombre de un profesional por ID"""
-    conn = get_db_connection()
-    sql = 'SELECT nombre FROM profesionales WHERE negocio_id = ? AND id = ?'
-    resultado = fetch_one(conn.cursor(), sql, (negocio_id, profesional_id))
-    conn.close()
-    return resultado['nombre'] if resultado else 'Profesional no encontrado'
-
-
-def obtener_nombre_servicio(negocio_id, servicio_id):
-    """Obtener nombre de un servicio por ID"""
-    conn = get_db_connection()
-    sql = 'SELECT nombre FROM servicios WHERE negocio_id = ? AND id = ?'
-    resultado = fetch_one(conn.cursor(), sql, (negocio_id, servicio_id))
-    conn.close()
-    return resultado['nombre'] if resultado else 'Servicio no encontrado'
-
-
 def obtener_duracion_servicio(negocio_id, servicio_id):
     """Obtener duración de un servicio específico"""
     conn = get_db_connection()
@@ -1653,7 +1592,7 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
             )
 
             cursor.execute('''
-                SELECT c.hora, COALESCE(s.duracion, 0) as duracion
+                SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion, 0) as duracion
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 WHERE c.profesional_id = %s AND c.fecha = %s
@@ -1685,6 +1624,21 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
                         return 0
                 except Exception:
                     continue
+
+        if is_postgresql():
+            # Bloqueos recurrentes (p. ej. "martes 15:00-17:30"): también impiden reservar en esa franja
+            try:
+                import disponibilidad
+                inicio_nuevo = disponibilidad.a_minutos(hora_normalizada)
+                duracion_reserva = max(int(duracion_nueva or 0), disponibilidad.DURACION_MINIMA)
+                for b_ini, b_fin in disponibilidad.intervalos_bloqueo_recurrente(
+                        obtener_bloqueos_recurrentes(negocio_id, profesional_id), fecha):
+                    if inicio_nuevo < b_fin and inicio_nuevo + duracion_reserva > b_ini:
+                        print(f"❌ [DEBUG] La cita cae dentro de un bloqueo recurrente ({disponibilidad.a_hhmm(b_ini)}-{disponibilidad.a_hhmm(b_fin)})")
+                        conn.rollback()
+                        return 0
+            except Exception as e:
+                print(f"⚠️ No se pudo verificar bloqueos recurrentes: {e}")
 
         print("🔍 [DEBUG] Intentando INSERT...")
 
@@ -1724,163 +1678,15 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
             conn.close()
         print("🔍 [DEBUG] Conexión cerrada")
 
-def enviar_confirmacion_despues_de_guardar(cita_id, negocio_id, profesional_id, 
-                                         cliente_telefono, cliente_nombre, 
-                                         fecha, hora, servicio_id):
-    """Función auxiliar para enviar confirmación después de guardar"""
-    try:
-        print(f"📧 Preparando confirmación para cita #{cita_id}")
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Obtener datos COMPLETOS de la cita
-        sql = '''
-            SELECT 
-                c.*,
-                n.nombre as negocio_nombre,
-                COALESCE(n.direccion, '') as negocio_direccion,
-                p.nombre as profesional_nombre,
-                s.nombre as servicio_nombre,
-                s.precio,
-                s.duracion
-            FROM citas c
-            JOIN negocios n ON c.negocio_id = n.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.id = %s
-        '''
-        
-        cursor.execute(sql, (cita_id,))
-        cita_completa = cursor.fetchone()
-        conn.close()
-        
-        if not cita_completa:
-            print(f"❌ No se encontró la cita #{cita_id} para confirmación")
-            return False
-        
-        # Convertir a diccionario
-        if hasattr(cita_completa, 'keys'):
-            cita_dict = dict(cita_completa)
-        else:
-            cita_dict = {
-                'id': cita_id,
-                'negocio_id': negocio_id,
-                'profesional_id': profesional_id,
-                'cliente_telefono': cliente_telefono,
-                'cliente_nombre': cliente_nombre,
-                'fecha': fecha,
-                'hora': hora,
-                'servicio_id': servicio_id,
-                'negocio_nombre': cita_completa[12] if len(cita_completa) > 12 else 'Barbería',
-                'negocio_direccion': cita_completa[13] if len(cita_completa) > 13 else '',
-                'profesional_nombre': cita_completa[14] if len(cita_completa) > 14 else 'Profesional',
-                'servicio_nombre': cita_completa[15] if len(cita_completa) > 15 else 'Servicio',
-                'precio': cita_completa[16] if len(cita_completa) > 16 else 0,
-                'duracion': cita_completa[17] if len(cita_completa) > 17 else 30
-            }
-        
-        # Enviar confirmación via scheduler
-        from scheduler import enviar_confirmacion_inmediata
-        success = enviar_confirmacion_inmediata(cita_dict)
-        
-        if success:
-            print(f"✅ Confirmación SMS enviada para cita #{cita_id}")
-        else:
-            print(f"⚠️ Falló el envío de confirmación para cita #{cita_id}")
-            
-        return success
-        
-    except ImportError:
-        print(f"⚠️ No se pudo importar scheduler para cita #{cita_id}")
-        return False
-    except Exception as e:
-        print(f"⚠️ Error enviando confirmación cita #{cita_id}: {e}")
-        return False
-
 # Añade esta función en database.py, después de agregar_cita:
 
-def enviar_confirmacion_inmediata_desde_db(cita_id, negocio_id, profesional_id, 
-                                         cliente_telefono, cliente_nombre, 
-                                         fecha, hora, servicio_id):
-    """Función auxiliar para enviar confirmación inmediata después de crear cita"""
-    try:
-        print(f"📧 [DB] Preparando confirmación inmediata para cita #{cita_id}")
-        
-        # Obtener datos completos de la cita
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        sql = '''
-            SELECT 
-                c.*,
-                n.nombre as negocio_nombre,
-                n.telefono_whatsapp as negocio_telefono,
-                n.direccion as negocio_direccion,
-                p.nombre as profesional_nombre,
-                p.telefono as profesional_telefono,
-                s.nombre as servicio_nombre,
-                s.duracion,
-                s.precio
-            FROM citas c
-            JOIN negocios n ON c.negocio_id = n.id
-            JOIN profesionales p ON c.profesional_id = p.id
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.id = %s
-        '''
-        
-        cursor.execute(sql, (cita_id,))
-        cita_completa = cursor.fetchone()
-        conn.close()
-        
-        if not cita_completa:
-            print(f"❌ [DB] No se encontró la cita #{cita_id} para confirmación")
-            return False
-        
-        # Convertir a diccionario
-        if hasattr(cita_completa, 'keys'):
-            cita_dict = dict(cita_completa)
-        else:
-            # Si es tupla, crear diccionario manual
-            cita_dict = {
-                'id': cita_id,
-                'negocio_id': negocio_id,
-                'profesional_id': profesional_id,
-                'cliente_telefono': cliente_telefono,
-                'cliente_nombre': cliente_nombre,
-                'fecha': fecha,
-                'hora': hora,
-                'servicio_id': servicio_id,
-                'negocio_nombre': cita_completa[1] if len(cita_completa) > 1 else 'Negocio',
-                'profesional_nombre': cita_completa[4] if len(cita_completa) > 4 else 'Profesional',
-                'servicio_nombre': cita_completa[6] if len(cita_completa) > 6 else 'Servicio',
-                'duracion': cita_completa[7] if len(cita_completa) > 7 else 30,
-                'precio': cita_completa[8] if len(cita_completa) > 8 else 0,
-                'negocio_telefono': cita_completa[2] if len(cita_completa) > 2 else '',
-                'negocio_direccion': cita_completa[3] if len(cita_completa) > 3 else ''
-            }
-        
-        # Importar y llamar a la función de confirmación del scheduler
-        try:
-            from scheduler import enviar_confirmacion_inmediata
-            success = enviar_confirmacion_inmediata(cita_dict)
-            
-            if success:
-                print(f"✅ [DB] Confirmación inmediata enviada para cita #{cita_id}")
-            else:
-                print(f"⚠️ [DB] Falló el envío de confirmación para cita #{cita_id}")
-                
-            return success
-            
-        except ImportError as e:
-            print(f"⚠️ [DB] No se pudo importar scheduler: {e}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ [DB] Error en confirmación inmediata: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+def _hora_hhmm(valor):
+    """La columna citas.hora es TIME en PostgreSQL (llega como datetime.time): siempre se devuelve 'HH:MM'."""
+    if valor is None:
+        return None
+    if hasattr(valor, 'strftime'):
+        return valor.strftime('%H:%M')
+    return str(valor)[:5]
 
 
 def obtener_citas_dia(negocio_id, profesional_id, fecha):
@@ -1894,7 +1700,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
     
     if is_postgresql():
         sql = '''
-            SELECT c.hora, s.duracion, c.estado
+            SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion) AS duracion, c.estado
             FROM citas c 
             JOIN servicios s ON c.servicio_id = s.id
             WHERE c.negocio_id = %s AND c.profesional_id = %s 
@@ -1917,7 +1723,7 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
     if negocio_id is None:
         if is_postgresql():
             sql = '''
-                SELECT c.hora, s.duracion, c.estado
+                SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion) AS duracion, c.estado
                 FROM citas c 
                 JOIN servicios s ON c.servicio_id = s.id
                 WHERE c.profesional_id = %s 
@@ -1947,13 +1753,13 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
     for row in resultados:
         if isinstance(row, dict):
             citas.append({
-                'hora': row.get('hora'),
+                'hora': _hora_hhmm(row.get('hora')),
                 'duracion': row.get('duracion', 0),
                 'estado': row.get('estado', 'confirmado')
             })
         elif isinstance(row, (list, tuple)):
             cita_dict = {
-                'hora': row[0] if len(row) > 0 else None,
+                'hora': _hora_hhmm(row[0]) if len(row) > 0 else None,
                 'duracion': row[1] if len(row) > 1 else 0,
                 'estado': row[2] if len(row) > 2 else 'confirmado'
             }
@@ -1964,19 +1770,6 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
         print(f"   - {c['hora']} (dur. {c['duracion']} min, estado: {c['estado']})")
     
     return citas
-
-
-def es_cliente_nuevo(telefono, negocio_id):
-    """Verificar si es un cliente nuevo"""
-    conn = get_db_connection()
-    sql = '''
-        SELECT COUNT(*) as count FROM citas 
-        WHERE cliente_telefono = ? AND negocio_id = ?
-    '''
-    resultado = fetch_one(conn.cursor(), sql, (telefono, negocio_id))
-    conn.close()
-    count = resultado['count'] if resultado else 0
-    return count == 0
 
 
 def obtener_nombre_cliente(telefono, negocio_id):
@@ -2055,7 +1848,7 @@ def obtener_citas_para_profesional(negocio_id, profesional_id, fecha):
     print(f"🔍 [DB] Buscando citas para profesional {profesional_id} en fecha {fecha}")
     
     sql = '''
-        SELECT c.*, s.nombre as servicio_nombre, s.precio, s.duracion,
+        SELECT c.*, s.nombre as servicio_nombre, s.precio, COALESCE(c.duracion_minutos, s.duracion) AS duracion,
                CASE 
                    WHEN c.estado = 'bloqueado' THEN 'Horario Bloqueado'
                    ELSE s.nombre 
@@ -2181,51 +1974,6 @@ def obtener_configuracion_horarios(negocio_id):
         }
     
     return dias_config
-
-
-def actualizar_configuracion_horarios(negocio_id, configuraciones):
-    """Actualizar configuración de horarios"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        for dia_id, config in configuraciones.items():
-            if is_postgresql():
-                sql = '''
-                    INSERT INTO configuracion_horarios 
-                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (negocio_id, dia_semana) 
-                    DO UPDATE SET 
-                        activo = EXCLUDED.activo,
-                        hora_inicio = EXCLUDED.hora_inicio,
-                        hora_fin = EXCLUDED.hora_fin,
-                        almuerzo_inicio = EXCLUDED.almuerzo_inicio,
-                        almuerzo_fin = EXCLUDED.almuerzo_fin
-                '''
-            else:
-                sql = '''
-                    INSERT OR REPLACE INTO configuracion_horarios 
-                    (negocio_id, dia_semana, activo, hora_inicio, hora_fin, almuerzo_inicio, almuerzo_fin)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                '''
-            
-            execute_sql(cursor, sql, (
-                negocio_id, dia_id, 
-                config.get('activo', False),
-                config.get('hora_inicio', '09:00'),
-                config.get('hora_fin', '19:00'),
-                config.get('almuerzo_inicio'),
-                config.get('almuerzo_fin')
-            ))
-        
-        conn.commit()
-        return True
-    except Exception as e:
-        print(f"❌ Error actualizando configuración de horarios: {e}")
-        return False
-    finally:
-        conn.close()
 
 
 # =============================================================================
@@ -2647,30 +2395,6 @@ def resetear_secuencia_negocios():
     finally:
         conn.close()
 
-def actualizar_esquema_bd():
-    """Actualizar esquema de base de datos existente"""
-    # Esta función es principalmente para SQLite
-    # En PostgreSQL, las columnas se crean automáticamente
-    if not is_postgresql():
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Verificar si existe la columna emoji en negocios
-            cursor.execute("PRAGMA table_info(negocios)")
-            columnas_negocios = cursor.fetchall()
-            columnas_negocios_existentes = [col[1] for col in columnas_negocios]
-            
-            if 'emoji' not in columnas_negocios_existentes:
-                cursor.execute('ALTER TABLE negocios ADD COLUMN emoji TEXT DEFAULT "👋"')
-            
-            conn.commit()
-        except Exception as e:
-            print(f"⚠️ Error actualizando esquema: {e}")
-        finally:
-            conn.close()
-
-
 def actualizar_configuracion_completa(negocio_id, nombre, tipo_negocio, emoji, configuracion, horarios_actualizados):
     """Actualizar configuración completa del negocio"""
     conn = get_db_connection()
@@ -2846,64 +2570,6 @@ def obtener_estadisticas_mensuales(negocio_id, profesional_id=None, mes=None, a�
 # FUNCIONES PARA RECORDATORIOS Y NOTIFICACIONES
 # =============================================================================
 
-def obtener_citas_proximas_recordatorio():
-    """Obtener citas próximas para recordatorios - VERSIÓN POSTGRESQL"""
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
-    # Citas en 24 horas
-    fecha_24h = (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d')
-    
-    # ✅ CORRECCIÓN: Sintaxis PostgreSQL
-    sql_24h = '''
-        SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp, 
-               p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-               s.duracion, s.precio
-        FROM citas c
-        JOIN negocios n ON c.negocio_id = n.id
-        JOIN profesionales p ON c.profesional_id = p.id
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.fecha = %s 
-        AND c.estado = 'confirmado' 
-        AND c.recordatorio_24h_enviado = FALSE
-        ORDER BY c.hora
-    '''
-    
-    cursor.execute(sql_24h, (fecha_24h,))
-    citas_24h = cursor.fetchall()
-    
-    # Citas en 1 hora (mismo día)
-    fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-    
-    # ✅ CORRECCIÓN: Sintaxis PostgreSQL
-    sql_1h = '''
-        SELECT c.*, n.nombre as negocio_nombre, n.telefono_whatsapp,
-               p.nombre as profesional_nombre, s.nombre as servicio_nombre,
-               s.duracion, s.precio
-        FROM citas c
-        JOIN negocios n ON c.negocio_id = n.id
-        JOIN profesionales p ON c.profesional_id = p.id
-        JOIN servicios s ON c.servicio_id = s.id
-        WHERE c.fecha = %s 
-        AND c.estado = 'confirmado'
-        AND c.recordatorio_1h_enviado = FALSE
-        AND c.hora::time BETWEEN (NOW() + INTERVAL '55 minutes')::time 
-                           AND (NOW() + INTERVAL '65 minutes')::time
-        ORDER BY c.hora
-    '''
-    
-    cursor.execute(sql_1h, (fecha_hoy,))
-    citas_1h = cursor.fetchall()
-    
-    conn.close()
-    
-    # Convertir a lista de diccionarios
-    return {
-        'citas_24h': [dict(cita) for cita in citas_24h],
-        'citas_1h': [dict(cita) for cita in citas_1h]
-    }
-
-
 def marcar_recordatorio_enviado(cita_id, tipo_recordatorio):
     """Marcar recordatorio como enviado - VERSIÓN POSTGRESQL"""
     conn = get_db_connection()
@@ -2999,100 +2665,6 @@ def obtener_servicio_personalizado_cliente(telefono, negocio_id):
     finally:
         conn.close()
 
-def actualizar_formato_precios_plantillas():
-    """Actualizar el formato de precios en TODAS las plantillas (remover :,.0f y otros formatos)"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        print("🔄 Actualizando formato de precios en TODAS las plantillas...")
-        
-        # Para PostgreSQL
-        if is_postgresql():
-            # Obtener TODAS las plantillas
-            cursor.execute("SELECT id, plantilla FROM plantillas_mensajes")
-        else:
-            # Para SQLite
-            cursor.execute("SELECT id, plantilla FROM plantillas_mensajes")
-        
-        todas_plantillas = cursor.fetchall()
-        print(f"📋 Total de plantillas a verificar: {len(todas_plantillas)}")
-        
-        contador = 0
-        for plantilla in todas_plantillas:
-            plantilla_id = plantilla[0]
-            plantilla_texto = plantilla[1]
-            
-            if not plantilla_texto:
-                continue
-            
-            # Hacer una copia para comparar después
-            plantilla_original = plantilla_texto
-            plantilla_corregida = plantilla_texto
-            
-            # LISTA COMPLETA de formatos a corregir
-            formatos_a_corregir = [
-                ('{precio_personalizado:,.0f}', '{precio_personalizado}'),
-                ('{servicio_precio:,.0f}', '{servicio_precio}'),
-                ('{precio:,.0f}', '{precio}'),
-                ('{precio_formateado:,.0f}', '{precio_formateado}'),
-                ('{servicio_precio_formateado:,.0f}', '{servicio_precio_formateado}'),
-                ('{servicioprecio:,.0f}', '{servicio_precio}'),
-                ('{precio_personalizado_formateado:,.0f}', '{precio_personalizado}'),
-                ('${servicio_precio:,.0f}', '{servicio_precio}'),
-                ('${precio:,.0f}', '{precio}'),
-                ('${precio_personalizado:,.0f}', '{precio_personalizado}')
-            ]
-            
-            # Aplicar todas las correcciones
-            for formato_viejo, formato_nuevo in formatos_a_corregir:
-                if formato_viejo in plantilla_corregida:
-                    plantilla_corregida = plantilla_corregida.replace(formato_viejo, formato_nuevo)
-            
-            # También corregir si está dentro de strings más largas
-            import re
-            
-            # Patrón para encontrar cualquier variable con formato :,.0f
-            patron = re.compile(r'\{(\w+):,\.0f\}')
-            coincidencias = patron.findall(plantilla_corregida)
-            
-            for variable in coincidencias:
-                formato_viejo = f'{{{variable}:,.0f}}'
-                formato_nuevo = f'{{{variable}}}'
-                plantilla_corregida = plantilla_corregida.replace(formato_viejo, formato_nuevo)
-            
-            # Si hubo cambios, actualizar en la BD
-            if plantilla_corregida != plantilla_original:
-                if is_postgresql():
-                    cursor.execute("""
-                        UPDATE plantillas_mensajes 
-                        SET plantilla = %s 
-                        WHERE id = %s
-                    """, (plantilla_corregida, plantilla_id))
-                else:
-                    cursor.execute("""
-                        UPDATE plantillas_mensajes 
-                        SET plantilla = ? 
-                        WHERE id = ?
-                    """, (plantilla_corregida, plantilla_id))
-                
-                contador += 1
-                print(f"✅ Plantilla ID {plantilla_id} actualizada")
-        
-        conn.commit()
-        print(f"🎯 Total plantillas corregidas: {contador}")
-        return contador
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ Error actualizando plantillas: {e}")
-        import traceback
-        traceback.print_exc()
-        return 0
-    finally:
-        conn.close()
-
-
 # =============================================================================
 # BLOQUEO DE HORARIOS POR PROFESIONALES
 # =============================================================================
@@ -3119,12 +2691,28 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
         ''', (negocio_id, profesional_id, fecha, hora_inicio))
         
         if cursor.fetchone():
+            conn.close()
             return {'success': False, 'error': 'Ya existe un bloqueo en ese horario'}
-        
+
         # 2. Calcular rango del bloqueo
-        hora_obj = datetime.strptime(hora_inicio, '%H:%M')
+        hora_obj = datetime.strptime(str(hora_inicio)[:5], '%H:%M')
         hora_fin_bloqueo = hora_obj + timedelta(minutes=duracion_minutos)
-        
+
+        # 2b. No se permite un bloqueo que se solape con otro bloqueo existente
+        cursor.execute('''
+            SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion, 60) AS duracion
+            FROM citas c
+            LEFT JOIN servicios s ON c.servicio_id = s.id
+            WHERE c.negocio_id = %s AND c.profesional_id = %s AND c.fecha = %s AND c.estado = 'bloqueado'
+        ''', (negocio_id, profesional_id, fecha))
+        for otro in cursor.fetchall():
+            otro_hora, otro_dur = (otro['hora'], otro['duracion']) if hasattr(otro, 'keys') else (otro[0], otro[1])
+            otro_ini = datetime.strptime(str(otro_hora)[:5], '%H:%M')
+            otro_fin = otro_ini + timedelta(minutes=int(otro_dur))
+            if hora_obj < otro_fin and hora_fin_bloqueo > otro_ini:
+                conn.close()
+                return {'success': False, 'error': f'Ya hay un bloqueo entre {otro_ini.strftime("%H:%M")} y {otro_fin.strftime("%H:%M")} que se solapa con este'}
+
         print(f"⏰ Rango bloqueo: {hora_inicio} a {hora_fin_bloqueo.strftime('%H:%M')}")
         
         # 3. Obtener TODAS las citas del día CON SU DURACIÓN
@@ -3160,7 +2748,7 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
                 cita_cliente = cita[4] if len(cita) > 4 else 'Cliente'
             
             # Calcular rango de la cita
-            cita_hora_obj = datetime.strptime(str(cita_hora), '%H:%M')
+            cita_hora_obj = datetime.strptime(str(cita_hora)[:5], '%H:%M')
             cita_fin_obj = cita_hora_obj + timedelta(minutes=int(cita_duracion))
             
             # ✅ VERIFICAR SOLAPAMIENTO COMPLETO
@@ -3225,8 +2813,8 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
         cursor.execute('''
             INSERT INTO citas (
                 negocio_id, profesional_id, cliente_telefono, cliente_nombre,
-                fecha, hora, servicio_id, estado, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'bloqueado', NOW())
+                fecha, hora, servicio_id, estado, created_at, duracion_minutos
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'bloqueado', NOW(), %s)
             RETURNING id
         ''', (
             negocio_id,
@@ -3235,7 +2823,8 @@ def bloquear_horario_profesional(negocio_id, profesional_id, fecha, hora_inicio,
             f"Bloqueado: {motivo}" if motivo else "Horario no disponible",
             fecha,
             hora_inicio,
-            servicio_id
+            servicio_id,
+            int(duracion_minutos)
         ))
         
         result = cursor.fetchone()
@@ -3376,39 +2965,6 @@ def crear_tabla_suscripciones_push():
     conn.close()
     print("✅ Tabla suscripciones_push creada/verificada")
 
-# FUNCIONES PARA NOTIFICACIONES PUSH
-def guardar_suscripcion_push(profesional_id, subscription_json, dispositivo_info=""):
-    """Guardar suscripción push de un profesional"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        sql = '''
-            INSERT INTO suscripciones_push (profesional_id, subscription_json, dispositivo_info)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (profesional_id, subscription_json) 
-            DO UPDATE SET 
-                fecha_creacion = CURRENT_TIMESTAMP,
-                activa = TRUE,
-                dispositivo_info = EXCLUDED.dispositivo_info
-        '''
-        
-        if is_postgresql():
-            sql = sql.replace('CURRENT_TIMESTAMP', 'NOW()')
-            cursor.execute(sql, (profesional_id, json.dumps(subscription_json), dispositivo_info))
-        else:
-            sql = sql.replace('%s', '?')
-            cursor.execute(sql, (profesional_id, json.dumps(subscription_json), dispositivo_info))
-        
-        conn.commit()
-        return True
-    except Exception as e:
-        print(f"❌ Error guardando suscripción push: {e}")
-        conn.rollback()
-        return False
-    finally:
-        conn.close()
-
 def obtener_suscripciones_profesional(profesional_id):
     """Obtener todas las suscripciones push activas de un profesional"""
     conn = get_db_connection()
@@ -3444,32 +3000,6 @@ def obtener_suscripciones_profesional(profesional_id):
     except Exception as e:
         print(f"❌ Error obteniendo suscripciones: {e}")
         return []
-    finally:
-        conn.close()
-
-def desactivar_suscripcion_push(profesional_id, subscription_json):
-    """Desactivar una suscripción push"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        sql = '''
-            UPDATE suscripciones_push
-            SET activa = FALSE
-            WHERE profesional_id = %s AND subscription_json = %s
-        '''
-        
-        if is_postgresql():
-            cursor.execute(sql, (profesional_id, json.dumps(subscription_json)))
-        else:
-            sql = sql.replace('%s', '?')
-            cursor.execute(sql, (profesional_id, json.dumps(subscription_json)))
-        
-        conn.commit()
-        return cursor.rowcount > 0
-    except Exception as e:
-        print(f"❌ Error desactivando suscripción: {e}")
-        return False
     finally:
         conn.close()
 
@@ -3564,16 +3094,7 @@ def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inici
         conn.commit()
         print(f"✅ [DB] Bloqueo recurrente creado con ID: {bloqueo_id}")
         
-        # Opcional: Crear bloqueos inmediatos para fechas futuras cercanas
-        try:
-            _aplicar_bloqueo_recurrente_a_fechas_futuras(
-                conn, negocio_id, profesional_id, dias_validos, 
-                hora_inicio, hora_fin, fecha_inicio, fecha_fin, bloqueo_id
-            )
-        except Exception as e:
-            print(f"⚠️ Error aplicando bloqueos inmediatos: {e}")
-            # No fallamos la operación principal si esto falla
-        
+        # Los bloqueos recurrentes se aplican en vivo (disponibilidad.py y agregar_cita), sin copiar filas por fecha.
         return {'success': True, 'id': bloqueo_id, 'message': 'Bloqueo recurrente creado'}
         
     except Exception as e:
@@ -3584,116 +3105,6 @@ def crear_bloqueo_recurrente(negocio_id, profesional_id, dias_semana, hora_inici
         return {'success': False, 'error': str(e)}
     finally:
         conn.close()
-
-def _aplicar_bloqueo_recurrente_a_fechas_futuras(conn, negocio_id, profesional_id, dias_semana,
-                                                hora_inicio, hora_fin, fecha_inicio, fecha_fin, bloqueo_id):
-    """
-    Función interna para aplicar bloqueos a fechas futuras cercanas
-    """
-    try:
-        cursor = conn.cursor()
-        
-        # Determinar rango de fechas a aplicar (próximos 30 días)
-        hoy = datetime.now().date()
-        
-        # Manejar fecha_inicio
-        if fecha_inicio:
-            if isinstance(fecha_inicio, str):
-                fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-            else:
-                fecha_inicio_obj = fecha_inicio
-        else:
-            fecha_inicio_obj = hoy
-        
-        # Manejar fecha_fin
-        if fecha_fin:
-            if isinstance(fecha_fin, str):
-                fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
-            else:
-                fecha_fin_obj = fecha_fin
-        else:
-            fecha_fin_obj = hoy + timedelta(days=90)
-        
-        # Limitar a máximo 90 días en el futuro
-        fecha_max = hoy + timedelta(days=90)
-        if fecha_fin_obj > fecha_max:
-            fecha_fin_obj = fecha_max
-        
-        # Obtener un servicio_id válido para los bloqueos
-        cursor.execute('''
-            SELECT id FROM servicios 
-            WHERE negocio_id = %s AND activo = TRUE 
-            LIMIT 1
-        ''', (negocio_id,))
-        servicio_result = cursor.fetchone()
-        
-        if not servicio_result:
-            print("⚠️ No hay servicios activos para crear bloqueos")
-            return
-        
-        if hasattr(servicio_result, 'keys'):
-            servicio_id = servicio_result['id']
-        else:
-            servicio_id = servicio_result[0]
-        
-        # Asegurar que hora_inicio y hora_fin sean strings
-        if not isinstance(hora_inicio, str):
-            if hasattr(hora_inicio, 'strftime'):
-                hora_inicio = hora_inicio.strftime('%H:%M')
-            else:
-                hora_inicio = str(hora_inicio)[:5]
-        
-        if not isinstance(hora_fin, str):
-            if hasattr(hora_fin, 'strftime'):
-                hora_fin = hora_fin.strftime('%H:%M')
-            else:
-                hora_fin = str(hora_fin)[:5]
-        
-        # Para cada fecha en el rango
-        fecha_actual = fecha_inicio_obj
-        contador = 0
-        
-        while fecha_actual <= fecha_fin_obj:
-            # Verificar si el día de la semana está en la lista
-            dia_semana = fecha_actual.isoweekday()  # 1=lunes, 7=domingo
-            
-            if dia_semana in dias_semana:
-                fecha_str = fecha_actual.strftime('%Y-%m-%d')
-                
-                # Verificar si ya existe un bloqueo en ese horario
-                cursor.execute('''
-                    SELECT id FROM citas 
-                    WHERE negocio_id = %s AND profesional_id = %s 
-                    AND fecha = %s AND hora = %s
-                    AND estado = 'bloqueado'
-                ''', (negocio_id, profesional_id, fecha_str, hora_inicio))
-                
-                if not cursor.fetchone():
-                    # Crear bloqueo puntual
-                    cursor.execute('''
-                        INSERT INTO citas (
-                            negocio_id, profesional_id, cliente_telefono, cliente_nombre,
-                            fecha, hora, servicio_id, estado, created_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'bloqueado', NOW())
-                    ''', (
-                        negocio_id,
-                        profesional_id,
-                        'BLOQUEO_RECURRENTE',
-                        f'Recurrente ID:{bloqueo_id} - {fecha_str}',
-                        fecha_str,
-                        hora_inicio,
-                        servicio_id
-                    ))
-                    contador += 1
-            
-            fecha_actual += timedelta(days=1)
-        
-        print(f"✅ {contador} bloqueos puntuales creados para el recurrente #{bloqueo_id}")
-        
-    except Exception as e:
-        print(f"⚠️ Error en _aplicar_bloqueo_recurrente_a_fechas_futuras: {e}")
-        import traceback
-        traceback.print_exc()
 
 def obtener_bloqueos_recurrentes(negocio_id, profesional_id=None, solo_activos=True):
     """
@@ -3941,137 +3352,6 @@ def actualizar_bloqueo_recurrente(bloqueo_id, dias_semana=None, hora_inicio=None
     finally:
         conn.close()
 
-def generar_bloqueos_desde_recurrentes(negocio_id=None, profesional_id=None, fecha_inicio=None, fecha_fin=None):
-    """
-    Generar bloqueos puntuales a partir de todos los bloqueos recurrentes activos
-    Útil para ejecutar periódicamente o cuando se crea un nuevo recurrente
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
-    try:
-        # Obtener todos los bloqueos recurrentes activos
-        sql = '''
-            SELECT * FROM bloqueos_recurrentes 
-            WHERE activo = TRUE
-        '''
-        
-        params = []
-        
-        if negocio_id:
-            sql += ' AND negocio_id = %s'
-            params.append(negocio_id)
-        
-        if profesional_id:
-            sql += ' AND profesional_id = %s'
-            params.append(profesional_id)
-        
-        cursor.execute(sql, params if params else None)
-        recurrentes = cursor.fetchall()
-        
-        print(f"🔄 Generando bloqueos desde {len(recurrentes)} recurrentes")
-        
-        # Obtener un servicio_id válido
-        cursor.execute('''
-            SELECT id FROM servicios 
-            WHERE negocio_id = %s AND activo = TRUE 
-            LIMIT 1
-        ''', (recurrentes[0]['negocio_id'] if recurrentes else 1,))
-        servicio_result = cursor.fetchone()
-        
-        if not servicio_result:
-            return {'success': False, 'error': 'No hay servicios activos'}
-        
-        servicio_id = servicio_result['id']
-        
-        # Rango de fechas a generar (próximos 90 días)
-        hoy = datetime.now().date()
-        fecha_limite = hoy + timedelta(days=90)
-        
-        total_creados = 0
-        
-        for recurrente in recurrentes:
-            try:
-                dias_semana = json.loads(recurrente['dias_semana'])
-                hora_inicio = recurrente['hora_inicio']
-                hora_fin = recurrente['hora_fin']
-                
-                # Calcular duración
-                if isinstance(hora_inicio, str):
-                    hora_inicio_obj = datetime.strptime(hora_inicio, '%H:%M')
-                else:
-                    hora_inicio_obj = hora_inicio
-                
-                if isinstance(hora_fin, str):
-                    hora_fin_obj = datetime.strptime(hora_fin, '%H:%M')
-                else:
-                    hora_fin_obj = hora_fin
-                
-                duracion_minutos = int((hora_fin_obj - hora_inicio_obj).total_seconds() / 60)
-                if duracion_minutos <= 0:
-                    duracion_minutos = 60
-                
-                # Determinar rango de fechas para este recurrente
-                fecha_inicio_obj = recurrente['fecha_inicio'] or hoy
-                fecha_fin_obj = recurrente['fecha_fin'] or fecha_limite
-                
-                if fecha_fin_obj > fecha_limite:
-                    fecha_fin_obj = fecha_limite
-                
-                fecha_actual = max(hoy, fecha_inicio_obj)
-                
-                while fecha_actual <= fecha_fin_obj:
-                    dia_semana = fecha_actual.isoweekday()
-                    
-                    if dia_semana in dias_semana:
-                        fecha_str = fecha_actual.strftime('%Y-%m-%d')
-                        
-                        # Verificar si ya existe bloqueo
-                        cursor.execute('''
-                            SELECT id FROM citas 
-                            WHERE negocio_id = %s AND profesional_id = %s 
-                            AND fecha = %s AND hora = %s
-                            AND estado = 'bloqueado'
-                        ''', (recurrente['negocio_id'], recurrente['profesional_id'], fecha_str, hora_inicio))
-                        
-                        if not cursor.fetchone():
-                            cursor.execute('''
-                                INSERT INTO citas (
-                                    negocio_id, profesional_id, cliente_telefono, cliente_nombre,
-                                    fecha, hora, servicio_id, estado, created_at
-                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'bloqueado', NOW())
-                            ''', (
-                                recurrente['negocio_id'],
-                                recurrente['profesional_id'],
-                                'BLOQUEO_RECURRENTE',
-                                f'Recurrente ID:{recurrente["id"]} - {fecha_str}',
-                                fecha_str,
-                                hora_inicio,
-                                servicio_id
-                            ))
-                            total_creados += 1
-                    
-                    fecha_actual += timedelta(days=1)
-                    
-            except Exception as e:
-                print(f"⚠️ Error procesando recurrente #{recurrente['id']}: {e}")
-                continue
-        
-        conn.commit()
-        
-        return {
-            'success': True,
-            'message': f'Generados {total_creados} bloqueos puntuales',
-            'total': total_creados
-        }
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"❌ Error generando bloqueos desde recurrentes: {e}")
-        return {'success': False, 'error': str(e)}
-    finally:
-        conn.close()
-
 # Ejecutar al iniciar para asegurar que la tabla existe
 try:
     crear_tabla_bloqueos_recurrentes()
@@ -4089,7 +3369,16 @@ def asegurar_columnas_localizacion():
         cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS pais TEXT")
         cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS zona_horaria TEXT")
         cursor.execute("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS prompt_ia TEXT")
-        # Relación número de WhatsApp (n8n) -> negocio; el alta de negocios la consulta
+        # Tareas periódicas que deben ejecutarse una sola vez aunque haya varios procesos (p. ej. el resumen diario)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scheduler_ejecuciones (
+                clave TEXT PRIMARY KEY,
+                creada TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        # Duración propia de los bloqueos (antes usaban la del primer servicio activo y quedaban muy cortos)
+        cursor.execute("ALTER TABLE citas ADD COLUMN IF NOT EXISTS duracion_minutos INTEGER")
+# Relación número de WhatsApp (n8n) -> negocio; el alta de negocios la consulta
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS numeros_whatsapp_negocio (
                 id SERIAL PRIMARY KEY,
@@ -4104,6 +3393,125 @@ def asegurar_columnas_localizacion():
     except Exception as e:
         conn.rollback()
         print(f"⚠️ Error asegurando columnas de localización: {e}")
+    finally:
+        conn.close()
+
+    # Relleno (una sola vez) de la duración de los bloqueos recurrentes ya creados: dura lo que dice su regla
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE citas c
+            SET duracion_minutos = GREATEST(15, (EXTRACT(EPOCH FROM (br.hora_fin - br.hora_inicio)) / 60)::int)
+            FROM bloqueos_recurrentes br
+            WHERE c.estado = 'bloqueado' AND c.duracion_minutos IS NULL
+              AND c.cliente_telefono = 'BLOQUEO_RECURRENTE'
+              AND br.id = NULLIF(substring(c.cliente_nombre from 'Recurrente ID:([0-9]+)'), '')::int
+        """)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()  # la tabla de bloqueos recurrentes puede no existir todavía
+    finally:
+        conn.close()
+
+
+def guardar_numero_whatsapp_negocio(negocio_id, numero):
+    """Asocia el número de la API de WhatsApp a un negocio (uno por negocio).
+    Devuelve 'ok', o 'duplicado' si el número ya pertenece a otro negocio."""
+    ph = '%s' if is_postgresql() else '?'
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT 1 FROM numeros_whatsapp_negocio WHERE numero_whatsapp = {ph} AND negocio_id != {ph}', (numero, negocio_id))
+        if cursor.fetchone():
+            return 'duplicado'
+        cursor.execute(f'UPDATE numeros_whatsapp_negocio SET numero_whatsapp = {ph} WHERE negocio_id = {ph}', (numero, negocio_id))
+        if cursor.rowcount == 0:
+            cursor.execute(f'INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp) VALUES ({ph}, {ph})', (negocio_id, numero))
+        conn.commit()
+        return 'ok'
+    finally:
+        conn.close()
+
+
+def eliminar_numero_whatsapp_negocio(negocio_id):
+    ph = '%s' if is_postgresql() else '?'
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f'DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = {ph}', (negocio_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def negocio_id_por_numero_whatsapp(numero):
+    """negocio_id del negocio activo dueño de ese número de WhatsApp, o None.
+
+    Coincidencia EXACTA de dígitos (primero la tabla de números de la API, luego el teléfono del negocio). Si el
+    número solo coincide por sus últimos 10 dígitos (p. ej. guardado sin indicativo de país) se acepta únicamente
+    cuando hay un solo negocio candidato; con varios es ambiguo y no se asigna a ninguno.
+    """
+    digitos = re.sub(r'[^0-9]', '', str(numero or ''))
+    if not digitos:
+        return None
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT w.negocio_id FROM numeros_whatsapp_negocio w
+            JOIN negocios n ON n.id = w.negocio_id
+            WHERE w.numero_whatsapp = %s AND w.activo = TRUE AND n.activo = TRUE
+        """, (digitos,))
+        fila = cursor.fetchone()
+        if fila:
+            return fila['negocio_id'] if hasattr(fila, 'keys') else fila[0]
+        cursor.execute("""
+            SELECT id FROM negocios
+            WHERE activo = TRUE
+              AND regexp_replace(telefono_whatsapp, '[^0-9]', '', 'g') = %s
+        """, (digitos,))
+        filas = cursor.fetchall()
+        if len(filas) == 1:
+            return filas[0]['id'] if hasattr(filas[0], 'keys') else filas[0][0]
+        if len(filas) > 1:
+            return None
+        if len(digitos) >= 7:
+            cursor.execute("""
+                SELECT id FROM negocios
+                WHERE activo = TRUE
+                  AND RIGHT(regexp_replace(telefono_whatsapp, '[^0-9]', '', 'g'), 10) = RIGHT(%s, 10)
+            """, (digitos,))
+            filas = cursor.fetchall()
+            if len(filas) == 1:
+                return filas[0]['id'] if hasattr(filas[0], 'keys') else filas[0][0]
+            if len(filas) > 1:
+                print(f"⚠️ [WHATSAPP] El número {digitos} coincide con varios negocios; no se asigna a ninguno")
+        return None
+    finally:
+        conn.close()
+
+
+def reclamar_ejecucion(clave):
+    """True si ESTE proceso es el primero en reclamar la tarea ``clave`` (p. ej. 'resumen_America/Bogota_2026-11-13').
+
+    Con varios procesos/hilos del programador solo uno obtiene True; los demás reciben False y no repiten el trabajo.
+    Sin PostgreSQL (desarrollo local) siempre devuelve True.
+    """
+    if not is_postgresql():
+        return True
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM scheduler_ejecuciones WHERE creada < NOW() - INTERVAL '30 days'")
+        cursor.execute("INSERT INTO scheduler_ejecuciones (clave) VALUES (%s) ON CONFLICT (clave) DO NOTHING", (clave,))
+        reclamada = cursor.rowcount == 1
+        conn.commit()
+        return reclamada
+    except Exception as e:
+        conn.rollback()
+        print(f"⚠️ No se pudo reclamar la tarea {clave}: {e}")
+        return True  # ante un fallo de la BD es preferible enviar a no enviar
     finally:
         conn.close()
 

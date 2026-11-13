@@ -35,15 +35,21 @@ import hmac
 import time as time_module
 
 rate_limit_cache = defaultdict(list)
+_rate_limit_ultima_limpieza = [0.0]
 
 def check_rate_limit(ip, max_requests=20, window_seconds=60):
     """Limitar solicitudes por IP. Máximo {max_requests} por {window_seconds} segundos."""
     ahora = datetime.now()
     # Limpiar ventanas viejas
     rate_limit_cache[ip] = [
-        t for t in rate_limit_cache[ip] 
+        t for t in rate_limit_cache[ip]
         if ahora - t < timedelta(seconds=window_seconds)
     ]
+    # Cada minuto se eliminan las IPs sin actividad reciente para que el diccionario no crezca sin límite
+    if time_module.time() - _rate_limit_ultima_limpieza[0] > 60:
+        _rate_limit_ultima_limpieza[0] = time_module.time()
+        for otra_ip in [k for k, v in rate_limit_cache.items() if not v and k != ip]:
+            del rate_limit_cache[otra_ip]
     
     if len(rate_limit_cache[ip]) >= max_requests:
         return False
@@ -65,6 +71,12 @@ from localizacion import tz_negocio, fijar_negocio, limpiar_negocio, normalizar_
 import localizacion
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
+
+# Detrás del proxy de Railway, request.remote_addr sería la IP del proxy para TODOS los visitantes: el límite de
+# mensajes y de intentos de login y la deduplicación de votos del concurso (por IP) valdrían para todo el sitio a la vez.
+# ProxyFix toma la IP real del encabezado X-Forwarded-For que añade Railway (un solo proxy de confianza).
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 _secret_key = os.getenv('SECRET_KEY')
 if not _secret_key:
     raise RuntimeError("La variable de entorno SECRET_KEY es requerida")
@@ -188,70 +200,6 @@ def enviar_notificacion_push_profesional(profesional_id, titulo, mensaje, cita_i
     except Exception as e:
         print(f"❌ Error crítico: {e}")
         return False  # Solo False si falla todo
-
-def guardar_notificacion_db(profesional_id, titulo, mensaje, cita_id=None):
-    """Función auxiliar para guardar notificación en BD - VERSIÓN CORREGIDA"""
-    try:
-        from database import get_db_connection
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        print(f"💾 Guardando notificación en BD para profesional {profesional_id}...")
-        
-        # Verificar columnas disponibles
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'notificaciones_profesional'
-            ORDER BY column_name
-        """)
-        
-        columnas = [row[0] for row in cursor.fetchall()]
-        print(f"   Columnas disponibles: {', '.join(columnas)}")
-        
-        # Construir query dinámicamente
-        if 'cita_id' in columnas and 'fecha_creacion' in columnas:
-            if cita_id:
-                cursor.execute('''
-                    INSERT INTO notificaciones_profesional 
-                    (profesional_id, tipo, titulo, mensaje, leida, cita_id, fecha_creacion)
-                    VALUES (%s, 'push', %s, %s, FALSE, %s, NOW())
-                ''', (profesional_id, titulo, mensaje, cita_id))
-            else:
-                cursor.execute('''
-                    INSERT INTO notificaciones_profesional 
-                    (profesional_id, tipo, titulo, mensaje, leida, fecha_creacion)
-                    VALUES (%s, 'push', %s, %s, FALSE, NOW())
-                ''', (profesional_id, titulo, mensaje))
-        
-        elif 'cita_id' in columnas:
-            if cita_id:
-                cursor.execute('''
-                    INSERT INTO notificaciones_profesional 
-                    (profesional_id, tipo, titulo, mensaje, leida, cita_id)
-                    VALUES (%s, 'push', %s, %s, FALSE, %s)
-                ''', (profesional_id, titulo, mensaje, cita_id))
-            else:
-                cursor.execute('''
-                    INSERT INTO notificaciones_profesional 
-                    (profesional_id, tipo, titulo, mensaje, leida)
-                    VALUES (%s, 'push', %s, %s, FALSE)
-                ''', (profesional_id, titulo, mensaje))
-        
-        else:
-            cursor.execute('''
-                INSERT INTO notificaciones_profesional 
-                (profesional_id, tipo, titulo, mensaje, leida)
-                VALUES (%s, 'push', %s, %s, FALSE)
-            ''', (profesional_id, titulo, mensaje))
-        
-        conn.commit()
-        conn.close()
-        print(f"✅ Notificación guardada en BD")
-        
-    except Exception as e:
-        print(f"⚠️ Error guardando en BD (no crítico): {type(e).__name__}: {str(e)}")
 
 # =============================================================================
 # CONFIGURACIÓN MANUAL DE CSRF (SIN FLASK-WTF)
@@ -1374,38 +1322,6 @@ def crear_profesional(negocio_id, nombre, especialidad, pin, servicios_ids, acti
     finally:
         conn.close()
 
-def actualizar_profesional(profesional_id, nombre, especialidad, pin, servicios_ids, activo):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Actualizar datos básicos
-        cursor.execute('''
-            UPDATE profesionales 
-            SET nombre = %s, especialidad = %s, pin = %s, activo = %s
-            WHERE id = %s
-        ''', (nombre, especialidad, pin, activo, profesional_id))
-        
-        # Eliminar servicios anteriores
-        cursor.execute('DELETE FROM profesional_servicios WHERE profesional_id = %s', (profesional_id,))
-        
-        # Agregar nuevos servicios
-        for servicio_id in servicios_ids:
-            cursor.execute('''
-                INSERT INTO profesional_servicios (profesional_id, servicio_id)
-                VALUES (%s, %s)
-            ''', (profesional_id, servicio_id))
-        
-        conn.commit()
-        return True
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Error actualizando profesional: {e}")
-        return False
-    finally:
-        conn.close()
-
 def eliminar_profesional(profesional_id, negocio_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1823,43 +1739,9 @@ def admin_nuevo_negocio():
                     flash('El número de API de WhatsApp debe contener solo dígitos', 'error')
                     return redirect(url_for('admin_nuevo_negocio'))
                 
-                # Validar unicidad (no esté en otro negocio)
-                from database import get_db_connection
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                
-                if db.is_postgresql():
-                    cursor.execute('''
-                        SELECT id FROM numeros_whatsapp_negocio 
-                        WHERE numero_whatsapp = %s AND negocio_id != %s
-                    ''', (numero_api_whatsapp, negocio_id))
-                else:
-                    cursor.execute('''
-                        SELECT id FROM numeros_whatsapp_negocio 
-                        WHERE numero_whatsapp = ? AND negocio_id != ?
-                    ''', (numero_api_whatsapp, negocio_id))
-                
-                if cursor.fetchone():
-                    conn.close()
+                if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                     flash('Este número de API ya está registrado para otro negocio', 'error')
                     return redirect(url_for('admin_nuevo_negocio'))
-                
-                # Guardar o actualizar
-                if db.is_postgresql():
-                    cursor.execute('''
-                        INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                        VALUES (%s, %s)
-                        ON CONFLICT (negocio_id) DO UPDATE SET numero_whatsapp = %s
-                    ''', (negocio_id, numero_api_whatsapp, numero_api_whatsapp))
-                else:
-                    cursor.execute('''
-                        INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                        VALUES (?, ?)
-                    ''', (negocio_id, numero_api_whatsapp))
-                
-                conn.commit()
-                conn.close()
-                print(f'✅ Número de API WhatsApp guardado para negocio {negocio_id}: {numero_api_whatsapp}')
             
             flash('Negocio creado exitosamente', 'success')
             return redirect(url_for('admin_negocios'))
@@ -1952,57 +1834,12 @@ def admin_editar_negocio(negocio_id):
                 flash('El número de API de WhatsApp debe contener solo dígitos', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
             
-            # Validar unicidad (no esté en otro negocio)
-            from database import get_db_connection
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            if db.is_postgresql():
-                cursor.execute('''
-                    SELECT id FROM numeros_whatsapp_negocio 
-                    WHERE numero_whatsapp = %s AND negocio_id != %s
-                ''', (numero_api_whatsapp, negocio_id))
-            else:
-                cursor.execute('''
-                    SELECT id FROM numeros_whatsapp_negocio 
-                    WHERE numero_whatsapp = ? AND negocio_id != ?
-                ''', (numero_api_whatsapp, negocio_id))
-            
-            if cursor.fetchone():
-                conn.close()
+            if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                 flash('Este número de API ya está registrado para otro negocio', 'error')
                 return redirect(url_for('admin_editar_negocio', negocio_id=negocio_id))
-            
-            # Guardar o actualizar
-            if db.is_postgresql():
-                cursor.execute('''
-                    INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                    VALUES (%s, %s)
-                    ON CONFLICT (negocio_id) DO UPDATE SET numero_whatsapp = %s
-                ''', (negocio_id, numero_api_whatsapp, numero_api_whatsapp))
-            else:
-                cursor.execute('''
-                    INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                    VALUES (?, ?)
-                ''', (negocio_id, numero_api_whatsapp))
-            
-            conn.commit()
-            conn.close()
-            print(f'✅ Número de API WhatsApp actualizado para negocio {negocio_id}: {numero_api_whatsapp}')
         else:
-            # Si se vacío el campo, eliminar el registro
-            from database import get_db_connection
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            
-            if db.is_postgresql():
-                cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
-            else:
-                cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
-            
-            conn.commit()
-            conn.close()
-            print(f'✅ Número de API WhatsApp eliminado para negocio {negocio_id}')
+            # Si se vació el campo, eliminar el registro
+            db.eliminar_numero_whatsapp_negocio(negocio_id)
         
         flash('Negocio actualizado exitosamente', 'success')
         return redirect(url_for('admin_negocios'))
@@ -3358,62 +3195,15 @@ def negocio_configuracion():
             ):
                 # ===== GUARDAR NÚMERO DE API DE WHATSAPP =====
                 numero_api_whatsapp = request.form.get('numero_api_whatsapp', '').strip()
-                conn = db.get_db_connection()
-                cursor = conn.cursor()
-                
                 if numero_api_whatsapp:
                     if not numero_api_whatsapp.isdigit():
-                        conn.close()
                         flash('El número de API de WhatsApp debe contener solo dígitos', 'error')
                         return redirect(url_for('negocio_configuracion'))
-                    
-                    # Verificar unicidad
-                    if db.is_postgresql():
-                        cursor.execute('''
-                            SELECT negocio_id FROM numeros_whatsapp_negocio 
-                            WHERE numero_whatsapp = %s AND negocio_id != %s
-                        ''', (numero_api_whatsapp, negocio_id))
-                    else:
-                        cursor.execute('''
-                            SELECT negocio_id FROM numeros_whatsapp_negocio 
-                            WHERE numero_whatsapp = ? AND negocio_id != ?
-                        ''', (numero_api_whatsapp, negocio_id))
-                    
-                    if cursor.fetchone():
-                        conn.close()
+                    if db.guardar_numero_whatsapp_negocio(negocio_id, numero_api_whatsapp) == 'duplicado':
                         flash('Este número de API ya está registrado para otro negocio', 'error')
                         return redirect(url_for('negocio_configuracion'))
-                    
-                    # Guardar o actualizar
-                    if db.is_postgresql():
-                        cursor.execute('''
-                            UPDATE numeros_whatsapp_negocio 
-                            SET numero_whatsapp = %s
-                            WHERE negocio_id = %s
-                        ''', (numero_api_whatsapp, negocio_id))
-                        if cursor.rowcount == 0:
-                            cursor.execute('''
-                                INSERT INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                                VALUES (%s, %s)
-                            ''', (negocio_id, numero_api_whatsapp))
-                    else:
-                        cursor.execute('''
-                            INSERT OR REPLACE INTO numeros_whatsapp_negocio (negocio_id, numero_whatsapp)
-                            VALUES (?, ?)
-                        ''', (negocio_id, numero_api_whatsapp))
-                    
-                    conn.commit()
-                    conn.close()
-                    print(f'✅ Número de API WhatsApp guardado: {numero_api_whatsapp}')
                 else:
-                    # Eliminar si el campo está vacío
-                    if db.is_postgresql():
-                        cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = %s', (negocio_id,))
-                    else:
-                        cursor.execute('DELETE FROM numeros_whatsapp_negocio WHERE negocio_id = ?', (negocio_id,))
-                    conn.commit()
-                    conn.close()
-                    print('✅ Número de API WhatsApp eliminado')
+                    db.eliminar_numero_whatsapp_negocio(negocio_id)
                 
                 flash('Configuración actualizada exitosamente', 'success')
             else:
@@ -5302,232 +5092,42 @@ def marcar_cita_completada(cita_id):
 
 @app.route('/api/horarios_disponibles')
 def api_horarios_disponibles():
-    """API para obtener horarios disponibles - VERSIÓN CORREGIDA"""
-    # ✅ IMPORTAR datetime AQUÍ
-    from datetime import datetime, timedelta
-    
+    """Horarios disponibles ('HH:MM') de un profesional para un servicio. Usa disponibilidad.py, igual que el chat."""
     try:
         profesional_id = request.args.get('profesional_id')
         fecha = request.args.get('fecha')
         servicio_id = request.args.get('servicio_id')
-        
-        print(f"🔍 DEBUG api_horarios_disponibles: profesional_id={profesional_id}, fecha={fecha}, servicio_id={servicio_id}")
-        
         if not all([profesional_id, fecha, servicio_id]):
             return jsonify({'error': 'Parámetros incompletos'}), 400
-        
-        # Hora local del negocio (se fija por solicitud en before_request)
-        fecha_actual_colombia = datetime.now(tz_negocio)
-        
-        # Obtener negocio_id del profesional
+        try:
+            datetime.strptime(fecha, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'error': 'Fecha inválida'}), 400
+
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
         cursor.execute('SELECT negocio_id FROM profesionales WHERE id = %s', (profesional_id,))
         profesional = cursor.fetchone()
         if not profesional:
             conn.close()
             return jsonify({'error': 'Profesional no encontrado'}), 404
-        
         negocio_id = profesional['negocio_id']
-        
-        # Obtener duración del servicio
-        cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
+        cursor.execute('SELECT duracion FROM servicios WHERE id = %s AND negocio_id = %s', (servicio_id, negocio_id))
         servicio = cursor.fetchone()
-        
-        if not servicio:
-            conn.close()
-            return jsonify({'error': 'Servicio no encontrado'}), 404
-        
-        duracion_minutos = servicio['duracion']
-        print(f"🔍 Duración del servicio: {duracion_minutos} minutos")
-        
-        # Obtener configuración de horarios para el día
-        horarios_config = db.obtener_horarios_por_dia(negocio_id, fecha)
-        
-        if not horarios_config or not horarios_config['activo']:
-            conn.close()
-            return jsonify({'error': 'El negocio no trabaja este día'}), 400
-        
-        hora_inicio_str = horarios_config['hora_inicio']
-        hora_fin_str = horarios_config['hora_fin']
-        almuerzo_inicio_str = horarios_config.get('almuerzo_inicio')
-        almuerzo_fin_str = horarios_config.get('almuerzo_fin')
-        
-        # Obtener TODAS las citas del día con su duración - INCLUYENDO BLOQUEADOS
-        cursor.execute('''
-            SELECT c.hora, s.duracion, c.estado
-            FROM citas c
-            JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.profesional_id = %s 
-            AND c.fecha = %s 
-            AND c.estado NOT IN ('cancelado', 'cancelada')
-            ORDER BY c.hora
-        ''', (profesional_id, fecha))
-        
-        citas_ocupadas = cursor.fetchall()
-        
-        # ✅ VERIFICAR BLOQUEOS RECURRENTES
-        from database import obtener_bloqueos_recurrentes
-        bloqueos_recurrentes = obtener_bloqueos_recurrentes(negocio_id, profesional_id)
-        
-        fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
-        dia_semana = fecha_obj.isoweekday()
-        
-        bloqueo_recurrente_activo = None
-        for bloqueo in bloqueos_recurrentes:
-            if bloqueo.get('activo'):
-                dias_bloqueados = bloqueo.get('dias_semana_lista', [])
-                if dia_semana in dias_bloqueados:
-                    fecha_inicio = bloqueo.get('fecha_inicio')
-                    fecha_fin = bloqueo.get('fecha_fin')
-                    
-                    aplicar = True
-                    if fecha_inicio and fecha_obj.date() < datetime.strptime(fecha_inicio, '%Y-%m-%d').date():
-                        aplicar = False
-                    if fecha_fin and fecha_obj.date() > datetime.strptime(fecha_fin, '%Y-%m-%d').date():
-                        aplicar = False
-                    
-                    if aplicar:
-                        bloqueo_recurrente_activo = bloqueo
-                        print(f"🚫 Día bloqueado recurrentemente: {bloqueo['motivo']} ({bloqueo['hora_inicio']} - {bloqueo['hora_fin']})")
-                        break
-        
         conn.close()
-        
-        print(f"📋 Citas existentes: {len(citas_ocupadas)}")
-        for c in citas_ocupadas:
-            print(f"   - {c['hora']} (dur. {c['duracion']} min, estado: {c['estado']})")
-        
-        fecha_solicitada = datetime.strptime(fecha, '%Y-%m-%d').date()
-        es_hoy = fecha_solicitada == fecha_actual_colombia.date()
-        
-        # Generar horarios disponibles
-        hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M')
-        hora_fin = datetime.strptime(hora_fin_str, '%H:%M')
-        
-        almuerzo_inicio = None
-        almuerzo_fin = None
-        if almuerzo_inicio_str and almuerzo_fin_str:
-            try:
-                almuerzo_inicio = datetime.strptime(almuerzo_inicio_str, '%H:%M')
-                almuerzo_fin = datetime.strptime(almuerzo_fin_str, '%H:%M')
-            except ValueError:
-                print("⚠️ Error parseando horario de almuerzo")
-        
-        # Si hay bloqueo recurrente, determinar rango de horas bloqueadas
-        hora_inicio_bloqueo = None
-        hora_fin_bloqueo = None
-        if bloqueo_recurrente_activo:
-            try:
-                hora_inicio_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_inicio'], '%H:%M')
-                hora_fin_bloqueo = datetime.strptime(bloqueo_recurrente_activo['hora_fin'], '%H:%M')
-            except:
-                pass
-        
-        # Si es HOY, empezar desde la hora actual + margen
-        if es_hoy:
-            hora_minima_colombia = fecha_actual_colombia + timedelta(minutes=30)
-            hora_minima_time = hora_minima_colombia.time()
-            
-            if hora_minima_time >= datetime.strptime(hora_fin_str, '%H:%M').time():
-                return jsonify({
-                    'horarios': [],
-                    'mensaje': 'No hay horarios disponibles para hoy en el horario laboral restante.'
-                })
-            
-            hora_minima_dt = datetime.combine(fecha_solicitada, hora_minima_time)
-            hora_inicio_dt = datetime.combine(fecha_solicitada, hora_inicio.time())
-            hora_actual = max(hora_minima_dt, hora_inicio_dt)
-            
-            # Redondear a intervalos de 30 minutos
-            minutos = hora_actual.minute
-            if minutos % 30 != 0:
-                minutos_redondeados = ((minutos // 30) + 1) * 30
-                if minutos_redondeados == 60:
-                    hora_actual = hora_actual.replace(
-                        hour=hora_actual.hour + 1,
-                        minute=0,
-                        second=0,
-                        microsecond=0
-                    )
-                else:
-                    hora_actual = hora_actual.replace(
-                        minute=minutos_redondeados,
-                        second=0,
-                        microsecond=0
-                    )
-        else:
-            hora_actual = datetime.combine(fecha_solicitada, hora_inicio.time())
-        
-        hora_fin_completa = datetime.combine(fecha_solicitada, hora_fin.time())
-        
-        # Generar slots verificando disponibilidad
-        intervalos_disponibles = []
-        
-        while hora_actual < hora_fin_completa:
-            hora_fin_slot = hora_actual + timedelta(minutes=duracion_minutos)
-            
-            if hora_fin_slot > hora_fin_completa:
-                break
-            
-            # Verificar horario de almuerzo
-            dentro_almuerzo = False
-            if almuerzo_inicio and almuerzo_fin:
-                hora_actual_time = hora_actual.time()
-                almuerzo_ini_time = almuerzo_inicio.time()
-                almuerzo_fin_time = almuerzo_fin.time()
-                
-                if (almuerzo_ini_time <= hora_actual_time < almuerzo_fin_time or
-                    almuerzo_ini_time < hora_fin_slot.time() <= almuerzo_fin_time or
-                    (hora_actual_time <= almuerzo_ini_time and hora_fin_slot.time() >= almuerzo_fin_time)):
-                    dentro_almuerzo = True
-            
-            if not dentro_almuerzo:
-                # ✅ Verificar bloqueo recurrente
-                disponible = True
-                hora_str = hora_actual.strftime('%H:%M')
-                
-                if bloqueo_recurrente_activo and hora_inicio_bloqueo and hora_fin_bloqueo:
-                    if (hora_actual.time() < hora_fin_bloqueo.time() and 
-                        hora_fin_slot.time() > hora_inicio_bloqueo.time()):
-                        disponible = False
-                        print(f"🚫 {hora_str} - Bloqueado por recurrente")
-                
-                # Verificar citas existentes
-                if disponible:
-                    for cita in citas_ocupadas:
-                        try:
-                            hora_cita_str = str(cita['hora']).strip()
-                            if 'AM' in hora_cita_str or 'PM' in hora_cita_str:
-                                hora_cita_obj = datetime.strptime(hora_cita_str, '%I:%M %p')
-                                hora_cita_str = hora_cita_obj.strftime('%H:%M')
-                            
-                            hora_cita = datetime.strptime(hora_cita_str, '%H:%M')
-                            hora_fin_cita = hora_cita + timedelta(minutes=int(cita['duracion']))
-                            
-                            if (hora_actual.time() < hora_fin_cita.time() and 
-                                hora_fin_slot.time() > hora_cita.time()):
-                                disponible = False
-                                print(f"❌ {hora_str} - Conflicto con cita")
-                                break
-                        except Exception as e:
-                            print(f"⚠️ Error procesando cita: {e}")
-                            continue
-                
-                if disponible:
-                    intervalos_disponibles.append(hora_str)
-                    print(f"✅ {hora_str} DISPONIBLE")
-            
-            hora_actual += timedelta(minutes=30)
-        
-        print(f"🔍 Horarios disponibles: {len(intervalos_disponibles)}: {intervalos_disponibles}")
-        
-        return jsonify({
-            'horarios': intervalos_disponibles,
-            'duracion': duracion_minutos
-        })
-        
+        if not servicio:
+            return jsonify({'error': 'Servicio no encontrado'}), 404
+
+        horarios_config = db.obtener_horarios_por_dia(negocio_id, fecha)
+        if not horarios_config or not horarios_config['activo']:
+            return jsonify({'error': 'El negocio no trabaja este día'}), 400
+
+        import disponibilidad
+        libres = disponibilidad.horarios_libres(negocio_id, int(profesional_id), fecha, duracion=servicio['duracion'])
+        if not libres and fecha == datetime.now(tz_negocio).strftime('%Y-%m-%d'):
+            return jsonify({'horarios': [], 'mensaje': 'No hay horarios disponibles para hoy en el horario laboral restante.'})
+        return jsonify({'horarios': libres, 'duracion': servicio['duracion']})
+
     except Exception as e:
         print(f"❌ Error en api_horarios_disponibles: {e}")
         import traceback
@@ -5735,87 +5335,6 @@ def manifest_final():
     response = jsonify(manifest)
     response.headers['Cache-Control'] = 'no-store, no-cache'
     return response
-
-def crear_manifest_default():
-    """Manifest por defecto (redirige a /app que decide inteligentemente)"""
-    return {
-        "name": "WaBot",
-        "short_name": "WaBot",
-        "description": "Sistema de agendamiento",
-        "start_url": "/app",  # Ruta INTELIGENTE que decide
-        "display": "standalone",
-        "background_color": "#0a0a0d",
-        "theme_color": "#0a0a0d",
-        "orientation": "portrait-primary",
-        "scope": "/",
-        "lang": "es",
-        "icons": [
-            {
-                "src": "/static/icons/icon-72x72.png",
-                "sizes": "72x72",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-96x96.png",
-                "sizes": "96x96",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-128x128.png",
-                "sizes": "128x128",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-144x144.png",
-                "sizes": "144x144",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-152x152.png",
-                "sizes": "152x152",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-192x192.png",
-                "sizes": "192x192",
-                "type": "image/png",
-                "purpose": "any maskable"
-            },
-            {
-                "src": "/static/icons/icon-384x384.png",
-                "sizes": "384x384",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "/static/icons/icon-512x512.png",
-                "sizes": "512x512",
-                "type": "image/png",
-                "purpose": "any maskable"
-            }
-        ],
-        "categories": ["business", "productivity", "utilities"],
-        "shortcuts": [
-            {
-                "name": "WaBot",
-                "short_name": "WaBot",
-                "description": "Sistema de agendamiento",
-                "url": "/app",
-                "icons": [
-                    {
-                        "src": "/static/icons/icon-96x96.png",
-                        "sizes": "96x96",
-                        "type": "image/png"
-                    }
-                ]
-            }
-        ]
-    }
 
 @app.route('/manifest-login.json')
 def manifest_login():
@@ -8377,13 +7896,14 @@ def api_cliente_citas():
             WHERE c.cliente_telefono = %s 
             AND c.negocio_id = %s
             ORDER BY c.fecha DESC, c.hora DESC
-            LIMIT 20
+            LIMIT 60
         ''', (telefono, telefono, negocio_id))
         
         citas = cursor.fetchall()
         conn.close()
         
-        # Formatear citas
+        # Formatear citas ("próxima" se decide aquí, con la hora local del negocio, no en el navegador)
+        ahora_negocio = datetime.now(tz_negocio).replace(tzinfo=None)
         citas_formateadas = []
         for cita in citas:
             # Formatear hora
@@ -8393,7 +7913,6 @@ def api_cliente_citas():
             fecha_str = str(cita['fecha']) if cita['fecha'] else ''
             if fecha_str and len(fecha_str) >= 10:
                 try:
-                    from datetime import datetime
                     fecha_obj = datetime.strptime(fecha_str[:10], '%Y-%m-%d')
                     fecha_formateada = fecha_obj.strftime('%d/%m/%Y')
                 except:
@@ -8401,9 +7920,20 @@ def api_cliente_citas():
             else:
                 fecha_formateada = fecha_str
             
-            # Determinar estado visual
+            # ¿Es una cita pendiente que todavía no ocurre?
             estado = cita['estado'] or 'confirmado'
-            if estado == 'completado':
+            es_proxima = False
+            if estado in ('confirmado', 'confirmada', 'pendiente') and fecha_str and hora_str:
+                try:
+                    es_proxima = datetime.strptime(f"{fecha_str[:10]} {hora_str}", '%Y-%m-%d %H:%M') >= ahora_negocio
+                except ValueError:
+                    es_proxima = False
+
+            # Determinar estado visual
+            if estado in ('confirmado', 'confirmada', 'pendiente') and not es_proxima:
+                estado_icono = '🕘'
+                estado_texto = 'Pasada'
+            elif estado == 'completado':
                 estado_icono = '✅'
                 estado_texto = 'Completada'
             elif estado == 'cancelado':
@@ -8421,6 +7951,7 @@ def api_cliente_citas():
                 'fecha': fecha_formateada,
                 'hora': hora_str,
                 'estado': estado,
+                'es_proxima': es_proxima,
                 'estado_icono': estado_icono,
                 'estado_texto': estado_texto,
                 'servicio': cita['servicio_nombre'],
@@ -8572,51 +8103,52 @@ def _wa_limpiar_estado():
 @app.route('/api/whatsapp/webhook', methods=['POST'])
 def whatsapp_webhook():
     """
-    Endpoint que n8n llamará cuando llegue un mensaje de WhatsApp
-    Reutiliza TODA la lógica de web_chat_handler.py
+    Endpoint que n8n llama cuando llega un mensaje de WhatsApp.
+    Reutiliza TODA la lógica de web_chat_handler.py (ver procesar_whatsapp_entrante).
     """
     if not _webhook_whatsapp_autorizado():
         return jsonify({'error': 'No autorizado'}), 401
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'error': 'Se esperaba un cuerpo JSON'}), 400
+    respuesta, estado = procesar_whatsapp_entrante(data)
+    return jsonify(respuesta), estado
 
+
+def procesar_whatsapp_entrante(data):
+    """Procesa un mensaje de WhatsApp ya normalizado y devuelve (respuesta, código_http).
+
+    data = {"from": "+573001234567" (cliente), "to": "+573009876543" (número del negocio),
+            "message": "Hola, quiero agendar una cita", "message_id": "wamid.123"}
+    Lo usan el endpoint de n8n y la conexión directa con Meta (whatsapp_meta.py).
+    """
     try:
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({'error': 'Se esperaba un cuerpo JSON'}), 400
-        print(f"📱 [WHATSAPP] Mensaje recibido de n8n: {data}")
+        print(f"📱 [WHATSAPP] Mensaje recibido (id={data.get('message_id')}, {len(str(data.get('message') or ''))} caracteres)")
 
         # Meta/n8n reintentan entregas: un mismo message_id no se procesa dos veces
         message_id = str(data.get('message_id') or '').strip()
         _wa_limpiar_estado()
         if message_id and message_id in _wa_respuestas_recientes:
             print(f"♻️ [WHATSAPP] message_id repetido, devolviendo la respuesta anterior: {message_id}")
-            return jsonify(_wa_respuestas_recientes[message_id][1])
-        
-        # Extraer datos que n8n enviará
-        # Formato esperado:
-        # {
-        #   "from": "+573001234567",  # número del cliente
-        #   "to": "+573009876543",    # número del negocio (para identificar qué negocio es)
-        #   "message": "Hola, quiero agendar una cita",
-        #   "message_id": "wamid.123456789"
-        # }
-        
-        cliente_telefono = data.get('from', '').strip()
-        numero_negocio = data.get('to', '').strip()
-        mensaje = data.get('message', '').strip()
-        
+            return _wa_respuestas_recientes[message_id][1], 200
+
+        cliente_telefono = str(data.get('from') or '').strip()
+        numero_negocio = str(data.get('to') or '').strip()
+        mensaje = str(data.get('message') or '').strip()
+
         if not cliente_telefono or not numero_negocio or not mensaje:
-            return jsonify({'error': 'Datos incompletos'}), 400
-        
+            return {'error': 'Datos incompletos'}, 400
+
         # Limpiar número de teléfono (eliminar +, espacios, etc.)
         cliente_telefono_limpio = re.sub(r'[^0-9]', '', cliente_telefono)
-        
+
         # 1. IDENTIFICAR QUÉ NEGOCIO ES según el número de WhatsApp
         negocio_id = obtener_negocio_por_numero_whatsapp(numero_negocio)
-        
+
         if not negocio_id:
             print(f"❌ [WHATSAPP] Número {numero_negocio} no está registrado a ningún negocio")
-            return jsonify({'error': 'Número no registrado'}), 404
-        
+            return {'error': 'Número no registrado'}, 404
+
         print(f"🏢 [WHATSAPP] Negocio ID: {negocio_id}")
         fijar_negocio(negocio_id)
 
@@ -8629,18 +8161,26 @@ def whatsapp_webhook():
             cliente_telefono_limpio = normalizar_telefono(
                 cliente_telefono, negocio_id, permisivo=True
             ) or cliente_telefono_limpio
-        
-        print(f"📱 [WHATSAPP] Teléfono limpio: {cliente_telefono_limpio}")
-        
+
+        print(f"📱 [WHATSAPP] Teléfono terminado en ...{cliente_telefono_limpio[-4:]}")
+
         # 2. CREAR O RECUPERAR SESIÓN (igual que en chat web)
         session_id = f"wa_{cliente_telefono_limpio}_{negocio_id}"
-        
-        # Inicializar sesión en memoria (similar a flask_session pero para WhatsApp)
+
         if 'whatsapp_sessions' not in app.config:
             app.config['whatsapp_sessions'] = {}
-        
+
+        # La sesión se guarda en la base de datos: sobrevive a los despliegues y funciona con varios procesos
+        import estado_conversacion
+        clave_bd_wa = f"wa:{session_id}"
+        guardada, disponible_bd = estado_conversacion.cargar(clave_bd_wa, ttl_minutos=_WA_SESION_SEGUNDOS // 60)
+        if disponible_bd:
+            if guardada is not None:
+                app.config['whatsapp_sessions'][session_id] = guardada
+            else:
+                app.config['whatsapp_sessions'].pop(session_id, None)
+
         if session_id not in app.config['whatsapp_sessions']:
-            # Crear sesión nueva similar a la del chat web
             app.config['whatsapp_sessions'][session_id] = {
                 'cliente_telefono': cliente_telefono_limpio,
                 'chat_session_id': session_id,
@@ -8648,105 +8188,90 @@ def whatsapp_webhook():
                 'chat_step': 'inicio',
                 'datos_agendamiento': {}
             }
-        
+
         # 3. USAR LA MISMA FUNCIÓN QUE USA EL CHAT WEB
         from web_chat_handler import procesar_mensaje_chat
-        
+
         # Simular la sesión de Flask que espera la función
         class SimulatedSession:
             def __init__(self, data):
                 self._data = data
                 self.permanent = False
-            
+
             def get(self, key, default=None):
                 return self._data.get(key, default)
-            
+
             def __getitem__(self, key):
                 return self._data[key]
-            
+
             def __setitem__(self, key, value):
                 self._data[key] = value
-            
+
             def __contains__(self, key):
                 return key in self._data
-        
+
         app.config['whatsapp_sessions'][session_id]['_ultimo_uso'] = time_module.time()
         simulated_session = SimulatedSession(app.config['whatsapp_sessions'][session_id])
-        
-        # Procesar mensaje usando tu lógica existente
+
         respuesta = procesar_mensaje_chat(
             user_message=mensaje,
             session_id=session_id,
             negocio_id=negocio_id,
             session=simulated_session
         )
-        
+
         # Guardar cambios en la sesión simulada
         app.config['whatsapp_sessions'][session_id] = simulated_session._data
-        
-        # 4. PREPARAR RESPUESTA PARA n8n
-        # n8n espera un formato específico para enviar de vuelta a WhatsApp
+        estado_conversacion.guardar(clave_bd_wa, simulated_session._data)
+
+        # 4. RESPUESTA PARA QUIEN ENVÍA EL MENSAJE (n8n o la conexión directa con Meta)
         respuesta_whatsapp = {
             'success': True,
             'to': cliente_telefono,  # Enviar respuesta al cliente
             'message': respuesta.get('message', ''),
             'session_id': session_id
         }
-        
-        # Si hay opciones (botones), incluirlas para que n8n las maneje
+
+        # Si hay opciones (botones), incluirlas
         if respuesta.get('options'):
-            # Convertir opciones al formato que WhatsApp espera (botones)
             respuesta_whatsapp['buttons'] = []
             for opt in respuesta['options']:
                 respuesta_whatsapp['buttons'].append({
                     'id': opt['value'],
                     'title': opt['text'][:20]  # WhatsApp tiene límite de 20 chars
                 })
-            # WhatsApp solo admite 3 botones de respuesta; con más opciones n8n debe enviar un mensaje de lista (máx. 10)
+            # WhatsApp solo admite 3 botones de respuesta; con más opciones se envía un mensaje de lista (máx. 10)
             respuesta_whatsapp['tipo_interactivo'] = 'botones' if len(respuesta_whatsapp['buttons']) <= 3 else 'lista'
 
-        print(f"✅ [WHATSAPP] Respuesta generada: {respuesta_whatsapp['message'][:100]}...")
+        print(f"✅ [WHATSAPP] Respuesta generada ({len(respuesta_whatsapp['message'])} caracteres)")
 
         if message_id:
             _wa_respuestas_recientes[message_id] = (time_module.time(), respuesta_whatsapp)
-        return jsonify(respuesta_whatsapp)
-        
+        return respuesta_whatsapp, 200
+
     except Exception as e:
         print(f"❌ [WHATSAPP] Error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return {'error': 'Error interno'}, 500
+
+
+# Conexión directa con la API de Meta (sin n8n). Inactiva hasta definir META_WHATSAPP_TOKEN, META_APP_SECRET y META_VERIFY_TOKEN.
+import whatsapp_meta
+whatsapp_meta.registrar(app, procesar_whatsapp_entrante, reclamar=db.reclamar_ejecucion)
 
 
 @app.route('/api/whatsapp/negocio-por-numero', methods=['GET'])
 def whatsapp_negocio_por_numero():
-    """
-    Endpoint para que n8n consulte qué negocio corresponde a un número de WhatsApp
-    """
+    """Endpoint para que n8n consulte qué negocio corresponde a un número de WhatsApp"""
     if not _webhook_whatsapp_autorizado():
         return jsonify({'error': 'No autorizado'}), 401
     try:
         numero = request.args.get('numero', '').strip()
-        
         if not numero:
             return jsonify({'error': 'Número requerido'}), 400
-        
-        # Limpiar número
-        numero_limpio = re.sub(r'[^0-9]', '', numero)
-        
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        # Buscar negocio por número de WhatsApp
-        cursor.execute('''
-            SELECT id, nombre, telefono_whatsapp
-            FROM negocios
-            WHERE telefono_whatsapp LIKE %s AND activo = TRUE
-        ''', (f'%{numero_limpio}%',))
-        
-        negocio = cursor.fetchone()
-        conn.close()
-        
+        negocio_id = db.negocio_id_por_numero_whatsapp(numero)
+        negocio = db.obtener_negocio_por_id(negocio_id) if negocio_id else None
         if negocio:
             return jsonify({
                 'success': True,
@@ -8754,15 +8279,10 @@ def whatsapp_negocio_por_numero():
                 'negocio_nombre': negocio['nombre'],
                 'telefono_whatsapp': negocio['telefono_whatsapp']
             })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No se encontró negocio para este número'
-            }), 404
-            
+        return jsonify({'success': False, 'error': 'No se encontró negocio para este número'}), 404
     except Exception as e:
         print(f"❌ Error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Error interno'}), 500
 
 
 @app.route('/api/whatsapp/registrar-numero', methods=['POST'])
@@ -8819,43 +8339,9 @@ def whatsapp_registrar_numero():
 
 
 def obtener_negocio_por_numero_whatsapp(numero_whatsapp):
-    """
-    Obtener negocio_id a partir de un número de WhatsApp
-    """
+    """negocio_id a partir de un número de WhatsApp (coincidencia exacta; ver database.negocio_id_por_numero_whatsapp)."""
     try:
-        numero_limpio = re.sub(r'[^0-9]', '', numero_whatsapp)
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Primero buscar en tabla de relación
-        cursor.execute('''
-            SELECT negocio_id FROM numeros_whatsapp_negocio
-            WHERE numero_whatsapp = %s AND activo = TRUE
-        ''', (numero_limpio,))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            negocio_id = result[0] if isinstance(result, tuple) else result.get('negocio_id')
-            conn.close()
-            return negocio_id
-        
-        # Si no está en la tabla de relación, buscar directamente en negocios
-        cursor.execute('''
-            SELECT id FROM negocios
-            WHERE telefono_whatsapp LIKE %s AND activo = TRUE
-        ''', (f'%{numero_limpio}%',))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            negocio_id = result[0] if isinstance(result, tuple) else result.get('id')
-            return negocio_id
-        
-        return None
-        
+        return db.negocio_id_por_numero_whatsapp(numero_whatsapp)
     except Exception as e:
         print(f"❌ Error obteniendo negocio por número: {e}")
         return None

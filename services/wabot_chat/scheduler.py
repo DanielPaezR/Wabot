@@ -508,7 +508,9 @@ class AppointmentScheduler:
                 hoy = ahora.date()
                 if self.ultimo_resumen_por_zona.get(zona_nombre) != hoy:
                     self.ultimo_resumen_por_zona[zona_nombre] = hoy
-                    self.enviar_resumen_diario_profesionales(negocio_ids, ahora)
+                    # con varios procesos solo el primero en reclamar el día envía el resumen
+                    if db.reclamar_ejecucion(f'resumen_{zona_nombre}_{hoy}'):
+                        self.enviar_resumen_diario_profesionales(negocio_ids, ahora)
 
     def iniciar(self):
         """Iniciar el scheduler principal"""
