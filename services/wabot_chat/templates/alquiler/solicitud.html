@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#0a0a0d">
+    <title>Mi solicitud - {{ negocio.nombre }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-alquiler.css') }}?v=2">
+    <script>try { if (localStorage.getItem('wb-tema') === 'light') { document.documentElement.setAttribute('data-theme', 'light'); document.documentElement.setAttribute('data-bs-theme', 'light'); } } catch (e) {}</script>
+</head>
+<body class="sol-body">
+<main class="sol-wrap">
+    <header class="sol-cab">
+        <div class="sol-marca">{{ (negocio.nombre or 'W')[:1]|upper }}</div>
+        <div><div class="sol-negocio">{{ negocio.nombre }}</div><div class="sol-sub">Solicitud de alquiler #{{ r.id }}</div></div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}<div class="sol-aviso {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+
+    <section class="sol-resumen">
+        <div class="veh-nombre">{{ r.vehiculo_nombre }}</div>
+        <div class="sol-fila"><span>Recoges</span><strong>{{ fmt(r.fecha_inicio) }} · {{ r.hora[:5] }}</strong></div>
+        <div class="sol-fila"><span>Devuelves</span><strong>{{ fmt(r.fecha_fin) }} · {{ r.hora[:5] }}</strong></div>
+        <div class="sol-fila"><span>Total ({{ r.dias }} día{{ 's' if r.dias != 1 }})</span><strong>{{ dinero(r.total) }}</strong></div>
+        {% if r.deposito %}<div class="sol-fila"><span>Depósito (al recoger)</span><strong>{{ dinero(r.deposito) }}</strong></div>{% endif %}
+        <div class="sol-estado"><span class="alq-badge est-{{ r.estado_vista or r.estado }}">{{ etiquetas.get(r.estado, r.estado) }}</span>
+            {% if r.docs_completos %}<span class="alq-badge est-activo">Documentos enviados</span>{% elif editable %}<span class="alq-badge est-pendiente">Faltan datos</span>{% endif %}</div>
+    </section>
+
+    {% if r.observacion and r.estado != 'cancelada' %}<div class="sol-aviso warn"><strong>El negocio te pide:</strong> {{ r.observacion }}</div>{% endif %}
+    {% if r.estado == 'cancelada' %}<div class="sol-aviso error">Esta solicitud fue cancelada{% if r.observacion %}: {{ r.observacion }}{% endif %}.</div>{% endif %}
+    {% if r.estado == 'confirmada' and r.docs_completos %}<div class="sol-aviso success">¡Tu solicitud fue aprobada! Te esperamos.</div>{% endif %}
+
+    {% if instrucciones and editable %}<section class="sol-instr"><strong>Indicaciones del negocio</strong><p>{{ instrucciones }}</p></section>{% endif %}
+
+    {% if editable and campos %}
+    <form class="sol-form" method="POST" enctype="multipart/form-data" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2>Tus datos y documentos</h2>
+        {% for c in campos %}
+        {% set err = errores.get(c.clave) %}
+        {% set val = valores.get(c.clave, '') %}
+        <div class="sol-campo {{ 'con-error' if err }}">
+            <label for="f_{{ c.clave }}">{{ c.etiqueta }}{% if c.obligatorio %} <span class="req">*</span>{% else %} <span class="opc">(opcional)</span>{% endif %}</label>
+            {% if c.tipo == 'texto' %}<input id="f_{{ c.clave }}" name="{{ c.clave }}" maxlength="200" value="{{ val }}">
+            {% elif c.tipo == 'texto_largo' %}<textarea id="f_{{ c.clave }}" name="{{ c.clave }}" rows="3" maxlength="1000">{{ val }}</textarea>
+            {% elif c.tipo == 'numero' %}<input id="f_{{ c.clave }}" name="{{ c.clave }}" inputmode="decimal" value="{{ val }}">
+            {% elif c.tipo == 'fecha' %}<input id="f_{{ c.clave }}" name="{{ c.clave }}" type="date" value="{{ val }}">
+            {% elif c.tipo == 'seleccion' %}<select id="f_{{ c.clave }}" name="{{ c.clave }}"><option value="">Elige una opción</option>{% for o in c.opciones_lista %}<option {{ 'selected' if val == o }}>{{ o }}</option>{% endfor %}</select>
+            {% elif c.tipo == 'si_no' %}<select id="f_{{ c.clave }}" name="{{ c.clave }}"><option value="">Elige</option><option {{ 'selected' if val == 'Sí' }}>Sí</option><option {{ 'selected' if val == 'No' }}>No</option></select>
+            {% elif c.tipo == 'foto' %}
+                {% if val %}<a class="sol-foto-actual" href="{{ val }}" target="_blank" rel="noopener"><img src="{{ val }}" alt="" loading="lazy"><span>Ya subiste una foto. Toca para verla; elige otra solo si quieres cambiarla.</span></a>{% endif %}
+                <input id="f_{{ c.clave }}" name="{{ c.clave }}" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+            {% endif %}
+            {% if c.ayuda %}<small>{{ c.ayuda }}</small>{% endif %}
+            {% if err %}<small class="error-txt">{{ err }}</small>{% endif %}
+        </div>
+        {% endfor %}
+        <button class="wb-btn wb-btn-primary sol-enviar" type="submit">Enviar mi información</button>
+        <p class="sol-nota">Tus datos y fotos solo los ve {{ negocio.nombre }} y se usan para aprobar tu alquiler.</p>
+    </form>
+    {% elif editable %}
+    <section class="sol-instr"><p>{{ negocio.nombre }} no necesita documentos adicionales por ahora. Te avisaremos cuando apruebe tu solicitud.</p></section>
+    {% endif %}
+
+    <a class="sol-volver" href="{{ url_for('chat_index', negocio_id=r.negocio_id) }}">← Volver al chat</a>
+</main>
+</body>
+</html>

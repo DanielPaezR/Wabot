@@ -12,13 +12,15 @@
         <tr>
             <td data-et="Vehículo"><strong>{{ r.vehiculo_nombre }}</strong>{% if r.placa %}<small>{{ r.placa }}</small>{% endif %}</td>
             <td data-et="Cliente">{{ r.cliente_nombre }}<small>{{ r.cliente_telefono }}</small></td>
-            <td data-et="Fechas">{{ fmt(r.fecha_inicio) }} → {{ fmt(r.fecha_fin) }}<small>{{ r.dias }} día{{ 's' if r.dias != 1 }} · recoge {{ r.hora_recogida }}</small></td>
+            <td data-et="Fechas">{{ fmt(r.fecha_inicio) }} → {{ fmt(r.fecha_fin) }}<small>{{ r.dias }} día{{ 's' if r.dias != 1 }} · recoge {{ r.hora[:5] }}</small></td>
             <td class="num" data-et="Total">{{ dinero(r.total) }}{% if r.deposito %}<small>depósito {{ dinero(r.deposito) }}</small>{% endif %}</td>
-            <td data-et="Estado"><span class="alq-badge est-{{ r.estado_vista }}">{{ etiquetas.get(r.estado_vista, r.estado_vista) }}</span></td>
+            <td data-et="Estado"><span class="alq-badge est-{{ r.estado_vista }}">{{ etiquetas.get(r.estado_vista, r.estado_vista) }}</span>
+                {% if r.estado in ('pendiente', 'confirmada') %}<small>{{ 'Documentos completos' if r.docs_completos else 'Faltan documentos' }}</small>{% endif %}</td>
             <td><div class="acciones">
+                <a class="alq-btn" href="{{ url_for('alquiler.reserva_detalle', reserva_id=r.id) }}">Revisar</a>
                 {% set acciones = [] %}
                 {% if r.estado == 'pendiente' %}{% set _ = acciones.append(('confirmar', 'Confirmar', 'primario')) %}{% endif %}
-                {% if r.estado in ('pendiente', 'confirmada') %}{% set _ = acciones.append(('entregar', 'Entregar', '')) %}{% endif %}
+                {% if r.estado == 'confirmada' %}{% set _ = acciones.append(('entregar', 'Entregar', '')) %}{% endif %}
                 {% if r.estado in ('confirmada', 'en_curso') %}{% set _ = acciones.append(('devolver', 'Devuelto', 'primario')) %}{% endif %}
                 {% if r.estado in ('pendiente', 'confirmada') %}{% set _ = acciones.append(('cancelar', 'Cancelar', 'peligro')) %}{% endif %}
                 {% for accion, texto, clase in acciones %}

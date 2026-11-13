@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 
 import alquiler as A
+import alquiler_solicitud as AS
 from localizacion import tz_negocio, tz_reloj
 
 ESTADOS = ('alq_fecha', 'alq_dias', 'alq_vehiculo', 'alq_hora', 'alq_confirmar', 'alq_cancelar')
@@ -85,7 +86,8 @@ def mis_reservas(numero, negocio_id):
         lineas.append(f"🚗 *{r['vehiculo_nombre']}* (#{r['id']})\n"
                       f"   Recoges: {A.formatear_fecha(r['fecha_inicio'])} a las {r['hora'][:5]}\n"
                       f"   Devuelves: {A.formatear_fecha(r['fecha_fin'])} · {r['dias']} día(s)\n"
-                      f"   Total: {A.dinero(r['total'])} · {estado}")
+                      f"   Total: {A.dinero(r['total'])} · {estado}"
+                      + (" · faltan tus documentos" if r['estado'] in ('pendiente', 'confirmada') and not r.get('docs_completos') else ''))
     return "📋 *Tus reservas*\n\n" + '\n\n'.join(lineas) + "\n\nPara cancelar una reserva escribe *3*."
 
 
@@ -227,7 +229,7 @@ def _paso_confirmar(conv, numero, mensaje, negocio_id):
     try:
         reserva = A.crear_reserva(
             negocio_id, v['id'], conv['telefono_cliente'], (conv.get('cliente_nombre') or 'Cliente').strip().title(),
-            conv['alq_fecha'], conv['alq_dias'], conv['alq_hora'], hoy)
+            conv['alq_fecha'], conv['alq_dias'], conv['alq_hora'], hoy, estado='pendiente')
     except A.ReservaError as e:
         _menu(conv)
         if e.codigo == 'no_disponible':
@@ -236,15 +238,24 @@ def _paso_confirmar(conv, numero, mensaje, negocio_id):
     A.notificar_nueva_reserva(reserva)
     fin = A.formatear_fecha(reserva['fecha_fin'])
     _menu(conv)
-    texto = (f"🎉 ¡Reserva confirmada!\n\n"
+    texto = (f"📝 ¡Solicitud recibida!\n\n"
              f"🚗 {reserva['vehiculo_nombre']}\n"
              f"📅 Recoges: {A.formatear_fecha(reserva['fecha_inicio'])} a las {reserva['hora'][:5]}\n"
              f"📅 Devuelves: {fin} a las {reserva['hora'][:5]}\n"
              f"💰 Total: {A.dinero(reserva['total'])}\n")
     if reserva['deposito']:
         texto += f"🔒 Depósito: {A.dinero(reserva['deposito'])} (al recoger)\n"
-    return texto + (f"🎫 Reserva #{reserva['id']}\n\n"
-                    f"Lleva tu documento de identidad y tu licencia de conducir vigente. ¡Te esperamos!")
+    texto += f"🎫 Solicitud #{reserva['id']}\n\n"
+    if reserva.get('docs_completos'):
+        texto += "El negocio revisará tu solicitud y te avisará por aquí y con una notificación. Tu vehículo queda apartado."
+    else:
+        texto += ("📎 Para que el negocio pueda aprobarla, completa tus datos y documentos con el botón de abajo. "
+                  "Tu vehículo queda apartado mientras tanto.")
+        conv['alq_enlace'] = {'url': AS.enlace_cliente(reserva), 'texto': '📎 Completar mis datos y documentos'}
+    indicaciones = AS.instrucciones(negocio_id)
+    if indicaciones:
+        texto += f"\n\n💬 Indicaciones del negocio:\n{indicaciones}"
+    return texto
 
 
 def _paso_cancelar(conv, numero, mensaje, negocio_id):

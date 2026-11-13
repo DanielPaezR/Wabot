@@ -1,0 +1,74 @@
+{% extends 'negocio/_alquiler_base.html' %}
+{% set activa = 'formulario' %}{% set titulo_pagina = 'Formulario de solicitud' %}{% set subtitulo_pagina = 'Lo que pides a tus clientes antes de aprobar un alquiler' %}
+{% block titulo %}Formulario de solicitud{% endblock %}
+{% block contenido %}
+{% set campo_edit = (campos | selectattr('id', 'equalto', editar) | list | first) if editar else none %}
+<div class="alq-cols">
+    <div>
+        <div class="frm-lista">
+        {% for c in campos %}
+            <div class="frm-item {{ '' if c.activo else 'inactivo' }}">
+                <div class="info">
+                    <strong>{{ c.etiqueta }}</strong>
+                    <span>{{ tipos[c.tipo] }} · {{ 'Obligatorio' if c.obligatorio else 'Opcional' }}{% if not c.activo %} · Oculto{% endif %}{% if c.ayuda %} · {{ c.ayuda }}{% endif %}</span>
+                </div>
+                <div class="acc">
+                    {% for accion, texto, clase in (('subir', '↑', ''), ('bajar', '↓', '')) %}
+                    <form class="alq-form-inline" method="POST" action="{{ url_for('alquiler.formulario_campo_accion', campo_id=c.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="{{ accion }}">
+                        <button class="alq-btn" type="submit" aria-label="{{ 'Subir' if accion == 'subir' else 'Bajar' }}">{{ texto }}</button>
+                    </form>
+                    {% endfor %}
+                    <a class="alq-btn" href="{{ url_for('alquiler.formulario', editar=c.id) }}">Editar</a>
+                    <form class="alq-form-inline" method="POST" action="{{ url_for('alquiler.formulario_campo_accion', campo_id=c.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="{{ 'desactivar' if c.activo else 'activar' }}">
+                        <button class="alq-btn" type="submit">{{ 'Ocultar' if c.activo else 'Mostrar' }}</button>
+                    </form>
+                    <form class="alq-form-inline" method="POST" action="{{ url_for('alquiler.formulario_campo_accion', campo_id=c.id) }}" onsubmit="return confirm('¿Eliminar este campo del formulario?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="eliminar">
+                        <button class="alq-btn peligro" type="submit">Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <div class="alq-vacio"><strong>Tu formulario está vacío</strong>Agrega lo que necesitas pedir, o déjalo así si no quieres pedir nada.</div>
+        {% endfor %}
+        </div>
+
+        <div class="alq-card">
+            <h2>Indicaciones para el cliente</h2>
+            <p style="color:var(--wb-text-3);font-size:.85rem;margin:0 0 10px">Se muestran en el chat y en el formulario. Úsalo para explicar el abono, la cuenta donde pagarlo, requisitos de edad, etc.</p>
+            <form class="alq-form" style="padding:0;border:0;background:none;max-width:none" method="POST" action="{{ url_for('alquiler.formulario_instrucciones') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <textarea name="instrucciones" rows="4" maxlength="1500" placeholder="Ej: Para apartar el vehículo transfiere un abono del 30% a la cuenta … y sube el comprobante. Edad mínima 21 años.">{{ instrucciones }}</textarea>
+                <div class="pie"><button class="wb-btn wb-btn-primary" type="submit">Guardar indicaciones</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="alq-card">
+        <h2>{{ 'Editar campo' if campo_edit else 'Agregar campo' }}</h2>
+        {% if campos|length >= max_campos and not campo_edit %}
+        <p style="color:var(--wb-text-3)">Llegaste al máximo de {{ max_campos }} campos.</p>
+        {% else %}
+        <form class="alq-form" style="padding:0;border:0;background:none;max-width:none" method="POST" action="{{ url_for('alquiler.formulario_campo') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if campo_edit %}<input type="hidden" name="campo_id" value="{{ campo_edit.id }}">{% endif %}
+            <div class="grid" style="grid-template-columns:1fr">
+                <div><label for="etiqueta">¿Qué quieres pedir? *</label><input id="etiqueta" name="etiqueta" required maxlength="80" value="{{ campo_edit.etiqueta if campo_edit else '' }}" placeholder="Ej: Foto del pasaporte"></div>
+                <div><label for="tipo">Tipo de respuesta</label>
+                    <select id="tipo" name="tipo" onchange="document.getElementById('bloque_opciones').style.display = this.value === 'seleccion' ? 'block' : 'none'">
+                        {% for clave, nombre in tipos.items() %}<option value="{{ clave }}" {{ 'selected' if campo_edit and campo_edit.tipo == clave }}>{{ nombre }}</option>{% endfor %}
+                    </select></div>
+                <div id="bloque_opciones" style="display:{{ 'block' if campo_edit and campo_edit.tipo == 'seleccion' else 'none' }}"><label for="opciones">Opciones (una por línea)</label>
+                    <textarea id="opciones" name="opciones" rows="4">{{ campo_edit.opciones if campo_edit and campo_edit.opciones else '' }}</textarea></div>
+                <div><label for="ayuda">Texto de ayuda (opcional)</label><input id="ayuda" name="ayuda" maxlength="200" value="{{ campo_edit.ayuda if campo_edit and campo_edit.ayuda else '' }}"></div>
+                <div><label><input type="checkbox" name="obligatorio" value="1" style="width:auto" {{ 'checked' if (campo_edit.obligatorio if campo_edit else true) }}> El cliente debe responderlo</label></div>
+            </div>
+            <div class="pie"><button class="wb-btn wb-btn-primary" type="submit">{{ 'Guardar cambios' if campo_edit else 'Agregar campo' }}</button>
+                {% if campo_edit %}<a class="wb-btn wb-btn-ghost" href="{{ url_for('alquiler.formulario') }}">Cancelar</a>{% endif %}</div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -20,7 +20,7 @@
         <h2>Movimiento de hoy</h2>
         {% for r in movimiento %}
         <div class="alq-fila">
-            <div class="quien"><strong>{{ r.tipo_movimiento }}: {{ r.vehiculo_nombre }}</strong><span>{{ r.cliente_nombre }} · {{ r.cliente_telefono }}{% if r.tipo_movimiento == 'Recoge' %} · {{ r.hora_recogida }}{% endif %}</span></div>
+            <div class="quien"><strong>{{ r.tipo_movimiento }}: {{ r.vehiculo_nombre }}</strong><span>{{ r.cliente_nombre }} · {{ r.cliente_telefono }}{% if r.tipo_movimiento == 'Recoge' %} · {{ r.hora[:5] }}{% endif %}</span></div>
             <span class="alq-badge est-{{ r.estado_vista }}">{{ etiquetas.get(r.estado_vista, r.estado_vista) }}</span>
         </div>
         {% else %}

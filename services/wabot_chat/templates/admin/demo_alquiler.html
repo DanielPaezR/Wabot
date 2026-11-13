@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Demo de alquiler</title>
+    <meta name="theme-color" content="#0a0a0d">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-alquiler.css') }}?v=2">
+</head>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {% call panel_header('admin', 'negocios', 'Demo de alquiler de vehículos', 'Datos de acceso: se muestran solo esta vez', volver=url_for('admin_negocios')) %}{% endcall %}
+    <div class="alq-wrap" style="max-width:640px">
+        <div class="alq-card">
+            <h2>{{ 'Demo creada' if r.nuevo else 'Demo repuesta' }}</h2>
+            <div class="alq-fila"><div class="quien"><span>Panel del dueño</span><strong>{{ base }}/login</strong></div></div>
+            <div class="alq-fila"><div class="quien"><span>Correo</span><strong>{{ r.email }}</strong></div></div>
+            <div class="alq-fila"><div class="quien"><span>Clave nueva</span><strong style="font-family:monospace;font-size:1.1rem">{{ r.clave }}</strong></div></div>
+            <div class="alq-fila"><div class="quien"><span>Vista del cliente</span><strong>{{ base }}{{ r.url_cliente }}</strong></div></div>
+            <p style="color:var(--wb-text-3);font-size:.85rem">Guarda la clave ahora: no se vuelve a mostrar (si la pierdes, repite la operación y se genera otra). Cada vez que repites la operación se reponen los vehículos y las reservas de ejemplo.</p>
+            <a class="wb-btn wb-btn-primary" href="{{ r.url_cliente }}" target="_blank">Abrir vista del cliente</a>
+        </div>
+    </div>
+</body>
+</html>

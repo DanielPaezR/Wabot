@@ -8,6 +8,7 @@ from functools import wraps
 from flask import (Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for)
 
 import alquiler as A
+import alquiler_solicitud as AS
 import database as db
 from localizacion import tz_negocio
 
@@ -206,15 +207,168 @@ def reserva_accion(negocio_id, reserva_id):
     if not _csrf_valido():
         flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
         return destino
+    mensaje = (request.form.get('mensaje') or '').strip()
+    if accion == 'observar':
+        if not mensaje:
+            flash('Escribe qué debe corregir o completar el cliente', 'error')
+            return destino
+        reserva = AS.observar(reserva_id, negocio_id, mensaje)
+        if not reserva:
+            flash('Esa acción ya no procede para esta reserva', 'error')
+            return destino
+        AS.notificar_decision(reserva, 'observar', mensaje)
+        flash('Se le pidió la corrección al cliente y recibió un aviso', 'success')
+        return destino
+    if accion == 'cancelar' and mensaje:
+        AS.guardar_motivo(reserva_id, negocio_id, mensaje)
     reserva = A.aplicar_accion(reserva_id, negocio_id, accion)
     if not reserva:
         flash('Esa acción ya no procede para esta reserva', 'error')
         return destino
     if accion == 'cancelar':
         A.notificar_cancelacion(reserva, por='propietario')
-    flash({'confirmar': 'Reserva confirmada', 'entregar': 'Vehículo entregado: la reserva está en curso',
+        if mensaje:
+            AS.notificar_decision(reserva, 'cancelar', mensaje)
+    elif accion == 'confirmar':
+        AS.notificar_decision(reserva, 'confirmar')
+    flash({'confirmar': 'Solicitud aprobada: el cliente recibió el aviso', 'entregar': 'Vehículo entregado: la reserva está en curso',
            'devolver': 'Vehículo devuelto: reserva completada', 'cancelar': 'Reserva cancelada y cliente avisado'}[accion], 'success')
     return destino
+
+
+@bp.route('/negocio/reservas/<int:reserva_id>')
+@_propietario
+def reserva_detalle(negocio_id, reserva_id):
+    reserva = A.obtener_reserva(reserva_id, negocio_id)
+    if not reserva:
+        abort(404)
+    reserva['estado_vista'] = A.estado_efectivo(reserva, _hoy())
+    return render_template('negocio/reserva_detalle.html', r=reserva, respuestas=AS.vista_respuestas(reserva), **_contexto_comun())
+
+
+# ---------------------------------------------------------------------------
+# Formulario de solicitud (lo que el negocio pide a sus clientes)
+# ---------------------------------------------------------------------------
+
+@bp.route('/negocio/alquiler/formulario')
+@_propietario
+def formulario(negocio_id):
+    return render_template('negocio/alquiler_formulario.html', campos=AS.campos(negocio_id, solo_activos=False), tipos=AS.TIPOS,
+                           instrucciones=AS.instrucciones(negocio_id), editar=request.args.get('editar', type=int), max_campos=AS.MAX_CAMPOS,
+                           **_contexto_comun())
+
+
+@bp.route('/negocio/alquiler/formulario/campo', methods=['POST'])
+@_propietario
+def formulario_campo(negocio_id):
+    campo_id = request.form.get('campo_id', type=int)
+    if not _csrf_valido():
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+    else:
+        try:
+            AS.guardar_campo(negocio_id, request.form, campo_id)
+            flash('Campo actualizado' if campo_id else 'Campo agregado', 'success')
+        except ValueError as e:
+            flash(str(e), 'error')
+            return redirect(url_for('alquiler.formulario', editar=campo_id) if campo_id else url_for('alquiler.formulario'))
+    return redirect(url_for('alquiler.formulario'))
+
+
+@bp.route('/negocio/alquiler/formulario/campo/<int:campo_id>/accion', methods=['POST'])
+@_propietario
+def formulario_campo_accion(negocio_id, campo_id):
+    accion = request.form.get('accion')
+    if not _csrf_valido():
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+    elif accion in ('subir', 'bajar'):
+        AS.mover_campo(campo_id, negocio_id, -1 if accion == 'subir' else 1)
+    elif accion in ('activar', 'desactivar'):
+        AS.activar_campo(campo_id, negocio_id, accion == 'activar')
+    elif accion == 'eliminar':
+        if AS.eliminar_campo(campo_id, negocio_id):
+            flash('Campo eliminado. Las respuestas ya guardadas se conservan.', 'success')
+    return redirect(url_for('alquiler.formulario'))
+
+
+@bp.route('/negocio/alquiler/formulario/instrucciones', methods=['POST'])
+@_propietario
+def formulario_instrucciones(negocio_id):
+    if _csrf_valido():
+        AS.guardar_instrucciones(negocio_id, request.form.get('instrucciones'))
+        flash('Indicaciones guardadas', 'success')
+    else:
+        flash('Error de seguridad. Por favor, intenta nuevamente.', 'error')
+    return redirect(url_for('alquiler.formulario'))
+
+
+# ---------------------------------------------------------------------------
+# Formulario público del cliente (enlace con token propio de cada solicitud)
+# ---------------------------------------------------------------------------
+
+_TIPOS_IMAGEN = ('image/jpeg', 'image/png', 'image/webp')
+_MAX_FOTO = 8 * 1024 * 1024
+
+
+def _subir_documento(archivo, negocio_id, reserva_id):
+    """Sube una foto de documento a Cloudinary. Devuelve (url, error)."""
+    if not os.getenv('CLOUDINARY_CLOUD_NAME'):
+        return None, 'La subida de fotos no está disponible por ahora. Inténtalo más tarde o entrega el documento al recoger el vehículo.'
+    if archivo.mimetype not in _TIPOS_IMAGEN:
+        return None, 'Solo se admiten imágenes JPG, PNG o WebP'
+    archivo.seek(0, os.SEEK_END)
+    if archivo.tell() > _MAX_FOTO:
+        return None, 'La imagen no puede pesar más de 8 MB'
+    archivo.seek(0)
+    try:
+        import cloudinary.uploader
+        r = cloudinary.uploader.upload(archivo, folder=f'wabot/negocio_{negocio_id}/documentos', resource_type='image',
+                                       public_id=f'reserva_{reserva_id}_{secrets.token_hex(6)}')
+        return r['secure_url'], None
+    except Exception as e:
+        print(f"❌ [ALQUILER] Error subiendo documento: {type(e).__name__}: {e}")
+        return None, 'No se pudo subir la imagen. Intenta de nuevo.'
+
+
+@bp.route('/alquiler/solicitud/<token>', methods=['GET', 'POST'])
+def solicitud(token):
+    reserva = AS.obtener_por_token(token)
+    if not reserva:
+        abort(404)
+    negocio_id = reserva['negocio_id']
+    lista = AS.campos(negocio_id)
+    previas = AS.respuestas_de(reserva)
+    editable = reserva['estado'] in ('pendiente', 'confirmada') and reserva['fecha_fin'] >= _hoy().isoformat()
+    errores, valores = {}, previas
+    if request.method == 'POST' and editable:
+        valores = {k: request.form.get(k, '') for k in (c['clave'] for c in lista)}
+        if not _csrf_valido():
+            flash('Error de seguridad. Recarga la página e intenta de nuevo.', 'error')
+        else:
+            fotos = {}
+            for c in lista:
+                archivo = request.files.get(c['clave']) if c['tipo'] == 'foto' else None
+                if archivo and archivo.filename:
+                    url, error = _subir_documento(archivo, negocio_id, reserva['id'])
+                    if error:
+                        errores[c['clave']] = error
+                    else:
+                        fotos[c['clave']] = url
+            respuestas, errores_v = AS.validar_respuestas(lista, request.form, fotos, previas)
+            errores.update({k: v for k, v in errores_v.items() if k not in errores})
+            if errores:
+                flash('Revisa los datos marcados en rojo', 'error')
+                valores = dict(previas, **{k: v for k, v in valores.items() if k not in fotos})
+            else:
+                # lo que ya estaba guardado y el formulario actual no pide se conserva
+                respuestas = dict({k: v for k, v in previas.items() if k not in {c['clave'] for c in lista}}, **respuestas)
+                actualizada = AS.guardar_respuestas(reserva, respuestas)
+                if actualizada and actualizada['docs_completos']:
+                    AS.notificar_documentos_recibidos(actualizada)
+                flash('¡Listo! Recibimos tu información. El negocio la revisará y te avisará.', 'success')
+                return redirect(url_for('alquiler.solicitud', token=token))
+    negocio = db.obtener_negocio_por_id(negocio_id)
+    return render_template('alquiler/solicitud.html', r=reserva, campos=lista, valores=valores, errores=errores, editable=editable, negocio=negocio,
+                           instrucciones=AS.instrucciones(negocio_id), **_contexto_comun())
 
 
 @bp.route('/negocio/reservas/nueva', methods=['GET', 'POST'])
