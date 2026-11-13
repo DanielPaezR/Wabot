@@ -1,0 +1,30 @@
+{% extends 'negocio/_alquiler_base.html' %}
+{% set activa = 'vehiculos' %}{% set titulo_pagina = 'Vehículos' %}{% set subtitulo_pagina = 'Cada vehículo tiene su propio calendario de reservas' %}
+{% block titulo %}Vehículos{% endblock %}
+{% block acciones %}<a class="wb-btn wb-btn-primary" href="{{ url_for('alquiler.vehiculo_nuevo') }}">Agregar vehículo</a>{% endblock %}
+{% block contenido %}
+{% if vehiculos %}
+<div class="veh-grid">
+{% for v in vehiculos %}
+    <article class="veh-card {{ '' if v.activo else 'inactivo' }}">
+        {{ vehiculo_img(v) }}
+        <div class="veh-cuerpo">
+            <div><h3>{{ v.nombre }}</h3><div class="veh-cat">{{ v.categoria }}{% if v.placa %} · {{ v.placa }}{% endif %}</div></div>
+            <div class="veh-specs"><span>{{ v.pasajeros }} pasajeros</span><span>{{ v.transmision }}</span><span>{{ v.combustible }}</span><span>{{ v.maletas }} maletas</span></div>
+            <div class="veh-precio">{{ dinero(v.precio_dia) }} <small>por día</small></div>
+            <div class="veh-pie">
+                <a class="alq-btn" href="{{ url_for('alquiler.vehiculo_editar', vehiculo_id=v.id) }}">Editar</a>
+                <form class="alq-form-inline" method="POST" action="{{ url_for('alquiler.vehiculo_estado', vehiculo_id=v.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="activo" value="{{ '0' if v.activo else '1' }}">
+                    <button class="alq-btn {{ 'peligro' if v.activo else 'primario' }}" type="submit">{{ 'Desactivar' if v.activo else 'Activar' }}</button>
+                </form>
+            </div>
+        </div>
+    </article>
+{% endfor %}
+</div>
+{% else %}
+<div class="alq-vacio"><strong>Aún no tienes vehículos</strong>Agrega el primero para que tus clientes puedan reservarlo.</div>
+{% endif %}
+{% endblock %}

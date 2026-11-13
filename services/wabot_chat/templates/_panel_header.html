@@ -18,6 +18,15 @@
         ('negocio_editor_visual', 'Perfil público', 'editor'),
         ('negocio_prompt_ia', 'Asistente IA', 'ia')
     ],
+    'alquiler': [
+        ('negocio_dashboard', 'Inicio', 'dashboard'),
+        ('alquiler.reservas', 'Reservas', 'reservas'),
+        ('alquiler.vehiculos', 'Vehículos', 'vehiculos'),
+        ('negocio_plantillas', 'Mensajes', 'plantillas'),
+        ('negocio_configuracion', 'Horarios', 'configuracion'),
+        ('negocio_editor_visual', 'Perfil público', 'editor'),
+        ('negocio_prompt_ia', 'Asistente IA', 'ia')
+    ],
     'profesional': [
         ('profesional_dashboard', 'Mi agenda', 'agenda'),
         ('profesional_todas_citas', 'Citas', 'citas'),
@@ -35,6 +44,7 @@
         ('admin_errores', 'Estado', 'errores')
     ]
 } -%}
+{%- set menu_rol = 'alquiler' if (rol == 'negocio' and session.get('negocio_tipo') == 'alquiler_vehiculos') else rol -%}
 {%- set marca = 'Wabot Admin' if rol == 'admin' else (session.get('negocio_nombre') or 'Mi negocio') -%}
 {%- set usuario = session.get('usuario_nombre') or 'Usuario' -%}
 <script>
@@ -63,12 +73,12 @@
 </script>
 <header class="wb-top">
     <div class="wb-top-in">
-        <a class="wb-brand" href="{{ url_for(menus[rol][0][0]) }}">
+        <a class="wb-brand" href="{{ url_for(menus[menu_rol][0][0]) }}">
             <span class="wb-brand-mark">{{ marca[:1]|upper }}</span>
             <span class="wb-brand-name">{{ marca }}</span>
         </a>
         <nav class="wb-tabs" aria-label="Secciones">
-            {%- for endpoint, texto, clave in menus[rol] %}
+            {%- for endpoint, texto, clave in menus[menu_rol] %}
             <a href="{{ url_for(endpoint) }}" class="wb-tab{{ ' active' if clave == activa else '' }}"{{ ' aria-current="page"' if clave == activa else '' }}>{{ texto }}</a>
             {%- endfor %}
         </nav>

@@ -47,6 +47,8 @@ web_chat_bp = Blueprint('web_chat', __name__)
 # de datos (estado_conversacion.py), así sobrevive a los despliegues y funciona con varios procesos.
 conversaciones_activas = {}
 import renta   # renta de vehículos por días (tipo_negocio = 'renta_autos')
+import alquiler_chat   # alquiler de vehículos como elementos alquilables (tipo_negocio = 'alquiler_vehiculos')
+TIPO_ALQUILER = 'alquiler_vehiculos'
 
 
 def _registrar_error(exc, contexto):
@@ -88,6 +90,7 @@ _VOCABULARIO_POR_TIPO = {
         'palabras_servicio': ['plan de renta', 'planes de renta', 'plan '],
     },
 }
+_VOCABULARIO_POR_TIPO['alquiler_vehiculos'] = _VOCABULARIO_POR_TIPO['renta_autos']
 
 
 def _vocabulario_negocio(tipo_negocio):
@@ -563,13 +566,14 @@ VARIABLES_PROMPT = [
     ('{horario_atencion}', 'Horario de atención (texto)'),
     ('{horarios}', 'Horarios de los próximos 7 días'),
     ('{politica_cancelacion}', 'Política de cancelación'),
+    ('{vehiculos}', 'Vehículos con precio (alquiler)'),
 ]
 
 _TIPOS_LEGIBLES = {
     'barberia': 'barbería', 'spa_unas': 'spa de uñas', 'peluqueria': 'peluquería',
     'estetica': 'centro estético', 'consultorio': 'consultorio', 'gimnasio': 'gimnasio',
     'yoga': 'estudio de yoga', 'masajes': 'centro de masajes', 'tattoo': 'estudio de tattoo',
-    'renta_autos': 'renta de vehículos',
+    'renta_autos': 'renta de vehículos', 'alquiler_vehiculos': 'alquiler de vehículos',
 }
 
 
@@ -621,7 +625,9 @@ def valores_variables_prompt(negocio_id, contexto=None):
     if not telefono:
         telefono = re.sub(r'^whatsapp:', '', negocio.get('telefono') or '').strip()
     detalle = contexto.get('servicios_detalle') or []
-    return {
+    es_alquiler = negocio.get('tipo_negocio') == TIPO_ALQUILER
+    flota = alquiler_chat.descripcion_flota(negocio_id) if es_alquiler else 'No aplica'
+    valores = {
         '{nombre_negocio}': negocio['nombre'],
         '{descripcion}': _leer_columna_negocio(negocio_id, 'descripcion') or 'No disponible',
         '{direccion}': negocio['direccion'] or 'No disponible',
@@ -632,7 +638,12 @@ def valores_variables_prompt(negocio_id, contexto=None):
         '{horario_atencion}': config.get('horario_atencion') or 'No disponible',
         '{horarios}': ', '.join(contexto['horarios']) if contexto['horarios'] else 'No disponible',
         '{politica_cancelacion}': config.get('politica_cancelacion') or 'No disponible',
+        '{vehiculos}': flota,
     }
+    if es_alquiler:     # en el alquiler los "servicios" y "profesionales" son los vehículos
+        valores['{servicios}'] = valores['{servicios_precios}'] = flota
+        valores['{profesionales}'] = 'No aplica'
+    return valores
 
 
 def construir_prompt_negocio(negocio_id):
@@ -664,8 +675,11 @@ def construir_prompt_negocio(negocio_id):
     ]:
         if valores[clave] != 'No disponible':
             partes.append(f"{etiqueta}: {valores[clave]}.")
-    partes.append(f"Profesionales disponibles: {valores['{profesionales}']}.")
-    partes.append(f"Servicios, precios y duración: {valores['{servicios_precios}']}.")
+    if negocio['tipo_negocio'] == TIPO_ALQUILER:
+        partes.append(f"Vehículos para alquilar (precio por día): {valores['{vehiculos}']}.")
+    else:
+        partes.append(f"Profesionales disponibles: {valores['{profesionales}']}.")
+        partes.append(f"Servicios, precios y duración: {valores['{servicios_precios}']}.")
     if contexto['horarios']:
         partes.append(f"Horarios próximos: {valores['{horarios}']}.")
     return ' '.join(partes)
@@ -812,6 +826,8 @@ for _herramienta in OPENAI_TOOLS:
 
 
 def procesar_con_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente):
+    if _tipo_negocio(negocio_id) == TIPO_ALQUILER:
+        return alquiler_chat.responder_ia(mensaje, historial, negocio_id, telefono_cliente, nombre_cliente)
     if not _openai_client:
         return '⚠️ El agente IA no está disponible. Por favor utiliza el menú numérico.'
 
@@ -1709,6 +1725,9 @@ def _procesar_mensaje_chat(user_message, session_id, negocio_id, session):
         elif paso_actual == 'ia_libre':
             opciones_extra = generar_opciones_menu_principal()
 
+        if paso_actual in alquiler_chat.ESTADOS:
+            opciones_extra = alquiler_chat.opciones(paso_actual, conversaciones_activas.get(clave_conversacion))
+
         if opciones_extra and paso_actual in (
             'menu_principal', 'ia_libre', 'confirmando_cita', 'seleccionando_servicio_personalizado'
         ):
@@ -1819,7 +1838,15 @@ def procesar_mensaje(mensaje, numero, negocio_id, session=None, es_whatsapp=Fals
 def procesar_opcion_menu(numero, opcion, negocio_id):
     """Procesar opción del menú principal - SIN CAMBIOS"""
     clave_conversacion = f"{numero}_{negocio_id}"
-    
+
+    if _tipo_negocio(negocio_id) == TIPO_ALQUILER:
+        if opcion == '1':
+            return alquiler_chat.iniciar(numero, negocio_id)
+        if opcion == '2':
+            return alquiler_chat.mis_reservas(numero, negocio_id)
+        if opcion == '3':
+            return alquiler_chat.listar_para_cancelar(numero, negocio_id)
+
     if opcion == '1':
         print(f"🔧 [DEBUG] Comando '1' detectado - Mostrando profesionales")
         return mostrar_profesionales(numero, negocio_id)
@@ -3298,6 +3325,8 @@ def continuar_conversacion(numero, mensaje, negocio_id):
             return procesar_seleccion_servicio(numero, mensaje, negocio_id)
         elif estado == 'seleccionando_servicio_personalizado':  # ✅ ESTA ES LA QUE FALTA
             return procesar_seleccion_servicio_personalizado(numero, mensaje, negocio_id)
+        elif estado in alquiler_chat.ESTADOS:
+            return alquiler_chat.continuar(numero, mensaje, negocio_id)
         elif estado == 'seleccionando_dias':
             return procesar_seleccion_dias(numero, mensaje, negocio_id)
         elif estado == 'seleccionando_fecha':

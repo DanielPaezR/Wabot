@@ -322,6 +322,7 @@
                         <option value="yoga" {% if request.form and request.form.tipo_negocio == 'yoga' %}selected{% endif %}>Estudio de Yoga</option>
                         <option value="masajes" {% if request.form and request.form.tipo_negocio == 'masajes' %}selected{% endif %}>Centro de Masajes</option>
                         <option value="tattoo" {% if request.form and request.form.tipo_negocio == 'tattoo' %}selected{% endif %}>Estudio de Tattoo</option>
+                        <option value="alquiler_vehiculos" {% if request.form and request.form.tipo_negocio == 'alquiler_vehiculos' %}selected{% endif %}>Alquiler de vehículos</option>
                         <option value="otros" {% if request.form and request.form.tipo_negocio == 'otros' %}selected{% endif %}>Otros Servicios</option>
                     </select>
                     <small>Selecciona la categoría que mejor describa tu negocio</small>

@@ -716,11 +716,29 @@
         </div>
         {% endif %}
 
+        <!-- FLOTA (alquiler de vehículos) -->
+        {% if vehiculos %}
+        <div class="section">
+            <div class="section-title"><div class="section-title-left"><i class="fas fa-car"></i> Nuestra flota</div></div>
+            {% for v in vehiculos %}
+            <div class="profesional-card" style="cursor:default;">
+                {% if v.foto_url %}<img src="{{ v.foto_url }}" class="profesional-foto" alt="{{ v.nombre }}" style="object-fit:cover;">
+                {% else %}<div class="profesional-foto" style="display:grid;place-items:center;background:#23232c;color:{{ acento or '#d4a857' }};"><i class="fas fa-car"></i></div>{% endif %}
+                <div style="flex:1; min-width:0;">
+                    <div class="profesional-nombre">{{ v.nombre }}</div>
+                    <div class="profesional-esp">{{ v.categoria }} · {{ v.pasajeros }} pasajeros · {{ v.transmision }}</div>
+                    <div class="profesional-esp"><strong>${{ '{:,.0f}'.format(v.precio_dia|float).replace(',', '.') }}</strong> por día</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <!-- PROFESIONALES -->
         {% if profesionales %}
         <div class="section">
             <div class="section-title">
-                <div class="section-title-left"><i class="fas {{ 'fa-car' if negocio.tipo_negocio == 'renta_autos' else 'fa-users' }}"></i> {{ 'Nuestra flota' if negocio.tipo_negocio == 'renta_autos' else 'Nuestros profesionales' }}</div>
+                <div class="section-title-left"><i class="fas {{ 'fa-car' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'fa-users' }}"></i> {{ 'Nuestra flota' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'Nuestros profesionales' }}</div>
             </div>
             {% for prof in profesionales %}
             <a href="/profesional/{{ prof.id }}/publico" class="profesional-card">
@@ -787,7 +805,7 @@
     <!-- BOTÓN FLOTANTE -->
     <a href="https://wabot-deployment.up.railway.app/cliente/{{ negocio.id }}"
        class="btn-flotante" target="_blank" rel="noopener noreferrer">
-        <i class="fas fa-calendar-check"></i> {{ 'Reservar vehículo' if negocio.tipo_negocio == 'renta_autos' else 'Agendar cita' }}
+        <i class="fas fa-calendar-check"></i> {{ 'Reservar vehículo' if negocio.tipo_negocio in ('renta_autos', 'alquiler_vehiculos') else 'Agendar cita' }}
     </a>
 
     <script>

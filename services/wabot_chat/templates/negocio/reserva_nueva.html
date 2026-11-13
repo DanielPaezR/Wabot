@@ -1,0 +1,45 @@
+{% extends 'negocio/_alquiler_base.html' %}
+{% set activa = 'reservas' %}{% set titulo_pagina = 'Nueva reserva' %}{% set subtitulo_pagina = 'Para clientes que llaman o llegan al mostrador' %}
+{% block titulo %}Nueva reserva{% endblock %}
+{% block acciones %}<a class="wb-btn wb-btn-ghost" href="{{ url_for('alquiler.reservas') }}">Volver</a>{% endblock %}
+{% block contenido %}
+<form class="alq-form" method="POST" action="">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid">
+        <div><label for="fecha">Fecha de recogida *</label><input id="fecha" name="fecha" type="date" required min="{{ hoy }}" value="{{ datos.fecha }}"></div>
+        <div><label for="dias">Días *</label><input id="dias" name="dias" type="number" min="1" max="{{ max_dias }}" required value="{{ datos.dias }}"><small id="devolucion"></small></div>
+        <div><label for="hora">Hora de recogida</label><input id="hora" name="hora" type="time" value="{{ datos.hora }}"></div>
+        <div class="completo"><label for="vehiculo_id">Vehículo disponible *</label>
+            <select id="vehiculo_id" name="vehiculo_id" required>{% for v in vehiculos %}<option value="{{ v.id }}" {{ 'selected' if datos.vehiculo_id|string == v.id|string }}>{{ v.nombre }} — {{ dinero(v.precio_dia) }}/día</option>{% endfor %}</select>
+            <small id="aviso_disp">Elige fecha y días: solo se listan los vehículos libres.</small></div>
+        <div><label for="nombre">Nombre del cliente *</label><input id="nombre" name="nombre" required maxlength="80" value="{{ datos.nombre or '' }}"></div>
+        <div><label for="telefono">Teléfono *</label><input id="telefono" name="telefono" required maxlength="25" value="{{ datos.telefono or '' }}"></div>
+        <div class="completo"><label for="notas">Notas</label><textarea id="notas" name="notas" rows="2" maxlength="300">{{ datos.notas or '' }}</textarea></div>
+    </div>
+    <div class="pie"><button class="wb-btn wb-btn-primary" type="submit">Crear reserva</button></div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    const fecha = document.getElementById('fecha'), dias = document.getElementById('dias'), sel = document.getElementById('vehiculo_id');
+    const aviso = document.getElementById('aviso_disp'), dev = document.getElementById('devolucion');
+    const dinero = n => '$' + Math.round(n).toLocaleString('es-CO');
+    async function actualizar() {
+        if (!fecha.value || !dias.value) return;
+        try {
+            const r = await fetch('{{ url_for("alquiler.api_disponibles") }}?fecha=' + fecha.value + '&dias=' + dias.value);
+            const j = await r.json();
+            if (!j.success) { aviso.textContent = j.error; return; }
+            dev.textContent = 'Devuelve el ' + j.devolucion;
+            const actual = sel.value;
+            sel.innerHTML = '';
+            j.vehiculos.forEach(v => { sel.add(new Option(v.nombre + ' — ' + dinero(v.total) + ' en total', v.id)); });
+            if ([...sel.options].some(o => o.value === actual)) sel.value = actual;
+            aviso.textContent = j.vehiculos.length ? j.vehiculos.length + ' vehículo(s) libres en esas fechas.' : 'No hay vehículos libres en esas fechas.';
+        } catch (e) { aviso.textContent = 'No se pudo consultar la disponibilidad.'; }
+    }
+    fecha.addEventListener('change', actualizar); dias.addEventListener('input', actualizar); actualizar();
+})();
+</script>
+{% endblock %}

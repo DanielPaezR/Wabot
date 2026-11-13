@@ -1,0 +1,50 @@
+{% extends 'negocio/_alquiler_base.html' %}
+{% set activa = 'dashboard' %}{% set titulo_pagina = 'Inicio' %}{% set subtitulo_pagina = 'Tu flota y tus reservas de un vistazo' %}
+{% block titulo %}Inicio{% endblock %}
+{% block acciones %}
+<button type="button" id="pushButton" class="wb-btn wb-btn-ghost" title="Recibir avisos de nuevas reservas en este dispositivo">Activar avisos</button>
+<a class="wb-btn wb-btn-primary" href="{{ url_for('alquiler.reserva_nueva') }}">Nueva reserva</a>
+{% endblock %}
+{% block contenido %}
+<div class="alq-stats">
+    <div class="alq-stat acento"><div class="t">Recogidas hoy</div><div class="n">{{ resumen.recogidas_hoy }}</div></div>
+    <div class="alq-stat acento"><div class="t">Devoluciones hoy</div><div class="n">{{ resumen.devoluciones_hoy }}</div></div>
+    <div class="alq-stat"><div class="t">Vehículos en la calle</div><div class="n">{{ resumen.en_curso }}</div><div class="s">{{ resumen.libres_hoy }} libres de {{ resumen.vehiculos }}</div></div>
+    <div class="alq-stat"><div class="t">Por confirmar</div><div class="n">{{ resumen.pendientes }}</div></div>
+    <div class="alq-stat"><div class="t">Próximos 7 días</div><div class="n">{{ resumen.proximas_7d }}</div><div class="s">reservas</div></div>
+    <div class="alq-stat"><div class="t">Ingresos del mes</div><div class="n">{{ dinero(resumen.ingresos_mes) }}</div><div class="s">{{ resumen.reservas_mes }} reservas</div></div>
+</div>
+
+<div class="alq-cols">
+    <div class="alq-card">
+        <h2>Movimiento de hoy</h2>
+        {% for r in movimiento %}
+        <div class="alq-fila">
+            <div class="quien"><strong>{{ r.tipo_movimiento }}: {{ r.vehiculo_nombre }}</strong><span>{{ r.cliente_nombre }} · {{ r.cliente_telefono }}{% if r.tipo_movimiento == 'Recoge' %} · {{ r.hora_recogida }}{% endif %}</span></div>
+            <span class="alq-badge est-{{ r.estado_vista }}">{{ etiquetas.get(r.estado_vista, r.estado_vista) }}</span>
+        </div>
+        {% else %}
+        <div class="alq-vacio"><strong>Día tranquilo</strong>No hay recogidas ni devoluciones hoy.</div>
+        {% endfor %}
+    </div>
+    <div style="display:grid;gap:20px">
+        <div class="alq-card">
+            <h2>Enlace para tus clientes</h2>
+            <p style="color:var(--wb-text-3);font-size:.85rem;margin:0 0 8px">Compártelo por Instagram, WhatsApp o ponlo en tu bio: allí ven los autos y reservan solos.</p>
+            <div class="alq-enlace"><code id="enlace">{{ url_cliente }}</code><button type="button" class="alq-btn primario" onclick="navigator.clipboard.writeText(document.getElementById('enlace').textContent).then(()=>{this.textContent='¡Copiado!'})">Copiar</button></div>
+        </div>
+        <div class="alq-card">
+            <h2>Últimas reservas</h2>
+            {% for r in actividad %}
+            <div class="alq-fila">
+                <div class="quien"><strong>{{ r.vehiculo_nombre }}</strong><span>{{ r.cliente_nombre }} · {{ fmt(r.fecha_inicio) }} → {{ fmt(r.fecha_fin) }}</span></div>
+                <span class="alq-badge est-{{ r.estado_vista }}">{{ etiquetas.get(r.estado_vista, r.estado_vista) }}</span>
+            </div>
+            {% else %}
+            <div class="alq-vacio">Aún no hay reservas.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/push-simple.js') }}"></script>{% endblock %}

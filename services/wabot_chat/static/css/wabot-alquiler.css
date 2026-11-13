@@ -1,0 +1,109 @@
+/* Panel de alquiler de vehículos: componentes sobre los tokens de wabot-ui.css (modo oscuro y claro) */
+
+.alq-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 90px; }
+.alq-vacio { text-align: center; padding: 42px 16px; color: var(--wb-text-3); background: var(--wb-surface); border: 1px dashed var(--wb-line-strong); border-radius: var(--wb-r); }
+.alq-vacio strong { display: block; color: var(--wb-text); font-family: var(--wb-display); font-size: 1.15rem; margin-bottom: 6px; }
+
+/* ---------- Estadísticas ---------- */
+.alq-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 26px; }
+.alq-stat { background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r); padding: 16px 18px; }
+.alq-stat .t { color: var(--wb-text-3); font-size: 0.78rem; letter-spacing: 0.02em; margin-bottom: 6px; }
+.alq-stat .n { font-family: var(--wb-display); font-size: 1.9rem; font-weight: 600; color: var(--wb-text); line-height: 1.1; }
+.alq-stat .s { color: var(--wb-text-3); font-size: 0.78rem; margin-top: 4px; }
+.alq-stat.acento { background: var(--wb-accent-soft); border-color: var(--wb-accent-line); }
+.alq-stat.acento .n { color: var(--wb-accent); }
+
+/* ---------- Tarjetas y listas ---------- */
+.alq-cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .alq-cols { grid-template-columns: 1fr; } }
+.alq-card { background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r-lg); padding: 20px; }
+.alq-card h2 { font-family: var(--wb-display); font-size: 1.2rem; margin: 0 0 14px; color: var(--wb-text); }
+.alq-fila { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--wb-line); }
+.alq-fila:last-child { border-bottom: 0; }
+.alq-fila .quien { min-width: 0; }
+.alq-fila .quien strong { display: block; color: var(--wb-text); font-size: 0.93rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.alq-fila .quien span { color: var(--wb-text-3); font-size: 0.8rem; }
+.alq-enlace { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.alq-enlace code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--wb-surface-2); padding: 8px 10px; border-radius: 8px; color: var(--wb-accent); font-size: 0.8rem; }
+.alq-acciones-rapidas { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+
+/* ---------- Insignias de estado ---------- */
+.alq-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
+.est-confirmada { background: var(--wb-accent-soft); color: var(--wb-accent); }
+.est-pendiente { background: var(--wb-warn-soft); color: var(--wb-warn-text); }
+.est-en_curso { background: var(--wb-info-soft); color: var(--wb-info-text); }
+.est-completada { background: var(--wb-ok-soft); color: var(--wb-ok-text); }
+.est-cancelada { background: var(--wb-bad-soft); color: var(--wb-bad-text); }
+.est-activo { background: var(--wb-ok-soft); color: var(--wb-ok-text); }
+.est-inactivo { background: var(--wb-surface-3); color: var(--wb-text-3); }
+
+/* ---------- Pestañas ---------- */
+.alq-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.alq-tab { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--wb-line); color: var(--wb-text-2); text-decoration: none; font-size: 0.86rem; font-weight: 500; }
+.alq-tab:hover { color: var(--wb-text); background: var(--wb-surface-2); }
+.alq-tab.activa { background: var(--wb-accent-soft); color: var(--wb-accent); border-color: var(--wb-accent-line); font-weight: 600; }
+
+/* ---------- Tabla de reservas ---------- */
+.alq-tabla { width: 100%; border-collapse: collapse; background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r); overflow: hidden; }
+.alq-tabla th, .alq-tabla td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--wb-line); font-size: 0.88rem; vertical-align: middle; }
+.alq-tabla th { color: var(--wb-text-3); font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; background: var(--wb-surface-2); }
+.alq-tabla tr:last-child td { border-bottom: 0; }
+.alq-tabla td small { display: block; color: var(--wb-text-3); }
+.alq-tabla .num { text-align: right; white-space: nowrap; }
+.alq-tabla .acciones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 860px) {
+  .alq-tabla thead { display: none; }
+  .alq-tabla, .alq-tabla tbody, .alq-tabla tr, .alq-tabla td { display: block; width: 100%; }
+  .alq-tabla tr { border-bottom: 1px solid var(--wb-line); padding: 8px 0; }
+  .alq-tabla td { border: 0; padding: 5px 14px; }
+  .alq-tabla td[data-et]::before { content: attr(data-et) ": "; color: var(--wb-text-3); font-size: 0.78rem; }
+  .alq-tabla .num { text-align: left; }
+  .alq-tabla .acciones { justify-content: flex-start; padding-top: 4px; }
+}
+
+/* ---------- Botones pequeños ---------- */
+.alq-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-decoration: none;
+  border: 1px solid var(--wb-line-strong); background: transparent; color: var(--wb-text); }
+.alq-btn:hover { background: var(--wb-surface-2); }
+.alq-btn.primario { background: var(--wb-accent); color: var(--wb-accent-ink); border-color: transparent; }
+.alq-btn.primario:hover { background: var(--wb-accent-hover); }
+.alq-btn.peligro { color: var(--wb-bad-text); border-color: var(--wb-bad-line); }
+.alq-btn.peligro:hover { background: var(--wb-bad-soft); }
+.alq-form-inline { display: inline; margin: 0; }
+
+/* ---------- Vehículos ---------- */
+.veh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
+.veh-card { background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r-lg); overflow: hidden; display: flex; flex-direction: column; }
+.veh-card.inactivo { opacity: 0.6; }
+.veh-img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--wb-surface-2); }
+.veh-ph { display: grid; place-items: center; color: var(--tono, var(--wb-accent));
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--tono, var(--wb-accent)) 22%, transparent), transparent 70%), var(--wb-surface-2); }
+.veh-ph svg { width: 56%; height: auto; opacity: 0.95; }
+.veh-ph[data-cat="Económico"] { --tono: #4ade80; }
+.veh-ph[data-cat="Compacto"] { --tono: #38bdf8; }
+.veh-ph[data-cat="Sedán"] { --tono: #818cf8; }
+.veh-ph[data-cat="SUV"] { --tono: #fb923c; }
+.veh-ph[data-cat="Camioneta"] { --tono: #f472b6; }
+.veh-ph[data-cat="Van"] { --tono: #2dd4bf; }
+.veh-ph[data-cat="Lujo"] { --tono: #d4a857; }
+.veh-cuerpo { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.veh-cuerpo h3 { font-family: var(--wb-display); font-size: 1.1rem; margin: 0; color: var(--wb-text); }
+.veh-cat { color: var(--wb-text-3); font-size: 0.78rem; }
+.veh-specs { display: flex; flex-wrap: wrap; gap: 6px; }
+.veh-specs span { background: var(--wb-surface-2); color: var(--wb-text-2); border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; }
+.veh-precio { font-family: var(--wb-display); font-size: 1.35rem; color: var(--wb-accent); }
+.veh-precio small { font-family: var(--wb-font); font-size: 0.74rem; color: var(--wb-text-3); }
+.veh-pie { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+
+/* ---------- Formularios ---------- */
+.alq-form { background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-r-lg); padding: 22px; max-width: 900px; }
+.alq-form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.alq-form .completo { grid-column: 1 / -1; }
+.alq-form label { display: block; color: var(--wb-text-2); font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; }
+.alq-form input, .alq-form select, .alq-form textarea { width: 100%; background: var(--wb-surface-2); color: var(--wb-text); border: 1px solid var(--wb-line-strong);
+  border-radius: var(--wb-r-sm); padding: 10px 12px; font: inherit; font-size: 0.92rem; }
+.alq-form input:focus, .alq-form select:focus, .alq-form textarea:focus { outline: 2px solid var(--wb-accent-line); border-color: var(--wb-accent); }
+.alq-form small { display: block; color: var(--wb-text-3); font-size: 0.76rem; margin-top: 5px; }
+.alq-form .pie { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+.alq-foto { display: flex; gap: 14px; align-items: center; }
+.alq-foto .vista { width: 120px; flex-shrink: 0; border-radius: 10px; overflow: hidden; }

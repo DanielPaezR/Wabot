@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 import database as db
 import monitoreo
+import alquiler
 from notification_system import notification_system
 
 import localizacion
@@ -28,6 +29,10 @@ class AppointmentScheduler:
     def verificar_recordatorios(self):
         """Verificar y enviar recordatorios a profesionales y clientes"""
         monitoreo.registrar_latido('scheduler')      # el monitor externo comprueba que este latido sea reciente
+        try:
+            alquiler.enviar_recordatorios()          # recordatorios de recogida de las reservas de vehículos
+        except Exception as e:
+            monitoreo.registrar_error(e, contexto='programador: recordatorios de alquiler')
         try:
             ahora = datetime.now(tz_reloj)
 
@@ -425,6 +430,7 @@ class AppointmentScheduler:
         try:
             ahora = ahora or datetime.now(tz_reloj)
             print(f"📋 [{ahora.strftime('%H:%M')}] Enviando resumen diario...")
+            alquiler.resumen_diario(negocio_ids, lambda _n, _ahora=ahora: _ahora.date())     # propietarios de alquiler de vehículos
 
             conn = db.get_db_connection()
             if not conn:

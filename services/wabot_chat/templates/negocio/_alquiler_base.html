@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titulo %}Alquiler{% endblock %} - {{ session.get('negocio_nombre') or 'Mi negocio' }}</title>
+    <meta name="theme-color" content="#0a0a0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-panel.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/wabot-alquiler.css') }}?v=1">
+    {% block head %}{% endblock %}
+</head>
+<body class="wb-panel">
+    {% from '_panel_header.html' import panel_header with context %}
+    {% from 'negocio/_vehiculo_img.html' import vehiculo_img %}
+    {% call panel_header('negocio', activa, titulo_pagina, subtitulo_pagina or '') %}{% block acciones %}{% endblock %}{% endcall %}
+    <div class="alq-wrap">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}<div class="alert alert-{{ category }}">{{ message }}</div>{% endfor %}
+        {% endwith %}
+        {% block contenido %}{% endblock %}
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

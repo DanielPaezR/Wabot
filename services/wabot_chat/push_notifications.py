@@ -113,6 +113,27 @@ def enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=None, url=N
     enviados, fallidos = _enviar_a_suscripciones('suscripciones_push', suscripciones, payload)
     return {'enviados': enviados, 'fallidos': fallidos, 'suscripciones': len(suscripciones)}
 
+def enviar_push_propietarios(negocio_id, titulo, mensaje, url='/negocio'):
+    """Push a todos los dispositivos de los propietarios del negocio. Devuelve cuántos dispositivos lo recibieron."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT s.id, s.subscription_json
+            FROM suscripciones_push_usuarios s JOIN usuarios u ON u.id = s.usuario_id
+            WHERE u.negocio_id = %s AND u.rol = 'propietario' AND COALESCE(u.activo, TRUE) = TRUE AND s.activa = TRUE
+        ''', (negocio_id,))
+        suscripciones = [dict(f) if hasattr(f, 'keys') else {'id': f[0], 'subscription_json': f[1]} for f in cursor.fetchall()]
+    finally:
+        conn.close()
+    if not suscripciones:
+        return 0
+    payload = {'title': titulo, 'body': mensaje, 'url': url, 'icon': '/static/icons/icon-192x192.png',
+               'tag': 'negocio-%s' % negocio_id, 'timestamp': datetime.now().isoformat()}
+    enviados, _ = _enviar_a_suscripciones('suscripciones_push_usuarios', suscripciones, payload)
+    return enviados
+
+
 # ==================== FUNCIONES PARA PROFESIONALES ====================
 
 def obtener_suscripciones_profesional(profesional_id):

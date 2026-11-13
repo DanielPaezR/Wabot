@@ -75,6 +75,10 @@ app = Flask(__name__, static_folder='static', static_url_path='/static')
 import monitoreo
 monitoreo.iniciar_sentry()          # opcional: solo si existe SENTRY_DSN
 
+import alquiler
+import alquiler_rutas
+app.register_blueprint(alquiler_rutas.bp)
+
 # Detrás del proxy de Railway, request.remote_addr sería la IP del proxy para TODOS los visitantes: el límite de
 # mensajes y de intentos de login y la deduplicación de votos del concurso (por IP) valdrían para todo el sitio a la vez.
 # ProxyFix toma la IP real del encabezado X-Forwarded-For que añade Railway (un solo proxy de confianza).
@@ -1355,6 +1359,10 @@ def login():
             session['usuario_rol'] = usuario['rol']
             session['negocio_id'] = usuario['negocio_id']
             session['negocio_nombre'] = usuario['negocio_nombre']
+            try:
+                session['negocio_tipo'] = dict(db.obtener_negocio_por_id(usuario['negocio_id']) or {}).get('tipo_negocio') or ''
+            except Exception:
+                session['negocio_tipo'] = ''
             
             print(f"🔐 LOGIN: {usuario['nombre']} (Rol: {usuario['rol']})")
             
@@ -2510,6 +2518,8 @@ def negocio_dashboard():
     """Panel principal del negocio - VERSIÓN CORREGIDA"""
     if session.get('usuario_rol') == 'superadmin':
         return redirect(url_for('negocio_estadisticas'))
+    if alquiler_rutas.es_alquiler(session.get('negocio_id')):
+        return redirect(url_for('alquiler.dashboard'))
     
     negocio_id = session.get('negocio_id', 1)
     
@@ -5197,10 +5207,23 @@ def subscribe_push():
         data = request.json
         subscription = data.get('subscription')
         profesional_id = session.get('profesional_id')
-        
+
+        # Propietario (sin cuenta de profesional): sus dispositivos reciben los avisos del negocio (p. ej. nuevas reservas)
+        if subscription and not profesional_id and session.get('usuario_rol') == 'propietario' and session.get('usuario_id'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO suscripciones_push_usuarios (usuario_id, subscription_json, dispositivo_info, activa)
+                VALUES (%s, %s, %s, TRUE)
+                ON CONFLICT (usuario_id, subscription_json) DO UPDATE SET activa = TRUE
+            ''', (session['usuario_id'], json.dumps(subscription), request.headers.get('User-Agent', '')[:500]))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True, 'message': 'Suscripto a notificaciones push'})
+
         if not subscription or not profesional_id:
             return jsonify({'success': False, 'error': 'Datos incompletos'}), 400
-        
+
         print(f"📱 Suscribiendo profesional {profesional_id} a notificaciones push")
         
         # Guardar en base de datos
@@ -7774,6 +7797,9 @@ def api_cliente_citas():
 
         if not telefono or len(telefono) < 10:
             return jsonify({'success': False, 'error': 'Debes identificarte en el chat antes de consultar tus citas'}), 401
+
+        if alquiler_rutas.es_alquiler(negocio_id):
+            return jsonify(alquiler.citas_cliente_api(telefono, negocio_id, datetime.now(tz_negocio).date()))
         
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)

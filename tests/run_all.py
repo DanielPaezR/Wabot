@@ -4,6 +4,7 @@
     python tests/run_all.py --pg                 # además las de PostgreSQL, con una base temporal (necesita PostgreSQL instalado)
     python tests/run_all.py --pg-url URL         # además las de PostgreSQL contra una base LOCAL vacía que prepara el ejecutor
     python tests/run_all.py renta monitoreo      # solo las pruebas cuyo nombre contenga esas palabras
+    python tests/run_all.py -v alquiler          # -v: muestra la salida completa de las que fallan
 
 Cada prueba es un script independiente que imprime "RESULTADO: TODO OK" o líneas "FALLO ...".
 Las pruebas con base de datos (test_pg_*.py) borran filas: solo corren contra bases locales.
@@ -33,12 +34,15 @@ def ejecutar(archivo, entorno):
 
 def principal(argv):
     usar_pg = False
+    detalle = False
     url_externa = None
     filtros = []
     i = 0
     while i < len(argv):
         if argv[i] == '--pg':
             usar_pg = True
+        elif argv[i] in ('-v', '--detalle'):
+            detalle = True
         elif argv[i] == '--pg-url':
             i += 1
             url_externa = argv[i]
@@ -78,7 +82,9 @@ def principal(argv):
             resultados.append((archivo, estado, seg, salida))
             marca = {'ok': 'OK    ', 'FALLA': 'FALLA ', 'saltada': 'SALTA '}[estado]
             print(f'{marca}{archivo:38s} {seg:6.1f}s')
-            if estado == 'FALLA':
+            if estado == 'FALLA' and detalle:
+                print(chr(10).join('        | ' + l[:230] for l in salida.splitlines()[-60:]))
+            elif estado == 'FALLA':
                 for linea in [l for l in salida.splitlines() if l.startswith('FALLO') or 'Traceback' in l or l.startswith(('AssertionError', 'RuntimeError'))][:8]:
                     print('        ' + linea[:200])
 

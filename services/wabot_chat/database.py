@@ -3556,3 +3556,9 @@ try:
     asegurar_columnas_localizacion()
 except Exception as e:
     print(f"⚠️ Error asegurando columnas de localización: {e}")
+
+try:
+    import alquiler          # tablas del alquiler de vehículos (vehiculos, reservas_vehiculo, suscripciones_push_usuarios)
+    alquiler.asegurar_tablas()
+except Exception as e:
+    print(f"⚠️ Error asegurando las tablas de alquiler: {e}")
