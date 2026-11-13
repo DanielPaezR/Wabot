@@ -1516,7 +1516,7 @@
             }
 
             html += lista.map(c => {
-                const claseEstado = c.es_proxima ? 'pendiente' : (c.estado === 'completado' ? 'completada' : (c.estado === 'cancelado' ? 'cancelada' : 'pasada'));
+                const claseEstado = (c.es_proxima || c.estado_texto === 'En curso') ? 'pendiente' : (c.estado === 'completado' ? 'completada' : (c.estado === 'cancelado' ? 'cancelada' : 'pasada'));
                 const puedeCalificar = c.estado === 'completado' && !c.ya_calificada;
                 const pie = puedeCalificar
                     ? `<div class="cita-card-footer"><button class="btn-calificar" onclick="calificarCita(${c.id})">Calificar</button></div>`
@@ -1530,6 +1530,7 @@
                     </div>
                     <div class="cita-card-body">
                         <div class="cita-info-row">${ic('calendar')} <strong>${c.fecha}</strong> · ${ic('clock')} ${c.hora}</div>
+                        ${c.fecha_fin ? `<div class="cita-info-row">${ic('calendar')} Devolución: <strong>${c.fecha_fin}</strong> · ${ic('clock')} ${c.hora}</div>` : ''}
                         <div class="cita-info-row">${iconoServicio} ${c.servicio}</div>
                         <div class="cita-info-row">${iconoProfesional} ${c.profesional}</div>
                     </div>

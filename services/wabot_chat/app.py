@@ -7742,7 +7742,7 @@ def api_cliente_citas():
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         cursor.execute('''
-            SELECT c.id, c.fecha, c.hora, c.estado,
+            SELECT c.id, c.fecha, c.fecha_fin, c.hora, c.estado,
                 s.nombre as servicio_nombre, s.precio,
                 p.nombre as profesional_nombre,
                 p.id as profesional_id,
@@ -7772,6 +7772,7 @@ def api_cliente_citas():
         
         # Formatear citas ("próxima" se decide aquí, con la hora local del negocio, no en el navegador)
         ahora_negocio = datetime.now(tz_negocio).replace(tzinfo=None)
+        from renta import dias_de_renta as renta_dias
         citas_formateadas = []
         for cita in citas:
             # Formatear hora
@@ -7791,14 +7792,23 @@ def api_cliente_citas():
             # ¿Es una cita pendiente que todavía no ocurre?
             estado = cita['estado'] or 'confirmado'
             es_proxima = False
+            en_curso = False
+            fecha_fin_iso = str(cita['fecha_fin'])[:10] if cita.get('fecha_fin') else ''
             if estado in ('confirmado', 'confirmada', 'pendiente') and fecha_str and hora_str:
                 try:
-                    es_proxima = datetime.strptime(f"{fecha_str[:10]} {hora_str}", '%Y-%m-%d %H:%M') >= ahora_negocio
+                    inicio_dt = datetime.strptime(f"{fecha_str[:10]} {hora_str}", '%Y-%m-%d %H:%M')
+                    # una renta de varios días sigue vigente hasta la hora de devolución
+                    fin_dt = datetime.strptime(f"{fecha_fin_iso} {hora_str}", '%Y-%m-%d %H:%M') if fecha_fin_iso else inicio_dt
+                    es_proxima = fin_dt >= ahora_negocio
+                    en_curso = bool(fecha_fin_iso) and inicio_dt < ahora_negocio <= fin_dt
                 except ValueError:
                     es_proxima = False
 
             # Determinar estado visual
-            if estado in ('confirmado', 'confirmada', 'pendiente') and not es_proxima:
+            if en_curso:
+                estado_icono = '🚗'
+                estado_texto = 'En curso'
+            elif estado in ('confirmado', 'confirmada', 'pendiente') and not es_proxima:
                 estado_icono = '🕘'
                 estado_texto = 'Pasada'
             elif estado == 'completado':
@@ -7823,7 +7833,8 @@ def api_cliente_citas():
                 'estado_icono': estado_icono,
                 'estado_texto': estado_texto,
                 'servicio': cita['servicio_nombre'],
-                'precio': float(cita['precio'] or 0),
+                'precio': float(cita['precio'] or 0) * (renta_dias(fecha_str, fecha_fin_iso) if fecha_fin_iso else 1),
+                'fecha_fin': datetime.strptime(fecha_fin_iso, '%Y-%m-%d').strftime('%d/%m/%Y') if fecha_fin_iso else '',
                 'profesional': cita['profesional_nombre'],
                 'profesional_id': cita['profesional_id'],
                 'negocio': cita['negocio_nombre'],

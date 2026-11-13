@@ -1563,42 +1563,34 @@ def verificar_disponibilidad(profesional_id, fecha, hora, duracion_minutos):
         return False
 
 
-def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre=""):
-    """Agregar nueva cita a la base de datos"""
-    logger.debug("agregar_cita: negocio_id=%s, profesional_id=%s, fecha=%s, hora=%s, servicio_id=%s",
-                 negocio_id, profesional_id, fecha, hora, servicio_id)
-    
+def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, servicio_id, cliente_nombre="", fecha_fin=None):
+    """Agregar nueva cita a la base de datos.
+
+    ``fecha_fin`` (opcional, 'YYYY-MM-DD'): renta de varios días. El profesional (vehículo) queda ocupado TODOS los días
+    de ``fecha`` a ``fecha_fin``, y una cita normal tampoco puede caer dentro de una renta ya existente.
+    """
+    logger.debug("agregar_cita: negocio_id=%s, profesional_id=%s, fecha=%s, hora=%s, servicio_id=%s, fecha_fin=%s",
+                 negocio_id, profesional_id, fecha, hora, servicio_id, fecha_fin)
+
     # ✅ NORMALIZAR LA HORA (convertir de 12h a 24h si es necesario)
     hora_normalizada = normalizar_hora(hora)
-    
+
     conn = get_db_connection()
     if not conn:
         print("❌ [DEBUG] No hay conexión a la BD")
         return 0
-    
+
     cursor = conn.cursor()
     cita_id = 0
 
     try:
         if is_postgresql():
-            # ✅ Lock de asesoramiento por profesional+fecha: serializa el
-            # chequeo de solapamiento y el INSERT para esa combinación, evitando
-            # que dos solicitudes casi simultáneas (p. ej. flujo IA y flujo de
-            # menú, o dos clientes) pasen ambas la verificación de disponibilidad
-            # antes de que cualquiera confirme su cita (doble-reserva).
-            cursor.execute(
-                "SELECT pg_advisory_xact_lock(hashtext(%s))",
-                (f"cita_slot_{profesional_id}_{fecha}",)
-            )
-
-            cursor.execute('''
-                SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion, 0) as duracion
-                FROM citas c
-                JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.profesional_id = %s AND c.fecha = %s
-                AND c.estado NOT IN ('cancelado', 'cancelada')
-            ''', (profesional_id, fecha))
-            citas_existentes = cursor.fetchall()
+            import disponibilidad
+            # ✅ Lock de asesoramiento por profesional: serializa el chequeo de solapamiento y el INSERT, evitando que
+            # dos solicitudes casi simultáneas (flujo IA y flujo de menú, o dos clientes) pasen ambas la verificación
+            # de disponibilidad antes de que cualquiera confirme su cita (doble-reserva). Es por profesional (no por
+            # fecha) porque una renta de varios días abarca muchas fechas.
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"cita_prof_{profesional_id}",))
 
             cursor.execute('SELECT duracion FROM servicios WHERE id = %s', (servicio_id,))
             fila_duracion = cursor.fetchone()
@@ -1607,65 +1599,85 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
             else:
                 duracion_nueva = 0
 
-            hora_inicio_nueva = datetime.strptime(hora_normalizada, '%H:%M')
-            hora_fin_nueva = hora_inicio_nueva + timedelta(minutes=int(duracion_nueva or 0))
-
-            for cita_existente in citas_existentes:
-                if isinstance(cita_existente, dict):
-                    cita_hora_str, cita_duracion = cita_existente['hora'], cita_existente['duracion']
-                else:
-                    cita_hora_str, cita_duracion = cita_existente[0], cita_existente[1]
-                try:
-                    cita_hora = datetime.strptime(str(cita_hora_str)[:5], '%H:%M')
-                    cita_fin = cita_hora + timedelta(minutes=int(cita_duracion or 0))
-                    if hora_inicio_nueva.time() < cita_fin.time() and hora_fin_nueva.time() > cita_hora.time():
+            if fecha_fin:
+                # Renta de varios días: no puede haber NINGUNA reserva, bloqueo ni otra renta en ese rango
+                cursor.execute("""
+                    SELECT 1 FROM citas
+                    WHERE profesional_id = %s AND estado NOT IN ('cancelado', 'cancelada')
+                      AND fecha <= %s AND COALESCE(fecha_fin, fecha) >= %s
+                    LIMIT 1
+                """, (profesional_id, fecha_fin, fecha))
+                if cursor.fetchone():
+                    print(f"❌ [DEBUG] El vehículo no está libre entre {fecha} y {fecha_fin}")
+                    conn.rollback()
+                    return 0
+            else:
+                # Citas del día (incluye las rentas de varios días que cubren esta fecha, como día completo)
+                cursor.execute("""
+                    SELECT CASE WHEN c.fecha_fin IS NOT NULL AND c.fecha <> %s THEN '00:00' ELSE c.hora END AS hora,
+                           CASE WHEN c.fecha_fin IS NOT NULL THEN 1440 ELSE COALESCE(c.duracion_minutos, s.duracion, 0) END AS duracion
+                    FROM citas c
+                    JOIN servicios s ON c.servicio_id = s.id
+                    WHERE c.profesional_id = %s AND c.estado NOT IN ('cancelado', 'cancelada')
+                      AND (c.fecha = %s OR (c.fecha_fin IS NOT NULL AND c.fecha <= %s AND c.fecha_fin >= %s))
+                """, (fecha, profesional_id, fecha, fecha, fecha))
+                inicio_nuevo = disponibilidad.a_minutos(hora_normalizada)
+                fin_nuevo = inicio_nuevo + max(int(duracion_nueva or 0), disponibilidad.DURACION_MINIMA)
+                for cita_existente in cursor.fetchall():
+                    if isinstance(cita_existente, dict):
+                        cita_hora_str, cita_duracion = cita_existente['hora'], cita_existente['duracion']
+                    else:
+                        cita_hora_str, cita_duracion = cita_existente[0], cita_existente[1]
+                    inicio = disponibilidad.a_minutos(cita_hora_str)
+                    if inicio is None:
+                        continue
+                    fin = inicio + max(int(cita_duracion or 0), disponibilidad.DURACION_MINIMA)
+                    if inicio_nuevo < fin and fin_nuevo > inicio:
                         print(f"❌ [DEBUG] Conflicto detectado al confirmar (carrera evitada): {hora_normalizada} solapa con {cita_hora_str}")
                         conn.rollback()
                         return 0
-                except Exception:
-                    continue
 
-        if is_postgresql():
-            # Bloqueos recurrentes (p. ej. "martes 15:00-17:30"): también impiden reservar en esa franja
-            try:
-                import disponibilidad
-                inicio_nuevo = disponibilidad.a_minutos(hora_normalizada)
-                duracion_reserva = max(int(duracion_nueva or 0), disponibilidad.DURACION_MINIMA)
-                for b_ini, b_fin in disponibilidad.intervalos_bloqueo_recurrente(
-                        obtener_bloqueos_recurrentes(negocio_id, profesional_id), fecha):
-                    if inicio_nuevo < b_fin and inicio_nuevo + duracion_reserva > b_ini:
-                        print(f"❌ [DEBUG] La cita cae dentro de un bloqueo recurrente ({disponibilidad.a_hhmm(b_ini)}-{disponibilidad.a_hhmm(b_fin)})")
-                        conn.rollback()
-                        return 0
-            except Exception as e:
-                print(f"⚠️ No se pudo verificar bloqueos recurrentes: {e}")
+                # Bloqueos recurrentes (p. ej. "martes 15:00-17:30"): también impiden reservar en esa franja
+                try:
+                    for b_ini, b_fin in disponibilidad.intervalos_bloqueo_recurrente(
+                            obtener_bloqueos_recurrentes(negocio_id, profesional_id), fecha):
+                        if inicio_nuevo < b_fin and fin_nuevo > b_ini:
+                            print(f"❌ [DEBUG] La cita cae dentro de un bloqueo recurrente ({disponibilidad.a_hhmm(b_ini)}-{disponibilidad.a_hhmm(b_fin)})")
+                            conn.rollback()
+                            return 0
+                except Exception as e:
+                    print(f"⚠️ No se pudo verificar bloqueos recurrentes: {e}")
 
         print("🔍 [DEBUG] Intentando INSERT...")
 
-        sql = '''
-            INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre,
-                             fecha, hora, servicio_id, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmado')
-            RETURNING id
-        '''
-
-        cursor.execute(sql, (negocio_id, profesional_id, cliente_telefono, cliente_nombre,
-                           fecha, hora_normalizada, servicio_id))
+        if fecha_fin:
+            cursor.execute('''
+                INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre,
+                                 fecha, hora, servicio_id, estado, fecha_fin)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmado', %s)
+                RETURNING id
+            ''', (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora_normalizada, servicio_id, fecha_fin))
+        else:
+            cursor.execute('''
+                INSERT INTO citas (negocio_id, profesional_id, cliente_telefono, cliente_nombre,
+                                 fecha, hora, servicio_id, estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'confirmado')
+                RETURNING id
+            ''', (negocio_id, profesional_id, cliente_telefono, cliente_nombre, fecha, hora_normalizada, servicio_id))
 
         result = cursor.fetchone()
-        
         if hasattr(result, '__getitem__') and isinstance(result, dict):
             cita_id = result['id']
         else:
             cita_id = result[0] if result else 0
-        
+
         conn.commit()
-        
+
         print(f"✅ [DEBUG] ¡ÉXITO! Cita agregada con ID: {cita_id}")
         print(f"   - Hora guardada en BD: {hora_normalizada}")
-        
+
         return cita_id
-        
+
     except Exception as e:
         print(f"❌ [DEBUG] Error CRÍTICO al agregar cita: {e}")
         import traceback
@@ -1679,6 +1691,22 @@ def agregar_cita(negocio_id, profesional_id, cliente_telefono, fecha, hora, serv
         print("🔍 [DEBUG] Conexión cerrada")
 
 # Añade esta función en database.py, después de agregar_cita:
+
+def profesional_libre_en_rango(profesional_id, fecha_ini, fecha_fin):
+    """True si el profesional (vehículo) no tiene ninguna cita, bloqueo ni renta entre ``fecha_ini`` y ``fecha_fin`` (ambas incluidas)."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 1 FROM citas
+            WHERE profesional_id = %s AND estado NOT IN ('cancelado', 'cancelada')
+              AND fecha::DATE <= %s::DATE AND COALESCE(fecha_fin, fecha)::DATE >= %s::DATE
+            LIMIT 1
+        """, (profesional_id, fecha_fin, fecha_ini))
+        return cursor.fetchone() is None
+    finally:
+        conn.close()
+
 
 def _hora_hhmm(valor):
     """La columna citas.hora es TIME en PostgreSQL (llega como datetime.time): siempre se devuelve 'HH:MM'."""
@@ -1700,15 +1728,18 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
     
     if is_postgresql():
         sql = '''
-            SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion) AS duracion, c.estado
-            FROM citas c 
+            SELECT CASE WHEN c.fecha_fin IS NOT NULL AND c.fecha::DATE < %s::DATE THEN '00:00' ELSE c.hora END AS hora,
+                   CASE WHEN c.fecha_fin IS NOT NULL THEN 1440 ELSE COALESCE(c.duracion_minutos, s.duracion) END AS duracion,
+                   c.estado
+            FROM citas c
             JOIN servicios s ON c.servicio_id = s.id
-            WHERE c.negocio_id = %s AND c.profesional_id = %s 
-            AND c.fecha::DATE = %s::DATE 
+            WHERE c.negocio_id = %s AND c.profesional_id = %s
+            AND (c.fecha::DATE = %s::DATE
+                 OR (c.fecha_fin IS NOT NULL AND c.fecha::DATE <= %s::DATE AND c.fecha_fin::DATE >= %s::DATE))
             AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')  /* ← INCLUIR BLOQUEADOS */
-            ORDER BY c.hora
+            ORDER BY 1
         '''
-        params = (negocio_id, profesional_id, fecha)
+        params = (fecha, negocio_id, profesional_id, fecha, fecha, fecha)
     else:
         sql = '''
             SELECT c.hora, s.duracion, c.estado
@@ -1723,13 +1754,16 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
     if negocio_id is None:
         if is_postgresql():
             sql = '''
-                SELECT c.hora, COALESCE(c.duracion_minutos, s.duracion) AS duracion, c.estado
-                FROM citas c 
+                SELECT CASE WHEN c.fecha_fin IS NOT NULL AND c.fecha::DATE < %s::DATE THEN '00:00' ELSE c.hora END AS hora,
+                       CASE WHEN c.fecha_fin IS NOT NULL THEN 1440 ELSE COALESCE(c.duracion_minutos, s.duracion) END AS duracion,
+                       c.estado
+                FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
-                WHERE c.profesional_id = %s 
-                AND c.fecha::DATE = %s::DATE 
+                WHERE c.profesional_id = %s
+                AND (c.fecha::DATE = %s::DATE
+                     OR (c.fecha_fin IS NOT NULL AND c.fecha::DATE <= %s::DATE AND c.fecha_fin::DATE >= %s::DATE))
                 AND c.estado IN ('confirmado', 'confirmada', 'completado', 'bloqueado')
-                ORDER BY c.hora
+                ORDER BY 1
             '''
         else:
             sql = '''
@@ -1740,11 +1774,11 @@ def obtener_citas_dia(negocio_id, profesional_id, fecha):
                 AND c.estado IN ('confirmado', 'completado', 'bloqueado')
                 ORDER BY c.hora
             '''
-        params = (profesional_id, fecha)
-    
+        params = (fecha, profesional_id, fecha, fecha, fecha) if is_postgresql() else (profesional_id, fecha)
+
     cursor = conn.cursor()
     cursor.execute(sql, params)
-    
+
     resultados = cursor.fetchall()
     conn.close()
     
@@ -3378,6 +3412,8 @@ def asegurar_columnas_localizacion():
         """)
         # Duración propia de los bloqueos (antes usaban la del primer servicio activo y quedaban muy cortos)
         cursor.execute("ALTER TABLE citas ADD COLUMN IF NOT EXISTS duracion_minutos INTEGER")
+        # Rentas de varios días (renta de autos): último día de la reserva (la devolución). NULL en las citas normales.
+        cursor.execute("ALTER TABLE citas ADD COLUMN IF NOT EXISTS fecha_fin TEXT")
 # Relación número de WhatsApp (n8n) -> negocio; el alta de negocios la consulta
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS numeros_whatsapp_negocio (
