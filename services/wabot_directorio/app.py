@@ -89,6 +89,22 @@ def asegurar_columnas_servicios():
 
 asegurar_columnas_servicios()
 
+# Los perfiles públicos ahora viven en la app principal (/<enlace>), con reserva directa.
+# Este servicio solo redirige sus enlaces antiguos para que nada de lo ya compartido se rompa.
+APP_URL = os.environ.get('APP_URL', 'https://wabot-production-d544.up.railway.app').rstrip('/')
+
+
+@app.before_request
+def redirigir_a_la_app():
+    from flask import redirect
+    ruta = request.path
+    if ruta.startswith('/negocio/') or ruta.startswith('/profesional/'):
+        return redirect(APP_URL + ruta, 301)
+    if ruta in ('/', '/directorio'):
+        return redirect(APP_URL + '/', 301)
+    return None
+
+
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db_session.remove()

@@ -1,0 +1,26 @@
+<div class="hoja hoja-asistente oculto" id="hoja-asistente" role="dialog" aria-modal="true" aria-label="Asistente">
+  <div class="hoja-fondo" data-cerrar></div>
+  <div class="hoja-panel">
+    <header class="hoja-cabeza">
+      <span class="asistente-avatar"><svg class="ic"><use href="#i-sparkle"/></svg></span>
+      <div class="hoja-titulo">
+        <span class="paso-texto">Asistente</span>
+        <h2>¿En qué te ayudo?</h2>
+      </div>
+      <button class="icono-boton" type="button" data-cerrar aria-label="Cerrar"><svg class="ic"><use href="#i-x"/></svg></button>
+    </header>
+    <div class="chat" id="chat-mensajes" aria-live="polite">
+      <div class="burbuja bot">Hola 👋 Pregúntame lo que quieras sobre {{ negocio.nombre }}: precios, horario, ubicación o si hay espacio para hoy.</div>
+    </div>
+    <div class="chat-sugerencias" id="chat-sugerencias">
+      <button type="button">¿Cuánto cuesta un corte?</button>
+      <button type="button">¿Hay espacio hoy?</button>
+      <button type="button">¿Qué horario tienen?</button>
+      <button type="button">¿Dónde quedan?</button>
+    </div>
+    <form class="chat-entrada" id="chat-form" autocomplete="off">
+      <input type="text" id="chat-texto" placeholder="Escribe tu pregunta…" maxlength="400" aria-label="Tu pregunta">
+      <button class="boton boton-primario solo-icono" type="submit" aria-label="Enviar"><svg class="ic"><use href="#i-send"/></svg></button>
+    </form>
+  </div>
+</div>

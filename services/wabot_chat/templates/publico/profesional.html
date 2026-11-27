@@ -1,0 +1,111 @@
+{% extends 'publico/base.html' %}
+{% macro ic(n, c='') %}<svg class="ic {{ c }}" aria-hidden="true"><use href="#i-{{ n }}"/></svg>{% endmacro %}
+{% block titulo %}{{ pro.nombre }} · {{ negocio.nombre }}{% endblock %}
+{% block descripcion %}Reserva con {{ pro.nombre }} en {{ negocio.nombre }}.{% endblock %}
+{% block meta %}
+  <meta property="og:title" content="{{ pro.nombre }} · {{ negocio.nombre }}">
+  {% if pro.foto %}<meta property="og:image" content="{{ pro.foto }}">{% endif %}
+{% endblock %}
+
+{% block cuerpo %}
+<header class="portada {% if not negocio.portada %}portada-vacia{% endif %}" style="height:220px">
+  {% if negocio.portada %}<img class="portada-img" src="{{ negocio.portada }}" alt="">{% endif %}
+  <div class="portada-velo"></div>
+  <nav class="barra-top">
+    <a class="boton-vidrio" href="/{{ negocio.slug }}">{{ ic('back') }}<span>{{ negocio.nombre|truncate(22) }}</span></a>
+    <button class="boton-vidrio solo-icono" type="button" data-compartir aria-label="Compartir">{{ ic('share') }}</button>
+  </nav>
+</header>
+
+<main class="contenedor">
+  <section class="tarjeta-identidad pro-cabecera" style="margin-top:-40px">
+    <div class="avatar-hero">{% if pro.foto %}<img src="{{ pro.foto }}" alt="">{% else %}{{ pro.iniciales }}{% endif %}</div>
+    <span class="sobretitulo" style="margin-top:14px">{{ negocio.vocab.pro|capitalize }}</span>
+    <h1 style="margin-top:2px">{{ pro.nombre }}</h1>
+    {% if pro.especialidad %}<p class="descripcion" style="margin-top:6px">{{ pro.especialidad }}</p>{% endif %}
+    <a class="pro-negocio" href="/{{ negocio.slug }}">{{ ic('pin') }}{{ negocio.nombre }}</a>
+    <div class="pro-stats">
+      <div><strong>{{ servicios|length }}</strong><span>servicios</span></div>
+      {% if trabajos %}<div><strong>{{ trabajos|length }}</strong><span>trabajos</span></div>{% endif %}
+      <div><strong>{% if pro.total_opiniones %}{{ '%.1f'|format(pro.calificacion) }}{% else %}Nuevo{% endif %}</strong><span>{% if pro.total_opiniones %}{{ pro.total_opiniones }} opiniones{% else %}en Wabot{% endif %}</span></div>
+    </div>
+    <div class="pro-acciones">
+      <button class="boton boton-primario boton-grande" type="button" data-reservar data-profesional="{{ pro.id }}">{{ ic('calendar') }}Reservar con {{ pro.primer_nombre }}</button>
+    </div>
+  </section>
+
+  {% if trabajos %}
+  <section class="seccion">
+    <div class="seccion-cabeza"><h2>Trabajos</h2><span class="contador">{{ trabajos|length }}</span></div>
+    <div class="galeria">
+      {% for f in trabajos %}
+      <button type="button" class="galeria-item" data-foto="{{ f.url }}" data-texto="{{ f.texto }}"><img src="{{ f.url }}" alt="{{ f.texto }}" loading="lazy"></button>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="seccion">
+    <div class="seccion-cabeza"><h2>Servicios</h2><span class="contador">{{ servicios|length }}</span></div>
+    <ul class="lista-servicios">
+      {% for s in servicios %}
+      <li>
+        <button type="button" class="fila-servicio" data-reservar data-servicio="{{ s.id }}" data-profesional="{{ pro.id }}">
+          <span class="servicio-texto"><strong>{{ s.nombre }}</strong><span class="servicio-meta">{{ ic('clock') }}{{ s.duracion_txt }}</span></span>
+          <span class="servicio-precio">{{ s.precio_txt }}</span>
+          <span class="servicio-mas" aria-hidden="true">+</span>
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if opiniones %}
+  <section class="seccion">
+    <div class="seccion-cabeza"><h2>Opiniones</h2></div>
+    <div class="carrusel-opiniones">
+      {% for o in opiniones %}
+      <figure class="opinion">
+        <div class="estrellas">{% for _ in range(o.estrellas) %}{{ ic('star', 'llena') }}{% endfor %}</div>
+        <blockquote>“{{ o.texto|truncate(180) }}”</blockquote>
+        <figcaption>{{ o.autor }}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if companeros %}
+  <section class="seccion">
+    <div class="seccion-cabeza"><h2>También en {{ negocio.nombre }}</h2></div>
+    <div class="carrusel-equipo">
+      {% for p in companeros %}
+      <a class="tarjeta-pro" href="/{{ negocio.slug }}/{{ p.slug }}">
+        <span class="avatar avatar-xl">{% if p.foto %}<img src="{{ p.foto }}" alt="" loading="lazy">{% else %}{{ p.iniciales }}{% endif %}</span>
+        <strong>{{ p.nombre }}</strong>
+        <span class="pro-sub">Ver perfil</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <footer class="pie"><a href="/{{ negocio.slug }}">{{ negocio.nombre }}</a><span>·</span><a href="/">Reserva con <strong>wabot</strong></a></footer>
+</main>
+
+<div class="barra-reserva">
+  <button class="boton boton-primario boton-grande" type="button" data-reservar data-profesional="{{ pro.id }}">Reservar con {{ pro.primer_nombre }}{{ ic('chevron') }}</button>
+</div>
+
+<div class="visor oculto" id="visor" role="dialog" aria-label="Foto">
+  <button class="visor-cerrar" type="button" aria-label="Cerrar">{{ ic('x') }}</button>
+  <img alt=""><p></p>
+</div>
+
+{% include 'publico/_reserva.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>window.WABOT = {{ datos|json_seguro }}; window.WABOT.preseleccion = {{ preseleccion|json_seguro }};</script>
+<script src="{{ url_for('static', filename='js/reserva.js') }}?v=1" defer></script>
+{% endblock %}

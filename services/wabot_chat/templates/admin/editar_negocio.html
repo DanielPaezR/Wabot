@@ -261,7 +261,7 @@
                 <div class="id-note">
                     Usa este ID para acceder al negocio:
                     <br>
-                    Cliente: <code>https://wabot-production-d544.up.railway.app/cliente/{{ negocio.id }}</code>
+                    Cliente: <code>{{ request.host_url }}negocio/{{ negocio.id }}</code> (redirige a su enlace corto)
                 </div>
             </div>
             

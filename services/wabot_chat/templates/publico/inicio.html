@@ -1,0 +1,77 @@
+{% extends 'publico/base.html' %}
+{% macro ic(n, c='') %}<svg class="ic {{ c }}" aria-hidden="true"><use href="#i-{{ n }}"/></svg>{% endmacro %}
+{% block titulo %}Wabot · Reserva tu cita en segundos{% endblock %}
+{% block descripcion %}Encuentra tu barbería o salón y reserva en segundos: servicio, profesional, día y hora.{% endblock %}
+
+{% block cuerpo %}
+<section class="inicio-hero">
+  <div class="inicio-top">
+    <a class="marca" href="/">wabot</a>
+    {% if en_panel %}
+      <a class="boton boton-suave boton-chico" href="/app">{{ ic('login') }}Mi panel</a>
+    {% else %}
+      <a class="boton boton-suave boton-chico" href="/login">{{ ic('login') }}Soy un negocio</a>
+    {% endif %}
+  </div>
+  <div class="inicio-hero-texto">
+    <h1>Tu próxima cita, <em>en cuatro toques.</em></h1>
+    <p>Elige el lugar, el servicio, quién te atiende y la hora. Sin llamadas, sin esperar respuesta.</p>
+    <label class="buscador">{{ ic('search') }}<input type="search" id="buscar" placeholder="Busca una barbería, un salón…" aria-label="Buscar negocio"></label>
+    <div class="pasos-inicio">
+      <span><b>1</b>Servicio</span><span><b>2</b>Profesional</span><span><b>3</b>Día y hora</span><span><b>4</b>¡Listo!</span>
+    </div>
+  </div>
+</section>
+
+<div class="seccion-titulo"><h2>Reserva ahora</h2><span class="contador">{{ negocios|length }}</span></div>
+<div class="grid-negocios" id="negocios">
+  {% for n in negocios %}
+  <a class="tarjeta-negocio" href="/{{ n.slug }}" style="--c: {{ n.acento }}" data-buscar="{{ (n.nombre ~ ' ' ~ n.tipo_legible ~ ' ' ~ n.direccion)|lower }}">
+    <div class="tn-portada">
+      {% if n.portada %}<img src="{{ n.portada }}" alt="" loading="lazy">{% endif %}
+      <span class="tn-logo">{% if n.logo %}<img src="{{ n.logo }}" alt="" loading="lazy">{% else %}{{ n.iniciales }}{% endif %}</span>
+    </div>
+    <div class="tn-cuerpo">
+      <h3>{{ n.nombre }}</h3>
+      <p>{{ n.tipo_legible or 'Negocio' }}{% if n.direccion %} · {{ n.direccion }}{% endif %}</p>
+      <div class="tn-pie">
+        <span>{% if n.desde %}Desde <b>{{ n.desde }}</b>{% elif n.total_pros %}{{ n.total_pros }} {{ n.vocab.pros }}{% endif %}</span>
+        <span class="tn-ir">Reservar{{ ic('chevron') }}</span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+<p class="vacio oculto" id="sin-resultados">No encontramos negocios con ese nombre.</p>
+
+<section class="para-negocios">
+  <div>
+    <span class="sobretitulo">Para barberías y salones</span>
+    <h2>Tu agenda llena, sin contestar mensajes.</h2>
+    <ul>
+      <li>{{ ic('check') }}Un enlace propio para tu negocio (wabot/tu-nombre) con tus servicios, equipo y fotos.</li>
+      <li>{{ ic('check') }}Tus clientes reservan solos; tú recibes la cita al instante en el celular.</li>
+      <li>{{ ic('check') }}Agenda por profesional, bloqueos, estadísticas y un asistente que responde las dudas.</li>
+    </ul>
+    <div><a class="boton boton-primario" href="/login">Entrar a mi panel</a></div>
+  </div>
+</section>
+<footer class="pie" style="padding-bottom:40px">wabot · {{ now().year }}</footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const input = document.getElementById('buscar');
+    const tarjetas = Array.from(document.querySelectorAll('[data-buscar]'));
+    const vacio = document.getElementById('sin-resultados');
+    const plano = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    input.addEventListener('input', () => {
+      const q = plano(input.value.trim());
+      let visibles = 0;
+      tarjetas.forEach((t) => { const ok = !q || plano(t.dataset.buscar).includes(q); t.classList.toggle('oculto', !ok); visibles += ok; });
+      vacio.classList.toggle('oculto', visibles > 0);
+    });
+  })();
+</script>
+{% endblock %}
