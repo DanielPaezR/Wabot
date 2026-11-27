@@ -95,6 +95,10 @@ app.register_blueprint(web_chat_bp, url_prefix='/cliente')
 import publico
 app.register_blueprint(publico.bp)
 
+# Agenda del día para barberos y dueños ('/agenda' y /api/agenda/...)
+import agenda
+app.register_blueprint(agenda.bp)
+
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -1449,9 +1453,9 @@ def login():
             if usuario['rol'] == 'superadmin':
                 return redirect(url_for('admin_dashboard'))
             elif usuario['rol'] == 'propietario':
-                return redirect(url_for('negocio_dashboard'))
+                return redirect(url_for('negocio_dashboard') if session.get('negocio_tipo') in publico.TIPOS_ALQUILER else '/agenda')
             elif usuario['rol'] == 'profesional':
-                return redirect(url_for('profesional_dashboard'))
+                return redirect('/agenda')
         else:
             flash('Credenciales incorrectas', 'error')
     
@@ -5377,10 +5381,10 @@ def app_redirect():
         rol = session.get('usuario_rol')
         if rol == 'superadmin':
             return redirect(url_for('admin_dashboard'))
-        elif rol == 'propietario':
-            return redirect(url_for('negocio_dashboard'))
-        elif rol == 'profesional':
-            return redirect(url_for('profesional_dashboard'))
+        elif rol in ('propietario', 'profesional'):
+            if session.get('negocio_tipo') in publico.TIPOS_ALQUILER:
+                return redirect(url_for('negocio_dashboard'))
+            return redirect('/agenda')
         else:
             return redirect(url_for('login'))
     

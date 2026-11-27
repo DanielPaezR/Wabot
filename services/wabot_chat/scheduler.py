@@ -17,15 +17,15 @@ from localizacion import tz_reloj
 
 class AppointmentScheduler:
     """Scheduler para recordatorios de citas (profesional + cliente)"""
-    
+
     def __init__(self):
         print("⏰ Scheduler iniciado")
         self.en_ejecucion = True
         self.ultima_ejecucion = None
         self.ultimo_log = None
-    
+
     # ==================== FUNCIONES PRINCIPALES ====================
-    
+
     def verificar_recordatorios(self):
         """Verificar y enviar recordatorios a profesionales y clientes"""
         monitoreo.registrar_latido('scheduler')      # el monitor externo comprueba que este latido sea reciente
@@ -41,13 +41,13 @@ class AppointmentScheduler:
                (ahora - self.ultimo_log).seconds >= 600:
                 print(f"⏰ [{ahora.strftime('%H:%M')}] Scheduler activo")
                 self.ultimo_log = ahora
-            
+
             # Obtener citas pendientes de recordatorio
             citas_pendientes = self.obtener_citas_pendientes_recordatorio()
-            
+
             if not citas_pendientes:
                 return
-            
+
             recordatorios_enviados = 0
 
             for cita in citas_pendientes:
@@ -58,10 +58,10 @@ class AppointmentScheduler:
                     manana = ahora_cita.date() + timedelta(days=1)
                     cita_fecha = cita.get('fecha')
                     cita_hora = cita.get('hora')
-                    
+
                     if not cita_fecha or not cita_hora:
                         continue
-                    
+
                     # Convertir a datetime
                     if isinstance(cita_fecha, str):
                         cita_fecha = datetime.strptime(cita_fecha, '%Y-%m-%d').date()
@@ -70,7 +70,7 @@ class AppointmentScheduler:
                             cita_hora = datetime.strptime(cita_hora, '%H:%M').time()
                         except ValueError:
                             cita_hora = datetime.strptime(cita_hora, '%H:%M:%S').time()
-                    
+
                     cita_datetime = datetime.combine(cita_fecha, cita_hora)
                     if cita_datetime.tzinfo is None:
                         cita_datetime = zona_cita.localize(cita_datetime)
@@ -78,7 +78,7 @@ class AppointmentScheduler:
                     # Calcular tiempo restante
                     tiempo_restante = cita_datetime - ahora_cita
                     horas_restantes = tiempo_restante.total_seconds() / 3600
-                    
+
                     # ============================================
                     # RECORDATORIO 1 HORA (se revisa primero por ser más urgente)
                     # ============================================
@@ -130,30 +130,30 @@ class AppointmentScheduler:
                         except Exception as e:
                             print(f"⚠️ Falló envío de recordatorio 24h para cita #{cita_id}, reintentará: {e}")
                             self.revertir_recordatorio_enviado(cita_id, '24h')
-                            
+
                 except Exception as e:
                     print(f"⚠️ Error procesando cita #{cita.get('id', '?')}: {e}")
                     continue
-            
+
             if recordatorios_enviados > 0:
                 print(f"📨 Total: {recordatorios_enviados} recordatorio(s) enviado(s)")
-                        
+
         except Exception as e:
             print(f"❌ Error en recordatorios: {e}")
             monitoreo.registrar_error(e, contexto='programador: recordatorios')
-    
+
     def obtener_citas_pendientes_recordatorio(self):
         """Obtener citas confirmadas que necesitan recordatorios"""
         conn = db.get_db_connection()
         if not conn:
             return []
-        
+
         cursor = conn.cursor()
         try:
             # Ventana amplia de fechas: cada negocio puede estar en una zona distinta
             ahora = datetime.now(tz_reloj)
             fechas = [(ahora + timedelta(days=d)).strftime('%Y-%m-%d') for d in range(-1, 4)]
-            
+
             sql = '''
                 SELECT c.id, c.negocio_id, c.profesional_id, c.cliente_telefono,
                        COALESCE(cl.nombre, c.cliente_nombre) as cliente_nombre,
@@ -165,17 +165,17 @@ class AppointmentScheduler:
                 FROM citas c
                 JOIN servicios s ON c.servicio_id = s.id
                 JOIN profesionales p ON c.profesional_id = p.id
-                LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono 
+                LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono
                     AND cl.negocio_id = c.negocio_id
                 WHERE c.estado = 'confirmado'
                 AND c.fecha IN (%s, %s, %s, %s, %s)
                 AND (c.recordatorio_24h_enviado = FALSE OR c.recordatorio_1h_enviado = FALSE)
                 ORDER BY c.fecha, c.hora
             '''
-            
+
             cursor.execute(sql, tuple(fechas))
             citas = cursor.fetchall()
-            
+
             # Convertir a diccionarios con todas las claves necesarias
             citas_dict = []
             for row in citas:
@@ -200,62 +200,62 @@ class AppointmentScheduler:
                         'duracion': row[15] if len(row) > 15 else 0,
                         'profesional_nombre': row[16] if len(row) > 16 else ''
                     })
-            
+
             return citas_dict
-            
+
         except Exception as e:
             print(f"❌ Error obteniendo citas: {e}")
             return []
         finally:
             conn.close()
-    
+
     def enviar_recordatorio_push_cliente(self, cita, horas_antes):
         """Enviar recordatorio push al cliente"""
         try:
             from push_notifications import enviar_recordatorio_cita
-            
+
             # Validar datos necesarios
             if 'cliente_telefono' not in cita or not cita.get('cliente_telefono'):
                 print(f"⚠️ Cita #{cita.get('id')} no tiene teléfono de cliente")
                 return
-            
+
             if 'negocio_id' not in cita or not cita.get('negocio_id'):
                 # Obtener negocio_id del profesional
                 conn = db.get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute(
-                    'SELECT negocio_id FROM profesionales WHERE id = %s', 
+                    'SELECT negocio_id FROM profesionales WHERE id = %s',
                     (cita.get('profesional_id'),)
                 )
                 result = cursor.fetchone()
                 conn.close()
                 if result:
                     cita['negocio_id'] = result[0] if isinstance(result, tuple) else result.get('negocio_id')
-            
+
             if not cita.get('negocio_id'):
                 print(f"⚠️ No se pudo obtener negocio_id para cita #{cita.get('id')}")
                 return
-            
+
             # Enviar recordatorio push
             success = enviar_recordatorio_cita(cita, horas_antes)
-            
+
             if success:
                 print(f"✅ Push {horas_antes}h enviado al cliente {cita.get('cliente_telefono')}")
             else:
                 print(f"⚠️ Cliente {cita.get('cliente_telefono')} no tiene suscripciones push")
-        
+
         except ImportError:
             print(f"⚠️ Módulo push_notifications no disponible")
         except Exception as e:
             print(f"❌ Error enviando recordatorio push al cliente: {e}")
-    
+
     def enviar_notificaciones_profesionales_hoy(self):
         """Enviar notificaciones a profesionales sobre citas de HOY"""
         try:
             conn = db.get_db_connection()
             if not conn:
                 return
-            
+
             cursor = conn.cursor()
             fecha_hoy = datetime.now(tz_reloj).strftime('%Y-%m-%d')
 
@@ -267,22 +267,22 @@ class AppointmentScheduler:
                 WHERE c.estado = 'confirmado'
                 AND c.fecha = %s
                 AND c.profesional_id NOT IN (
-                    SELECT DISTINCT np.profesional_id 
+                    SELECT DISTINCT np.profesional_id
                     FROM notificaciones_profesional np
                     WHERE np.fecha_creacion::date = %s
                     AND np.metadata::jsonb->>'tipo' = 'cita_hoy'
                 )
                 GROUP BY c.profesional_id, p.nombre
             ''', (fecha_hoy, fecha_hoy))
-            
+
             profesionales_con_citas = cursor.fetchall()
             conn.close()
-            
+
             if not profesionales_con_citas:
                 return
-            
+
             notificaciones_enviadas = 0
-            
+
             for prof in profesionales_con_citas:
                 try:
                     if hasattr(prof, 'keys'):
@@ -293,34 +293,34 @@ class AppointmentScheduler:
                         profesional_id = prof[0]
                         profesional_nombre = prof[1]
                         total_citas = prof[2]
-                    
+
                     if not profesional_id or profesional_id <= 0:
                         continue
-                    
+
                     titulo = "📋 Citas Programadas para Hoy"
                     mensaje = f"Tienes {total_citas} cita(s) programada(s) para hoy."
-                    
+
                     metadata = {
                         'tipo': 'cita_hoy',
                         'total_citas': total_citas,
                         'fecha': fecha_hoy
                     }
-                    
+
                     notif_id = notification_system._save_notification_db(
                         profesional_id, titulo, mensaje, 'info', metadata
                     )
-                    
+
                     if notif_id:
                         notificaciones_enviadas += 1
                         print(f"✅ Notificado {profesional_nombre} ({total_citas} citas)")
-                    
+
                 except Exception as e:
                     print(f"⚠️ Error notificando profesional: {e}")
                     continue
-            
+
         except Exception as e:
             print(f"❌ Error enviando notificaciones profesionales: {e}")
-    
+
     def marcar_recordatorio_enviado(self, cita_id, tipo_recordatorio):
         """
         Reclamar atómicamente el envío de un recordatorio.
@@ -373,20 +373,20 @@ class AppointmentScheduler:
             return False
         finally:
             conn.close()
-    
+
     # ==================== FUNCIÓN DE CONFIRMACIÓN INMEDIATA ====================
-    
+
     def enviar_confirmacion_inmediata(self, cita_data):
         """Enviar notificación inmediata después de crear una cita"""
         try:
             if not cita_data or 'profesional_id' not in cita_data or not cita_data['profesional_id']:
                 return False
-            
+
             # 1. Notificar al profesional (BD)
             notif_id = notification_system.notify_appointment_created(
                 cita_data['profesional_id'], cita_data
             )
-            
+
             # 2. Intentar push al profesional
             try:
                 from web_chat_handler import enviar_notificacion_push_local
@@ -398,7 +398,7 @@ class AppointmentScheduler:
                 )
             except Exception as e:
                 print(f"⚠️ Error enviando push al profesional: {e}")
-            
+
             # 3. Intentar push al cliente
             try:
                 from push_notifications import enviar_notificacion_cliente
@@ -412,19 +412,19 @@ class AppointmentScheduler:
                 )
             except Exception as e:
                 print(f"⚠️ Error enviando push al cliente: {e}")
-            
+
             if notif_id:
                 print(f"✅ Notificación enviada al profesional #{cita_data['profesional_id']}")
                 return True
             else:
                 return False
-                
+
         except Exception as e:
             print(f"❌ Error en confirmación: {e}")
             return False
-    
+
     # ==================== FUNCIÓN DE RESUMEN DIARIO ====================
-    
+
     def enviar_resumen_diario_profesionales(self, negocio_ids=None, ahora=None):
         """Enviar resumen diario de citas a cada profesional (8:00 AM hora local del negocio)"""
         try:
@@ -442,8 +442,9 @@ class AppointmentScheduler:
             parametros = (fecha_hoy, list(negocio_ids)) if negocio_ids else (fecha_hoy,)
 
             cursor.execute(f'''
-                SELECT p.id, p.nombre,
-                       COUNT(c.id) as citas_hoy,
+                SELECT p.id, p.nombre, p.negocio_id,
+                       COUNT(c.id) as citas_hoy, MIN(c.hora) AS primera_hora,
+                       COALESCE(SUM(s.precio), 0) AS esperado,
                        STRING_AGG(
                            CONCAT(c.hora, ' - ', COALESCE(cl.nombre, c.cliente_nombre)),
                            ', '
@@ -453,18 +454,20 @@ class AppointmentScheduler:
                 LEFT JOIN citas c ON p.id = c.profesional_id
                     AND c.fecha = %s
                     AND c.estado = 'confirmado'
-                LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono
+                LEFT JOIN clientes cl ON c.cliente_telefono = cl.telefono AND cl.negocio_id = p.negocio_id
+                LEFT JOIN servicios s ON s.id = c.servicio_id
                 WHERE p.activo = TRUE
                 {filtro_negocios}
-                GROUP BY p.id, p.nombre
+                GROUP BY p.id, p.nombre, p.negocio_id
                 HAVING COUNT(c.id) > 0
             ''', parametros)
-            
+
             profesionales = cursor.fetchall()
             conn.close()
-            
+
             notificaciones_enviadas = 0
-            
+            por_negocio = {}
+
             for prof in profesionales:
                 if hasattr(prof, 'keys'):
                     prof_id = prof['id']
@@ -474,35 +477,53 @@ class AppointmentScheduler:
                     prof_id = prof[0]
                     prof_nombre = prof[1]
                     citas_hoy = prof[2]
-                
+
+                primera = prof['primera_hora'] if hasattr(prof, 'keys') else None
+                if hasattr(prof, 'keys'):
+                    total = por_negocio.setdefault(prof['negocio_id'], {'citas': 0, 'esperado': 0.0})
+                    total['citas'] += citas_hoy
+                    total['esperado'] += float(prof['esperado'] or 0)
                 if citas_hoy > 0:
-                    titulo = "🌅 Resumen del Día"
-                    mensaje = f"Hola {prof_nombre},\n\nTienes {citas_hoy} cita(s) programada(s) para hoy."
-                    
+                    from notification_system import _hora12
+                    titulo = "Resumen de tu día"
+                    mensaje = (f"Buenos días, {str(prof_nombre).split(' ')[0]}: hoy tienes {citas_hoy} "
+                               f"cita{'s' if citas_hoy != 1 else ''}" + (f", la primera a las {_hora12(primera)}." if primera else "."))
+
                     metadata = {
                         'tipo': 'resumen_diario',
                         'total_citas': citas_hoy,
                         'fecha': fecha_hoy
                     }
-                    
+
                     notif_id = notification_system._save_notification_db(
                         prof_id, titulo, mensaje, 'info', metadata
                     )
-                    
+
                     if notif_id:
                         notificaciones_enviadas += 1
-                        notification_system.enviar_push(prof_id, "Resumen del día", f"Tienes {citas_hoy} cita(s) programada(s) para hoy.")
-                        print(f"✅ Resumen enviado a {prof_nombre} ({citas_hoy} citas)")
-            
+                        notification_system.enviar_push(prof_id, titulo, mensaje)
+
+            # El dueño también arranca el día sabiendo cuánto trabajo y cuánto dinero espera su equipo
+            try:
+                from push_notifications import enviar_push_propietarios
+                for negocio_id, total in por_negocio.items():
+                    if total['citas']:
+                        esperado = f"{int(round(total['esperado'])):,}".replace(',', '.')
+                        enviar_push_propietarios(negocio_id, 'Tu equipo hoy',
+                                                 f"{total['citas']} cita{'s' if total['citas'] != 1 else ''} agendada{'s' if total['citas'] != 1 else ''} · ${esperado} esperado",
+                                                 url='/agenda')
+            except Exception as e:
+                print(f"⚠️ No se pudo enviar el resumen a los dueños: {e}")
+
             if notificaciones_enviadas > 0:
                 print(f"📨 {notificaciones_enviadas} resumen(es) enviado(s)")
-            
+
         except Exception as e:
             print(f"❌ Error enviando resumen diario: {e}")
             monitoreo.registrar_error(e, contexto='programador: resumen diario')
-    
+
     # ==================== INICIAR SCHEDULER ====================
-    
+
     def verificar_resumen_diario(self):
         """
         Disparar el resumen diario a las 8:00 AM hora local de cada negocio.
@@ -533,19 +554,19 @@ class AppointmentScheduler:
 
         # Ejecutar inmediatamente
         self.verificar_recordatorios()
-        
+
         print("✅ Scheduler iniciado")
-        
+
         # Bucle principal
         while self.en_ejecucion:
             schedule.run_pending()
             time.sleep(1)
-    
+
     def detener(self):
         """Detener el scheduler"""
         self.en_ejecucion = False
         print("🛑 Scheduler detenido")
-    
+
     def iniciar_en_segundo_plano(self):
         """Iniciar scheduler en segundo plano"""
         scheduler_thread = threading.Thread(target=self.iniciar, daemon=True)

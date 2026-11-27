@@ -104,7 +104,7 @@ def enviar_push_profesional(profesional_id, titulo, mensaje, cita_id=None, url=N
     payload = {
         'title': titulo,
         'body': mensaje,
-        'url': url or ('/profesional?cita=%s' % cita_id if cita_id else '/profesional'),
+        'url': url or ('/agenda?cita=%s' % cita_id if cita_id else '/agenda'),
         'citaId': cita_id,
         'tag': ('cita-%s' % cita_id) if cita_id else None,
         'icon': '/static/icons/icon-192x192.png',
@@ -319,15 +319,18 @@ def enviar_recordatorio_cita(cita_data, horas_antes=1):
         if not cliente_telefono or not negocio_id:
             return False
         
+        from notification_system import _hora12
+        nombre = str(cliente_nombre or 'Hola').split(' ')[0]
+        hora_txt = _hora12(hora)
         if horas_antes == 24:
-            titulo = "⏰ Recordatorio: Tu cita es mañana"
-            mensaje = f"Hola {cliente_nombre}, te recordamos que tienes una cita mañana {fecha} a las {hora} con {profesional_nombre} para {servicio_nombre}"
+            titulo = "Mañana es tu cita"
+            mensaje = f"{nombre}, te esperamos mañana a las {hora_txt} con {profesional_nombre} ({servicio_nombre}). Si no puedes ir, cancélala desde aquí."
         elif horas_antes == 1:
-            titulo = "🔔 ¡Tu cita es en 1 hora!"
-            mensaje = f"Hola {cliente_nombre}, tu cita con {profesional_nombre} para {servicio_nombre} es a las {hora}. ¡Te esperamos!"
+            titulo = "Tu cita es en 1 hora"
+            mensaje = f"{nombre}, {profesional_nombre} te espera a las {hora_txt} para {servicio_nombre}. ¡Nos vemos!"
         else:
-            titulo = "📅 Recordatorio de Cita"
-            mensaje = f"Hola {cliente_nombre}, tienes una cita el {fecha} a las {hora} con {profesional_nombre}"
+            titulo = "Recordatorio de tu cita"
+            mensaje = f"{nombre}, tienes cita el {fecha} a las {hora_txt} con {profesional_nombre}"
         
         url = f"/cliente/{negocio_id}?cita={cita_id}"
         
@@ -407,4 +410,4 @@ def debug_info():
         'VAPID_PUBLIC_KEY_length': len(publica),
         'VAPID_PRIVATE_KEY_exists': bool(_clave_privada()),
         'VAPID_SUBJECT_usado': _vapid_subject(),
-    })
+    })
