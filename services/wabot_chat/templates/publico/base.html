@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/publico.css') }}?v=1">
+  {% block estilos %}{% endblock %}
   <style>:root{--acento: {{ acento or '#d4a857' }}; --acento-tinta: {{ acento_tinta or '#17110a' }};}</style>
 </head>
 <body class="{% block clase_body %}{% endblock %}">

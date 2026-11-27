@@ -7,7 +7,8 @@
 {% macro panel_header(rol, activa='', titulo='', subtitulo='', volver='', volver_texto='Volver') %}
 {%- set menus = {
     'negocio': [
-        ('negocio_dashboard', 'Inicio', 'dashboard'),
+        ('agenda.pagina', 'Agenda', 'agenda'),
+        ('negocio_dashboard', 'Resumen', 'dashboard'),
         ('negocio_citas', 'Citas', 'citas'),
         ('negocio_estadisticas', 'Estadísticas', 'estadisticas'),
         ('negocio_servicios', 'Servicios', 'servicios'),
@@ -27,7 +28,8 @@
         ('negocio_prompt_ia', 'Asistente IA', 'ia')
     ],
     'profesional': [
-        ('profesional_dashboard', 'Mi agenda', 'agenda'),
+        ('agenda.pagina', 'Mi agenda', 'agenda'),
+        ('profesional_dashboard', 'Vista clásica', 'clasica'),
         ('profesional_todas_citas', 'Citas', 'citas'),
         ('profesional_agendar', 'Nueva cita', 'agendar'),
         ('profesional_estadisticas', 'Estadísticas', 'estadisticas'),

@@ -821,6 +821,14 @@ def _avisar_profesional(profesional_id, titulo, mensaje, cita_id):
         print(f'⚠️ No se pudo avisar al profesional {profesional_id}: {type(e).__name__}: {e}')
 
 
+def _avisar_duenos(negocio_id, titulo, mensaje):
+    try:
+        from push_notifications import enviar_push_propietarios
+        enviar_push_propietarios(negocio_id, titulo, mensaje, url='/agenda')
+    except Exception as e:
+        print(f'⚠️ No se pudo avisar a los dueños: {type(e).__name__}: {e}')
+
+
 def _enlace_google(negocio, servicio_nombre, pro_nombre, fecha, hora, duracion):
     inicio = datetime.strptime(f'{fecha} {hora}', '%Y-%m-%d %H:%M')
     fin = inicio + timedelta(minutes=int(duracion or 30))
@@ -893,6 +901,9 @@ def api_reservar(negocio_id):
     _avisar_profesional(elegido['id'], 'Nueva cita',
                         f"{nombre} · {servicio['nombre']} · {DIAS_CORTOS[fecha_dt.weekday()]} {fecha_dt.day} a las {hora_12(hora)}",
                         cita_id)
+
+    _avisar_duenos(negocio_id, 'Nueva reserva',
+                   f"{nombre} con {elegido['primer_nombre']} · {servicio['nombre']} · {DIAS_CORTOS[fecha_dt.weekday()]} {fecha_dt.day} a las {hora_12(hora)}")
 
     session['cliente_telefono'] = telefono
     session['cliente_nombre'] = nombre
@@ -986,6 +997,8 @@ def api_cancelar(negocio_id, cita_id):
     _avisar_profesional(fila['profesional_id'], 'Cita cancelada',
                         f"{fila['cliente_nombre'] or 'Un cliente'} canceló · {DIAS_CORTOS[d.weekday()]} {d.day} a las {hora_12(fila['hora'])}",
                         cita_id)
+    _avisar_duenos(negocio_id, 'Cita cancelada',
+                   f"{fila['cliente_nombre'] or 'Un cliente'} canceló · {DIAS_CORTOS[d.weekday()]} {d.day} a las {hora_12(fila['hora'])}")
     return jsonify({'ok': True})
 
 
