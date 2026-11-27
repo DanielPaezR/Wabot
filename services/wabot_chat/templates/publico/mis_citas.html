@@ -1,0 +1,19 @@
+{% extends 'publico/base.html' %}
+{% block titulo %}Mis citas · {{ negocio.nombre }}{% endblock %}
+{% block cuerpo %}
+<header class="encabezado-simple">
+  <a class="icono-boton" href="/{{ negocio.slug }}" aria-label="Volver"><svg class="ic"><use href="#i-back"/></svg></a>
+  <div><h1>Mis citas</h1><p>{{ negocio.nombre }}</p></div>
+</header>
+<main class="contenedor" style="padding-top:4px">
+  <div id="mis-citas">
+    <div class="cita esqueleto" style="height:76px"></div>
+    <div class="cita esqueleto" style="height:76px"></div>
+  </div>
+  <footer class="pie"><a href="/{{ negocio.slug }}">Volver a {{ negocio.nombre }}</a></footer>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>window.WABOT = {{ datos|json_seguro }};</script>
+<script src="{{ url_for('static', filename='js/reserva.js') }}?v=1" defer></script>
+{% endblock %}

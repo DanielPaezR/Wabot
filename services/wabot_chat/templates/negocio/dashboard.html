@@ -360,6 +360,51 @@
     {{ panel_header('negocio', 'dashboard', 'Inicio', subtitulo=fecha_hoy) }}
     
     <div class="container">
+        {% set enlace = enlace_publico() %}
+        {% if enlace %}
+        <!-- Enlace de reservas: lo único que el negocio tiene que compartir -->
+        <section class="enlace-card">
+            <div class="enlace-info">
+                <span class="enlace-sobre">Tu enlace de reservas</span>
+                <a class="enlace-url" href="{{ enlace.ruta }}" target="_blank" rel="noopener">{{ enlace.url.split('//')[-1] }}</a>
+                <p>Compártelo en Instagram, WhatsApp o imprime el QR: tus clientes eligen servicio, barbero, día y hora en segundos.</p>
+                <div class="enlace-acciones">
+                    <button type="button" class="enlace-btn principal" onclick="navigator.clipboard.writeText('{{ enlace.url }}').then(()=>{this.textContent='¡Copiado!';setTimeout(()=>this.textContent='Copiar enlace',1800)})">Copiar enlace</button>
+                    <a class="enlace-btn" href="https://wa.me/?text={{ ('Reserva tu cita aquí: ' ~ enlace.url)|urlencode }}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+                    <a class="enlace-btn" href="{{ enlace.ruta }}" target="_blank" rel="noopener">Ver mi perfil</a>
+                    <button type="button" class="enlace-btn" onclick="document.getElementById('enlace-editar').classList.toggle('abierto')">Cambiar enlace</button>
+                </div>
+                <form id="enlace-editar" class="enlace-editar" method="post" action="/negocio/enlace">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <span>{{ enlace.url.split('//')[-1].rsplit('/', 1)[0] }}/</span>
+                    <input name="slug" value="{{ enlace.slug }}" pattern="[a-z0-9\-]{3,40}" required aria-label="Nuevo enlace">
+                    <button type="submit" class="enlace-btn principal">Guardar</button>
+                </form>
+            </div>
+            <a class="enlace-qr" href="/negocio/enlace/qr.png?descargar=1" title="Descargar QR">
+                <img src="/negocio/enlace/qr.png" alt="Código QR de tu enlace" width="132" height="132">
+                <span>Descargar QR</span>
+            </a>
+        </section>
+        <style>
+            .enlace-card{display:flex;gap:20px;align-items:center;padding:22px;margin-bottom:18px;border-radius:var(--wb-r-lg,22px);
+                background:linear-gradient(125deg,var(--wb-accent-soft),transparent 70%),var(--wb-surface);border:1px solid var(--wb-accent-line)}
+            .enlace-info{flex:1;min-width:0}
+            .enlace-sobre{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--wb-accent)}
+            .enlace-url{display:block;font-family:var(--wb-display);font-size:clamp(20px,4.5vw,28px);font-weight:600;color:var(--wb-text);margin:4px 0 6px;word-break:break-all;text-decoration:none}
+            .enlace-info p{color:var(--wb-text-2);font-size:14px;margin:0 0 14px;max-width:56ch}
+            .enlace-acciones{display:flex;flex-wrap:wrap;gap:8px}
+            .enlace-btn{display:inline-flex;align-items:center;height:38px;padding:0 14px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;
+                background:var(--wb-surface-2);border:1px solid var(--wb-line-strong);color:var(--wb-text);text-decoration:none;font-family:inherit}
+            .enlace-btn.principal{background:var(--wb-accent);color:var(--wb-accent-ink);border-color:var(--wb-accent)}
+            .enlace-editar{display:none;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;color:var(--wb-text-3);font-size:14px}
+            .enlace-editar.abierto{display:flex}
+            .enlace-editar input{height:38px;border-radius:10px;padding:0 12px;background:var(--wb-bg);border:1px solid var(--wb-line-strong);color:var(--wb-text);font-size:15px;min-width:0;width:200px}
+            .enlace-qr{display:grid;justify-items:center;gap:6px;text-decoration:none;color:var(--wb-text-2);font-size:12.5px;font-weight:600;flex:none}
+            .enlace-qr img{border-radius:14px;background:#fff;padding:6px}
+            @media (max-width:640px){.enlace-card{flex-direction:column;align-items:stretch}.enlace-qr{justify-self:center}}
+        </style>
+        {% endif %}
         <!-- Tarjeta de resumen del mes -->
         <div class="summary-card">
             <div class="summary-title">

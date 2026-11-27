@@ -25,6 +25,7 @@ Si ya tienes una base local **vacía**: `python tests/run_all.py --pg-url postgr
 
 | Prueba | Qué verifica |
 |---|---|
+| `test_pg_reservas` | perfil público y reserva directa: enlaces cortos, horarios, "primer disponible", doble reserva, mis citas, cancelar, redirecciones, asistente, QR |
 | `test_pg_disponibilidad` | horarios libres (citas, almuerzo, bloqueos, recurrentes, hoy), API y herramienta de IA |
 | `test_pg_bloqueos` | duración de los bloqueos, solapamientos, bloquear sobre citas |
 | `test_pg_renta_autos` | renta por varios días: flujo del chat, disponibilidad, IA, "mis reservas" |

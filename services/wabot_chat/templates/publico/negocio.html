@@ -1,0 +1,184 @@
+{% extends 'publico/base.html' %}
+{% macro ic(n, c='') %}<svg class="ic {{ c }}" aria-hidden="true"><use href="#i-{{ n }}"/></svg>{% endmacro %}
+{% block titulo %}{{ negocio.nombre }} · Reserva tu cita{% endblock %}
+{% block descripcion %}Reserva en {{ negocio.nombre }} en segundos: elige servicio, {{ negocio.vocab.pro }}, día y hora.{% endblock %}
+{% block meta %}
+  <meta property="og:title" content="{{ negocio.nombre }}">
+  <meta property="og:description" content="Reserva tu cita en segundos{% if negocio.direccion %} · {{ negocio.direccion }}{% endif %}">
+  {% if negocio.portada %}<meta property="og:image" content="{{ negocio.portada }}">{% endif %}
+{% endblock %}
+{% block clase_body %}pagina-negocio{% endblock %}
+
+{% block cuerpo %}
+<header class="portada {% if not negocio.portada %}portada-vacia{% endif %}">
+  {% if negocio.portada %}<img class="portada-img" src="{{ negocio.portada }}" alt="" fetchpriority="high">{% endif %}
+  <div class="portada-velo"></div>
+  <nav class="barra-top">
+    <a class="marca" href="/" aria-label="Wabot">wabot</a>
+    <div class="barra-acciones">
+      <a class="boton-vidrio oculto" id="enlace-mis-citas" href="/{{ negocio.slug }}/mis-citas">{{ ic('calendar') }}<span>Mis citas</span></a>
+      <button class="boton-vidrio solo-icono" type="button" data-compartir aria-label="Compartir">{{ ic('share') }}</button>
+    </div>
+  </nav>
+</header>
+
+<main class="contenedor">
+  <section class="tarjeta-identidad">
+    <div class="logo">
+      {% if negocio.logo %}<img src="{{ negocio.logo }}" alt="">{% else %}<span>{{ negocio.iniciales }}</span>{% endif %}
+    </div>
+    <div class="identidad-texto">
+      {% if negocio.tipo_legible %}<span class="sobretitulo">{{ negocio.tipo_legible }}</span>{% endif %}
+      <h1>{{ negocio.nombre }}</h1>
+      <div class="meta-linea">
+        <span class="estado {% if estado.abierto %}abierto{% endif %}"><i></i>{{ estado.texto }}</span>
+        {% if negocio.total_opiniones %}
+          <span class="punto">·</span>
+          <span class="rating">{{ ic('star', 'llena') }}{{ '%.1f'|format(negocio.calificacion) }} <em>({{ negocio.total_opiniones }})</em></span>
+        {% endif %}
+      </div>
+      {% if negocio.direccion %}<p class="direccion">{{ ic('pin') }}{{ negocio.direccion }}</p>{% endif %}
+    </div>
+    <div class="acciones-principales">
+      <button class="boton boton-primario boton-grande" type="button" data-reservar>{{ ic('calendar') }}Reservar cita</button>
+      <div class="acciones-secundarias">
+        {% if negocio.whatsapp %}<a class="boton boton-suave" href="https://wa.me/{{ negocio.whatsapp }}" target="_blank" rel="noopener">{{ ic('whatsapp') }}WhatsApp</a>{% endif %}
+        {% if negocio.direccion or negocio.latitud %}
+          <a class="boton boton-suave" target="_blank" rel="noopener"
+             href="https://www.google.com/maps/search/?api=1&query={% if negocio.latitud and negocio.longitud %}{{ negocio.latitud }},{{ negocio.longitud }}{% else %}{{ (negocio.direccion ~ ' ' ~ negocio.nombre)|urlencode }}{% endif %}">{{ ic('route') }}Cómo llegar</a>
+        {% endif %}
+        <button class="boton boton-suave" type="button" data-asistente>{{ ic('chat') }}Preguntar</button>
+      </div>
+    </div>
+    {% if negocio.descripcion %}<p class="descripcion">{{ negocio.descripcion }}</p>{% endif %}
+  </section>
+
+  <section class="cita-proxima oculto" id="cita-proxima" aria-live="polite"></section>
+
+  {% for promo in promociones %}
+  <section class="promo">
+    {{ ic('tag') }}
+    <div><strong>{{ promo.titulo }}</strong>{% if promo.descripcion %}<p>{{ promo.descripcion }}</p>{% endif %}</div>
+    {% if promo.descuento_porcentaje %}<span class="promo-pct">-{{ promo.descuento_porcentaje }}%</span>{% endif %}
+  </section>
+  {% endfor %}
+
+  <section class="seccion" id="servicios">
+    <div class="seccion-cabeza">
+      <h2>Servicios</h2>
+      <span class="contador">{{ servicios|length }}</span>
+    </div>
+    {% if servicios %}
+    <ul class="lista-servicios">
+      {% for s in servicios %}
+      <li>
+        <button type="button" class="fila-servicio" data-reservar data-servicio="{{ s.id }}">
+          {% if s.foto %}<img class="servicio-foto" src="{{ s.foto }}" alt="" loading="lazy">{% endif %}
+          <span class="servicio-texto">
+            <strong>{{ s.nombre }}</strong>
+            <span class="servicio-meta">{{ ic('clock') }}{{ s.duracion_txt }}{% if s.descripcion %} · {{ s.descripcion|truncate(70) }}{% endif %}</span>
+          </span>
+          <span class="servicio-precio">{{ s.precio_txt }}</span>
+          <span class="servicio-mas" aria-hidden="true">+</span>
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="vacio">Pronto publicaremos nuestros servicios.</p>
+    {% endif %}
+  </section>
+
+  {% if profesionales %}
+  <section class="seccion" id="equipo">
+    <div class="seccion-cabeza">
+      <h2>{{ negocio.vocab.equipo }}</h2>
+      <span class="contador">{{ profesionales|length }}</span>
+    </div>
+    <div class="carrusel-equipo">
+      {% for p in profesionales %}
+      <a class="tarjeta-pro" href="/{{ negocio.slug }}/{{ p.slug }}">
+        <span class="avatar avatar-xl">{% if p.foto %}<img src="{{ p.foto }}" alt="" loading="lazy">{% else %}{{ p.iniciales }}{% endif %}</span>
+        <strong>{{ p.nombre }}</strong>
+        <span class="pro-sub">
+          {% if p.total_opiniones %}{{ ic('star', 'llena') }}{{ '%.1f'|format(p.calificacion) }}{% elif p.especialidad %}{{ p.especialidad|truncate(26) }}{% else %}Ver perfil{% endif %}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% set galeria = trabajos + fotos %}
+  {% if galeria %}
+  <section class="seccion" id="trabajos">
+    <div class="seccion-cabeza"><h2>Trabajos</h2><span class="contador">{{ galeria|length }}</span></div>
+    <div class="galeria">
+      {% for f in galeria[:9] %}
+      <button type="button" class="galeria-item" data-foto="{{ f.url }}" data-texto="{{ f.texto }}{% if f.autor %} · {{ f.autor }}{% endif %}">
+        <img src="{{ f.url }}" alt="{{ f.texto }}" loading="lazy">
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if opiniones %}
+  <section class="seccion">
+    <div class="seccion-cabeza"><h2>Lo que dicen</h2></div>
+    <div class="carrusel-opiniones">
+      {% for o in opiniones %}
+      <figure class="opinion">
+        <div class="estrellas">{% for _ in range(o.estrellas) %}{{ ic('star', 'llena') }}{% endfor %}</div>
+        <blockquote>“{{ o.texto|truncate(180) }}”</blockquote>
+        <figcaption>{{ o.autor }}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="seccion" id="horario">
+    <div class="seccion-cabeza"><h2>Horario</h2></div>
+    <ul class="horario">
+      {% for d in semana %}
+      <li class="{% if d.hoy %}hoy{% endif %} {% if not d.abierto %}cerrado{% endif %}">
+        <span>{{ d.dia }}{% if d.hoy %} <em>hoy</em>{% endif %}</span><span>{{ d.texto }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if negocio.redes %}
+    <div class="redes">
+      {% if negocio.redes.instagram %}<a href="{{ negocio.redes.instagram if negocio.redes.instagram.startswith('http') else 'https://instagram.com/' ~ negocio.redes.instagram.lstrip('@') }}" target="_blank" rel="noopener">{{ ic('instagram') }}Instagram</a>{% endif %}
+      {% if negocio.redes.tiktok %}<a href="{{ negocio.redes.tiktok if negocio.redes.tiktok.startswith('http') else 'https://tiktok.com/@' ~ negocio.redes.tiktok.lstrip('@') }}" target="_blank" rel="noopener">TikTok</a>{% endif %}
+      {% if negocio.redes.facebook %}<a href="{{ negocio.redes.facebook if negocio.redes.facebook.startswith('http') else 'https://facebook.com/' ~ negocio.redes.facebook }}" target="_blank" rel="noopener">Facebook</a>{% endif %}
+      {% if negocio.redes.sitio_web %}<a href="{{ negocio.redes.sitio_web if negocio.redes.sitio_web.startswith('http') else 'https://' ~ negocio.redes.sitio_web }}" target="_blank" rel="noopener">Sitio web</a>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <footer class="pie">
+    <a href="/{{ negocio.slug }}/mis-citas">Mis citas</a>
+    <span>·</span>
+    <a href="/">Reserva con <strong>wabot</strong></a>
+  </footer>
+</main>
+
+<div class="barra-reserva">
+  <button class="boton-asistente" type="button" data-asistente aria-label="Hacer una pregunta">{{ ic('sparkle') }}</button>
+  <button class="boton boton-primario boton-grande" type="button" data-reservar>Reservar cita{{ ic('chevron') }}</button>
+</div>
+
+<div class="visor oculto" id="visor" role="dialog" aria-label="Foto">
+  <button class="visor-cerrar" type="button" aria-label="Cerrar">{{ ic('x') }}</button>
+  <img alt=""><p></p>
+</div>
+
+{% include 'publico/_reserva.html' %}
+{% include 'publico/_asistente.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>window.WABOT = {{ datos|json_seguro }}; window.WABOT.preseleccion = {{ preseleccion|json_seguro }};</script>
+<script src="{{ url_for('static', filename='js/reserva.js') }}?v=1" defer></script>
+{% endblock %}

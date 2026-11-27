@@ -673,7 +673,7 @@
     </div>
 
     {% from '_panel_header.html' import panel_header with context %}
-    {% call panel_header('negocio', 'editor', 'Perfil público', subtitulo='Así ven tu negocio los clientes en el directorio y el chat') %}
+    {% call panel_header('negocio', 'editor', 'Perfil público', subtitulo='Así ven tu negocio los clientes en tu enlace de reservas') %}
         <button class="wb-btn wb-btn-primary" id="btnGuardarTodo">Guardar cambios</button>
     {% endcall %}
 
@@ -760,7 +760,7 @@
         <div class="section">
             <div class="section-head">
                 <div class="section-title"><i class="fas fa-palette"></i> Color de marca</div>
-                <span style="font-size:11px; color:var(--wb-text-3);">Botones y detalles del chat y el directorio</span>
+                <span style="font-size:11px; color:var(--wb-text-3);">Botones y detalles de tu perfil de reservas</span>
             </div>
             <div class="acento-opciones" role="radiogroup" aria-label="Color de marca">
                 {% for hex, nombre in [('#d4a857','Dorado'), ('#c0843d','Bronce'), ('#d4767c','Rosa'), ('#e07a5f','Coral'),

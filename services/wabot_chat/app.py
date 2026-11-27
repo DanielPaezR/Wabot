@@ -91,6 +91,10 @@ app.secret_key = _secret_key
 app.register_blueprint(push_bp, url_prefix='/push')
 app.register_blueprint(web_chat_bp, url_prefix='/cliente')
 
+# Perfiles públicos con reserva directa: '/', '/<enlace>', '/<enlace>/<profesional>' y /api/reserva/...
+import publico
+app.register_blueprint(publico.bp)
+
 @app.after_request
 def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -907,9 +911,9 @@ def cerrar_promocion(promocion_id):
 
 @app.route('/negocio/<int:negocio_id>')
 def redirigir_negocio(negocio_id):
-    """Redirigir al perfil del negocio en el directorio"""
-    directorio_url = os.environ.get('DIRECTORIO_URL', 'https://wabot-directorio-production.up.railway.app')
-    return redirect(f"{directorio_url}/negocio/{negocio_id}")
+    """Enlace antiguo al perfil del negocio: ahora el perfil vive en esta misma app (/<enlace>)."""
+    slug = publico.slug_de(negocio_id)
+    return redirect('/' + slug, 301) if slug else ('Negocio no encontrado', 404)
 
 @app.route('/api/concurso/ranking/<int:promocion_id>')
 def ranking_concurso(promocion_id):
@@ -1036,10 +1040,7 @@ def eliminar_participacion():
 # RUTAS DEL CHAT WEB
 
 
-@app.route('/')
-def index():
-    """Página principal - MÍNIMA"""
-    return "✅ ¡App Funcionando! Ve a /login para acceder al sistema."
+# La página principal ('/') y los perfiles públicos ('/<enlace>') viven en publico.py
 
 @app.route('/health')
 def health_check():
@@ -1098,11 +1099,16 @@ def acento_del_negocio(negocio):
 
 @app.route('/cliente/<int:negocio_id>')
 def chat_index(negocio_id):
-    """Página principal del chat web para un negocio."""
-    # Verificar que el negocio exista y esté activo
+    """Enlace antiguo del negocio. Hoy redirige al perfil con reserva directa (/<enlace>); los negocios de alquiler
+    de vehículos conservan aquí su chat de solicitud por días."""
     negocio = obtener_negocio_por_id(negocio_id)
     if not negocio or not negocio['activo']:
         return "Negocio no disponible", 404
+    if negocio.get('tipo_negocio') not in publico.TIPOS_ALQUILER and request.args.get('v') != 'chat':
+        destino = '/' + (publico.slug_de(negocio_id) or '')
+        if request.args.get('cita'):
+            destino += '/mis-citas'
+        return redirect(destino)
     
     # Inicializar sesión de chat si no existe
     if 'chat_session_id' not in session:
@@ -5388,14 +5394,8 @@ def app_redirect():
             if match:
                 return redirect(url_for('chat_index', negocio_id=match.group(1)))
         
-        # Por defecto: primer negocio activo
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute('SELECT id FROM negocios WHERE activo = TRUE LIMIT 1')
-        negocio = cursor.fetchone()
-        conn.close()
-        
-        return redirect(url_for('chat_index', negocio_id=negocio['id'] if negocio else 1))
+        # Por defecto: el directorio de negocios
+        return redirect('/')
 
 # =============================================================================
 # RUTAS PARA BLOQUEO DE HORARIOS POR PROFESIONALES
@@ -7790,7 +7790,7 @@ def calificar_servicio(cita_id):
         flash('¡Gracias por tu calificación!', 'success')
         
         # ✅ REDIRIGIR AL PERFIL PÚBLICO DEL NEGOCIO
-        return redirect(f'https://wabot-directorio-production.up.railway.app/negocio/{cita["negocio_id"]}')
+        return redirect(f'/negocio/{cita["negocio_id"]}')
     
     conn.close()
     
